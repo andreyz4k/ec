@@ -58,15 +58,15 @@ function Base.getindex(storage::GraphStorage, i::Integer, j::Integer)
 end
 
 function Base.getindex(storage::GraphStorage, inds...)
-    base_vals = storage.edges[[(isa(i, AbstractArray) ? copy(i) : i) for i in inds]...]
-    new_vals = storage.new_edges[[(isa(i, AbstractArray) ? copy(i) : i) for i in inds]...]
+    base_vals = storage.edges[inds...]
+    new_vals = storage.new_edges[inds...]
     if nnz(base_vals) == 0
         return new_vals
     end
     if nnz(new_vals) > 0
         subassign!(base_vals, new_vals, :, :; desc = Descriptor(structural_mask = true), mask = new_vals)
     end
-    deleted_mask = storage.deleted[[(isa(i, AbstractArray) ? copy(i) : i) for i in inds]...]
+    deleted_mask = storage.deleted[inds...]
     if nnz(deleted_mask) > 0
         apply!(
             identity,

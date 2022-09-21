@@ -38,18 +38,6 @@ function Base.getindex(storage::VectorStorage, ind::Integer)
     return v
 end
 
-function Base.getindex(storage::VectorStorage, inds::AbstractVector)
-    base_vals = storage.values[copy(inds), 1]
-    new_vals = storage.new_values[copy(inds), 1]
-    if nnz(base_vals) == 0
-        return new_vals
-    end
-    if nnz(new_vals) > 0
-        subassign!(base_vals, new_vals, :, :; desc = Descriptor(structural_mask = true), mask = new_vals)
-    end
-    return base_vals
-end
-
 function Base.getindex(storage::VectorStorage, inds)
     base_vals = storage.values[inds, 1]
     new_vals = storage.new_values[inds, 1]
