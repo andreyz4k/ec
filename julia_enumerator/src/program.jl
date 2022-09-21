@@ -60,7 +60,6 @@ end
 Base.hash(p::FreeVar, h::UInt64) = hash(p.t, h) + hash(p.var_id, h)
 Base.:(==)(p::FreeVar, q::FreeVar) = p.t == q.t && p.var_id == q.var_id
 
-
 struct SetConst <: Program
     t::Tp
     value::Any
@@ -76,7 +75,6 @@ end
 Base.hash(p::LetClause, h::UInt64) = hash(p.var_id, h) + hash(p.v, h) + hash(p.b, h)
 Base.:(==)(p::LetClause, q::LetClause) = p.var_id == q.var_id && p.v == q.v && p.b == q.b
 
-
 struct LetRevClause <: Program
     var_ids::Vector{Int}
     inp_var_id::Union{Int,String}
@@ -88,7 +86,6 @@ Base.hash(p::LetRevClause, h::UInt64) = hash(p.var_ids, h) + hash(p.v, h) + hash
 Base.:(==)(p::LetRevClause, q::LetRevClause) = p.var_ids == q.var_ids && p.v == q.v && p.b == q.b
 
 struct ExceptionProgram <: Program end
-
 
 Base.show(io::IO, p::Program) = print(io, show_program(p, false)...)
 
@@ -129,8 +126,8 @@ struct ProgramBlock <: AbstractProgramBlock
     analized_p::Function
     type::Tp
     cost::Float64
-    input_vars::Dict{Int,Int}
-    output_var::Tuple{Int,Int}
+    input_vars::Vector{Int}
+    output_var::Int
     is_reversible::Bool
 end
 
@@ -166,10 +163,9 @@ struct ReverseProgramBlock <: AbstractProgramBlock
     p::Program
     reverse_program::Any
     cost::Float64
-    input_vars::Dict{Int,Int}
-    output_vars::Vector{Tuple{Int,Int}}
+    input_vars::Vector{Int}
+    output_vars::Vector{Int}
 end
-
 
 Base.show(io::IO, block::ReverseProgramBlock) =
     print(io, "ReverseProgramBlock(", block.p, ", ", block.cost, ", ", block.input_vars, ", ", block.output_vars, ")")
@@ -187,7 +183,6 @@ struct UnknownPrimitive <: Exception
     name::String
 end
 
-
 function lookup_primitive(name)
     if haskey(every_primitive, name)
         every_primitive[name]
@@ -195,7 +190,6 @@ function lookup_primitive(name)
         throw(UnknownPrimitive(name))
     end
 end
-
 
 parse_token = token_parser(
     c -> isletter(c) || isdigit(c) || in(c, ['_', '-', '?', '/', '.', '*', '\'', '+', ',', '>', '<', '@', '|']),
@@ -322,7 +316,6 @@ _parse_program = branch_parsers(
     parse_fixed_real,
 )
 
-
 function parse_program(s)
     res = first((p for (p, n) in _parse_program(s, 1) if n == length(s) + 1), 1)
     if isempty(res)
@@ -385,7 +378,6 @@ function application_parse(p::Apply)
     (f, vcat(arguments, [p.x]))
 end
 application_parse(p::Program) = (p, [])
-
 
 function analyze_evaluation(p::Abstraction)
     b = analyze_evaluation(p.b)

@@ -1,15 +1,12 @@
 
 using DataStructures
 
-
 get_enumeration_timeout(timeout) = time() + timeout
 enumeration_timed_out(timeout) = time() > timeout
-
 
 get_argument_requests(::Index, argument_types, cg) = [(at, cg.variable_context) for at in argument_types]
 get_argument_requests(::FreeVar, argumet_types, cg) = []
 get_argument_requests(candidate, argument_types, cg) = zip(argument_types, cg.contextual_library[candidate])
-
 
 struct WrongPath <: Exception end
 
@@ -137,7 +134,6 @@ function violates_symmetry(f::Primitive, a, n)
     )
 end
 
-
 has_index(p::Index, i) = p.n == i
 has_index(p::Hole, i) = true
 has_index(p::Primitive, i) = false
@@ -154,7 +150,6 @@ function state_violates_symmetry(p::Apply)
            any(violates_symmetry(f, x, n) for (n, x) in enumerate(a))
 end
 state_violates_symmetry(::Program) = false
-
 
 function block_state_successors(
     maxFreeParameters,
@@ -201,7 +196,7 @@ function block_state_successors(
                     application_template = Apply(application_template, Hole(a, at))
                 end
                 new_skeleton = modify_skeleton(state.skeleton, application_template, state.path)
-                new_path = vcat(state.path, [LeftTurn() for _ = 2:length(argument_types)], [RightTurn()])
+                new_path = vcat(state.path, [LeftTurn() for _ in 2:length(argument_types)], [RightTurn()])
             end
             return EnumerationState(
                 new_skeleton,
@@ -211,7 +206,6 @@ function block_state_successors(
                 state.free_parameters + new_free_parameters,
                 state.abstractors_only,
             )
-
         end
         return filter(
             (
@@ -221,9 +215,7 @@ function block_state_successors(
             states,
         )
     end
-
 end
-
 
 capture_free_vars(sc::SolutionContext, p::Program, context) = p, []
 
@@ -244,13 +236,12 @@ function capture_free_vars(sc::SolutionContext, p::FreeVar, context)
     FreeVar(t, var_id), [(var_id, t)]
 end
 
-
-function try_get_reversed_values(sc::SolutionContext, p::Program, context, abstract_branch_id, cost, is_known)
+function try_get_reversed_values(sc::SolutionContext, p::Program, context, output_branch_id, cost, is_known)
     p, reverse_program = get_reversed_filled_program(p)
-    abs_entry = sc.entries[sc.branch_entries[abstract_branch_id]]
+    out_entry = sc.entries[sc.branch_entries[output_branch_id]]
 
     calculated_values = []
-    for value in abs_entry.values
+    for value in out_entry.values
         calculated_value = try_run_function(reverse_program, [value])
         if isnothing(calculated_value)
             return nothing
@@ -274,61 +265,74 @@ function try_get_reversed_values(sc::SolutionContext, p::Program, context, abstr
     end
 
     complexity_factor =
-        sc.complexity_factors[abstract_branch_id] - abs_entry.complexity +
-        sum(entry.complexity for (_, entry) in new_entries)
+        (is_known ? sc.explained_complexity_factors : sc.unknown_complexity_factors)[output_branch_id] -
+        out_entry.complexity + sum(entry.complexity for (_, entry) in new_entries)
 
     new_branches = []
     either_branch_ids = Int[]
     either_var_ids = Int[]
 
-    abstract_constraints = nonzeroinds(sc.constrained_branches[abstract_branch_id, :])
-    has_existing_constraints = length(abstract_constraints) > 0
-
-    abs_related_complexity_branches = sc.related_complexity_branches[abstract_branch_id, :]
+    if is_known
+        out_related_complexity_branches = sc.related_explained_complexity_branches[output_branch_id, :]
+    else
+        out_related_complexity_branches = sc.related_unknown_complexity_branches[output_branch_id, :]
+    end
 
     for (var_id, entry) in new_entries
         entry_index = push!(sc.entries, entry)
-        branch_id = increment!(sc.created_branches)
+        branch_id = increment!(sc.branches_count)
         sc.branch_entries[branch_id] = entry_index
         sc.branch_vars[branch_id] = var_id
         sc.branch_types[branch_id, entry.type_id] = entry.type_id
         if is_known
-            sc.branches_is_known[branch_id] = true
+            if !isa(entry, ValueEntry)
+                # TODO: wrap options from input
+                return nothing
+            end
+            sc.branch_is_explained[branch_id] = true
+            sc.branch_is_not_copy[branch_id] = true
+            sc.explained_min_path_costs[branch_id] = cost + sc.explained_min_path_costs[output_branch_id]
+            sc.explained_complexity_factors[branch_id] = complexity_factor
+            sc.unused_explained_complexities[branch_id] = entry.complexity
+            sc.added_upstream_complexities[branch_id] = sc.added_upstream_complexities[output_branch_id]
+            sc.related_explained_complexity_branches[branch_id, :] = out_related_complexity_branches
         else
-            sc.branches_is_unknown[branch_id] = true
+            sc.branch_is_unknown[branch_id] = true
+            sc.unknown_min_path_costs[branch_id] = cost + sc.unknown_min_path_costs[output_branch_id]
+            sc.unknown_complexity_factors[branch_id] = complexity_factor
+            sc.unmatched_complexities[branch_id] = entry.complexity
+            sc.related_unknown_complexity_branches[branch_id, :] = out_related_complexity_branches
         end
-        sc.min_path_costs[branch_id] = cost + sc.min_path_costs[abstract_branch_id]
-        sc.complexity_factors[branch_id] = complexity_factor
         sc.complexities[branch_id] = entry.complexity
-        sc.added_upstream_complexities[branch_id] = sc.added_upstream_complexities[abstract_branch_id]
-        sc.best_complexities[branch_id] = entry.complexity
-        sc.unmatched_complexities[branch_id] = entry.complexity
 
-        if has_existing_constraints
-            sc.constrained_branches[branch_id, abstract_constraints] = var_id
-            sc.constrained_vars[var_id, abstract_constraints] = branch_id
-        elseif isa(entry, EitherEntry)
+        if isa(entry, EitherEntry)
             push!(either_branch_ids, branch_id)
             push!(either_var_ids, var_id)
         end
-
-        sc.related_complexity_branches[branch_id, :] = abs_related_complexity_branches
 
         push!(new_branches, (var_id, branch_id, entry.type_id))
     end
     for (_, branch_id, _) in new_branches
         inds = [b_id for (_, b_id, _) in new_branches if b_id != branch_id]
-        sc.related_complexity_branches[branch_id, inds] = 1
+        if is_known
+            sc.related_explained_complexity_branches[branch_id, inds] = 1
+        else
+            sc.related_unknown_complexity_branches[branch_id, inds] = 1
+        end
     end
-    if !has_existing_constraints && length(either_branch_ids) >= 1
-        new_constraint_id = increment!(sc.constraints_count)
-        sc.constrained_branches[either_branch_ids, new_constraint_id] = either_var_ids
-        sc.constrained_vars[either_var_ids, new_constraint_id] = either_branch_ids
+    if length(either_branch_ids) >= 1
+        active_constraints = nonzeroinds(sc.constrained_branches[output_branch_id, :])
+        if length(active_constraints) == 0
+            new_constraint_id = increment!(sc.constraints_count)
+            # @info "Added new constraint with either $new_constraint_id"
+            active_constraints = Int[new_constraint_id]
+        end
+        sc.constrained_branches[either_branch_ids, active_constraints] = either_var_ids
+        sc.constrained_vars[either_var_ids, active_constraints] = either_branch_ids
     end
 
     return new_p, reverse_program, new_branches
 end
-
 
 function try_get_reversed_inputs(sc, p::Program, context, output_branch_id, cost)
     reverse_results = try_get_reversed_values(sc, p, context, output_branch_id, cost, false)
@@ -343,15 +347,10 @@ function create_reversed_block(sc, p::Program, context, input_var::Tuple{Int,Int
 
     if !isnothing(reverse_results)
         new_p, reverse_program, output_vars = reverse_results
-        block = ReverseProgramBlock(
-            new_p,
-            reverse_program,
-            cost,
-            Dict([input_var]),
-            [(v_id, br) for (v_id, br, _) in output_vars],
-        )
+        block =
+            ReverseProgramBlock(new_p, reverse_program, cost, [input_var[1]], [v_id for (v_id, _, _) in output_vars])
         block_id = push!(sc.blocks, block)
-        return block_id
+        return block_id, Dict(v_id => b_id for (v_id, b_id, _) in output_vars)
     end
 end
 
@@ -383,12 +382,12 @@ function try_evaluate_program(p, xs, workspace)
     try_run_function(run_analyzed_with_arguments, [p, xs, workspace])
 end
 
-function try_run_block(sc::SolutionContext, block::ProgramBlock, fixed_branches, active_constraints)
+function try_run_block(sc::SolutionContext, block::ProgramBlock, fixed_branches, target_output)
     inputs = []
-    for _ = 1:sc.example_count
+    for _ in 1:sc.example_count
         push!(inputs, Dict())
     end
-    for (var_id, _) in block.input_vars
+    for var_id in block.input_vars
         fixed_branch_id = fixed_branches[var_id]
         entry = sc.entries[sc.branch_entries[fixed_branch_id]]
         for (i, input) in enumerate(entry.values)
@@ -396,7 +395,7 @@ function try_run_block(sc::SolutionContext, block::ProgramBlock, fixed_branches,
         end
     end
 
-    out_branch_id = get_branch_with_constraints(sc, block.output_var[1], active_constraints, block.output_var[2])
+    out_branch_id = target_output[block.output_var]
     expected_output = sc.entries[sc.branch_entries[out_branch_id]]
     out_matcher = get_matching_seq(expected_output)
 
@@ -421,14 +420,14 @@ function try_run_block(sc::SolutionContext, block::ProgramBlock, fixed_branches,
         end
         push!(outs, out_value)
     end
-    new_out_branch, old_constraints, new_constraints, has_new_branches =
-        value_updates(sc, block, out_branch_id, outs, active_constraints)
-    return bm, Dict(sc.branch_vars[out_branch_id] => new_out_branch), old_constraints, new_constraints, has_new_branches
+    new_out_branches, is_new_next_block, allow_fails, next_blocks =
+        value_updates(sc, block, target_output, outs, fixed_branches)
+    return bm, new_out_branches, is_new_next_block, allow_fails, next_blocks
 end
 
-function try_run_block(sc::SolutionContext, block::ReverseProgramBlock, fixed_branches, active_constraints)
+function try_run_block(sc::SolutionContext, block::ReverseProgramBlock, fixed_branches, target_output)
     inputs = []
-    for (var_id, _) in block.input_vars
+    for var_id in block.input_vars
         fixed_branch_id = fixed_branches[var_id]
         entry = sc.entries[sc.branch_entries[fixed_branch_id]]
         push!(inputs, entry.values)
@@ -437,8 +436,8 @@ function try_run_block(sc::SolutionContext, block::ReverseProgramBlock, fixed_br
     out_matchers = []
     out_branches = []
 
-    for (var_id, out_branch_root_id) in block.output_vars
-        out_branch_id = get_branch_with_constraints(sc, var_id, active_constraints, out_branch_root_id)
+    for var_id in block.output_vars
+        out_branch_id = target_output[var_id]
         push!(out_branches, out_branch_id)
         expected_output = sc.entries[sc.branch_entries[out_branch_id]]
         out_matcher = get_matching_seq(expected_output)
@@ -469,93 +468,10 @@ function try_run_block(sc::SolutionContext, block::ReverseProgramBlock, fixed_br
         end
         push!(outs, out_values)
     end
-    new_out_branches, old_constraints, new_constraints, has_new_branches =
-        value_updates(sc, block, out_branches, outs, active_constraints)
+    new_out_branches, is_new_next_block, allow_fails, next_blocks =
+        value_updates(sc, block, target_output, outs, fixed_branches)
 
-    return bm, new_out_branches, old_constraints, new_constraints, has_new_branches
-end
-
-
-function _update_fixed_branches(fixed_branches, new_branches::Dict)
-    out_fixed_branches = merge(fixed_branches, new_branches)
-    out_fixed_branches
-end
-
-function _update_active_constraints(active_constraints, old_constraints, new_constraints)::Vector{Int}
-    return union(setdiff(active_constraints, old_constraints), new_constraints)
-end
-
-function _downstream_branch_options(
-    sc::SolutionContext,
-    block,
-    fixed_branches,
-    active_constraints::Vector,
-    unfixed_vars,
-)
-    if isempty(unfixed_vars)
-        return false, Set([(fixed_branches, active_constraints)])
-    end
-    var_id = unfixed_vars[1]
-    common_constraints, branch_options =
-        get_branches_with_constraints(sc, var_id, active_constraints, block.input_vars[var_id])
-    options = Dict()
-    have_unknowns = false
-    for (branch_id, constraint_ids) in branch_options
-        for br_id in get_all_children(sc, branch_id)
-            if haskey(options, br_id)
-                continue
-            end
-            if sc.branches_is_unknown[br_id]
-                if !have_unknowns
-                    entry = sc.entries[sc.branch_entries[br_id]]
-                    if !isa(entry, ValueEntry)
-                        have_unknowns = true
-                    end
-                end
-            else
-                updated_constraints = Set{UInt64}()
-                br_constraints = nonzeroinds(sc.constrained_branches[br_id, :])
-                for constraint_id in constraint_ids
-                    for br_constraint_id in br_constraints
-                        c = merge_constraints(sc, constraint_id, br_constraint_id)
-                        if !isnothing(c)
-                            push!(updated_constraints, c)
-                        end
-                    end
-                end
-                if isempty(constraint_ids)
-                    updated_constraints = br_constraints
-                end
-                options[br_id] = updated_constraints
-            end
-        end
-    end
-    results = Set()
-    for (option, updated_constraints) in options
-        tail_have_unknowns, tail_results = _downstream_branch_options(
-            sc,
-            block,
-            merge(fixed_branches, Dict(var_id => option)),
-            union(common_constraints, updated_constraints),
-            unfixed_vars[2:end],
-        )
-        have_unknowns |= tail_have_unknowns
-        results = union(results, tail_results)
-    end
-    have_unknowns, results
-end
-
-function _downstream_branch_options(sc, block_id, fixed_branches, active_constraints)
-    block = sc.blocks[block_id]
-    unfixed_vars = [var_id for (var_id, _) in block.input_vars if !haskey(fixed_branches, var_id)]
-    return _downstream_branch_options(sc, block, fixed_branches, active_constraints, unfixed_vars)
-end
-
-function _save_block_branch_connections(sc::SolutionContext, block_id, block, fixed_branches, out_branches)
-    input_br_ids = UInt64[fixed_branches[var_id] for (var_id, _) in block.input_vars]
-    sc.branch_outgoing_blocks[input_br_ids, block_id] = 1
-    output_br_ids = UInt64[br_id for (_, br_id) in out_branches]
-    sc.branch_incoming_blocks[output_br_ids, block_id] = 1
+    return bm, new_out_branches, is_new_next_block, allow_fails, next_blocks
 end
 
 function try_run_block_with_downstream(
@@ -563,7 +479,7 @@ function try_run_block_with_downstream(
     sc::SolutionContext,
     block_id,
     fixed_branches,
-    active_constraints,
+    target_output,
     is_new_block,
     created_paths,
 )
@@ -574,85 +490,80 @@ function try_run_block_with_downstream(
         sc,
         block,
         fixed_branches,
-        active_constraints,
+        target_output,
     )
     # @info result
     if isnothing(result) || result[1] == NoMatch
         return NoMatch
     else
-        bm, out_branches, old_constraints, new_constraints, has_new_branches = result
-        _save_block_branch_connections(sc, block_id, block, fixed_branches, out_branches)
+        bm, out_branches, is_new_next_block, allow_fails, next_blocks = result
+        # @info target_output
+        # @info out_branches
+
+        # @info "Is new block $is_new_block is new next block $is_new_next_block"
+
         block_created_paths =
             get_new_paths_for_block(sc, block_id, is_new_block, created_paths, out_branches, fixed_branches)
-
-        if is_new_block || has_new_branches
-            update_complexity_factors_known(sc, block, fixed_branches, out_branches, active_constraints)
-        end
         new_paths = merge(created_paths, block_created_paths)
-        new_fixed_branches = _update_fixed_branches(fixed_branches, out_branches)
-        new_active_constraints = _update_active_constraints(active_constraints, old_constraints, new_constraints)
-        out_branch_ids = Int[branch_id for (_, branch_id) in out_branches]
-        next_blocks = unique(nonzeroinds(sc.branch_outgoing_blocks[out_branch_ids, :])[2])
-        for b_id in next_blocks
-            b_id = convert(Int, b_id)
-            have_unknowns, all_downstream_branches =
-                _downstream_branch_options(sc, b_id, new_fixed_branches, new_active_constraints)
-            for (downstream_branches, downstream_constraints) in all_downstream_branches
-                down_match = try_run_block_with_downstream(
-                    run_context,
-                    sc,
-                    b_id,
-                    downstream_branches,
-                    downstream_constraints,
-                    false,
-                    new_paths,
-                )
-                if down_match == NoMatch
-                    if have_unknowns
-                        continue
-                    else
-                        return NoMatch
-                    end
+
+        if is_new_block || is_new_next_block
+            _save_block_branch_connections(sc, block_id, block, fixed_branches, Int[b_id for (_, b_id) in out_branches])
+            update_complexity_factors_known(sc, block, fixed_branches, out_branches)
+        end
+
+        for (b_id, downstream_branches, downstream_target) in next_blocks
+            down_match = try_run_block_with_downstream(
+                run_context,
+                sc,
+                b_id,
+                downstream_branches,
+                downstream_target,
+                is_new_next_block,
+                new_paths,
+            )
+            if down_match == NoMatch
+                if allow_fails
+                    continue
                 else
-                    bm = min(down_match, bm)
+                    return NoMatch
                 end
+            else
+                bm = min(down_match, bm)
             end
         end
+
         # @info "End run downstream"
         return bm
     end
 end
 
-function add_new_block(run_context, sc::SolutionContext, block_id, inputs)
+function add_new_block(run_context, sc::SolutionContext, block_id, inputs, target_output)
     assert_context_consistency(sc)
     # @info "Adding block $block_id $(sc.blocks[block_id])"
     block = sc.blocks[block_id]
     update_prev_follow_vars(sc, block)
-    if all(!sc.branches_is_unknown[branch_id] for (var_id, branch_id) in inputs)
-        active_constraints = Int[]
+    if all(sc.branch_is_explained[branch_id] for (var_id, branch_id) in inputs)
         if length(inputs) > 1
             error("Not implemented, fix active constraints")
         end
-        for (var_id, branch_id) in inputs
-            active_constraints = convert(Vector{Int}, nonzeroinds(sc.constrained_branches[branch_id, :]))
-            # TODO: fix for multiple inputs
-        end
-        best_match = try_run_block_with_downstream(run_context, sc, block_id, inputs, active_constraints, true, Dict())
-        assert_context_consistency(sc)
+        best_match = try_run_block_with_downstream(run_context, sc, block_id, inputs, target_output, true, Dict())
+        # assert_context_consistency(sc)
         if best_match == NoMatch
             return nothing
         else
+            # @info "Inserted block $block_id"
             result = update_context(sc)
             assert_context_consistency(sc)
             return result
         end
     else
-        _save_block_branch_connections(sc, block_id, block, inputs, Dict(block.output_var[1] => block.output_var[2]))
-        if all(sc.branches_is_unknown[branch_id] for (var_id, branch_id) in inputs)
-            update_complexity_factors_unknown(sc, block)
+        _save_block_branch_connections(sc, block_id, block, inputs, Int[b_id for (_, b_id) in target_output])
+        if all(sc.branch_is_unknown[branch_id] for (var_id, branch_id) in inputs)
+            update_complexity_factors_unknown(sc, inputs, target_output[block.output_var])
         else
             error("Not implemented")
         end
+        # @info "Inserted block $block_id"
         result = update_context(sc)
         assert_context_consistency(sc)
         return result
@@ -671,32 +582,24 @@ end
 Base.hash(r::HitResult, h::UInt64) = hash(r.hit_program, h)
 Base.:(==)(r1::HitResult, r2::HitResult) = r1.hit_program == r2.hit_program
 
-
 function enqueue_updates(sc::SolutionContext, g)
     assert_context_consistency(sc)
-    for branch_id in union(get_new_values(sc.created_branches), get_new_values(sc.complexity_factors))
-        if !haskey(sc.branch_queues, branch_id)
-            # if isnothing(branch.min_path_cost)
-            #     continue
-            # end
-            if sc.branches_is_unknown[branch_id]
-                enqueue_unknown_var(sc, branch_id, g)
-            elseif sc.branches_is_known[branch_id]
-                enqueue_known_var(sc, branch_id, g)
-            end
+    new_unknown_branches = Set(get_new_values(sc.branch_is_unknown))
+    new_explained_branches = Set(get_new_values(sc.branch_is_not_copy))
+    updated_factors_unknown_branches = Set(get_new_values(sc.unknown_complexity_factors))
+    updated_factors_explained_branches = Set(get_new_values(sc.explained_complexity_factors))
+    for branch_id in updated_factors_unknown_branches
+        if in(branch_id, new_unknown_branches)
+            enqueue_unknown_var(sc, branch_id, g)
         else
-            if sc.branches_is_known[branch_id]
-                pq = sc.pq_input
-            elseif sc.branches_is_unknown[branch_id]
-                pq = sc.pq_output
-            else
-                @warn "Branch $branch_id is not meaningful but has a queue"
-                continue
-            end
-            q = sc.branch_queues[branch_id]
-            if !isempty(q)
-                pq[branch_id] = get_branch_priority(sc, branch_id)
-            end
+            update_branch_priority(sc, branch_id, false)
+        end
+    end
+    for branch_id in updated_factors_explained_branches
+        if in(branch_id, new_explained_branches)
+            enqueue_known_var(sc, branch_id, g)
+        elseif sc.branch_is_not_copy[branch_id]
+            update_branch_priority(sc, branch_id, true)
         end
     end
     assert_context_consistency(sc)
@@ -706,25 +609,35 @@ function enumeration_iteration_finished_input(run_context, sc, bp)
     state = bp.state
     if bp.reverse
         # @info "Try get reversed for $bp"
-        new_block_id = @run_with_timeout run_context["program_timeout"] run_context["redis"] create_reversed_block(
-            sc,
-            state.skeleton,
-            state.context,
-            bp.output_var,
-            state.cost,
-        )
-        if isnothing(new_block_id)
+        abstractor_results =
+            @run_with_timeout run_context["program_timeout"] run_context["redis"] create_reversed_block(
+                sc,
+                state.skeleton,
+                state.context,
+                bp.output_var,
+                state.cost,
+            )
+        if isnothing(abstractor_results)
             return
         end
+        new_block_id, target_output = abstractor_results
         input_branches = Dict(bp.output_var[1] => bp.output_var[2])
     else
         arg_types = [sc.types[reduce(any, sc.branch_types[branch_id, :])] for (_, branch_id) in bp.input_vars]
         p_type = arrow(arg_types..., return_of_type(bp.request))
-        new_block = ProgramBlock(state.skeleton, p_type, state.cost, bp.input_vars, bp.output_var, false)
+        new_block = ProgramBlock(
+            state.skeleton,
+            p_type,
+            state.cost,
+            [v_id for (v_id, _) in bp.input_vars],
+            bp.output_var[1],
+            false,
+        )
         new_block_id = push!(sc.blocks, new_block)
         input_branches = Dict(var_id => branch_id for (var_id, branch_id) in bp.input_vars)
+        target_output = Dict(bp.output_var[1] => bp.output_var[2])
     end
-    return new_block_id, input_branches
+    return new_block_id, input_branches, target_output
 end
 
 function enumeration_iteration_finished_output(run_context, sc::SolutionContext, bp::BlockPrototype)
@@ -749,24 +662,19 @@ function enumeration_iteration_finished_output(run_context, sc::SolutionContext,
         p, new_vars = capture_free_vars(sc, state.skeleton, state.context)
         input_vars = []
         output_branch_id = bp.output_var[2]
-        min_path_cost = sc.min_path_costs[output_branch_id] + state.cost
-        complexity_factor = sc.complexity_factors[output_branch_id]
-        added_upstream_complexity = sc.added_upstream_complexities[output_branch_id]
-        existing_constraints = nonzeroinds(sc.constrained_branches[output_branch_id, :])
+        min_path_cost = sc.unknown_min_path_costs[output_branch_id] + state.cost
+        complexity_factor = sc.unknown_complexity_factors[output_branch_id]
         for (var_id, t) in new_vars
             t_id = push!(sc.types, t)
             entry = NoDataEntry(t_id)
             entry_index = push!(sc.entries, entry)
-            branch_id = increment!(sc.created_branches)
+            branch_id = increment!(sc.branches_count)
             sc.branch_entries[branch_id] = entry_index
             sc.branch_vars[branch_id] = var_id
             sc.branch_types[branch_id, t_id] = t_id
-            sc.branches_is_unknown[branch_id] = true
-            sc.constrained_branches[branch_id, existing_constraints] = var_id
-            sc.constrained_vars[var_id, existing_constraints] = branch_id
-            sc.min_path_costs[branch_id] = min_path_cost
-            sc.complexity_factors[branch_id] = complexity_factor
-            sc.added_upstream_complexities[branch_id] = added_upstream_complexity
+            sc.branch_is_unknown[branch_id] = true
+            sc.unknown_min_path_costs[branch_id] = min_path_cost
+            sc.unknown_complexity_factors[branch_id] = complexity_factor
 
             push!(input_vars, (var_id, branch_id, t_id))
         end
@@ -774,14 +682,11 @@ function enumeration_iteration_finished_output(run_context, sc::SolutionContext,
         constrained_vars = [v_id for (v_id, _, t_id) in input_vars if is_polymorphic(sc.types[t_id])]
         if length(constrained_branches) >= 2
             context_id = push!(sc.constraint_contexts, state.context)
-            if isempty(existing_constraints)
-                new_constraint_id = increment!(sc.constraints_count)
-                sc.constrained_branches[constrained_branches, new_constraint_id] = constrained_vars
-                sc.constrained_vars[constrained_vars, new_constraint_id] = constrained_branches
-                sc.constrained_contexts[constrained_vars, new_constraint_id] = context_id
-            else
-                sc.constrained_contexts[constrained_vars, existing_constraints] = context_id
-            end
+            new_constraint_id = increment!(sc.constraints_count)
+            # @info "Added new constraint with type only $new_constraint_id"
+            sc.constrained_branches[constrained_branches, new_constraint_id] = constrained_vars
+            sc.constrained_vars[constrained_vars, new_constraint_id] = constrained_branches
+            sc.constrained_contexts[constrained_vars, new_constraint_id] = context_id
         end
     else
         p = state.skeleton
@@ -795,26 +700,38 @@ function enumeration_iteration_finished_output(run_context, sc::SolutionContext,
         p_type = arrow(arg_types..., return_of_type(bp.request))
     end
     input_branches = Dict(var_id => branch_id for (var_id, branch_id, _) in input_vars)
-    new_block = ProgramBlock(p, p_type, state.cost, input_branches, bp.output_var, is_reverse)
+    new_block =
+        ProgramBlock(p, p_type, state.cost, [var_id for (var_id, _, _) in input_vars], bp.output_var[1], is_reverse)
     block_id = push!(sc.blocks, new_block)
-    return block_id, input_branches
+    return block_id, input_branches, Dict(bp.output_var[1] => bp.output_var[2])
 end
 
-function enumeration_iteration(run_context, sc, finalizer, maxFreeParameters, g, q, bp, br_id)
+function enumeration_iteration(
+    run_context,
+    sc::SolutionContext,
+    finalizer,
+    maxFreeParameters,
+    g,
+    q,
+    bp,
+    br_id,
+    from_input,
+)
     if is_reversible(bp.state.skeleton) || state_finished(bp.state)
         # @info "Checking finished $bp"
-        if sc.branches_is_unknown[br_id]
+        if sc.branch_is_unknown[br_id]
             new_block_result = enumeration_iteration_finished_output(run_context, sc, bp)
         else
             new_block_result = enumeration_iteration_finished_input(run_context, sc, bp)
         end
         if !isnothing(new_block_result)
-            new_block_id, input_branches = new_block_result
-            new_solution_paths = add_new_block(run_context, sc, new_block_id, input_branches)
+            new_block_id, input_branches, target_output = new_block_result
+            new_solution_paths = add_new_block(run_context, sc, new_block_id, input_branches, target_output)
             if !isnothing(new_solution_paths)
                 # @info "Got results $new_solution_paths"
                 for solution_path in new_solution_paths
                     solution, cost = extract_solution(sc, solution_path)
+                    # @info "Got solution $solution with cost $cost"
                     finalizer(solution, cost)
                 end
                 enqueue_updates(sc, g)
@@ -832,21 +749,8 @@ function enumeration_iteration(run_context, sc, finalizer, maxFreeParameters, g,
             q[BlockPrototype(child, new_request, bp.input_vars, bp.output_var, bp.reverse)] = child.cost
         end
     end
-    if sc.branches_is_unknown[br_id]
-        pq = sc.pq_output
-    else
-        pq = sc.pq_input
-    end
-    if !isempty(q)
-        min_cost = peek(q)[2]
-        pq[br_id] = (sc.min_path_costs[br_id] + min_cost) * sc.complexity_factors[br_id]
-        # @info "$(sc.branches_is_unknown[br_id] ? "Out" : "In") branch $br_id priority is $(pq[br_id])"
-    else
-        delete!(pq, br_id)
-        # @info "Dropped $(sc.branches_is_unknown[br_id] ? "out" : "in") branch $br_id"
-    end
+    update_branch_priority(sc, br_id, from_input)
 end
-
 
 function enumerate_for_task(run_context, g::ContextualGrammar, type_weights, task, maximum_frontier, verbose = true)
     #    Returns, for each task, (program,logPrior) as well as the total number of enumerated programs
@@ -898,13 +802,12 @@ function enumerate_for_task(run_context, g::ContextualGrammar, type_weights, tas
             continue
         end
         br_id, pr = peek(pq)
-        q = sc.branch_queues[br_id]
+        q = (from_input ? sc.branch_queues_explained : sc.branch_queues_unknown)[br_id]
         bp = dequeue!(q)
-        enumeration_iteration(run_context, sc, finalizer, maxFreeParameters, g, q, bp, br_id)
+        enumeration_iteration(run_context, sc, finalizer, maxFreeParameters, g, q, bp, br_id, from_input)
     end
 
     @info(collect(keys(hits)))
 
     (collect(keys(hits)), sc.total_number_of_enumerated_programs)
-
 end

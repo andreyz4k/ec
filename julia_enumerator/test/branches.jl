@@ -192,34 +192,34 @@ end
             FreeVar(sc.types[inp_type_id], inp_var_id),
             sc.types[inp_type_id],
             0.0,
-            Dict(inp_var_id => inp_branch_id),
-            (out_var_id, out_branch_id),
+            [inp_var_id],
+            out_var_id,
             false,
         )
         new_block_id = push!(sc.blocks, new_block)
 
-        new_solution_paths = add_new_block(run_context, sc, new_block_id, Dict(inp_var_id => inp_branch_id))
+        new_solution_paths = add_new_block(run_context, sc, new_block_id, Dict(inp_var_id => inp_branch_id), out_branch_id)
         @test new_solution_paths == [OrderedDict(out_var_id => new_block_id)]
 
         out_children = nonzeroinds(sc.branch_children[out_branch_id, :])
-        @test length(out_children) == 1
-        out_child_id = out_children[1]
-        @test sc.branch_entries[out_child_id] == 1
-        @test sc.branch_vars[out_child_id] == out_var_id
-        @test sc.branch_types[out_child_id, :] == sc.branch_types[out_branch_id, :]
-        @test sc.incoming_paths[out_child_id] == [OrderedDict(out_var_id => new_block_id)]
-        @test nnz(sc.branch_incoming_blocks[out_child_id, :]) == 1
-        @test sc.branch_incoming_blocks[out_child_id, new_block_id] == 1
-        @test nnz(sc.branch_outgoing_blocks[out_child_id, :]) == 0
-        @test sc.branches_is_unknown[out_child_id] == false
-        @test sc.branches_is_known[out_child_id] == false
-        @test sc.min_path_costs[out_child_id] == 0.0
-        @test sc.complexity_factors[out_child_id] == 16.0
-        @test sc.complexities[out_child_id] == 16.0
-        @test sc.added_upstream_complexities[out_child_id] == 0.0
-        @test sc.best_complexities[out_child_id] == 16.0
-        @test sc.unmatched_complexities[out_child_id] == 0.0
-        @test nnz(sc.related_complexity_branches[out_child_id, :]) == 0
+        @test length(out_children) == 0
+
+        @test sc.branch_is_explained[out_branch_id] == true
+        @test sc.branch_is_not_copy[out_branch_id] == false
+        @test sc.incoming_paths[out_branch_id] == [OrderedDict(out_var_id => new_block_id)]
+        @test nnz(sc.branch_incoming_blocks[out_branch_id, :]) == 1
+        @test sc.branch_incoming_blocks[out_branch_id, new_block_id] == 1
+        @test nnz(sc.branch_outgoing_blocks[out_branch_id, :]) == 0
+
+        @test sc.unknown_min_path_costs[out_branch_id] == 0.0
+        @test sc.explained_min_path_costs[out_branch_id] == 0.0
+        @test sc.explained_complexity_factors[out_branch_id] == 16.0
+        @test sc.unknown_complexity_factors[out_branch_id] == 16.0
+        @test sc.complexities[out_branch_id] == 16.0
+        @test sc.added_upstream_complexities[out_branch_id] == 0.0
+        @test sc.unused_explained_complexities[out_branch_id] == 0.0
+        @test sc.unmatched_complexities[out_branch_id] == 0.0
+        @test nnz(sc.related_complexity_branches[out_branch_id, :]) == 0
     end
 
     @testset "Type only match" begin
@@ -285,8 +285,8 @@ end
             FreeVar(sc.types[inp_type_id], inp_var_id),
             sc.types[inp_type_id],
             0.0,
-            Dict(inp_var_id => inp_branch_id),
-            (connection_var_id, connection_branch_id),
+            [inp_var_id],
+            connection_var_id,
             false,
         )
         new_block_id = push!(sc.blocks, new_block)
@@ -452,8 +452,8 @@ end
             FreeVar(inp_type, inp_var_id),
             inp_type,
             0.0,
-            Dict(inp_var_id => inp_branch_id),
-            (v2_var_id, v2_branch_id),
+            [inp_var_id],
+            v2_var_id,
             false,
         )
         new_block_id = push!(sc.blocks, new_block)
@@ -522,7 +522,7 @@ end
         @test nnz(sc.related_complexity_branches[v1_unknown_child_id, :]) == 1
         @test sc.related_complexity_branches[v1_unknown_child_id, v2_known_child_id] == 1
 
-        const_block = ProgramBlock(SetConst(inp_type, [5]), inp_type, 0.0, Dict(), (v1_var_id, v1_branch_id), false)
+        const_block = ProgramBlock(SetConst(inp_type, [5]), inp_type, 0.0, [], v1_var_id, false)
         const_block_id = push!(sc.blocks, const_block)
         new_solution_paths = add_new_block(run_context, sc, const_block_id, Dict())
 

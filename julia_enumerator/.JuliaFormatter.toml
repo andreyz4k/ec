@@ -1,0 +1,3 @@
+always_for_in = true
+margin = 120
+remove_extra_newlines = true

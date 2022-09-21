@@ -22,7 +22,7 @@ function matching_with_unknown_candidates(sc, entry::ValueEntry, var_id)
 
     branches = sc.branch_types[:, entry.type_id]
 
-    known_branches = emul(branches, sc.branches_is_known[:])
+    known_branches = emul(branches, sc.branch_is_not_copy[:])
 
     for known_branch_id in nonzeroinds(known_branches)
         known_var_id = sc.branch_vars[known_branch_id]
@@ -37,7 +37,6 @@ function matching_with_unknown_candidates(sc, entry::ValueEntry, var_id)
     end
     results
 end
-
 
 const_options(entry::ValueEntry) = [entry.values[1]]
 
@@ -58,7 +57,7 @@ function matching_with_unknown_candidates(sc, entry::NoDataEntry, var_id)
 
     branches = reduce(any, sc.branch_types[:, types], dims = 2)
 
-    known_branches = emul(branches, sc.branches_is_known[:])
+    known_branches = emul(branches, sc.branch_is_not_copy[:])
 
     for (known_branch_id, tp_id) in zip(findnz(known_branches)...)
         known_var_id = sc.branch_vars[known_branch_id]
@@ -75,14 +74,13 @@ end
 
 const_options(entry::NoDataEntry) = []
 
-
 function matching_with_known_candidates(sc, entry::ValueEntry, known_branch_id)
     results = []
     types = get_super_types(sc.types, entry.type_id)
     entry_type = sc.types[entry.type_id]
     branches = reduce(any, sc.branch_types[:, types], dims = 2)
 
-    unknown_branches = emul(branches, sc.branches_is_unknown[:])
+    unknown_branches = emul(branches, sc.branch_is_unknown[:])
 
     known_var_id = sc.branch_vars[known_branch_id]
     for unknown_branch_id in nonzeroinds(unknown_branches)
@@ -122,7 +120,7 @@ function matching_with_unknown_candidates(sc, entry::EitherEntry, var_id)
 
     branches = reduce(any, sc.branch_types[:, types], dims = 2)
 
-    known_branches = emul(branches, sc.branches_is_known[:])
+    known_branches = emul(branches, sc.branch_is_not_copy[:])
 
     for (known_branch_id, tp_id) in zip(findnz(known_branches)...)
         known_var_id = sc.branch_vars[known_branch_id]

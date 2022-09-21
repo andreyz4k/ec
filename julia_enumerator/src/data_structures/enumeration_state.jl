@@ -1,5 +1,4 @@
 
-
 abstract type Turn end
 
 struct LeftTurn <: Turn end
@@ -17,7 +16,6 @@ struct EnumerationState
     abstractors_only::Bool
 end
 
-
 struct BlockPrototype
     state::EnumerationState
     request::Tp
@@ -25,7 +23,6 @@ struct BlockPrototype
     output_var::Tuple{Int,Int}
     reverse::Bool
 end
-
 
 function block_prototype(pr, inputs, output_var_id, output_branch_id, output_type)
     BlockPrototype(
@@ -51,7 +48,6 @@ function get_const_options(sc, unknown_entry)
     end
     t = sc.types[unknown_entry.type_id]
     return [SetConst(t, candidate) for candidate in candidates]
-
 end
 
 function get_candidates_for_unknown_var(sc, branch_id, g)::Vector{BlockPrototype}
@@ -76,7 +72,7 @@ end
 function get_candidates_for_known_var(sc, branch_id, g::ContextualGrammar)
     prototypes = []
     var_id = sc.branch_vars[branch_id]
-    if !isnothing(sc.min_path_costs[branch_id])
+    if !isnothing(sc.explained_min_path_costs[branch_id])
         type_id = nonzeroinds(sc.branch_types[branch_id, :])[1]
         type = sc.types[type_id]
         push!(
@@ -99,38 +95,36 @@ end
 
 function enqueue_known_var(sc, branch_id, g)
     prototypes = get_candidates_for_known_var(sc, branch_id, g)
-    if haskey(sc.branch_queues, branch_id)
-        q = sc.branch_queues[branch_id]
+    if haskey(sc.branch_queues_explained, branch_id)
+        q = sc.branch_queues_explained[branch_id]
     else
         q = PriorityQueue()
     end
     for bp in prototypes
         # @info "enqueueing $bp"
-        if (isnothing(bp.input_vars) || all(br -> sc.branches_is_known[br[2]], bp.input_vars)) &&
-           !isnothing(sc.min_path_costs[branch_id])
+        if (isnothing(bp.input_vars) || all(br -> sc.branch_is_explained[br[2]], bp.input_vars)) &&
+           !isnothing(sc.explained_min_path_costs[branch_id])
             q[bp] = bp.state.cost
         else
             out_branch_id = bp.output_var[2]
-            if !haskey(sc.branch_queues, out_branch_id)
-                sc.branch_queues[out_branch_id] = PriorityQueue()
+            if !haskey(sc.branch_queues_unknown, out_branch_id)
+                sc.branch_queues_unknown[out_branch_id] = PriorityQueue()
             end
-            out_q = sc.branch_queues[out_branch_id]
+            out_q = sc.branch_queues_unknown[out_branch_id]
             out_q[bp] = bp.state.cost
-            sc.pq_output[out_branch_id] = get_branch_priority(sc, out_branch_id)
-            # @info "Out branch out_branch_id priority is $(sc.pq_output[out_branch_id])"
+            update_branch_priority(sc, out_branch_id, false)
         end
     end
     if !isempty(q)
-        sc.branch_queues[branch_id] = q
-        sc.pq_input[branch_id] = get_branch_priority(sc, branch_id)
-        # @info "In branch $branch_id priority is $(sc.pq_input[branch_id])"
+        sc.branch_queues_explained[branch_id] = q
+        update_branch_priority(sc, branch_id, true)
     end
 end
 
 function enqueue_unknown_var(sc, branch_id, g)
     prototypes = get_candidates_for_unknown_var(sc, branch_id, g)
-    if haskey(sc.branch_queues, branch_id)
-        q = sc.branch_queues[branch_id]
+    if haskey(sc.branch_queues_unknown, branch_id)
+        q = sc.branch_queues_unknown[branch_id]
     else
         q = PriorityQueue()
     end
@@ -138,24 +132,22 @@ function enqueue_unknown_var(sc, branch_id, g)
         # @info "enqueueing $bp"
         if !isnothing(bp.input_vars) &&
            !isempty(bp.input_vars) &&
-           all(br -> sc.branches_is_known[br[2]], bp.input_vars) &&
-           !isnothing(sc.min_path_costs[first(bp.input_vars)[2]])
+           all(br -> sc.branch_is_explained[br[2]], bp.input_vars) &&
+           !isnothing(sc.explained_min_path_costs[first(bp.input_vars)[2]])
             inp_branch_id = first(bp.input_vars)[2]
-            if !haskey(sc.branch_queues, inp_branch_id)
-                sc.branch_queues[inp_branch_id] = PriorityQueue()
+            if !haskey(sc.branch_queues_explained, inp_branch_id)
+                sc.branch_queues_explained[inp_branch_id] = PriorityQueue()
             end
-            in_q = sc.branch_queues[inp_branch_id]
+            in_q = sc.branch_queues_explained[inp_branch_id]
             in_q[bp] = bp.state.cost
-            sc.pq_input[inp_branch_id] = get_branch_priority(sc, inp_branch_id)
-            # @info "In branch $inp_branch_id priority is $(sc.pq_input[inp_branch_id])"
+            update_branch_priority(sc, inp_branch_id, true)
         else
             q[bp] = bp.state.cost
         end
     end
     if !isempty(q)
-        sc.branch_queues[branch_id] = q
-        sc.pq_output[branch_id] = get_branch_priority(sc, branch_id)
-        # @info "Out branch $branch_id priority is $(sc.pq_output[branch_id])"
+        sc.branch_queues_unknown[branch_id] = q
+        update_branch_priority(sc, branch_id, false)
     end
 end
 

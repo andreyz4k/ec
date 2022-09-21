@@ -44,10 +44,7 @@ import Redis
                         "output" => Any[4, 4, 4, 4, 4],
                         "inputs" => Dict{String,Any}("inp0" => Any[5, 5, 5, 5]),
                     ),
-                    Dict{String,Any}(
-                        "output" => Any[1, 1, 1, 1, 1, 1],
-                        "inputs" => Dict{String,Any}("inp0" => Any[6]),
-                    ),
+                    Dict{String,Any}("output" => Any[1, 1, 1, 1, 1, 1], "inputs" => Dict{String,Any}("inp0" => Any[6])),
                     Dict{String,Any}("output" => Any[3, 3], "inputs" => Dict{String,Any}("inp0" => Any[2, 2, 2])),
                 ],
                 "test_examples" => Any[],
@@ -74,7 +71,7 @@ import Redis
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict(
-                "redis" => RedisContext(Redis.RedisConnection(db=2)),
+                "redis" => RedisContext(Redis.RedisConnection(db = 2)),
                 "program_timeout" => program_timeout,
                 "timeout" => timeout,
             ),
@@ -158,7 +155,7 @@ import Redis
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict(
-                "redis" => RedisContext(Redis.RedisConnection(db=2)),
+                "redis" => RedisContext(Redis.RedisConnection(db = 2)),
                 "program_timeout" => program_timeout,
                 "timeout" => timeout,
             ),
@@ -213,7 +210,10 @@ import Redis
                         "output" => Any[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
                         "inputs" => Dict{String,Any}("inp0" => Any[1, 2, 3, 4, 5]),
                     ),
-                    Dict{String,Any}("output" => Any[4, 2, 4, 6, 7, 8, 9, 10], "inputs" => Dict{String,Any}("inp0" => Any[4, 2, 4])),
+                    Dict{String,Any}(
+                        "output" => Any[4, 2, 4, 6, 7, 8, 9, 10],
+                        "inputs" => Dict{String,Any}("inp0" => Any[4, 2, 4]),
+                    ),
                     Dict{String,Any}(
                         "output" => Any[3, 3, 3, 8, 6, 7, 8, 9, 10],
                         "inputs" => Dict{String,Any}("inp0" => Any[3, 3, 3, 8]),
@@ -243,7 +243,7 @@ import Redis
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict(
-                "redis" => RedisContext(Redis.RedisConnection(db=2)),
+                "redis" => RedisContext(Redis.RedisConnection(db = 2)),
                 "program_timeout" => program_timeout,
                 "timeout" => timeout,
             ),
@@ -298,7 +298,10 @@ import Redis
                         "output" => Any[1, 2, 3, 4, 5, 5, 6, 7, 8, 9, 10],
                         "inputs" => Dict{String,Any}("inp0" => Any[1, 2, 3, 4, 5]),
                     ),
-                    Dict{String,Any}("output" => Any[4, 2, 4, 3, 6, 7, 8, 9, 10], "inputs" => Dict{String,Any}("inp0" => Any[4, 2, 4])),
+                    Dict{String,Any}(
+                        "output" => Any[4, 2, 4, 3, 6, 7, 8, 9, 10],
+                        "inputs" => Dict{String,Any}("inp0" => Any[4, 2, 4]),
+                    ),
                     Dict{String,Any}(
                         "output" => Any[3, 3, 3, 8, 4, 6, 7, 8, 9, 10],
                         "inputs" => Dict{String,Any}("inp0" => Any[3, 3, 3, 8]),
@@ -328,7 +331,7 @@ import Redis
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict(
-                "redis" => RedisContext(Redis.RedisConnection(db=2)),
+                "redis" => RedisContext(Redis.RedisConnection(db = 2)),
                 "program_timeout" => program_timeout,
                 "timeout" => timeout,
             ),
@@ -342,5 +345,4 @@ import Redis
         @test number_enumerated >= 10
         @test number_enumerated <= 1000
     end
-
 end
