@@ -53,7 +53,7 @@ match_with_entry(sc, entry::NoDataEntry, other::ValueEntry) =
 
 function matching_with_unknown_candidates(sc, entry::NoDataEntry, var_id)
     results = []
-    types = get_super_types(sc.types, entry.type_id)
+    types = get_sub_types(sc.types, entry.type_id)
 
     branches = reduce(any, sc.branch_types[:, types], dims = 2)
 

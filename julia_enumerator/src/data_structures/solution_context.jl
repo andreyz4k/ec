@@ -252,10 +252,11 @@ function update_branch_priority(sc::SolutionContext, branch_id::Int, is_known::B
         if is_known
             pq[branch_id] =
                 (sc.explained_min_path_costs[branch_id] + min_cost) * sc.explained_complexity_factors[branch_id]
+            # @info "In branch $branch_id priority is $(pq[branch_id]) with path cost $(sc.explained_min_path_costs[branch_id]) + $(min_cost) and complexity factor $(sc.explained_complexity_factors[branch_id])"
         else
             pq[branch_id] = (sc.unknown_min_path_costs[branch_id] + min_cost) * sc.unknown_complexity_factors[branch_id]
+            # @info "Out branch $branch_id priority is $(pq[branch_id]) with path cost $(sc.unknown_min_path_costs[branch_id]) + $(min_cost) and complexity factor $(sc.unknown_complexity_factors[branch_id])"
         end
-        # @info "$(is_known ? "In" : "Out") branch $branch_id priority is $(pq[branch_id])"
     elseif haskey(pq, branch_id)
         delete!(pq, branch_id)
         # @info "Dropped $(is_known ? "in" : "out") branch $branch_id"

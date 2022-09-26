@@ -12,6 +12,17 @@ function get_complexity_summary(values, t::TypeConstructor)
     end
 end
 
+function get_complexity_summary_average(values::EitherOptions, t::TypeConstructor)
+    result = Accumulator{String,Int64}()
+    for (h, option) in values.options
+        merge!(result, get_complexity_summary_average(option, t))
+    end
+    for (k, count) in result
+        result[k] = div(count, length(values.options))
+    end
+    return result
+end
+
 function get_complexity_summary(values::EitherOptions, t::TypeConstructor)
     result = Accumulator{String,Int64}()
     for (h, option) in values.options
@@ -24,6 +35,7 @@ function get_complexity_summary(values::EitherOptions, t::TypeConstructor)
     end
     return result
 end
+
 function get_complexity(sc::SolutionContext, summary::Accumulator)
     return sum(sc.type_weights[tname] * count for (tname, count) in summary; init = 0.0)
 end
