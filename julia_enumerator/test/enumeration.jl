@@ -676,7 +676,7 @@ import Redis
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload1)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict(
-                "redis" => RedisContext(Redis.RedisConnection(db=2)),
+                "redis" => RedisContext(Redis.RedisConnection(db = 2)),
                 "program_timeout" => program_timeout,
                 "timeout" => timeout,
             ),
@@ -694,7 +694,7 @@ import Redis
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload2)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict(
-                "redis" => RedisContext(Redis.RedisConnection(db=2)),
+                "redis" => RedisContext(Redis.RedisConnection(db = 2)),
                 "program_timeout" => program_timeout,
                 "timeout" => timeout,
             ),
@@ -713,7 +713,7 @@ import Redis
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload3)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict(
-                "redis" => RedisContext(Redis.RedisConnection(db=2)),
+                "redis" => RedisContext(Redis.RedisConnection(db = 2)),
                 "program_timeout" => program_timeout,
                 "timeout" => timeout,
             ),
@@ -732,7 +732,7 @@ import Redis
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload4)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict(
-                "redis" => RedisContext(Redis.RedisConnection(db=2)),
+                "redis" => RedisContext(Redis.RedisConnection(db = 2)),
                 "program_timeout" => program_timeout,
                 "timeout" => timeout,
             ),
@@ -751,7 +751,7 @@ import Redis
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload5)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict(
-                "redis" => RedisContext(Redis.RedisConnection(db=2)),
+                "redis" => RedisContext(Redis.RedisConnection(db = 2)),
                 "program_timeout" => program_timeout,
                 "timeout" => timeout,
             ),
@@ -770,7 +770,7 @@ import Redis
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload6)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict(
-                "redis" => RedisContext(Redis.RedisConnection(db=2)),
+                "redis" => RedisContext(Redis.RedisConnection(db = 2)),
                 "program_timeout" => program_timeout,
                 "timeout" => timeout,
             ),
@@ -781,7 +781,7 @@ import Redis
             verbose,
         )
         @test length(solutions) >= 1
-        @test number_enumerated >= 100
+        @test number_enumerated >= 10
         @test number_enumerated <= 2000
     end
 
@@ -789,7 +789,7 @@ import Redis
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload7)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict(
-                "redis" => RedisContext(Redis.RedisConnection(db=2)),
+                "redis" => RedisContext(Redis.RedisConnection(db = 2)),
                 "program_timeout" => program_timeout,
                 "timeout" => timeout,
             ),

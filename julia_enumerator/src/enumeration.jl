@@ -420,9 +420,9 @@ function try_run_block(sc::SolutionContext, block::ProgramBlock, fixed_branches,
         end
         push!(outs, out_value)
     end
-    new_out_branches, is_new_next_block, allow_fails, next_blocks =
+    new_out_branches, is_new_next_block, allow_fails, next_blocks, set_explained =
         value_updates(sc, block, target_output, outs, fixed_branches)
-    return bm, new_out_branches, is_new_next_block, allow_fails, next_blocks
+    return bm, new_out_branches, is_new_next_block, allow_fails, next_blocks, set_explained
 end
 
 function try_run_block(sc::SolutionContext, block::ReverseProgramBlock, fixed_branches, target_output)
@@ -468,10 +468,10 @@ function try_run_block(sc::SolutionContext, block::ReverseProgramBlock, fixed_br
         end
         push!(outs, out_values)
     end
-    new_out_branches, is_new_next_block, allow_fails, next_blocks =
+    new_out_branches, is_new_next_block, allow_fails, next_blocks, set_explained =
         value_updates(sc, block, target_output, outs, fixed_branches)
 
-    return bm, new_out_branches, is_new_next_block, allow_fails, next_blocks
+    return bm, new_out_branches, is_new_next_block, allow_fails, next_blocks, set_explained
 end
 
 function try_run_block_with_downstream(
@@ -496,18 +496,20 @@ function try_run_block_with_downstream(
     if isnothing(result) || result[1] == NoMatch
         return NoMatch
     else
-        bm, out_branches, is_new_next_block, allow_fails, next_blocks = result
+        bm, out_branches, is_new_next_block, allow_fails, next_blocks, set_explained = result
         # @info target_output
         # @info out_branches
 
-        # @info "Is new block $is_new_block is new next block $is_new_next_block"
+        # @info "Is new block $is_new_block is new next block $is_new_next_block set explained $set_explained"
 
         block_created_paths =
             get_new_paths_for_block(sc, block_id, is_new_block, created_paths, out_branches, fixed_branches)
         new_paths = merge(created_paths, block_created_paths)
 
-        if is_new_block || is_new_next_block
+        if is_new_block
             _save_block_branch_connections(sc, block_id, block, fixed_branches, Int[b_id for (_, b_id) in out_branches])
+        end
+        if is_new_block || set_explained
             update_complexity_factors_known(sc, block, fixed_branches, out_branches)
         end
 
@@ -539,7 +541,7 @@ end
 
 function add_new_block(run_context, sc::SolutionContext, block_id, inputs, target_output)
     assert_context_consistency(sc)
-    # @info "Adding block $block_id $(sc.blocks[block_id])"
+    # @info "Adding block $block_id $(sc.blocks[block_id]) $inputs $target_output"
     block = sc.blocks[block_id]
     update_prev_follow_vars(sc, block)
     if all(sc.branch_is_explained[branch_id] for (var_id, branch_id) in inputs)
@@ -713,16 +715,21 @@ function enumeration_iteration(
     maxFreeParameters,
     g,
     q,
-    bp,
+    bp::BlockPrototype,
     br_id,
     from_input,
 )
     if is_reversible(bp.state.skeleton) || state_finished(bp.state)
         # @info "Checking finished $bp"
-        if sc.branch_is_unknown[br_id]
-            new_block_result = enumeration_iteration_finished_output(run_context, sc, bp)
+        if is_block_loops(sc, bp)
+            # @info "Block $bp creates a loop"
+            new_block_result = nothing
         else
-            new_block_result = enumeration_iteration_finished_input(run_context, sc, bp)
+            if sc.branch_is_unknown[br_id]
+                new_block_result = enumeration_iteration_finished_output(run_context, sc, bp)
+            else
+                new_block_result = enumeration_iteration_finished_input(run_context, sc, bp)
+            end
         end
         if !isnothing(new_block_result)
             new_block_id, input_branches, target_output = new_block_result

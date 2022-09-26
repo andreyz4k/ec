@@ -234,7 +234,7 @@ function _tighten_constraint(
 
     for (var_id, branch_id) in constrained_branches
         if var_id == new_var_id
-            out_branches[var_id] = new_branch_id
+            out_branches[branch_id] = new_branch_id
             new_branches[branch_id] = new_branch_id
         else
             old_br_entry = sc.entries[sc.branch_entries[branch_id]]

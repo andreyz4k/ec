@@ -417,31 +417,6 @@ function set_new_paths_for_var(
     return (out_branch_id, new_block_paths)
 end
 
-function update_prev_follow_vars(sc::SolutionContext, bl::ProgramBlock)
-    if isempty(bl.input_vars)
-        return
-    end
-    inp_prev_vars = reduce(any, sc.previous_vars[:, bl.input_vars], dims = 2)
-    subassign!(sc.previous_vars, inp_prev_vars, :, bl.output_var; mask = inp_prev_vars)
-    out_foll_vars = sc.previous_vars[bl.output_var, :]
-    for inp_var_id in bl.input_vars
-        subassign!(sc.previous_vars, out_foll_vars, inp_var_id, :; mask = out_foll_vars)
-    end
-end
-
-function update_prev_follow_vars(sc, bl::ReverseProgramBlock)
-    inp_prev_vars = reduce(any, sc.previous_vars[:, bl.input_vars], dims = 2)
-    out_foll_vars = reduce(any, sc.previous_vars[bl.output_vars, :], dims = 1; desc = Descriptor())
-    # for inp_var_id in inp_vars
-    #     subassign!(sc.previous_vars, out_foll_vars', inp_var_id, :; mask=out_foll_vars')
-    # end
-    out_foll_var_inds = nonzeroinds(out_foll_vars)
-    sc.previous_vars[bl.input_vars, out_foll_var_inds] = 1
-    for out_var_id in bl.output_vars
-        subassign!(sc.previous_vars, inp_prev_vars, :, out_var_id; mask = inp_prev_vars)
-    end
-end
-
 function branch_complexity_factor_unknown(sc::SolutionContext, branch_id)
     related_branches = nonzeroinds(sc.related_unknown_complexity_branches[branch_id, :])
     return _branch_complexity_factor_unknown(sc, branch_id, related_branches)
@@ -481,8 +456,8 @@ end
 
 function _push_unmatched_complexity_to_output(sc::SolutionContext, branch_id, fixed_branches, unmatched_complexity)
     current_unmatched_complexity = sc.unmatched_complexities[branch_id]
-    if current_unmatched_complexity > unmatched_complexity
-        sc.unmatched_complexities[branch_id] = min(unmatched_complexity, current_unmatched_complexity)
+    if isnothing(current_unmatched_complexity) || current_unmatched_complexity > unmatched_complexity
+        sc.unmatched_complexities[branch_id] = unmatched_complexity
 
         # @info "Updating complexities for $branch_id"
         # @info fixed_branches
@@ -508,7 +483,8 @@ function _push_unmatched_complexity_to_output(sc::SolutionContext, branch_id, fi
 end
 
 function _push_unused_complexity_to_input(sc::SolutionContext, branch_id, fixed_branches, unused_complexity)
-    if sc.unused_explained_complexities[branch_id] > unused_complexity
+    current_unused_complexity = sc.unused_explained_complexities[branch_id]
+    if isnothing(current_unused_complexity) || current_unused_complexity > unused_complexity
         sc.unused_explained_complexities[branch_id] = unused_complexity
         for (in_block_copy_id, in_block_id) in zip(findnz(sc.branch_incoming_blocks[branch_id, :])...)
             in_block = sc.blocks[in_block_id]
@@ -545,7 +521,7 @@ function update_complexity_factors_unknown(sc::SolutionContext, input_branches, 
     if any(isnothing(sc.complexities[br_id]) for (_, br_id) in input_branches)
         return
     end
-    branch_ids = [br_id for (_, br_id) in input_branches]
+    branch_ids = UInt64[br_id for (_, br_id) in input_branches]
     un_complexity = sum(sc.unmatched_complexities[branch_ids])
 
     _push_unmatched_complexity_to_output(sc, output_branch, input_branches, un_complexity)
@@ -615,9 +591,10 @@ function update_complexity_factors_known(sc::SolutionContext, bl::ProgramBlock, 
 
     if !any(isnothing, sc.complexities[parents])
         _push_unmatched_complexity_to_output(sc, out_branch_id, input_branches, 0.0)
-        for inp_branch_var in bl.input_vars
-            _push_unused_complexity_to_input(sc, input_branches[inp_branch_var], input_branches, 0.0)
-        end
+        _push_unused_complexity_to_input(sc, out_branch_id, input_branches, 0.0)
+        # for inp_branch_var in bl.input_vars
+        #     _push_unused_complexity_to_input(sc, input_branches[inp_branch_var], input_branches, 0.0)
+        # end
     end
 end
 
@@ -654,10 +631,51 @@ function update_context(sc::SolutionContext)
     return get_new_paths(sc.incoming_paths, sc.target_branch_id)
 end
 
+function update_prev_follow_vars(sc::SolutionContext, bl::ProgramBlock)
+    if isempty(bl.input_vars)
+        return
+    end
+    inp_prev_vars = reduce(any, sc.previous_vars[:, bl.input_vars], dims = 2)
+    subassign!(sc.previous_vars, inp_prev_vars, :, bl.output_var; mask = inp_prev_vars)
+    out_foll_vars = sc.previous_vars[bl.output_var, :]
+    for inp_var_id in bl.input_vars
+        subassign!(sc.previous_vars, out_foll_vars, inp_var_id, :; mask = out_foll_vars)
+    end
+end
+
+function update_prev_follow_vars(sc, bl::ReverseProgramBlock)
+    inp_prev_vars = reduce(any, sc.previous_vars[:, bl.input_vars], dims = 2)
+    out_foll_vars = reduce(any, sc.previous_vars[bl.output_vars, :], dims = 1; desc = Descriptor())
+    # for inp_var_id in inp_vars
+    #     subassign!(sc.previous_vars, out_foll_vars', inp_var_id, :; mask=out_foll_vars')
+    # end
+    out_foll_var_inds = nonzeroinds(out_foll_vars)
+    sc.previous_vars[bl.input_vars, out_foll_var_inds] = 1
+    for out_var_id in bl.output_vars
+        subassign!(sc.previous_vars, inp_prev_vars, :, out_var_id; mask = inp_prev_vars)
+    end
+end
+
 function vars_in_loop(sc::SolutionContext, known_var_id, unknown_var_id)
     prev_known = sc.previous_vars[:, known_var_id]
     foll_unknown = sc.previous_vars[unknown_var_id, :]
     !isnothing((foll_unknown'*prev_known)[1])
+end
+
+function is_block_loops(sc::SolutionContext, bp::BlockPrototype)
+    if isnothing(bp.input_vars)
+        return false
+    end
+    if bp.reverse
+        inp_vars = [bp.output_var[1]]
+        out_vars = collect(keys(bp.input_vars))
+    else
+        out_vars = [bp.output_var[1]]
+        inp_vars = collect(keys(bp.input_vars))
+    end
+    prev_inputs = reduce(any, sc.previous_vars[:, inp_vars], dims = 2)
+    foll_outputs = reduce(any, sc.previous_vars[out_vars, :], dims = 1)
+    return !isnothing((foll_outputs'*prev_inputs)[1])
 end
 
 function assert_context_consistency(sc::SolutionContext)
@@ -689,7 +707,9 @@ function assert_context_consistency(sc::SolutionContext)
             end
             child_outgoing_block_copies = sc.branch_outgoing_blocks[child_id, :]
             if !issubset(Set(nonzeros(branch_outgoing_block_copies)), Set(nonzeros(child_outgoing_block_copies)))
-                error("Branch $branch_id outgoing blocks are missing from child $child_id outgoing blocks")
+                error(
+                    "Branch $branch_id outgoing blocks $(Set(nonzeros(branch_outgoing_block_copies))) are missing from child $child_id outgoing blocks $(Set(nonzeros(child_outgoing_block_copies)))",
+                )
             end
             if sc.branch_vars[branch_id] != sc.branch_vars[child_id]
                 error("Branch $branch_id key differs from child $child_id key")

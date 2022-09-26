@@ -20,7 +20,7 @@ function value_updates(sc, block::ProgramBlock, target_output, new_values, fixed
     branch_id = target_output[block.output_var]
     entry = sc.entries[sc.branch_entries[branch_id]]
     t_id = push!(sc.types, return_of_type(block.type))
-    out_branch_id, is_new_next_block, allow_fails, next_blocks = updated_branches(
+    out_branch_id, is_new_next_block, allow_fails, next_blocks, set_explained = updated_branches(
         sc,
         entry,
         new_values,
@@ -31,38 +31,42 @@ function value_updates(sc, block::ProgramBlock, target_output, new_values, fixed
         fixed_branches,
     )
     out_branches = Dict(block.output_var => out_branch_id)
-    return out_branches, is_new_next_block, allow_fails, next_blocks
+    return out_branches, is_new_next_block, allow_fails, next_blocks, set_explained
 end
 
 function value_updates(sc, block::ReverseProgramBlock, target_output, new_values, fixed_branches)
     out_branches = Dict()
     is_new_next_block = false
     allow_fails = false
+    set_explained = false
     next_blocks = Set()
     for (out_var, values) in zip(block.output_vars, new_values)
         br_id = target_output[out_var]
         values = collect(values)
         entry = sc.entries[sc.branch_entries[br_id]]
-        out_branch_id, is_new_nxt_block, all_fails, n_blocks =
+        out_branch_id, is_new_nxt_block, all_fails, n_blocks, set_expl =
             updated_branches(sc, entry, values, out_var, br_id, entry.type_id, true, fixed_branches)
         is_new_next_block |= is_new_nxt_block
         out_branches[out_var] = out_branch_id
         allow_fails |= all_fails
+        set_explained |= set_expl
         union!(next_blocks, n_blocks)
     end
-    return out_branches, is_new_next_block, allow_fails, next_blocks
+    return out_branches, is_new_next_block, allow_fails, next_blocks, set_explained
 end
 
 function updated_branches(sc, entry::ValueEntry, new_values, var_id, branch_id, t_id, is_meaningful, fixed_branches)
     if is_meaningful && sc.branch_is_not_copy[branch_id] != true
         sc.branch_is_not_copy[branch_id] = true
     end
+    set_explained = false
     if !sc.branch_is_explained[branch_id]
         sc.branch_is_explained[branch_id] = true
         sc.unused_explained_complexities[branch_id] = entry.complexity
+        set_explained = true
     end
     allow_fails, next_blocks = _downstream_blocks_existing_branch(sc, var_id, branch_id, fixed_branches)
-    return branch_id, false, allow_fails, next_blocks
+    return branch_id, false, allow_fails, next_blocks, set_explained
 end
 
 function find_related_branches(sc, branch_id, new_entry, new_entry_index)
@@ -96,12 +100,14 @@ function updated_branches(sc, entry::NoDataEntry, new_values, var_id, branch_id,
     new_parents, possible_result = find_related_branches(sc, branch_id, new_entry, new_entry_index)
     parent_constraints = nonzeroinds(sc.constrained_branches[branch_id, :])
     if !isnothing(possible_result)
+        set_explained = false
         if !sc.branch_is_explained[possible_result]
-            sc.branch_is_explained[branch_id] = true
+            sc.branch_is_explained[possible_result] = true
+            set_explained = true
         end
         if isempty(parent_constraints)
             allow_fails, next_blocks = _downstream_blocks_existing_branch(sc, var_id, possible_result, fixed_branches)
-            return possible_result, false, allow_fails, next_blocks
+            return possible_result, false, allow_fails, next_blocks, set_explained
         else
             error("Not implemented")
         end
@@ -125,7 +131,7 @@ function updated_branches(sc, entry::NoDataEntry, new_values, var_id, branch_id,
     end
 
     allow_fails, next_blocks = _downstream_blocks_new_branch(sc, var_id, branch_id, new_branch_id, fixed_branches)
-    return new_branch_id, true, allow_fails, next_blocks
+    return new_branch_id, true, allow_fails, next_blocks, true
 end
 
 function updated_branches(sc, entry::EitherEntry, new_values, var_id, branch_id, t_id, is_meaningful, fixed_branches)
@@ -135,15 +141,16 @@ function updated_branches(sc, entry::EitherEntry, new_values, var_id, branch_id,
     new_parents, possible_result = find_related_branches(sc, branch_id, new_entry, new_entry_index)
     parent_constraints = nonzeroinds(sc.constrained_branches[branch_id, :])
     if !isnothing(possible_result)
+        set_explained = false
         if !sc.branch_is_explained[possible_result]
-            sc.branch_is_explained[branch_id] = true
+            sc.branch_is_explained[possible_result] = true
+            set_explained = true
         end
-        if isempty(parent_constraints)
-            allow_fails, next_blocks = _downstream_blocks_existing_branch(sc, var_id, possible_result, fixed_branches)
-            return possible_result, false, allow_fails, next_blocks
-        else
-            error("Not implemented")
+        if is_meaningful && sc.branch_is_not_copy[possible_result] != true
+            sc.branch_is_not_copy[possible_result] = true
         end
+        allow_fails, next_blocks = _downstream_blocks_existing_branch(sc, var_id, possible_result, fixed_branches)
+        return possible_result, false, allow_fails, next_blocks, set_explained
     end
 
     new_branch_id = increment!(sc.branches_count)
@@ -168,7 +175,7 @@ function updated_branches(sc, entry::EitherEntry, new_values, var_id, branch_id,
     end
 
     allow_fails, next_blocks = _downstream_blocks_existing_branch(sc, var_id, new_branch_id, fixed_branches)
-    return new_branch_id, false, allow_fails, next_blocks
+    return new_branch_id, false, allow_fails, next_blocks, true
 end
 
 function _downstream_branch_options_known(sc, block_id, block_copy_id, fixed_branches, unfixed_vars)
