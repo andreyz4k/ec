@@ -781,6 +781,119 @@ import Redis
         "shatter" => 10,
     )
 
+    payload9 = Dict{String,Any}(
+        "DSL" => Dict{String,Any}(
+            "logVariable" => 0.0,
+            "productions" => Any[
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "map"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "unfold"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "range"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "index"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "fold"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "length"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "if"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "+"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "-"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "empty"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "cons"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "car"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "cdr"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "empty?"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "0"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "1"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "*"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "mod"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "gt?"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "eq?"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "is-prime"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "is-square"),
+            ],
+        ),
+        "type_weights" => Dict{String,Any}("int" => 1.0, "list" => 1.0, "bool" => 1.0, "float" => 1.0),
+        "task" => Dict{String,Any}(
+            "name" => "range +1 maximum list",
+            "maximumFrontier" => 10,
+            "examples" => Any[
+                Dict{String,Any}(
+                    "output" => Any[0, 1, 2, 3, 4, 5, 6, 7, 8],
+                    "inputs" => Dict{String,Any}("inp0" => Any[5, 8]),
+                ),
+                Dict{String,Any}(
+                    "output" => Any[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+                    "inputs" => Dict{String,Any}("inp0" => Any[2, 9, 9, 5, 5]),
+                ),
+                Dict{String,Any}(
+                    "output" => Any[0, 1, 2, 3, 4, 5, 6, 7],
+                    "inputs" => Dict{String,Any}("inp0" => Any[0, 0, 6, 7]),
+                ),
+                Dict{String,Any}(
+                    "output" => Any[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+                    "inputs" => Dict{String,Any}("inp0" => Any[0, 10, 5]),
+                ),
+                Dict{String,Any}(
+                    "output" => Any[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+                    "inputs" => Dict{String,Any}("inp0" => Any[2, 9, 1]),
+                ),
+                Dict{String,Any}(
+                    "output" => Any[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+                    "inputs" => Dict{String,Any}("inp0" => Any[10, 8, 0]),
+                ),
+                Dict{String,Any}(
+                    "output" => Any[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+                    "inputs" => Dict{String,Any}("inp0" => Any[7, 9, 3, 0, 5]),
+                ),
+                Dict{String,Any}("output" => Any[0, 1, 2, 3], "inputs" => Dict{String,Any}("inp0" => Any[3, 0])),
+                Dict{String,Any}(
+                    "output" => Any[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+                    "inputs" => Dict{String,Any}("inp0" => Any[10, 0]),
+                ),
+                Dict{String,Any}(
+                    "output" => Any[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+                    "inputs" => Dict{String,Any}("inp0" => Any[9, 1, 5]),
+                ),
+                Dict{String,Any}(
+                    "output" => Any[0, 1, 2, 3, 4, 5, 6, 7, 8],
+                    "inputs" => Dict{String,Any}("inp0" => Any[5, 8, 0]),
+                ),
+                Dict{String,Any}(
+                    "output" => Any[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+                    "inputs" => Dict{String,Any}("inp0" => Any[7, 9]),
+                ),
+                Dict{String,Any}(
+                    "output" => Any[0, 1, 2, 3, 4, 5, 6],
+                    "inputs" => Dict{String,Any}("inp0" => Any[2, 2, 6]),
+                ),
+                Dict{String,Any}(
+                    "output" => Any[0, 1, 2, 3, 4, 5, 6, 7, 8],
+                    "inputs" => Dict{String,Any}("inp0" => Any[8, 0]),
+                ),
+                Dict{String,Any}(
+                    "output" => Any[0, 1, 2, 3, 4, 5],
+                    "inputs" => Dict{String,Any}("inp0" => Any[3, 5, 3, 4]),
+                ),
+            ],
+            "test_examples" => Any[],
+            "request" => Dict{String,Any}(
+                "arguments" => Dict{String,Any}(
+                    "inp0" => Dict{String,Any}(
+                        "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
+                        "constructor" => "list",
+                    ),
+                ),
+                "output" => Dict{String,Any}(
+                    "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
+                    "constructor" => "list",
+                ),
+                "constructor" => "->",
+            ),
+        ),
+        "name" => "range +1 maximum list",
+        "programTimeout" => 1.0,
+        "timeout" => 20,
+        "verbose" => false,
+        "shatter" => 10,
+    )
+
     # @testset "full loading" begin
     #     task, maximum_frontier, g, _mfp, _nc, timeout, _verbose, program_timeout = load_problems(payload1)
     # end
@@ -932,6 +1045,25 @@ import Redis
             verbose,
         )
         @test length(solutions) > 0
+        @test number_enumerated >= 100
+        @test number_enumerated <= 2000
+    end
+
+    @testset "range +1 maximum list" begin
+        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload9)
+        solutions, number_enumerated = @time enumerate_for_task(
+            Dict(
+                "redis" => RedisContext(Redis.RedisConnection(db = 2)),
+                "program_timeout" => program_timeout,
+                "timeout" => timeout,
+            ),
+            g,
+            type_weights,
+            task,
+            maximum_frontier,
+            verbose,
+        )
+        @test length(solutions) == 0
         @test number_enumerated >= 100
         @test number_enumerated <= 2000
     end
