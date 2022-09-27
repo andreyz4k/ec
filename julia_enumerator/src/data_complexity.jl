@@ -12,10 +12,10 @@ function get_complexity_summary(values, t::TypeConstructor)
     end
 end
 
-function get_complexity_summary_average(values::EitherOptions, t::TypeConstructor)
+function get_complexity_summary(values::EitherOptions, t::TypeConstructor)
     result = Accumulator{String,Int64}()
     for (h, option) in values.options
-        merge!(result, get_complexity_summary_average(option, t))
+        merge!(result, get_complexity_summary(option, t))
     end
     for (k, count) in result
         result[k] = div(count, length(values.options))
@@ -23,10 +23,10 @@ function get_complexity_summary_average(values::EitherOptions, t::TypeConstructo
     return result
 end
 
-function get_complexity_summary(values::EitherOptions, t::TypeConstructor)
+function get_complexity_summary_max(values::EitherOptions, t::TypeConstructor)
     result = Accumulator{String,Int64}()
     for (h, option) in values.options
-        op_summary = get_complexity_summary(option, t)
+        op_summary = get_complexity_summary_max(option, t)
         for (k, v) in op_summary
             if !haskey(result, k) || result[k] < v
                 result[k] = v

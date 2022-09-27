@@ -435,9 +435,9 @@ end
         @test sc.branch_is_unknown[v1_branch_id] == true
         @test sc.branch_is_explained[v1_branch_id] == false
         @test sc.unknown_min_path_costs[v1_branch_id] == 2.4849066497880004
-        @test sc.unknown_complexity_factors[v1_branch_id] == 38.0
-        @test sc.complexities[v1_branch_id] == 19.0
-        @test sc.unmatched_complexities[v1_branch_id] == 19.0
+        @test sc.unknown_complexity_factors[v1_branch_id] == 20.0
+        @test sc.complexities[v1_branch_id] == 10.0
+        @test sc.unmatched_complexities[v1_branch_id] == 10.0
         @test nnz(sc.related_unknown_complexity_branches[v1_branch_id, :]) == 1
         @test sc.related_unknown_complexity_branches[v1_branch_id, v2_branch_id] == 1
 
@@ -457,9 +457,9 @@ end
         @test sc.branch_is_unknown[v2_branch_id] == true
         @test sc.branch_is_explained[v2_branch_id] == false
         @test sc.unknown_min_path_costs[v2_branch_id] == 2.4849066497880004
-        @test sc.unknown_complexity_factors[v2_branch_id] == 38.0
-        @test sc.complexities[v2_branch_id] == 19.0
-        @test sc.unmatched_complexities[v2_branch_id] == 19.0
+        @test sc.unknown_complexity_factors[v2_branch_id] == 20.0
+        @test sc.complexities[v2_branch_id] == 10.0
+        @test sc.unmatched_complexities[v2_branch_id] == 10.0
         @test nnz(sc.related_unknown_complexity_branches[v2_branch_id, :]) == 1
         @test sc.related_unknown_complexity_branches[v2_branch_id, v1_branch_id] == 1
 
@@ -579,9 +579,9 @@ end
         @test sc.unknown_min_path_costs[v1_child_id] == 2.4849066497880004
         @test sc.explained_min_path_costs[v1_child_id] === nothing
         @test sc.unknown_complexity_factors[v1_child_id] == 6.0
-        @test sc.explained_complexity_factors[v1_child_id] == 25.0
+        @test sc.explained_complexity_factors[v1_child_id] == 16.0
         @test sc.complexities[v1_child_id] == 6.0
-        @test sc.added_upstream_complexities[v1_child_id] == 19.0
+        @test sc.added_upstream_complexities[v1_child_id] == 10.0
         @test sc.unused_explained_complexities[v1_child_id] == 0.0
         @test sc.unmatched_complexities[v1_child_id] == 0.0
         @test nnz(sc.related_unknown_complexity_branches[v1_child_id, :]) == 1
@@ -602,9 +602,9 @@ end
         @test sc.branch_is_explained[out_branch_id] == true
         @test sc.branch_is_not_copy[out_branch_id] == true
         @test sc.explained_min_path_costs[out_branch_id] == 2.4849066497880004
-        @test sc.explained_complexity_factors[out_branch_id] == 38.0
+        @test sc.explained_complexity_factors[out_branch_id] == 29.0
         @test sc.complexities[out_branch_id] == 19.0
-        @test sc.added_upstream_complexities[out_branch_id] == 19.0
+        @test sc.added_upstream_complexities[out_branch_id] == 10.0
         @test sc.unused_explained_complexities[out_branch_id] == 0.0
         @test sc.unmatched_complexities[out_branch_id] == 0.0
         @test nnz(sc.related_unknown_complexity_branches[out_branch_id, :]) == 0

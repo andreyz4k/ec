@@ -236,13 +236,41 @@ function capture_free_vars(sc::SolutionContext, p::FreeVar, context)
     FreeVar(t, var_id), [(var_id, t)]
 end
 
+function try_run_reversed_with_value(reverse_program, value)
+    try_run_function(reverse_program, [value])
+end
+
+function try_run_reversed_with_value(reverse_program, value::EitherOptions)
+    hashes = []
+    outputs = []
+    for (h, val) in value.options
+        outs = try_run_reversed_with_value(reverse_program, val)
+        if isnothing(outs)
+            return nothing
+        end
+        push!(hashes, h)
+        push!(outputs, outs)
+    end
+    results = []
+    for values in zip(outputs...)
+        values = collect(values)
+        if allequal(values)
+            push!(results, values[1])
+        else
+            options = Dict(h => v for (h, v) in zip(hashes, values))
+            push!(results, EitherOptions(options))
+        end
+    end
+    return results
+end
+
 function try_get_reversed_values(sc::SolutionContext, p::Program, context, output_branch_id, cost, is_known)
     p, reverse_program = get_reversed_filled_program(p)
     out_entry = sc.entries[sc.branch_entries[output_branch_id]]
 
     calculated_values = []
     for value in out_entry.values
-        calculated_value = try_run_function(reverse_program, [value])
+        calculated_value = try_run_reversed_with_value(reverse_program, value)
         if isnothing(calculated_value)
             return nothing
         end
