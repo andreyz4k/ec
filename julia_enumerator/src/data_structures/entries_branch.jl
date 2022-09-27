@@ -253,5 +253,7 @@ function _save_block_branch_connections(sc, block_id, block, fixed_branches, out
     input_br_ids = UInt64[fixed_branches[var_id] for var_id in block.input_vars]
     sc.branch_outgoing_blocks[input_br_ids, block_copy_id] = block_id
     sc.branch_incoming_blocks[out_branches, block_copy_id] = block_id
-    # @info "Created new block copy $block_copy_id for block $block_id $block with inputs $input_br_ids and outputs $out_branches"
+    if sc.verbose
+        @info "Created new block copy $block_copy_id for block $block_id $block with inputs $input_br_ids and outputs $out_branches"
+    end
 end

@@ -101,7 +101,9 @@ function enqueue_known_var(sc, branch_id, g)
         q = PriorityQueue()
     end
     for bp in prototypes
-        # @info "enqueueing $bp"
+        if sc.verbose
+            @info "enqueueing $bp"
+        end
         if (isnothing(bp.input_vars) || all(br -> sc.branch_is_explained[br[2]], bp.input_vars)) &&
            !isnothing(sc.explained_min_path_costs[branch_id])
             q[bp] = bp.state.cost
@@ -129,7 +131,9 @@ function enqueue_unknown_var(sc, branch_id, g)
         q = PriorityQueue()
     end
     for bp in prototypes
-        # @info "enqueueing $bp"
+        if sc.verbose
+            @info "enqueueing $bp"
+        end
         if !isnothing(bp.input_vars) &&
            !isempty(bp.input_vars) &&
            all(br -> sc.branch_is_explained[br[2]], bp.input_vars) &&

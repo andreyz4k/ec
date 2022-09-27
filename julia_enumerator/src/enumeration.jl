@@ -569,7 +569,9 @@ end
 
 function add_new_block(run_context, sc::SolutionContext, block_id, inputs, target_output)
     assert_context_consistency(sc)
-    # @info "Adding block $block_id $(sc.blocks[block_id]) $inputs $target_output"
+    if sc.verbose
+        @info "Adding block $block_id $(sc.blocks[block_id]) $inputs $target_output"
+    end
     block = sc.blocks[block_id]
     update_prev_follow_vars(sc, block)
     if all(sc.branch_is_explained[branch_id] for (var_id, branch_id) in inputs)
@@ -581,7 +583,9 @@ function add_new_block(run_context, sc::SolutionContext, block_id, inputs, targe
         if best_match == NoMatch
             return nothing
         else
-            # @info "Inserted block $block_id"
+            if sc.verbose
+                @info "Inserted block $block_id"
+            end
             result = update_context(sc)
             assert_context_consistency(sc)
             return result
@@ -593,7 +597,9 @@ function add_new_block(run_context, sc::SolutionContext, block_id, inputs, targe
         else
             error("Not implemented")
         end
-        # @info "Inserted block $block_id"
+        if sc.verbose
+            @info "Inserted block $block_id"
+        end
         result = update_context(sc)
         assert_context_consistency(sc)
         return result
@@ -748,7 +754,9 @@ function enumeration_iteration(
     from_input,
 )
     if is_reversible(bp.state.skeleton) || state_finished(bp.state)
-        # @info "Checking finished $bp"
+        if sc.verbose
+            @info "Checking finished $bp"
+        end
         if is_block_loops(sc, bp)
             # @info "Block $bp creates a loop"
             new_block_result = nothing
@@ -787,12 +795,12 @@ function enumeration_iteration(
     update_branch_priority(sc, br_id, from_input)
 end
 
-function enumerate_for_task(run_context, g::ContextualGrammar, type_weights, task, maximum_frontier, verbose = true)
+function enumerate_for_task(run_context, g::ContextualGrammar, type_weights, task, maximum_frontier, verbose = false)
     #    Returns, for each task, (program,logPrior) as well as the total number of enumerated programs
     enumeration_timeout = get_enumeration_timeout(run_context["timeout"])
     run_context["timeout_checker"] = () -> enumeration_timed_out(enumeration_timeout)
 
-    sc = create_starting_context(task, type_weights)
+    sc = create_starting_context(task, type_weights, verbose)
 
     # Store the hits in a priority queue
     # We will only ever maintain maximumFrontier best solutions

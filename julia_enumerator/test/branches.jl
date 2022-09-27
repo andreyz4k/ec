@@ -182,7 +182,7 @@ end
             ),
         )
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
-        sc = create_starting_context(task, type_weights)
+        sc = create_starting_context(task, type_weights, false)
         inp_var_id = 1
         out_var_id = 2
         inp_branch_id = 1
@@ -266,7 +266,7 @@ end
             ),
         )
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
-        sc = create_starting_context(task, type_weights)
+        sc = create_starting_context(task, type_weights, false)
         inp_var_id = 1
         out_var_id = 2
         inp_branch_id = 1
@@ -396,7 +396,7 @@ end
             ),
         )
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
-        sc = create_starting_context(task, type_weights)
+        sc = create_starting_context(task, type_weights, false)
         inp_var_id = 1
         out_var_id = 2
         inp_branch_id = 1

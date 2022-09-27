@@ -66,9 +66,11 @@ mutable struct SolutionContext
     pq_output::PriorityQueue
     branch_queues_unknown::Dict{Int,PriorityQueue}
     branch_queues_explained::Dict{Int,PriorityQueue}
+
+    verbose::Bool
 end
 
-function create_starting_context(task::Task, type_weights)::SolutionContext
+function create_starting_context(task::Task, type_weights, verbose)::SolutionContext
     argument_types = arguments_of_type(task.task_type)
     example_count = length(task.train_outputs)
     sc = SolutionContext(
@@ -113,6 +115,7 @@ function create_starting_context(task::Task, type_weights)::SolutionContext
         PriorityQueue(),
         Dict(),
         Dict(),
+        verbose,
     )
     for (key, t) in argument_types
         values = [inp[key] for inp in task.train_inputs]
@@ -251,14 +254,20 @@ function update_branch_priority(sc::SolutionContext, branch_id::Int, is_known::B
         if is_known
             pq[branch_id] =
                 (sc.explained_min_path_costs[branch_id] + min_cost) * sc.explained_complexity_factors[branch_id]
-            # @info "In branch $branch_id priority is $(pq[branch_id]) with path cost $(sc.explained_min_path_costs[branch_id]) + $(min_cost) and complexity factor $(sc.explained_complexity_factors[branch_id])"
+            if sc.verbose
+                @info "In branch $branch_id priority is $(pq[branch_id]) with path cost $(sc.explained_min_path_costs[branch_id]) + $(min_cost) and complexity factor $(sc.explained_complexity_factors[branch_id])"
+            end
         else
             pq[branch_id] = (sc.unknown_min_path_costs[branch_id] + min_cost) * sc.unknown_complexity_factors[branch_id]
-            # @info "Out branch $branch_id priority is $(pq[branch_id]) with path cost $(sc.unknown_min_path_costs[branch_id]) + $(min_cost) and complexity factor $(sc.unknown_complexity_factors[branch_id])"
+            if sc.verbose
+                @info "Out branch $branch_id priority is $(pq[branch_id]) with path cost $(sc.unknown_min_path_costs[branch_id]) + $(min_cost) and complexity factor $(sc.unknown_complexity_factors[branch_id])"
+            end
         end
     elseif haskey(pq, branch_id)
         delete!(pq, branch_id)
-        # @info "Dropped $(is_known ? "in" : "out") branch $branch_id"
+        if sc.verbose
+            @info "Dropped $(is_known ? "in" : "out") branch $branch_id"
+        end
     end
 end
 
