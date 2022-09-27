@@ -597,7 +597,7 @@ function enqueue_updates(sc::SolutionContext, g)
             update_branch_priority(sc, branch_id, false)
         end
     end
-    for branch_id in updated_factors_explained_branches
+    for branch_id in union(updated_factors_explained_branches, new_explained_branches)
         if in(branch_id, new_explained_branches)
             enqueue_known_var(sc, branch_id, g)
         elseif sc.branch_is_not_copy[branch_id]

@@ -668,6 +668,119 @@ import Redis
         "shatter" => 10,
     )
 
+    payload8 = Dict{String,Any}(
+        "DSL" => Dict{String,Any}(
+            "logVariable" => 0.0,
+            "productions" => Any[
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "map"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "unfold"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "range"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "index"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "fold"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "length"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "if"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "+"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "-"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "empty"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "cons"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "car"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "cdr"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "empty?"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "0"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "1"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "*"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "mod"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "gt?"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "eq?"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "is-prime"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "is-square"),
+            ],
+        ),
+        "type_weights" => Dict{String,Any}("int" => 1.0, "list" => 1.0, "bool" => 1.0, "float" => 1.0),
+        "task" => Dict{String,Any}(
+            "name" => "prepend-index-k with k=3",
+            "maximumFrontier" => 10,
+            "examples" => Any[
+                Dict{String,Any}(
+                    "output" => Any[9, 15, 12, 9, 14, 7, 9],
+                    "inputs" => Dict{String,Any}("inp0" => Any[15, 12, 9, 14, 7, 9]),
+                ),
+                Dict{String,Any}(
+                    "output" => Any[1, 7, 8, 1, 6, 16, 11],
+                    "inputs" => Dict{String,Any}("inp0" => Any[7, 8, 1, 6, 16, 11]),
+                ),
+                Dict{String,Any}(
+                    "output" => Any[1, 11, 3, 1, 8, 15, 7, 7, 14, 1],
+                    "inputs" => Dict{String,Any}("inp0" => Any[11, 3, 1, 8, 15, 7, 7, 14, 1]),
+                ),
+                Dict{String,Any}(
+                    "output" => Any[15, 9, 11, 15, 2],
+                    "inputs" => Dict{String,Any}("inp0" => Any[9, 11, 15, 2]),
+                ),
+                Dict{String,Any}("output" => Any[6, 11, 3, 6], "inputs" => Dict{String,Any}("inp0" => Any[11, 3, 6])),
+                Dict{String,Any}(
+                    "output" => Any[5, 6, 8, 5, 6, 10, 3],
+                    "inputs" => Dict{String,Any}("inp0" => Any[6, 8, 5, 6, 10, 3]),
+                ),
+                Dict{String,Any}(
+                    "output" => Any[8, 4, 3, 8, 13, 2, 12, 6, 9, 1],
+                    "inputs" => Dict{String,Any}("inp0" => Any[4, 3, 8, 13, 2, 12, 6, 9, 1]),
+                ),
+                Dict{String,Any}(
+                    "output" => Any[13, 3, 15, 13, 1, 8, 13, 9, 6],
+                    "inputs" => Dict{String,Any}("inp0" => Any[3, 15, 13, 1, 8, 13, 9, 6]),
+                ),
+                Dict{String,Any}(
+                    "output" => Any[0, 6, 3, 0, 5, 4, 2],
+                    "inputs" => Dict{String,Any}("inp0" => Any[6, 3, 0, 5, 4, 2]),
+                ),
+                Dict{String,Any}(
+                    "output" => Any[15, 6, 10, 15, 8, 14, 3, 4, 16, 1],
+                    "inputs" => Dict{String,Any}("inp0" => Any[6, 10, 15, 8, 14, 3, 4, 16, 1]),
+                ),
+                Dict{String,Any}(
+                    "output" => Any[5, 5, 10, 5, 16],
+                    "inputs" => Dict{String,Any}("inp0" => Any[5, 10, 5, 16]),
+                ),
+                Dict{String,Any}(
+                    "output" => Any[3, 8, 14, 3, 5, 11],
+                    "inputs" => Dict{String,Any}("inp0" => Any[8, 14, 3, 5, 11]),
+                ),
+                Dict{String,Any}(
+                    "output" => Any[3, 11, 10, 3, 14, 0, 5],
+                    "inputs" => Dict{String,Any}("inp0" => Any[11, 10, 3, 14, 0, 5]),
+                ),
+                Dict{String,Any}(
+                    "output" => Any[14, 15, 6, 14, 4, 12, 0, 15],
+                    "inputs" => Dict{String,Any}("inp0" => Any[15, 6, 14, 4, 12, 0, 15]),
+                ),
+                Dict{String,Any}(
+                    "output" => Any[6, 13, 16, 6, 9, 16, 6, 10],
+                    "inputs" => Dict{String,Any}("inp0" => Any[13, 16, 6, 9, 16, 6, 10]),
+                ),
+            ],
+            "test_examples" => Any[],
+            "request" => Dict{String,Any}(
+                "arguments" => Dict{String,Any}(
+                    "inp0" => Dict{String,Any}(
+                        "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
+                        "constructor" => "list",
+                    ),
+                ),
+                "output" => Dict{String,Any}(
+                    "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
+                    "constructor" => "list",
+                ),
+                "constructor" => "->",
+            ),
+        ),
+        "name" => "prepend-index-k with k=3",
+        "programTimeout" => 1.0,
+        "timeout" => 20,
+        "verbose" => false,
+        "shatter" => 10,
+    )
+
     # @testset "full loading" begin
     #     task, maximum_frontier, g, _mfp, _nc, timeout, _verbose, program_timeout = load_problems(payload1)
     # end
@@ -800,6 +913,25 @@ import Redis
             verbose,
         )
         @test length(solutions) == 0
+        @test number_enumerated >= 100
+        @test number_enumerated <= 2000
+    end
+
+    @testset "prepend-index-k with k=3" begin
+        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload8)
+        solutions, number_enumerated = @time enumerate_for_task(
+            Dict(
+                "redis" => RedisContext(Redis.RedisConnection(db = 2)),
+                "program_timeout" => program_timeout,
+                "timeout" => timeout,
+            ),
+            g,
+            type_weights,
+            task,
+            maximum_frontier,
+            verbose,
+        )
+        @test length(solutions) > 0
         @test number_enumerated >= 100
         @test number_enumerated <= 2000
     end
