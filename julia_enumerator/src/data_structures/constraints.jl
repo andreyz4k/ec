@@ -1,9 +1,9 @@
 
 function _find_relatives_for_type(sc, t, branch_id, branch_type)
-    if branch_type == t && sc.branches_is_unknown[branch_id]
+    if branch_type == t && sc.branch_is_unknown[branch_id]
         return branch_id, Int[], Int[]
     end
-    if !sc.branches_is_unknown[branch_id] && is_subtype(t, branch_type)
+    if sc.branch_is_explained[branch_id] && is_subtype(t, branch_type)
         return nothing, nonzeroinds(sc.branch_children[:, branch_id]), Int[branch_id]
     end
     parents = Int[]
@@ -30,49 +30,40 @@ end
 function _tighten_constraint(
     sc,
     constrained_branches,
-    constrained_contexts,
+    constrained_context_id,
     new_var_id,
     new_branch_id,
     old_entry::NoDataEntry,
 )
-    if !haskey(constrained_contexts, new_var_id)
-        return Dict(v => (v == new_var_id ? new_branch_id : b) for (v, b) in constrained_branches), constrained_contexts
-    end
-
-    context_id = constrained_contexts[new_var_id]
-    context = sc.constraint_contexts[context_id]
+    context = sc.constraint_contexts[constrained_context_id]
 
     out_branches = Dict()
-    out_contexts = Dict()
+    new_branches = Dict()
+    out_constrained_branches = Dict()
 
     new_type = sc.types[reduce(any, sc.branch_types[new_branch_id, :])]
     context = unify(context, new_type, sc.types[old_entry.type_id])
-    new_affected_vars = Int[]
-    if is_polymorphic(new_type)
-        push!(new_affected_vars, new_var_id)
-    end
+
     for (var_id, branch_id) in constrained_branches
         if var_id == new_var_id
-            out_branches[var_id] = new_branch_id
-        elseif !haskey(constrained_contexts, var_id)
-            out_branches[var_id] = branch_id
-        elseif constrained_contexts[var_id] != context_id
-            out_branches[var_id] = branch_id
-            out_contexts[var_id] = constrained_contexts[var_id]
+            out_branches[branch_id] = new_branch_id
+            new_branches[branch_id] = new_branch_id
         else
             branch_type = sc.types[reduce(any, sc.branch_types[branch_id, :])]
             context, new_type = apply_context(context, branch_type)
-            if is_polymorphic(new_type)
-                push!(new_affected_vars, var_id)
-            end
+
             exact_match, parents, children = _find_relatives_for_type(sc, new_type, branch_id, branch_type)
             if !isnothing(exact_match)
-                push!(out_branches, exact_match)
+                if is_polymorphic(new_type)
+                    out_constrained_branches[var_id] = exact_match
+                end
+                out_branches[branch_id] = exact_match
             else
                 new_type_id = push!(sc.types, new_type)
                 new_entry = NoDataEntry(new_type_id)
                 entry_id = push!(sc.entries, new_entry)
-                created_branch_id = increment!(sc.created_branches)
+
+                created_branch_id = increment!(sc.branches_count)
                 sc.branch_entries[created_branch_id] = entry_id
                 sc.branch_vars[created_branch_id] = var_id
                 sc.branch_types[created_branch_id, new_type_id] = new_type_id
@@ -80,33 +71,50 @@ function _tighten_constraint(
                 sc.branch_children[parents, created_branch_id] = 1
                 sc.branch_children[created_branch_id, children] = 1
 
-                sc.branches_is_unknown[created_branch_id] = true
-                sc.branch_outgoing_blocks[created_branch_id, :] = sc.branch_outgoing_blocks[branch_id, :]
-                sc.min_path_costs[created_branch_id] = sc.min_path_costs[branch_id]
-                sc.added_upstream_complexities[created_branch_id] = sc.added_upstream_complexities[branch_id]
-                sc.complexity_factors[created_branch_id] = sc.complexity_factors[branch_id]
-                sc.related_complexity_branches[created_branch_id, :] = sc.related_complexity_branches[branch_id, :]
+                sc.branch_is_unknown[created_branch_id] = true
+                sc.unknown_min_path_costs[created_branch_id] = sc.unknown_min_path_costs[branch_id]
+                sc.unknown_complexity_factors[created_branch_id] = sc.unknown_complexity_factors[branch_id]
+                sc.related_unknown_complexity_branches[created_branch_id, :] =
+                    sc.related_unknown_complexity_branches[branch_id, :]
 
-                push!(out_branches, created_branch_id)
+                if is_polymorphic(new_type)
+                    out_constrained_branches[var_id] = created_branch_id
+                end
+                out_branches[branch_id] = created_branch_id
+                new_branches[branch_id] = created_branch_id
             end
         end
     end
-    new_context_id = push!(sc.constraint_contexts, context)
-    for var_id in new_affected_vars
-        out_contexts[var_id] = new_context_id
+
+    unknown_old_branches = UInt64[br_id for (br_id, _) in new_branches]
+    next_blocks = unique(zip(findnz(sc.branch_outgoing_blocks[unknown_old_branches, :])[2:3]...))
+    for (b_copy_id, b_id) in next_blocks
+        inp_branches = nonzeroinds(sc.branch_outgoing_blocks[:, b_copy_id])
+        inputs = Dict(
+            v => haskey(out_branches, b) ? out_branches[b] : b for
+            (v, b) in zip(sc.branch_vars[inp_branches], inp_branches)
+        )
+        out_block_branches = nonzeroinds(sc.branch_incoming_blocks[:, b_copy_id])
+        target_branches = Int[haskey(out_branches, b) ? out_branches[b] : b for b in out_block_branches]
+        _save_block_branch_connections(sc, b_id, sc.blocks[b_id], inputs, target_branches)
     end
 
-    return out_branches, out_contexts
+    if length(out_constrained_branches) > 1
+        new_context_id = push!(sc.constraint_contexts, context)
+        return out_constrained_branches, new_context_id
+    else
+        return Dict(), nothing
+    end
 end
 
 function tighten_constraint(sc, constraint_id, new_branch_id, old_branch_id)
     old_entry = sc.entries[sc.branch_entries[old_branch_id]]
     constrained_branches = Dict(v => b for (b, v) in zip(findnz(sc.constrained_branches[:, constraint_id])...))
-    constrained_contexts = Dict(v => c for (v, c) in zip(findnz(sc.constrained_contexts[:, constraint_id])...))
-    new_constrained_branches, new_contexts = _tighten_constraint(
+    constrained_context_id = sc.constrained_contexts[constraint_id]
+    new_constrained_branches, new_context_id = _tighten_constraint(
         sc,
         constrained_branches,
-        constrained_contexts,
+        constrained_context_id,
         sc.branch_vars[new_branch_id],
         new_branch_id,
         old_entry,
@@ -118,19 +126,13 @@ function tighten_constraint(sc, constraint_id, new_branch_id, old_branch_id)
 
         vars = Int[]
         branches = Int[]
-        cont_vars = Int[]
-        contexts = Int[]
         for (var_id, branch_id) in new_constrained_branches
             push!(vars, var_id)
             push!(branches, branch_id)
-            if haskey(new_contexts, var_id)
-                push!(cont_vars, var_id)
-                push!(contexts, new_contexts[var_id])
-            end
         end
         sc.constrained_vars[vars, new_constraint_id] = branches
         sc.constrained_branches[branches, new_constraint_id] = vars
-        sc.constrained_contexts[cont_vars, new_constraint_id] = contexts
+        sc.constrained_contexts[new_constraint_id] = new_context_id
     end
 end
 
@@ -217,7 +219,7 @@ end
 function _tighten_constraint(
     sc,
     constrained_branches,
-    constrained_contexts,
+    constrained_context_id,
     new_var_id,
     new_branch_id,
     old_entry::EitherEntry,
@@ -301,5 +303,5 @@ function _tighten_constraint(
         end
     end
 
-    return out_either_branches, constrained_contexts
+    return out_either_branches, constrained_context_id
 end

@@ -417,7 +417,7 @@ end
         v2_branch_id = 4
 
         constraint_id = 1
-        @test nnz(sc.constrained_contexts[:, constraint_id]) == 0
+        @test sc.constrained_contexts[constraint_id] === nothing
 
         @test sc.branch_entries[v1_branch_id] == 3
         @test sc.branch_vars[v1_branch_id] == v1_var_id

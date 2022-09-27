@@ -5,7 +5,6 @@ struct TypeVariable <: Tp
     id::Int64
 end
 
-
 struct TypeConstructor <: Tp
     name::String
     arguments::Vector{Tp}
@@ -81,7 +80,9 @@ end
 
 empty_context = Context(0, Dict())
 
+Base.:(==)(a::Context, b::Context) = a.next_variable == b.next_variable && a.substitution == b.substitution
 
+Base.hash(a::Context, h::UInt64) = hash(a.next_variable, hash(a.substitution, h))
 
 arrow(arguments...) =
     if length(arguments) == 1
@@ -98,7 +99,6 @@ t0 = TypeVariable(0)
 t1 = TypeVariable(1)
 t2 = TypeVariable(2)
 
-
 tlist(t) = TypeConstructor("list", [t])
 ttuple2(t0, t1) = TypeConstructor("tuple2", [t0, t1])
 
@@ -109,7 +109,6 @@ treal = baseType("real")
 tbool = baseType("bool")
 tboolean = tbool  # alias
 tcharacter = baseType("char")
-
 
 function instantiate(t::TypeVariable, context, bindings = nothing)
     if isnothing(bindings)

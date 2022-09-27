@@ -105,12 +105,8 @@ function updated_branches(sc, entry::NoDataEntry, new_values, var_id, branch_id,
             sc.branch_is_explained[possible_result] = true
             set_explained = true
         end
-        if isempty(parent_constraints)
-            allow_fails, next_blocks = _downstream_blocks_existing_branch(sc, var_id, possible_result, fixed_branches)
-            return possible_result, false, allow_fails, next_blocks, set_explained
-        else
-            error("Not implemented")
-        end
+        allow_fails, next_blocks = _downstream_blocks_existing_branch(sc, var_id, possible_result, fixed_branches)
+        return possible_result, false, allow_fails, next_blocks, set_explained
     end
 
     new_branch_id = increment!(sc.branches_count)
@@ -127,10 +123,13 @@ function updated_branches(sc, entry::NoDataEntry, new_values, var_id, branch_id,
     sc.unused_explained_complexities[new_branch_id] = new_entry.complexity
 
     if !isempty(parent_constraints)
-        error("Not implemented")
+        for constraint_id in parent_constraints
+            tighten_constraint(sc, constraint_id, new_branch_id, branch_id)
+        end
+        allow_fails, next_blocks = _downstream_blocks_existing_branch(sc, var_id, new_branch_id, fixed_branches)
+    else
+        allow_fails, next_blocks = _downstream_blocks_new_branch(sc, var_id, branch_id, new_branch_id, fixed_branches)
     end
-
-    allow_fails, next_blocks = _downstream_blocks_new_branch(sc, var_id, branch_id, new_branch_id, fixed_branches)
     return new_branch_id, true, allow_fails, next_blocks, true
 end
 

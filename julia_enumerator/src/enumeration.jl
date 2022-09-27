@@ -688,7 +688,7 @@ function enumeration_iteration_finished_output(run_context, sc::SolutionContext,
             # @info "Added new constraint with type only $new_constraint_id"
             sc.constrained_branches[constrained_branches, new_constraint_id] = constrained_vars
             sc.constrained_vars[constrained_vars, new_constraint_id] = constrained_branches
-            sc.constrained_contexts[constrained_vars, new_constraint_id] = context_id
+            sc.constrained_contexts[new_constraint_id] = context_id
         end
     else
         p = state.skeleton

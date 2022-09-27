@@ -17,7 +17,6 @@ mutable struct SolutionContext
     branch_types::GraphStorage
 
     blocks::IndexedStorage{AbstractProgramBlock}
-    "[block_copy_id] -> block_id"
     block_copies_count::CountStorage
 
     constraints_count::CountStorage
@@ -35,8 +34,8 @@ mutable struct SolutionContext
     constrained_vars::GraphStorage
     "[branch_id x constraint_id] -> var_id"
     constrained_branches::GraphStorage
-    "[var_id x constraint_id] -> context_id"
-    constrained_contexts::GraphStorage
+    "constraint_id -> context_id"
+    constrained_contexts::VectorStorage{Int}
 
     "[branch_id x related_branch_id] -> {nothing, 1}"
     related_explained_complexity_branches::GraphStorage
@@ -92,7 +91,7 @@ function create_starting_context(task::Task, type_weights)::SolutionContext
         GraphStorage(),
         GraphStorage(),
         GraphStorage(),
-        GraphStorage(),
+        VectorStorage{Int}(),
         GraphStorage(),
         GraphStorage(),
         PathsStorage(),
@@ -446,10 +445,11 @@ function _update_complexity_factor_unknown(sc::SolutionContext, branch_id)
         end
     else
         for out_block_copy_id in nonzeroinds(sc.branch_outgoing_blocks[branch_id, :])
-            out_block = sc.blocks[out_block_id]
-            out_branch_id = out_block.output_var[2]
-            if sc.complexity_factors[out_branch_id] < sc.complexity_factors[branch_id]
-                sc.complexity_factors[branch_id] = sc.complexity_factors[out_branch_id]
+            out_branches = nonzeroinds(sc.branch_incoming_blocks[:, out_block_copy_id])
+            for out_branch_id in out_branches
+                if sc.complexity_factors[branch_id] > sc.complexity_factors[out_branch_id]
+                    sc.complexity_factors[branch_id] = sc.complexity_factors[out_branch_id]
+                end
             end
         end
     end
@@ -692,14 +692,6 @@ function assert_context_consistency(sc::SolutionContext)
         end
         branch_parents = nonzeroinds(sc.branch_children[:, branch_id])
         var_id = sc.branch_vars[branch_id]
-        # for block_copy_id in nonzeroinds(sc.branch_outgoing_blocks[branch_id, :])
-        #     block = sc.blocks[block_id]
-        #     if isempty(branch_parents)
-        #         if block.input_vars[var_id] != branch_id
-        #             error("Branch $branch_id is not in inputs of block $block")
-        #         end
-        #     end
-        # end
 
         branch_outgoing_block_copies = sc.branch_outgoing_blocks[branch_id, :]
         for child_id in nonzeroinds(sc.branch_children[branch_id, :])
