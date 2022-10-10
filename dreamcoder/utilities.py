@@ -983,13 +983,15 @@ def parseSExpression(s):
             x, n = p(n)
             l.append(x)
             x, n = p(n)
-            if x != "in":
+            if x == "":
+                return l, n
+            if x != "in" and x != ";":
                 raise ParseFailure(s)
             l.append(x)
             x, n = p(n)
             l.append(x)
             return l, n
-        if name == "rev":
+        if name == "rev" or name == "wrap":
             l = [name]
             x, n = p(n)
             l.extend(x)

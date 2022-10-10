@@ -351,6 +351,39 @@ class Grammar(object):
 
             return context, var_body_requests, summary
 
+        if expression.isWrapEither:
+            context, var_requests, summary = self.likelihoodSummary(
+                context,
+                environment,
+                workspace,
+                workspace[expression.inp_var_name],
+                expression.vars_def,
+                silent=silent,
+            )
+            merged_workspace = dict(workspace, **var_requests)
+            context, var_body_requests, body_summary = self.likelihoodSummary(
+                context,
+                environment,
+                merged_workspace,
+                request,
+                expression.body,
+                silent=silent,
+            )
+            summary.join(body_summary)
+            context, var_fixer_requests, fixer_summary = self.likelihoodSummary(
+                context,
+                environment,
+                merged_workspace,
+                var_requests[expression.fixer_var_name],
+                expression.fixer_var,
+                silent=silent,
+            )
+            summary.join(fixer_summary)
+            var_body_requests.update(var_fixer_requests)
+            var_body_requests[expression.inp_var_name] = workspace[expression.inp_var_name]
+
+            return context, var_body_requests, summary
+
         thisSummary = LikelihoodSummary()
 
         if expression.isFreeVariable:

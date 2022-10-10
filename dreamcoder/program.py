@@ -14,16 +14,20 @@ class InferenceFailure(Exception):
 class ShiftFailure(Exception):
     pass
 
+
 class RunFailure(Exception):
     pass
 
 
 class Program(object):
-    def __repr__(self): return str(self)
+    def __repr__(self):
+        return str(self)
 
-    def __ne__(self, o): return not (self == o)
+    def __ne__(self, o):
+        return not (self == o)
 
-    def __str__(self): return self.show(False)
+    def __str__(self):
+        return self.show(False)
 
     def canHaveType(self, t):
         try:
@@ -38,7 +42,8 @@ class Program(object):
         n = self
         while True:
             np = n.betaReduce()
-            if np is None: return n
+            if np is None:
+                return n
             n = np
 
     def infer(self):
@@ -69,9 +74,12 @@ class Program(object):
         for _ in range(a):
             e = Abstraction(e)
 
-        assert self.infer() == e.infer(), \
-            "FATAL: uncurry has a bug. %s : %s, but uncurried to %s : %s" % (self, self.infer(),
-                                                                             e, e.infer())
+        assert self.infer() == e.infer(), "FATAL: uncurry has a bug. %s : %s, but uncurried to %s : %s" % (
+            self,
+            self.infer(),
+            e,
+            e.infer(),
+        )
         return e
 
     def wellTyped(self):
@@ -87,17 +95,18 @@ class Program(object):
             f = f(x)
         return f
 
-    def applicationParses(self): yield self, []
+    def applicationParses(self):
+        yield self, []
 
-    def applicationParse(self): return self, []
+    def applicationParse(self):
+        return self, []
 
     @property
     def closed(self):
         for surroundingAbstractions, child in self.walk():
             if isinstance(child, FragmentVariable):
                 return False
-            if isinstance(child, Index) and child.free(
-                    surroundingAbstractions):
+            if isinstance(child, Index) and child.free(surroundingAbstractions):
                 return False
         return True
 
@@ -106,8 +115,7 @@ class Program(object):
         n = 0
         for surroundingAbstractions, child in expression.walk():
             # Free variable
-            if isinstance(child, Index) and child.free(
-                    surroundingAbstractions):
+            if isinstance(child, Index) and child.free(surroundingAbstractions):
                 n = max(n, child.i - surroundingAbstractions + 1)
         return n
 
@@ -117,139 +125,168 @@ class Program(object):
                 yield child.i - surroundingAbstractions
 
     @property
-    def isIndex(self): return False
+    def isIndex(self):
+        return False
 
     @property
-    def isUnion(self): return False
+    def isUnion(self):
+        return False
 
     @property
-    def isApplication(self): return False
+    def isApplication(self):
+        return False
 
     @property
-    def isAbstraction(self): return False
+    def isAbstraction(self):
+        return False
 
     @property
-    def isPrimitive(self): return False
+    def isPrimitive(self):
+        return False
 
     @property
-    def isInvented(self): return False
+    def isInvented(self):
+        return False
 
     @property
-    def isHole(self): return False
+    def isHole(self):
+        return False
 
     @property
-    def isFreeVariable(self): return False
+    def isFreeVariable(self):
+        return False
 
     @property
-    def isLetClause(self): return False
+    def isLetClause(self):
+        return False
 
     @property
-    def isLetRevClause(self): return False
+    def isLetRevClause(self):
+        return False
 
     @property
-    def isConst(self): return False
+    def isWrapEither(self):
+        return False
+
+    @property
+    def isConst(self):
+        return False
 
     @staticmethod
     def parse(s):
         s = parseSExpression(s)
         # eprint(s)
         def p(e):
-            if isinstance(e,list):
-                if e[0] == '#':
+            if isinstance(e, list):
+                if e[0] == "#":
                     assert len(e) == 2
                     return Invented(p(e[1]))
-                if e[0] == 'lambda':
+                if e[0] == "lambda":
                     assert len(e) == 2
                     return Abstraction(p(e[1]))
-                if e[0] == 'let' :
-                    if e[-3][0] != 'rev':
-                        return LetClause(e[1][1:], p(e[3]), p(e[5]))
-                    else:
+                if e[0] == "let":
+                    if e[-3][0] == "rev":
                         return LetRevClause([v[1:] for v in e[1:-4]], e[-3][1][1:], p(e[-3][3]), p(e[-1]))
-                if e[0] == 'Const':
+                    elif e[-3][0] == "wrap":
+                        return WrapEither(
+                            [v[1:] for v in e[1:-4]],
+                            e[-3][1][-3][1][1:],
+                            e[-3][1][-1][1][1:],
+                            p(e[-3][1][-3][-1]),
+                            p(e[-3][1][-1][-1]),
+                            p(e[-1]),
+                        )
+                    else:
+                        return LetClause(e[1][1:], p(e[3]), p(e[5]))
+                if e[0] == "Const":
                     return Constant(e[1])
                 f = p(e[0])
                 for x in e[1:]:
-                    f = Application(f,p(x))
+                    f = Application(f, p(x))
                 return f
-            assert isinstance(e,str)
-            if e[0] == '$':
+            assert isinstance(e, str)
+            if e[0] == "$":
                 try:
                     return Index(int(e[1:]))
                 except ValueError:
                     return FreeVariable(e[1:])
-            if e == "FREE_VAR": return FreeVariable(None)
-            if e in Primitive.GLOBALS: return Primitive.GLOBALS[e]
-            if e == '??' or e == '?': return FragmentVariable.single
-            if e == '<HOLE>': return Hole.single
-            raise ParseFailure((s,e))
+            if e == "FREE_VAR":
+                return FreeVariable(None)
+            if e in Primitive.GLOBALS:
+                return Primitive.GLOBALS[e]
+            if e == "??" or e == "?":
+                return FragmentVariable.single
+            if e == "<HOLE>":
+                return Hole.single
+            raise ParseFailure((s, e))
+
         return p(s)
 
     @staticmethod
-    def _parse(s,n):
+    def _parse(s, n):
         while n < len(s) and s[n].isspace():
             n += 1
-        for p in [
-                Application,
-                Abstraction,
-                Index,
-                Invented,
-                FragmentVariable,
-                Hole,
-                Primitive]:
+        for p in [Application, Abstraction, Index, Invented, FragmentVariable, Hole, Primitive]:
             try:
-                return p._parse(s,n)
+                return p._parse(s, n)
             except ParseFailure:
                 continue
         raise ParseFailure(s)
 
     # parser helpers
     @staticmethod
-    def parseConstant(s,n,*constants):
+    def parseConstant(s, n, *constants):
         for constant in constants:
             try:
-                for i,c in enumerate(constant):
-                    if i + n >= len(s) or s[i + n] != c: raise ParseFailure(s)
+                for i, c in enumerate(constant):
+                    if i + n >= len(s) or s[i + n] != c:
+                        raise ParseFailure(s)
                 return n + len(constant)
-            except ParseFailure: continue
+            except ParseFailure:
+                continue
         raise ParseFailure(s)
 
     @staticmethod
     def parseHumanReadable(s):
         s = parseSExpression(s)
+
         def p(s, environment):
-            if isinstance(s, list) and s[0] in ['lambda','\\']:
+            if isinstance(s, list) and s[0] in ["lambda", "\\"]:
                 assert isinstance(s[1], list) and len(s) == 3
                 newEnvironment = list(reversed(s[1])) + environment
                 e = p(s[2], newEnvironment)
-                for _ in s[1]: e = Abstraction(e)
+                for _ in s[1]:
+                    e = Abstraction(e)
                 return e
             if isinstance(s, list):
                 a = p(s[0], environment)
                 for x in s[1:]:
                     a = Application(a, p(x, environment))
                 return a
-            for j,v in enumerate(environment):
-                if s == v: return Index(j)
-            if s in Primitive.GLOBALS: return Primitive.GLOBALS[s]
+            for j, v in enumerate(environment):
+                if s == v:
+                    return Index(j)
+            if s in Primitive.GLOBALS:
+                return Primitive.GLOBALS[s]
             assert False, f"could not parse {s}"
+
         return p(s, [])
 
 
-
-
 class Application(Program):
-    '''Function application'''
+    """Function application"""
 
     def __init__(self, f, x):
         self.f = f
         self.x = x
         self.hashCode = None
-        self.isConditional = (not isinstance(f,int)) and \
-                             f.isApplication and \
-                             f.f.isApplication and \
-                             f.f.f.isPrimitive and \
-                             f.f.f.name == "if"
+        self.isConditional = (
+            (not isinstance(f, int))
+            and f.isApplication
+            and f.f.isApplication
+            and f.f.f.isPrimitive
+            and f.f.f.name == "if"
+        )
         if self.isConditional:
             self.falseBranch = x
             self.trueBranch = f.x
@@ -262,12 +299,15 @@ class Application(Program):
     def betaReduce(self):
         # See if either the function or the argument can be reduced
         f = self.f.betaReduce()
-        if f is not None: return Application(f,self.x)
+        if f is not None:
+            return Application(f, self.x)
         x = self.x.betaReduce()
-        if x is not None: return Application(self.f,x)
+        if x is not None:
+            return Application(self.f, x)
 
         # Neither of them could be reduced. Is this not a redex?
-        if not self.f.isAbstraction: return None
+        if not self.f.isAbstraction:
+            return None
 
         # Perform substitution
         b = self.f.body
@@ -280,7 +320,8 @@ class Application(Program):
     def freeVariables(self):
         return self.f.freeVariables() | self.x.freeVariables()
 
-    def clone(self): return Application(self.f.clone(), self.x.clone())
+    def clone(self):
+        return Application(self.f.clone(), self.x.clone())
 
     def annotateTypes(self, context, environment):
         self.f.annotateTypes(context, environment)
@@ -289,15 +330,12 @@ class Application(Program):
         context.unify(arrow(self.x.annotatedType, r), self.f.annotatedType)
         self.annotatedType = r.applyMutable(context)
 
-
     @property
-    def isApplication(self): return True
+    def isApplication(self):
+        return True
 
-    def __eq__(
-        self,
-        other): return isinstance(
-        other,
-        Application) and self.f == other.f and self.x == other.x
+    def __eq__(self, other):
+        return isinstance(other, Application) and self.f == other.f and self.x == other.x
 
     def __hash__(self):
         if self.hashCode is None:
@@ -305,24 +343,28 @@ class Application(Program):
         return self.hashCode
 
     """Because Python3 randomizes the hash function, we need to never pickle the hash"""
+
     def __getstate__(self):
         return self.f, self.x, self.isConditional, self.falseBranch, self.trueBranch, self.branch
+
     def __setstate__(self, state):
         try:
             self.f, self.x, self.isConditional, self.falseBranch, self.trueBranch, self.branch = state
         except ValueError:
             # backward compatibility
-            assert 'x' in state
-            assert 'f' in state
-            f = state['f']
-            x = state['x']
+            assert "x" in state
+            assert "f" in state
+            f = state["f"]
+            x = state["x"]
             self.f = f
             self.x = x
-            self.isConditional = (not isinstance(f,int)) and \
-                                 f.isApplication and \
-                                 f.f.isApplication and \
-                                 f.f.f.isPrimitive and \
-                                 f.f.f.name == "if"
+            self.isConditional = (
+                (not isinstance(f, int))
+                and f.isApplication
+                and f.f.isApplication
+                and f.f.f.isPrimitive
+                and f.f.f.name == "if"
+            )
             if self.isConditional:
                 self.falseBranch = x
                 self.trueBranch = f.x
@@ -334,12 +376,8 @@ class Application(Program):
 
         self.hashCode = None
 
-    def visit(self,
-              visitor,
-              *arguments,
-              **keywords): return visitor.application(self,
-                                                      *arguments,
-                                                      **keywords)
+    def visit(self, visitor, *arguments, **keywords):
+        return visitor.application(self, *arguments, **keywords)
 
     def show(self, isFunction):
         if isFunction:
@@ -373,16 +411,12 @@ class Application(Program):
         return f, xs + [self.x]
 
     def shift(self, offset, depth=0):
-        return Application(self.f.shift(offset, depth),
-                           self.x.shift(offset, depth))
+        return Application(self.f.shift(offset, depth), self.x.shift(offset, depth))
 
     def substitute(self, old, new):
         if self == old:
             return new
-        return Application(
-            self.f.substitute(
-                old, new), self.x.substitute(
-                old, new))
+        return Application(self.f.substitute(old, new), self.x.substitute(old, new))
 
     def walkUncurried(self, d=0):
         yield d, self
@@ -396,19 +430,23 @@ class Application(Program):
         yield from self.f.walk(surroundingAbstractions)
         yield from self.x.walk(surroundingAbstractions)
 
-    def size(self): return self.f.size() + self.x.size()
+    def size(self):
+        return self.f.size() + self.x.size()
 
     @staticmethod
-    def _parse(s,n):
-        while n < len(s) and s[n].isspace(): n += 1
-        if n == len(s) or s[n] != '(': raise ParseFailure(s)
+    def _parse(s, n):
+        while n < len(s) and s[n].isspace():
+            n += 1
+        if n == len(s) or s[n] != "(":
+            raise ParseFailure(s)
         n += 1
 
         xs = []
         while True:
             x, n = Program._parse(s, n)
             xs.append(x)
-            while n < len(s) and s[n].isspace(): n += 1
+            while n < len(s) and s[n].isspace():
+                n += 1
             if n == len(s):
                 raise ParseFailure(s)
             if s[n] == ")":
@@ -421,26 +459,25 @@ class Application(Program):
 
 
 class Index(Program):
-    '''
+    """
     deBruijn index: https://en.wikipedia.org/wiki/De_Bruijn_index
     These indices encode variables.
-    '''
+    """
 
     def __init__(self, i):
         self.i = i
 
-    def show(self, isFunction): return "$%d" % self.i
+    def show(self, isFunction):
+        return "$%d" % self.i
 
-    def __eq__(self, o): return isinstance(o, Index) and o.i == self.i
+    def __eq__(self, o):
+        return isinstance(o, Index) and o.i == self.i
 
-    def __hash__(self): return self.i
+    def __hash__(self):
+        return self.i
 
-    def visit(self,
-              visitor,
-              *arguments,
-              **keywords): return visitor.index(self,
-                                                *arguments,
-                                                **keywords)
+    def visit(self, visitor, *arguments, **keywords):
+        return visitor.index(self, *arguments, **keywords)
 
     def evaluate(self, environment):
         return environment[self.i]
@@ -456,7 +493,8 @@ class Index(Program):
             freeVariables[i] = variable
             return (context, variable)
 
-    def clone(self): return Index(self.i)
+    def clone(self):
+        return Index(self.i)
 
     def annotateTypes(self, context, environment):
         self.annotatedType = environment[self.i].applyMutable(context)
@@ -471,11 +509,14 @@ class Index(Program):
                 raise ShiftFailure()
             return Index(i)
 
-    def betaReduce(self): return None
+    def betaReduce(self):
+        return None
 
-    def isBetaLong(self): return True
+    def isBetaLong(self):
+        return True
 
-    def freeVariables(self): return {self.i}
+    def freeVariables(self):
+        return {self.i}
 
     def substitute(self, old, new):
         if old == self:
@@ -483,27 +524,32 @@ class Index(Program):
         else:
             return self
 
-    def walk(self, surroundingAbstractions=0): yield surroundingAbstractions, self
+    def walk(self, surroundingAbstractions=0):
+        yield surroundingAbstractions, self
 
-    def walkUncurried(self, d=0): yield d, self
+    def walkUncurried(self, d=0):
+        yield d, self
 
-    def size(self): return 1
+    def size(self):
+        return 1
 
     def free(self, surroundingAbstractions):
-        '''Is this index a free variable, given that it has surroundingAbstractions lambda's around it?'''
+        """Is this index a free variable, given that it has surroundingAbstractions lambda's around it?"""
         return self.i >= surroundingAbstractions
 
     def bound(self, surroundingAbstractions):
-        '''Is this index a bound variable, given that it has surroundingAbstractions lambda's around it?'''
+        """Is this index a bound variable, given that it has surroundingAbstractions lambda's around it?"""
         return self.i < surroundingAbstractions
 
     @property
-    def isIndex(self): return True
+    def isIndex(self):
+        return True
 
     @staticmethod
-    def _parse(s,n):
-        while n < len(s) and s[n].isspace(): n += 1
-        if n == len(s) or s[n] != '$':
+    def _parse(s, n):
+        while n < len(s) and s[n].isspace():
+            n += 1
+        if n == len(s) or s[n] != "$":
             raise ParseFailure(s)
         n += 1
         j = ""
@@ -516,17 +562,18 @@ class Index(Program):
 
 
 class Abstraction(Program):
-    '''Lambda abstraction. Creates a new function.'''
+    """Lambda abstraction. Creates a new function."""
 
     def __init__(self, body):
         self.body = body
         self.hashCode = None
 
     @property
-    def isAbstraction(self): return True
+    def isAbstraction(self):
+        return True
 
-    def __eq__(self, o): return isinstance(
-        o, Abstraction) and o.body == self.body
+    def __eq__(self, o):
+        return isinstance(o, Abstraction) and o.body == self.body
 
     def __hash__(self):
         if self.hashCode is None:
@@ -534,25 +581,25 @@ class Abstraction(Program):
         return self.hashCode
 
         """Because Python3 randomizes the hash function, we need to never pickle the hash"""
+
     def __getstate__(self):
         return self.body
+
     def __setstate__(self, state):
         self.body = state
         self.hashCode = None
 
-    def isBetaLong(self): return self.body.isBetaLong()
+    def isBetaLong(self):
+        return self.body.isBetaLong()
 
     def freeVariables(self):
         return {f - 1 for f in self.body.freeVariables() if f > 0}
 
-    def visit(self,
-              visitor,
-              *arguments,
-              **keywords): return visitor.abstraction(self,
-                                                      *arguments,
-                                                      **keywords)
+    def visit(self, visitor, *arguments, **keywords):
+        return visitor.abstraction(self, *arguments, **keywords)
 
-    def clone(self): return Abstraction(self.body.clone())
+    def clone(self):
+        return Abstraction(self.body.clone())
 
     def annotateTypes(self, context, environment):
         v = context.makeVariable()
@@ -567,13 +614,13 @@ class Abstraction(Program):
 
     def betaReduce(self):
         b = self.body.betaReduce()
-        if b is None: return None
+        if b is None:
+            return None
         return Abstraction(b)
 
     def inferType(self, context, environment, freeVariables):
         (context, argumentType) = context.makeVariable()
-        (context, returnType) = self.body.inferType(
-            context, [argumentType] + environment, freeVariables)
+        (context, returnType) = self.body.inferType(context, [argumentType] + environment, freeVariables)
         return (context, arrow(argumentType, returnType).apply(context))
 
     def shift(self, offset, depth=0):
@@ -594,18 +641,20 @@ class Abstraction(Program):
         yield d, self
         yield from self.body.walkUncurried(d + 1)
 
-    def size(self): return self.body.size()
+    def size(self):
+        return self.body.size()
 
     @staticmethod
-    def _parse(s,n):
-        n = Program.parseConstant(s,n,
-                                  '(\\','(lambda','(\u03bb')
+    def _parse(s, n):
+        n = Program.parseConstant(s, n, "(\\", "(lambda", "(\u03bb")
 
-        while n < len(s) and s[n].isspace(): n += 1
+        while n < len(s) and s[n].isspace():
+            n += 1
 
-        b, n = Program._parse(s,n)
-        while n < len(s) and s[n].isspace(): n += 1
-        n = Program.parseConstant(s,n,')')
+        b, n = Program._parse(s, n)
+        while n < len(s) and s[n].isspace():
+            n += 1
+        n = Program.parseConstant(s, n, ")")
         return Abstraction(b), n
 
 
@@ -620,39 +669,44 @@ class Primitive(Program):
             Primitive.GLOBALS[name] = self
 
     @property
-    def isPrimitive(self): return True
+    def isPrimitive(self):
+        return True
 
-    def __eq__(self, o): return isinstance(
-        o, Primitive) and o.name == self.name
+    def __eq__(self, o):
+        return isinstance(o, Primitive) and o.name == self.name
 
-    def __hash__(self): return hash(self.name)
+    def __hash__(self):
+        return hash(self.name)
 
-    def visit(self,
-              visitor,
-              *arguments,
-              **keywords): return visitor.primitive(self,
-                                                    *arguments,
-                                                    **keywords)
+    def visit(self, visitor, *arguments, **keywords):
+        return visitor.primitive(self, *arguments, **keywords)
 
-    def show(self, isFunction): return self.name
+    def show(self, isFunction):
+        return self.name
 
-    def clone(self): return Primitive(self.name, self.tp, self.value)
+    def clone(self):
+        return Primitive(self.name, self.tp, self.value)
 
     def annotateTypes(self, context, environment):
         self.annotatedType = self.tp.instantiateMutable(context)
 
-    def evaluate(self, environment): return self.value
+    def evaluate(self, environment):
+        return self.value
 
-    def betaReduce(self): return None
+    def betaReduce(self):
+        return None
 
-    def isBetaLong(self): return True
+    def isBetaLong(self):
+        return True
 
-    def freeVariables(self): return set()
+    def freeVariables(self):
+        return set()
 
     def inferType(self, context, environment, freeVariables):
         return self.tp.instantiate(context)
 
-    def shift(self, offset, depth=0): return self
+    def shift(self, offset, depth=0):
+        return self
 
     def substitute(self, old, new):
         if self == old:
@@ -660,17 +714,21 @@ class Primitive(Program):
         else:
             return self
 
-    def walk(self, surroundingAbstractions=0): yield surroundingAbstractions, self
+    def walk(self, surroundingAbstractions=0):
+        yield surroundingAbstractions, self
 
-    def walkUncurried(self, d=0): yield d, self
+    def walkUncurried(self, d=0):
+        yield d, self
 
-    def size(self): return 1
+    def size(self):
+        return 1
 
     @staticmethod
-    def _parse(s,n):
-        while n < len(s) and s[n].isspace(): n += 1
+    def _parse(s, n):
+        while n < len(s) and s[n].isspace():
+            n += 1
         name = []
-        while n < len(s) and not s[n].isspace() and s[n] not in '()':
+        while n < len(s) and not s[n].isspace() and s[n] not in "()":
             name.append(s[n])
             n += 1
         name = "".join(name)
@@ -690,8 +748,9 @@ class Primitive(Program):
     #         p = Primitive.GLOBALS[state]
     #         self.__init__(p.name, p.tp, p.value)
 
+
 class Invented(Program):
-    '''New invented primitives'''
+    """New invented primitives"""
 
     def __init__(self, body):
         self.body = body
@@ -699,18 +758,17 @@ class Invented(Program):
         self.hashCode = None
 
     @property
-    def isInvented(self): return True
+    def isInvented(self):
+        return True
 
-    def show(self, isFunction): return "#%s" % (self.body.show(False))
+    def show(self, isFunction):
+        return "#%s" % (self.body.show(False))
 
-    def visit(self,
-              visitor,
-              *arguments,
-              **keywords): return visitor.invented(self,
-                                                   *arguments,
-                                                   **keywords)
+    def visit(self, visitor, *arguments, **keywords):
+        return visitor.invented(self, *arguments, **keywords)
 
-    def __eq__(self, o): return isinstance(o, Invented) and o.body == self.body
+    def __eq__(self, o):
+        return isinstance(o, Invented) and o.body == self.body
 
     def __hash__(self):
         if self.hashCode is None:
@@ -718,29 +776,37 @@ class Invented(Program):
         return self.hashCode
 
     """Because Python3 randomizes the hash function, we need to never pickle the hash"""
+
     def __getstate__(self):
         return self.body, self.tp
+
     def __setstate__(self, state):
         self.body, self.tp = state
         self.hashCode = None
 
-    def clone(self): return Invented(self.body)
+    def clone(self):
+        return Invented(self.body)
 
     def annotateTypes(self, context, environment):
         self.annotatedType = self.tp.instantiateMutable(context)
 
-    def evaluate(self, e): return self.body.evaluate([])
+    def evaluate(self, e):
+        return self.body.evaluate([])
 
-    def betaReduce(self): return self.body
+    def betaReduce(self):
+        return self.body
 
-    def isBetaLong(self): return True
+    def isBetaLong(self):
+        return True
 
-    def freeVariables(self): return set()
+    def freeVariables(self):
+        return set()
 
     def inferType(self, context, environment, freeVariables):
         return self.tp.instantiate(context)
 
-    def shift(self, offset, depth=0): return self
+    def shift(self, offset, depth=0):
+        return self
 
     def substitute(self, old, new):
         if self == old:
@@ -748,46 +814,54 @@ class Invented(Program):
         else:
             return self
 
-    def walk(self, surroundingAbstractions=0): yield surroundingAbstractions, self
+    def walk(self, surroundingAbstractions=0):
+        yield surroundingAbstractions, self
 
-    def walkUncurried(self, d=0): yield d, self
+    def walkUncurried(self, d=0):
+        yield d, self
 
-    def size(self): return 1
+    def size(self):
+        return 1
 
     @staticmethod
-    def _parse(s,n):
-        while n < len(s) and s[n].isspace(): n += 1
-        if n < len(s) and s[n] == '#':
+    def _parse(s, n):
+        while n < len(s) and s[n].isspace():
             n += 1
-            b,n = Program._parse(s,n)
-            return Invented(b),n
+        if n < len(s) and s[n] == "#":
+            n += 1
+            b, n = Program._parse(s, n)
+            return Invented(b), n
 
         raise ParseFailure(s)
 
 
 class FragmentVariable(Program):
-    def __init__(self): pass
+    def __init__(self):
+        pass
 
-    def show(self, isFunction): return "??"
+    def show(self, isFunction):
+        return "??"
 
-    def __eq__(self, o): return isinstance(o, FragmentVariable)
+    def __eq__(self, o):
+        return isinstance(o, FragmentVariable)
 
-    def __hash__(self): return 42
+    def __hash__(self):
+        return 42
 
     def visit(self, visitor, *arguments, **keywords):
         return visitor.fragmentVariable(self, *arguments, **keywords)
 
     def evaluate(self, e):
-        raise Exception('Attempt to evaluate fragment variable')
+        raise Exception("Attempt to evaluate fragment variable")
 
     def betaReduce(self):
-        raise Exception('Attempt to beta reduce fragment variable')
+        raise Exception("Attempt to beta reduce fragment variable")
 
     def inferType(self, context, environment, freeVariables):
         return context.makeVariable()
 
     def shift(self, offset, depth=0):
-        raise Exception('Attempt to shift fragment variable')
+        raise Exception("Attempt to shift fragment variable")
 
     def substitute(self, old, new):
         if self == old:
@@ -795,72 +869,78 @@ class FragmentVariable(Program):
         else:
             return self
 
-    def match(
-            self,
-            context,
-            expression,
-            holes,
-            variableBindings,
-            environment=[]):
+    def match(self, context, expression, holes, variableBindings, environment=[]):
         surroundingAbstractions = len(environment)
         try:
             context, variable = context.makeVariable()
-            holes.append(
-                (variable, expression.shift(-surroundingAbstractions)))
+            holes.append((variable, expression.shift(-surroundingAbstractions)))
             return context, variable
         except ShiftFailure:
             raise MatchFailure()
 
-    def walk(self, surroundingAbstractions=0): yield surroundingAbstractions, self
+    def walk(self, surroundingAbstractions=0):
+        yield surroundingAbstractions, self
 
-    def walkUncurried(self, d=0): yield d, self
+    def walkUncurried(self, d=0):
+        yield d, self
 
-    def size(self): return 1
+    def size(self):
+        return 1
 
     @staticmethod
-    def _parse(s,n):
-        while n < len(s) and s[n].isspace(): n += 1
-        n = Program.parseConstant(s,n,'??','?')
+    def _parse(s, n):
+        while n < len(s) and s[n].isspace():
+            n += 1
+        n = Program.parseConstant(s, n, "??", "?")
         return FragmentVariable.single, n
+
 
 FragmentVariable.single = FragmentVariable()
 
 
 class Hole(Program):
-    def __init__(self): pass
+    def __init__(self):
+        pass
 
-    def show(self, isFunction): return "<HOLE>"
+    def show(self, isFunction):
+        return "<HOLE>"
 
     @property
-    def isHole(self): return True
+    def isHole(self):
+        return True
 
-    def __eq__(self, o): return isinstance(o, Hole)
+    def __eq__(self, o):
+        return isinstance(o, Hole)
 
-    def __hash__(self): return 42
+    def __hash__(self):
+        return 42
 
     def evaluate(self, e):
-        raise Exception('Attempt to evaluate hole')
+        raise Exception("Attempt to evaluate hole")
 
     def betaReduce(self):
-        raise Exception('Attempt to beta reduce hole')
+        raise Exception("Attempt to beta reduce hole")
 
     def inferType(self, context, environment, freeVariables):
         return context.makeVariable()
 
     def shift(self, offset, depth=0):
-        raise Exception('Attempt to shift fragment variable')
+        raise Exception("Attempt to shift fragment variable")
 
-    def walk(self, surroundingAbstractions=0): yield surroundingAbstractions, self
+    def walk(self, surroundingAbstractions=0):
+        yield surroundingAbstractions, self
 
-    def walkUncurried(self, d=0): yield d, self
+    def walkUncurried(self, d=0):
+        yield d, self
 
-    def size(self): return 1
+    def size(self):
+        return 1
 
     @staticmethod
-    def _parse(s,n):
-        while n < len(s) and s[n].isspace(): n += 1
-        n = Program.parseConstant(s,n,
-                                  '<HOLE>')
+    def _parse(s, n):
+        while n < len(s) and s[n].isspace():
+            n += 1
+        n = Program.parseConstant(s, n, "<HOLE>")
         return Hole.single, n
 
 
@@ -874,9 +954,7 @@ class LetClause(Program):
         self.body = body
 
     def show(self, isFunction):
-        return "let $%s = %s in %s" % (self.var_name,
-                                      self.var_def.show(False),
-                                      self.body.show(False))
+        return "let $%s = %s in %s" % (self.var_name, self.var_def.show(False), self.body.show(False))
 
     @property
     def isLetClause(self):
@@ -891,18 +969,41 @@ class LetRevClause(Program):
         self.body = body
 
     def show(self, isFunction):
-        return "let %s = rev($%s = %s) in %s" % (", ".join(f"${v}" for v in self.var_names),
-                                      self.inp_var_name,
-                                      self.vars_def.show(False),
-                                      self.body.show(False))
+        return "let %s = rev($%s = %s) in %s" % (
+            ", ".join(f"${v}" for v in self.var_names),
+            self.inp_var_name,
+            self.vars_def.show(False),
+            self.body.show(False),
+        )
 
     @property
     def isLetRevClause(self):
         return True
 
 
+class WrapEither(Program):
+    def __init__(self, var_names, inp_var_name, fixer_var_name, vars_def, fixer_var, body):
+        self.var_names = var_names
+        self.inp_var_name = inp_var_name
+        self.fixer_var_name = fixer_var_name
+        self.vars_def = vars_def
+        self.fixer_var = fixer_var
+        self.body = body
+
+    def show(self, isFunction):
+        vars_list = ", ".join(f"${v}" for v in self.var_names)
+        return (
+            f"let {vars_list} = wrap(let {vars_list} = rev(${self.inp_var_name} = {self.vars_def.show(False)});"
+            + f" let ${self.fixer_var_name} = {self.fixer_var.show(False)}) in {self.body.show(False)}"
+        )
+
+    @property
+    def isWrapEither(self):
+        return True
+
+
 class FreeVariable(Program):
-    def __init__(self, name) :
+    def __init__(self, name):
         self.name = name
 
     def show(self, isFunction):
@@ -1009,8 +1110,8 @@ class Mutator:
             yield self.enclose(expr), deleted_ll + replaced_ll
 
     def index(self, e, tp, env, is_lhs=False):
-        #yield from ()
-        deleted_ll = self.logLikelihood(tp, e, env) #self.grammar.logVariable
+        # yield from ()
+        deleted_ll = self.logLikelihood(tp, e, env)  # self.grammar.logVariable
         for expr, replaced_ll in self.fn(tp, deleted_ll, is_left_application=is_lhs):
             yield self.enclose(expr), deleted_ll + replaced_ll
 
@@ -1028,7 +1129,7 @@ class Mutator:
 
     def abstraction(self, e, tp, env, is_lhs=False):
         self.history.append(lambda expr: Abstraction(expr))
-        yield from e.body.visit(self, tp.arguments[1], [tp.arguments[0]]+env)
+        yield from e.body.visit(self, tp.arguments[1], [tp.arguments[0]] + env)
         self.history.pop()
         deleted_ll = self.logLikelihood(tp, e, env)
         for expr, replaced_ll in self.fn(tp, deleted_ll, is_left_application=is_lhs):
@@ -1040,10 +1141,9 @@ class Mutator:
     def logLikelihood(self, tp, e, env):
         summary = None
         try:
-            _, summary = self.grammar.likelihoodSummary(Context.EMPTY, env,
-                tp, e, silent=True)
+            _, summary = self.grammar.likelihoodSummary(Context.EMPTY, env, tp, e, silent=True)
         except AssertionError as err:
-            #print(f"closedLikelihoodSummary failed on tp={tp}, e={e}, error={err}")
+            # print(f"closedLikelihoodSummary failed on tp={tp}, e={e}, error={err}")
             pass
         if summary is not None:
             return summary.logLikelihood(self.grammar)
@@ -1054,7 +1154,7 @@ class Mutator:
                 tmpE = tmpE.body
             to_introduce = len(tp.functionArguments()) - depth
             if to_introduce == 0:
-                #print(f"HIT NEGATIVEINFINITY, tp={tp}, e={e}")
+                # print(f"HIT NEGATIVEINFINITY, tp={tp}, e={e}")
                 return NEGATIVEINFINITY
             for i in reversed(range(to_introduce)):
                 e = Application(e, Index(i))
@@ -1064,22 +1164,26 @@ class Mutator:
 
 
 class RegisterPrimitives(object):
-    def invented(self, e): e.body.visit(self)
+    def invented(self, e):
+        e.body.visit(self)
 
     def primitive(self, e):
         if e.name not in Primitive.GLOBALS:
             Primitive(e.name, e.tp, e.value)
 
-    def index(self, e): pass
+    def index(self, e):
+        pass
 
     def application(self, e):
         e.f.visit(self)
         e.x.visit(self)
 
-    def abstraction(self, e): e.body.visit(self)
+    def abstraction(self, e):
+        e.body.visit(self)
 
     @staticmethod
-    def register(e): e.visit(RegisterPrimitives())
+    def register(e):
+        e.visit(RegisterPrimitives())
 
 
 class PrettyVisitor(object):
@@ -1089,8 +1193,7 @@ class PrettyVisitor(object):
         self.freeVariables = {}
 
         self.variableNames = ["x", "y", "z", "u", "v", "w"]
-        self.variableNames += [chr(ord('a') + j)
-                               for j in range(20)]
+        self.variableNames += [chr(ord("a") + j) for j in range(20)]
         self.toplevel = True
 
     def makeVariable(self):
@@ -1102,7 +1205,8 @@ class PrettyVisitor(object):
         s = e.body.visit(self, [], isFunction, isAbstraction)
         return s
 
-    def primitive(self, e, environment, isVariable, isAbstraction): return e.name
+    def primitive(self, e, environment, isVariable, isAbstraction):
+        return e.name
 
     def index(self, e, environment, isVariable, isAbstraction):
         if e.i < len(environment):
@@ -1118,8 +1222,7 @@ class PrettyVisitor(object):
 
     def application(self, e, environment, isFunction, isAbstraction):
         self.toplevel = False
-        s = "%s %s" % (e.f.visit(self, environment, True, False),
-                       e.x.visit(self, environment, False, False))
+        s = "%s %s" % (e.f.visit(self, environment, True, False), e.x.visit(self, environment, False, False))
         if isFunction:
             return s
         else:
@@ -1131,10 +1234,7 @@ class PrettyVisitor(object):
         if not self.Lisp:
             # Invent a new variable
             v = self.makeVariable()
-            body = e.body.visit(self,
-                                [v] + environment,
-                                False,
-                                True)
+            body = e.body.visit(self, [v] + environment, False, True)
             if not e.body.isAbstraction:
                 body = "." + body
             body = v + body
@@ -1149,19 +1249,22 @@ class PrettyVisitor(object):
             while child.isAbstraction:
                 newVariables = [self.makeVariable()] + newVariables
                 child = child.body
-            body = child.visit(self, newVariables + environment,
-                               False, True)
-            body = "(λ (%s) %s)"%(" ".join(reversed(newVariables)), body)
+            body = child.visit(self, newVariables + environment, False, True)
+            body = "(λ (%s) %s)" % (" ".join(reversed(newVariables)), body)
             return body
-
 
 
 def prettyProgram(e, Lisp=False):
     return e.visit(PrettyVisitor(Lisp=Lisp), [], False, False)
 
-class EtaExpandFailure(Exception): pass
+
+class EtaExpandFailure(Exception):
+    pass
+
+
 class EtaLongVisitor(object):
     """Converts an expression into eta-longform"""
+
     def __init__(self, request=None):
         self.request = request
         self.context = None
@@ -1169,21 +1272,19 @@ class EtaLongVisitor(object):
     def makeLong(self, e, request):
         if request.isArrow():
             # eta expansion
-            return Abstraction(Application(e.shift(1),
-                                           Index(0)))
+            return Abstraction(Application(e.shift(1), Index(0)))
         return None
 
-
     def abstraction(self, e, request, environment):
-        if not request.isArrow(): raise EtaExpandFailure()
+        if not request.isArrow():
+            raise EtaExpandFailure()
 
-        return Abstraction(e.body.visit(self,
-                                        request.arguments[1],
-                                        [request.arguments[0]] + environment))
+        return Abstraction(e.body.visit(self, request.arguments[1], [request.arguments[0]] + environment))
 
     def _application(self, e, request, environment):
         l = self.makeLong(e, request)
-        if l is not None: return l.visit(self, request, environment)
+        if l is not None:
+            return l.visit(self, request, environment)
 
         f, xs = e.applicationParse()
 
@@ -1191,31 +1292,36 @@ class EtaLongVisitor(object):
             ft = environment[f.i].applyMutable(self.context)
         elif f.isInvented or f.isPrimitive:
             ft = f.tp.instantiateMutable(self.context)
-        else: assert False, "Not in beta long form: %s"%e
+        else:
+            assert False, "Not in beta long form: %s" % e
 
         self.context.unify(request, ft.returns())
         ft = ft.applyMutable(self.context)
 
         xt = ft.functionArguments()
-        if len(xs) != len(xt): raise EtaExpandFailure()
+        if len(xs) != len(xt):
+            raise EtaExpandFailure()
 
         returnValue = f
-        for x,t in zip(xs,xt):
+        for x, t in zip(xs, xt):
             t = t.applyMutable(self.context)
-            returnValue = Application(returnValue,
-                                      x.visit(self, t, environment))
+            returnValue = Application(returnValue, x.visit(self, t, environment))
         return returnValue
 
     # This procedure works by recapitulating the generative process
     # applications indices and primitives are all generated identically
 
-    def application(self, e, request, environment): return self._application(e, request, environment)
+    def application(self, e, request, environment):
+        return self._application(e, request, environment)
 
-    def index(self, e, request, environment): return self._application(e, request, environment)
+    def index(self, e, request, environment):
+        return self._application(e, request, environment)
 
-    def primitive(self, e, request, environment): return self._application(e, request, environment)
+    def primitive(self, e, request, environment):
+        return self._application(e, request, environment)
 
-    def invented(self, e, request, environment): return self._application(e, request, environment)
+    def invented(self, e, request, environment):
+        return self._application(e, request, environment)
 
     def execute(self, e):
         assert len(e.freeVariables()) == 0
@@ -1231,36 +1337,49 @@ class EtaLongVisitor(object):
         return el
 
 
-
-class StripPrimitiveVisitor():
+class StripPrimitiveVisitor:
     """Replaces all primitives .value's w/ None. Does not destructively modify anything"""
-    def invented(self,e):
-        return Invented(e.body.visit(self))
-    def primitive(self,e):
-        return Primitive(e.name,e.tp,None)
-    def application(self,e):
-        return Application(e.f.visit(self),
-                           e.x.visit(self))
-    def abstraction(self,e):
-        return Abstraction(e.body.visit(self))
-    def index(self,e): return e
 
-class ReplacePrimitiveValueVisitor():
+    def invented(self, e):
+        return Invented(e.body.visit(self))
+
+    def primitive(self, e):
+        return Primitive(e.name, e.tp, None)
+
+    def application(self, e):
+        return Application(e.f.visit(self), e.x.visit(self))
+
+    def abstraction(self, e):
+        return Abstraction(e.body.visit(self))
+
+    def index(self, e):
+        return e
+
+
+class ReplacePrimitiveValueVisitor:
     """Intended to be used after StripPrimitiveVisitor.
     Replaces all primitive.value's with their corresponding entry in Primitive.GLOBALS"""
-    def invented(self,e):
+
+    def invented(self, e):
         return Invented(e.body.visit(self))
-    def primitive(self,e):
-        return Primitive(e.name,e.tp,Primitive.GLOBALS[e.name].value)
-    def application(self,e):
-        return Application(e.f.visit(self),
-                           e.x.visit(self))
-    def abstraction(self,e):
+
+    def primitive(self, e):
+        return Primitive(e.name, e.tp, Primitive.GLOBALS[e.name].value)
+
+    def application(self, e):
+        return Application(e.f.visit(self), e.x.visit(self))
+
+    def abstraction(self, e):
         return Abstraction(e.body.visit(self))
-    def index(self,e): return e
+
+    def index(self, e):
+        return e
+
 
 def strip_primitive_values(e):
     return e.visit(StripPrimitiveVisitor())
+
+
 def unstrip_primitive_values(e):
     return e.visit(ReplacePrimitiveValueVisitor())
 
@@ -1270,7 +1389,8 @@ class TokeniseVisitor(object):
     def invented(self, e):
         return [e.body]
 
-    def primitive(self, e): return [e.name]
+    def primitive(self, e):
+        return [e.name]
 
     def index(self, e):
         return ["$" + str(e.i)]
@@ -1287,14 +1407,13 @@ def tokeniseProgram(e):
 
 
 def untokeniseProgram(l):
-    lookup = {
-        "(_lambda": "(lambda",
-        ")_lambda": ")"
-    }
+    lookup = {"(_lambda": "(lambda", ")_lambda": ")"}
     s = " ".join(lookup.get(x, x) for x in l)
     return Program.parse(s)
 
+
 if __name__ == "__main__":
     from dreamcoder.domains.arithmetic.arithmeticPrimitives import *
+
     e = Program.parse("(#(lambda (?? (+ 1 $0))) (lambda (?? (+ 1 $0))) (lambda (?? (+ 1 $0))) - * (+ +))")
     eprint(e)

@@ -1,14 +1,20 @@
 import pytest
-from dreamcoder.domains.list.listPrimitives import bootstrapTarget_extra
+from dreamcoder.domains.list.listPrimitives import bootstrapTarget_extra, julia
 from dreamcoder.grammar import Grammar
 from dreamcoder.program import Program
 from dreamcoder.task import NamedVarsTask, Task
-from dreamcoder.type import tlist, tint, arrow
+from dreamcoder.type import ARROW, TypeNamedArgsConstructor, tlist, tint, arrow
 
 
 @pytest.fixture(scope="module")
 def base_grammar():
     prims = bootstrapTarget_extra()
+    return Grammar.uniform(prims)
+
+
+@pytest.fixture(scope="module")
+def julia_grammar():
+    prims = julia()
     return Grammar.uniform(prims)
 
 
@@ -157,3 +163,93 @@ def test_program_likelihood(base_grammar, base_task, program, complexities, expe
     likelihood = base_grammar.logLikelihood(base_task.request, p)
     print(likelihood)
     assert likelihood == expected_likelihood
+
+
+def sample_wrapper_programs():
+    programs = [
+        {
+            "program": "let $v1 = Const(Any[]) in let $v2, $v3 = wrap(let $v2, $v3 = rev($inp0 = (concat $v2 $v3)); let $v2 = $v1) in let $v4 = Const(Any[]) in let $v5 = Const(Any[1]) in let $v6 = (concat $v4 $v5) in (concat $v3 $v6)",
+            "time": 14.128462791442871,
+            "logLikelihood": 0.0,
+            # "logPrior": -6.356107660695891,
+            "logPrior": -7.4547199493640015,
+        },
+        {
+            "program": "let $v1, $v2 = wrap(let $v1, $v2 = rev($inp0 = (concat $v1 $v2)); let $v2 = $inp0) in let $v3 = Const(Any[]) in let $v4 = Const(Any[1]) in let $v5 = (concat $v3 $v4) in (concat $v2 $v5)",
+            "time": 14.270664930343628,
+            "logLikelihood": 0.0,
+            # "logPrior": -6.356107660695891,
+            "logPrior": -7.4547199493640015,
+        },
+        {
+            "program": "let $v1 = Const(Any[]) in let $v2, $v3 = wrap(let $v2, $v3 = rev($inp0 = (concat $v2 $v3)); let $v3 = $v1) in let $v4 = Const(Any[]) in let $v5 = Const(Any[1]) in let $v6 = (concat $v4 $v5) in (concat $v2 $v6)",
+            "time": 14.286531925201416,
+            "logLikelihood": 0.0,
+            # "logPrior": -6.356107660695891,
+            "logPrior": -7.4547199493640015,
+        },
+        {
+            "program": "let $v1, $v2 = wrap(let $v1, $v2 = rev($inp0 = (concat $v1 $v2)); let $v1 = $inp0) in let $v3 = Const(Any[]) in let $v4 = Const(Any[1]) in let $v5 = (concat $v3 $v4) in (concat $v1 $v5)",
+            "time": 14.27908992767334,
+            "logLikelihood": 0.0,
+            # "logPrior": -6.356107660695891,
+            "logPrior": -7.4547199493640015,
+        },
+        {
+            "program": "let $v1 = Const(Any[]) in let $v2 = Const(Any[1]) in let $v3 = (concat $v1 $v2) in (concat $inp0 $v3)",
+            "time": 13.979617834091187,
+            "logLikelihood": 0.0,
+            "logPrior": -4.969813299576001,
+        },
+        {
+            "program": "let $v1, $v2 = wrap(let $v1, $v2 = rev($inp0 = (concat $v1 $v2)); let $v2 = $inp0) in let $v3 = Const(Any[1]) in (concat $v2 $v3)",
+            "time": 13.207619905471802,
+            "logLikelihood": 0.0,
+            # "logPrior": -3.8712010109078907,
+            "logPrior": -4.969813299576001,
+        },
+        {
+            "program": "let $v1 = Const(Any[]) in let $v2, $v3 = wrap(let $v2, $v3 = rev($inp0 = (concat $v2 $v3)); let $v2 = $v1) in let $v4 = Const(Any[1]) in (concat $v3 $v4)",
+            "time": 12.554029941558838,
+            "logLikelihood": 0.0,
+            # "logPrior": -3.8712010109078907,
+            "logPrior": -4.969813299576001,
+        },
+        {
+            "program": "let $v1, $v2 = wrap(let $v1, $v2 = rev($inp0 = (concat $v1 $v2)); let $v1 = $inp0) in let $v3 = Const(Any[1]) in (concat $v1 $v3)",
+            "time": 13.738729000091553,
+            "logLikelihood": 0.0,
+            # "logPrior": -3.8712010109078907,
+            "logPrior": -4.969813299576001,
+        },
+        {
+            "program": "let $v1 = Const(Any[]) in let $v2, $v3 = wrap(let $v2, $v3 = rev($inp0 = (concat $v2 $v3)); let $v3 = $v1) in let $v4 = Const(Any[1]) in (concat $v2 $v4)",
+            "time": 13.747699975967407,
+            "logLikelihood": 0.0,
+            # "logPrior": -3.8712010109078907,
+            "logPrior": -4.969813299576001,
+        },
+        {
+            "program": "let $v1 = Const(Any[1]) in (concat $inp0 $v1)",
+            "time": 4.126955986022949,
+            "logLikelihood": 0.0,
+            "logPrior": -2.4849066497880004,
+        },
+    ]
+    return programs
+
+
+@pytest.mark.parametrize("solution", sample_wrapper_programs())
+def test_parsing_wrap(julia_grammar, solution):
+    program_str = solution["program"]
+    print(program_str)
+    p = Program.parse(program_str)
+    print(p.show(False))
+    request = TypeNamedArgsConstructor(
+        ARROW,
+        {"inp0": tlist(tint)},
+        tlist(tint),
+    )
+    likelihood = julia_grammar.logLikelihood(request, p)
+    print(likelihood)
+    assert likelihood == solution["logPrior"]
