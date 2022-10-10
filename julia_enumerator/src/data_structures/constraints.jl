@@ -132,7 +132,9 @@ function tighten_constraint(sc, constraint_id, new_branch_id, old_branch_id)
         end
         sc.constrained_vars[vars, new_constraint_id] = branches
         sc.constrained_branches[branches, new_constraint_id] = vars
-        sc.constrained_contexts[new_constraint_id] = new_context_id
+        if !isnothing(new_context_id)
+            sc.constrained_contexts[new_constraint_id] = new_context_id
+        end
     end
 end
 
@@ -174,14 +176,19 @@ function __fix_option_hashes(fixed_hashes, value)
     return value
 end
 
-function _fix_option_hashes(sc, fixed_hashes, entry::EitherEntry)
+function _fix_option_hashes(fixed_hashes, values)
     out_values = []
-    for ((found, hashes), value) in zip(fixed_hashes, entry.values)
+    for ((found, hashes), value) in zip(fixed_hashes, values)
         if !found
             error("Inconsistent match")
         end
         push!(out_values, __fix_option_hashes(hashes, value))
     end
+    return out_values
+end
+
+function _fix_option_hashes(sc, fixed_hashes, entry::EitherEntry)
+    out_values = _fix_option_hashes(fixed_hashes, entry.values)
     complexity_summary = get_complexity_summary(out_values, sc.types[entry.type_id])
     if any(isa(v, EitherOptions) for v in out_values)
         return EitherEntry(entry.type_id, out_values, complexity_summary, get_complexity(sc, complexity_summary))
@@ -260,12 +267,17 @@ function _tighten_constraint(
                 sc.branch_entries[created_branch_id] = entry_index
                 sc.branch_vars[created_branch_id] = var_id
                 sc.branch_types[created_branch_id, new_br_entry.type_id] = new_br_entry.type_id
-                sc.branch_is_unknown[created_branch_id] = true
+                if sc.branch_is_unknown[branch_id]
+                    sc.branch_is_unknown[created_branch_id] = true
+                end
                 deleteat!(sc.branch_children, parents, children)
                 sc.branch_children[parents, created_branch_id] = 1
                 sc.branch_children[created_branch_id, children] = 1
 
-                sc.unknown_min_path_costs[created_branch_id] = sc.unknown_min_path_costs[branch_id]
+                original_path_cost = sc.unknown_min_path_costs[branch_id]
+                if !isnothing(original_path_cost)
+                    sc.unknown_min_path_costs[created_branch_id] = original_path_cost
+                end
                 sc.complexities[created_branch_id] = new_br_entry.complexity
                 sc.unmatched_complexities[created_branch_id] = new_br_entry.complexity
 

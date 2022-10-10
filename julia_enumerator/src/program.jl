@@ -85,6 +85,25 @@ end
 Base.hash(p::LetRevClause, h::UInt64) = hash(p.var_ids, h) + hash(p.v, h) + hash(p.b, h)
 Base.:(==)(p::LetRevClause, q::LetRevClause) = p.var_ids == q.var_ids && p.v == q.v && p.b == q.b
 
+struct WrapEither <: Program
+    var_ids::Vector{Int}
+    inp_var_id::Union{Int,String}
+    fixer_var_id::Int
+    v::Program
+    rev_v::Any
+    f::FreeVar
+    b::Program
+end
+Base.hash(p::WrapEither, h::UInt64) =
+    hash(p.var_ids, hash(p.inp_var_id, hash(p.fixer_var_id, hash(p.v, hash(p.f, hash(p.b, h))))))
+Base.:(==)(p::WrapEither, q::WrapEither) =
+    p.var_ids == q.var_ids &&
+    p.inp_var_id == q.inp_var_id &&
+    p.fixer_var_id == q.fixer_var_id &&
+    p.v == q.v &&
+    p.f == q.f &&
+    p.b == q.b
+
 struct ExceptionProgram <: Program end
 
 Base.show(io::IO, p::Program) = print(io, show_program(p, false)...)
@@ -114,6 +133,22 @@ show_program(p::LetRevClause, is_function::Bool) = vcat(
         "$(p.inp_var_id) = ",
     ],
     show_program(p.v, false),
+    [") in "],
+    show_program(p.b, false),
+)
+show_program(p::WrapEither, is_function::Bool) = vcat(
+    [
+        "let ",
+        join(["\$v$v" for v in p.var_ids], ", "),
+        " = wrap(let ",
+        join(["\$v$v" for v in p.var_ids], ", "),
+        " = rev(\$",
+        (isa(p.inp_var_id, Int) ? "v" : ""),
+        "$(p.inp_var_id) = ",
+    ],
+    show_program(p.v, false),
+    ["); let \$v$(p.fixer_var_id) = "],
+    show_program(p.f, false),
     [") in "],
     show_program(p.b, false),
 )
@@ -178,6 +213,24 @@ Base.:(==)(block::ReverseProgramBlock, other::ReverseProgramBlock) =
 
 Base.hash(block::ReverseProgramBlock, h::UInt64) =
     hash(block.p, hash(block.cost, hash(block.input_vars, hash(block.output_vars, h))))
+
+struct WrapEitherBlock <: AbstractProgramBlock
+    main_block::ReverseProgramBlock
+    fixer_var::Int
+    cost::Float64
+    input_vars::Vector{Int}
+    output_vars::Vector{Int}
+end
+
+Base.:(==)(block::WrapEitherBlock, other::WrapEitherBlock) =
+    block.main_block == other.main_block &&
+    block.fixer_var == other.fixer_var &&
+    block.cost == other.cost &&
+    block.input_vars == other.input_vars &&
+    block.output_vars == other.output_vars
+
+Base.hash(block::WrapEitherBlock, h::UInt64) =
+    hash(block.main_block, hash(block.fixer_var, hash(block.cost, hash(block.input_vars, hash(block.output_vars, h)))))
 
 struct UnknownPrimitive <: Exception
     name::String
@@ -422,6 +475,29 @@ function analyze_evaluation(p::LetRevClause)
     (environment, workspace) -> begin
         vals = p.rev_v(workspace[p.inp_var_id])
         b(environment, merge(workspace, Dict(var_id => val for (var_id, val) in zip(p.var_ids, vals))))
+    end
+end
+
+function analyze_evaluation(p::WrapEither)
+    b = analyze_evaluation(p.b)
+    f = analyze_evaluation(p.f)
+    (environment, workspace) -> begin
+        vals = p.rev_v(workspace[p.inp_var_id])
+        unfixed_vals = Dict(var_id => val for (var_id, val) in zip(p.var_ids, vals))
+        fixed_val = f(environment, workspace)
+
+        fixed_hashes = [_get_fixed_hashes(unfixed_vals[p.fixer_var_id], fixed_val)]
+
+        fixed_values = Dict()
+        for (var_id, target_value) in unfixed_vals
+            if var_id == p.fixer_var_id
+                fixed_values[var_id] = fixed_val
+            else
+                fixed_values[var_id] = _fix_option_hashes(fixed_hashes, [target_value])[1]
+            end
+        end
+
+        b(environment, merge(workspace, fixed_values))
     end
 end
 

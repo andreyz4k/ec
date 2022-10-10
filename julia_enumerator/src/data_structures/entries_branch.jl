@@ -34,13 +34,13 @@ function value_updates(sc, block::ProgramBlock, target_output, new_values, fixed
     return out_branches, is_new_next_block, allow_fails, next_blocks, set_explained
 end
 
-function value_updates(sc, block::ReverseProgramBlock, target_output, new_values, fixed_branches)
+function value_updates(sc, block::Union{ReverseProgramBlock,WrapEitherBlock}, target_output, new_values, fixed_branches)
     out_branches = Dict()
     is_new_next_block = false
     allow_fails = false
     set_explained = false
     next_blocks = Set()
-    for (out_var, values) in zip(block.output_vars, new_values)
+    for (out_var, values) in zip(block.output_vars, zip(new_values...))
         br_id = target_output[out_var]
         values = collect(values)
         entry = sc.entries[sc.branch_entries[br_id]]
@@ -51,6 +51,12 @@ function value_updates(sc, block::ReverseProgramBlock, target_output, new_values
         allow_fails |= all_fails
         set_explained |= set_expl
         union!(next_blocks, n_blocks)
+    end
+    if set_explained
+        for (_, branch_id) in out_branches
+            inds = [b_id for (_, b_id) in out_branches if b_id != branch_id]
+            sc.related_explained_complexity_branches[branch_id, inds] = 1
+        end
     end
     return out_branches, is_new_next_block, allow_fails, next_blocks, set_explained
 end
@@ -178,18 +184,22 @@ function updated_branches(sc, entry::EitherEntry, new_values, var_id, branch_id,
 end
 
 function _downstream_branch_options_known(sc, block_id, block_copy_id, fixed_branches, unfixed_vars)
+    inp_branches = nonzeroinds(sc.branch_outgoing_blocks[:, block_copy_id])
+    all_inputs = Dict(v => b for (v, b) in zip(sc.branch_vars[inp_branches], inp_branches))
+    for (v, b) in all_inputs
+        if haskey(fixed_branches, v) && sc.branch_is_explained[b] && fixed_branches[v] != b
+            return false, Set(), Set()
+        end
+    end
+    out_branches = nonzeroinds(sc.branch_incoming_blocks[:, block_copy_id])
+    target_output = Dict(v => b for (v, b) in zip(sc.branch_vars[out_branches], out_branches))
     if isempty(unfixed_vars)
-        out_branches = nonzeroinds(sc.branch_incoming_blocks[:, block_copy_id])
-        target_output = Dict(v => b for (v, b) in zip(sc.branch_vars[out_branches], out_branches))
         return false, Set([(block_id, fixed_branches, target_output)]), Set()
     end
     # @info fixed_branches
     # @info unfixed_vars
-    inp_branches = nonzeroinds(sc.branch_outgoing_blocks[:, block_copy_id])
-    inputs = Dict(v => b for (v, b) in zip(sc.branch_vars[inp_branches], inp_branches) if in(v, unfixed_vars))
+    inputs = Dict(v => b for (v, b) in all_inputs if in(v, unfixed_vars))
     new_fixed_branches = merge(fixed_branches, inputs)
-    out_branches = nonzeroinds(sc.branch_incoming_blocks[:, block_copy_id])
-    target_output = Dict(v => b for (v, b) in zip(sc.branch_vars[out_branches], out_branches))
     if all(e == true for e in sc.branch_is_explained[collect(values(inputs))])
         return false, Set([(block_id, new_fixed_branches, target_output)]), Set()
     end
