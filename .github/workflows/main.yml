@@ -170,7 +170,7 @@ jobs:
           redis version: '5'
 
       - name: run test
-        run: python bin/list.py -t 20 -RS 5 -i 1 --solver=julia -g
+        run: python bin/list.py -t 20 -RS 5 -i 1 --solver=julia -g --primitives=julia
 
   test-list:
     needs: [ocaml-build, create-virtualenv]

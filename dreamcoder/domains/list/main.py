@@ -12,6 +12,7 @@ from dreamcoder.task import NamedVarsTask, Task
 from dreamcoder.type import Context, TypeWeights, arrow, tbool, tlist, tint, t0, UnificationFailure
 from dreamcoder.domains.list.listPrimitives import (
     basePrimitives,
+    julia,
     primitives,
     McCarthyPrimitives,
     bootstrapTarget_extra,
@@ -260,7 +261,7 @@ def list_options(parser):
         "--primitives",
         default="common",
         help="Which primitive set to use",
-        choices=["McCarthy", "base", "rich", "common", "noLength"],
+        choices=["McCarthy", "base", "rich", "common", "noLength", "julia"],
     )
     parser.add_argument("--extractor", type=str, choices=["hand", "deep", "learned"], default="learned")
     parser.add_argument("--split", metavar="TRAIN_RATIO", type=float, help="split test/train")
@@ -395,6 +396,7 @@ def main(args):
         "common": bootstrapTarget_extra,
         "noLength": no_length,
         "rich": primitives,
+        "julia": julia,
     }[args.pop("primitives")]()
     haveLength = not args.pop("noLength")
     haveMap = not args.pop("noMap")
