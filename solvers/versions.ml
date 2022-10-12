@@ -140,6 +140,11 @@ let rec incorporate' t vars e =
         (incorporate' t vars (FreeVar inp_var_name))
         (incorporate' t (List.append (List.rev var_names) vars) d)
         (incorporate' t (List.append (List.rev var_names) vars) b)
+  | WrapEither (var_names, inp_var_name, _fixer_var_name, d, _f, b) ->
+      version_let_rev t (List.length var_names)
+        (incorporate' t vars (FreeVar inp_var_name))
+        (incorporate' t (List.append (List.rev var_names) vars) d)
+        (incorporate' t (List.append (List.rev var_names) vars) b)
   | FreeVar n -> version_var t (fst (get_some (List.findi vars ~f:(fun _ x -> String.( = ) x n))))
 
 let incorporate t r e =

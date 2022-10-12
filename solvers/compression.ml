@@ -151,7 +151,7 @@ let eta_long request e =
               | Abstraction _ -> assert false (* not in beta long form *)
               | Apply (_, _) -> assert false
               | Const _ | FreeVar _ -> request
-              | LetClause (_, _, _) | LetRevClause (_, _, _, _) ->
+              | LetClause (_, _, _) | LetRevClause (_, _, _, _) | WrapEither (_, _, _, _, _, _) ->
                   raise (Failure "Eta-expand failure: LetClause or LetRevClause in application")
             in
             let var_requests =
@@ -191,7 +191,11 @@ let normalize_invention i =
     | Abstraction b -> Abstraction (visit (d + 1) b)
     | Apply (f, x) -> Apply (visit d f, visit d x)
     | (Primitive (_, _, _) | Invented (_, _)) as e -> e
-    | Const _ | LetClause (_, _, _) | LetRevClause (_, _, _, _) | FreeVar _ ->
+    | Const _
+    | LetClause (_, _, _)
+    | LetRevClause (_, _, _, _)
+    | WrapEither (_, _, _, _, _, _)
+    | FreeVar _ ->
         raise UnificationFailure
   in
 
@@ -221,6 +225,8 @@ let rewrite_with_invention i =
       | Index _ | Primitive (_, _, _) | Invented (_, _) | FreeVar _ | Const _ -> e
       | LetClause (v, d, b) -> LetClause (v, visit d, visit b)
       | LetRevClause (vns, inp_v, d, b) -> LetRevClause (vns, inp_v, visit d, visit b)
+      | WrapEither (vars, inp, fixer, def, f, body) ->
+          WrapEither (vars, inp, fixer, visit def, f, visit body)
   in
   fun request e ->
     try
@@ -262,7 +268,12 @@ let nontrivial e =
         visit d x
     | Abstraction b -> visit (d + 1) b
     | Primitive (_, _, _) | Invented (_, _) -> incr primitives
-    | Const _ | LetClause (_, _, _) | LetRevClause (_, _, _, _) | FreeVar _ -> assert false
+    | Const _
+    | LetClause (_, _, _)
+    | LetRevClause (_, _, _, _)
+    | WrapEither (_, _, _, _, _, _)
+    | FreeVar _ ->
+        assert false
   in
   visit 0 e;
   !primitives > 1 || (!primitives = 1 && !duplicated_indices > 0)
@@ -304,6 +315,7 @@ let compression_worker connection ~inline ~arity ~bs ~topK g frontiers =
               | Index _ | Invented (_, _) | Primitive (_, _, _) | Const _ -> 1
               | LetClause (_, d, b) -> 1 + program_size d + program_size b
               | LetRevClause (_, _, d, b) -> 1 + program_size d + program_size b
+              | WrapEither (_, _, _, def, _, body) -> 2 + program_size def + program_size body
               | FreeVar _ -> 1
             in
             let rec program_height = function
@@ -312,6 +324,8 @@ let compression_worker connection ~inline ~arity ~bs ~topK g frontiers =
               | Index _ | Invented (_, _) | Primitive (_, _, _) | Const _ -> 1
               | LetClause (_, d, b) -> 1 + max (program_height d) (program_height b)
               | LetRevClause (_, _, d, b) -> 1 + max (program_height d) (program_height b)
+              | WrapEither (_, _, _, def, _, body) ->
+                  2 + max (program_height def) (program_height body)
               | FreeVar _ -> 1
             in
             Printf.eprintf "DATA\t%s\tsize=%d\theight=%d\t|vs|=%d\t|[vs]|=%f\n"
