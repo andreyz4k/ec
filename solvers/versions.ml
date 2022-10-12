@@ -297,7 +297,11 @@ let inline t j =
                 (apply_substitution ~k arguments x)
           | Abstraction b -> version_abstract t (apply_substitution ~k:(k + 1) arguments b)
           | Primitive (_, _, _) | Invented (_, _) -> incorporate' t [] expression
-          | LetClause (_, _, _) | LetRevClause (_, _, _, _) | FreeVar _ | Const _ -> assert false
+          | LetClause (_, _, _)
+          | LetRevClause (_, _, _, _)
+          | WrapEither (_, _, _, _, _, _)
+          | FreeVar _ | Const _ ->
+              assert false
         in
         match make_substitution [] arguments body with
         | None -> t.void
