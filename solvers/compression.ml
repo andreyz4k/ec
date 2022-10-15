@@ -131,6 +131,16 @@ let eta_long request e =
         let body', var_body_requests = visit request environment merged_workspace body in
         Hashtbl.set var_body_requests ~key:inp_name ~data:inp_name_request;
         (LetRevClause (var_names, inp_name, def', body'), var_body_requests)
+    | WrapEither (var_names, inp_name, fixer_var_name, def, f, body), _ ->
+        let inp_name_request = Hashtbl.find_exn workspace inp_name in
+        let def', def_var_requests = visit inp_name_request environment workspace def in
+        let merged_workspace = merge_workspaces context workspace def_var_requests in
+        let body', var_body_requests = visit request environment merged_workspace body in
+        let fixer_request = Hashtbl.find_exn def_var_requests fixer_var_name in
+        let f', var_fixer_requests = visit fixer_request environment merged_workspace f in
+        Hashtbl.set var_body_requests ~key:inp_name ~data:inp_name_request;
+        ( WrapEither (var_names, inp_name, fixer_var_name, def', f', body'),
+          merge_workspaces context var_body_requests var_fixer_requests )
     | _ -> (
         match make_long e request with
         | Some e' -> visit request environment workspace e'

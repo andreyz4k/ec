@@ -391,6 +391,13 @@ let rec beta_normal_form ?(reduceInventions = false) e =
             match step body with
             | Some body' -> Some (LetRevClause (vnames, inp_var_name, def, body'))
             | None -> None))
+    | WrapEither (vnames, inp_var_name, fixer, def, f, body) -> (
+        match step def with
+        | Some def' -> Some (WrapEither (vnames, inp_var_name, fixer, def', f, body))
+        | None -> (
+            match step body with
+            | Some body' -> Some (WrapEither (vnames, inp_var_name, fixer, def, f, body'))
+            | None -> None))
     | _ -> None
   in
   match step e with None -> e | Some e' -> beta_normal_form ~reduceInventions e'
