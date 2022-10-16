@@ -31,6 +31,10 @@ function value_updates(sc, block::ProgramBlock, target_output, new_values, fixed
         fixed_branches,
     )
     out_branches = Dict(block.output_var => out_branch_id)
+    if set_explained && !sc.branch_known_from_input[out_branch_id]
+        sc.branch_known_from_input[out_branch_id] =
+            any(sc.branch_known_from_input[fixed_branches[in_var]] for in_var in block.input_vars)
+    end
     return out_branches, is_new_next_block, allow_fails, next_blocks, set_explained
 end
 
@@ -53,9 +57,13 @@ function value_updates(sc, block::Union{ReverseProgramBlock,WrapEitherBlock}, ta
         union!(next_blocks, n_blocks)
     end
     if set_explained
+        known_from_input = any(sc.branch_known_from_input[fixed_branches[in_var]] for in_var in block.input_vars)
         for (_, branch_id) in out_branches
             inds = [b_id for (_, b_id) in out_branches if b_id != branch_id]
             sc.related_explained_complexity_branches[branch_id, inds] = 1
+            if !sc.branch_known_from_input[branch_id]
+                sc.branch_known_from_input[branch_id] = known_from_input
+            end
         end
     end
     return out_branches, is_new_next_block, allow_fails, next_blocks, set_explained

@@ -66,6 +66,8 @@ mutable struct SolutionContext
     pq_output::PriorityQueue
     branch_queues_unknown::Dict{Int,PriorityQueue}
     branch_queues_explained::Dict{Int,PriorityQueue}
+    branch_unknown_from_output::VectorStorage{Bool}
+    branch_known_from_input::VectorStorage{Bool}
 
     verbose::Bool
 end
@@ -115,6 +117,8 @@ function create_starting_context(task::Task, type_weights, verbose)::SolutionCon
         PriorityQueue(),
         Dict(),
         Dict(),
+        VectorStorage{Bool}(false),
+        VectorStorage{Bool}(false),
         verbose,
     )
     for (key, t) in argument_types
@@ -133,6 +137,7 @@ function create_starting_context(task::Task, type_weights, verbose)::SolutionCon
         sc.branch_types[branch_id, type_id] = type_id
         sc.branch_is_explained[branch_id] = true
         sc.branch_is_not_copy[branch_id] = true
+        sc.branch_known_from_input[branch_id] = true
 
         sc.explained_min_path_costs[branch_id] = 0.0
         sc.explained_complexity_factors[branch_id] = entry.complexity
@@ -154,6 +159,7 @@ function create_starting_context(task::Task, type_weights, verbose)::SolutionCon
     sc.branch_vars[branch_id] = var_id
     sc.branch_types[branch_id, type_id] = type_id
     sc.branch_is_unknown[branch_id] = true
+    sc.branch_unknown_from_output[branch_id] = true
 
     sc.target_branch_id = branch_id
 
@@ -198,6 +204,8 @@ function save_changes!(sc::SolutionContext)
     save_changes!(sc.unused_explained_complexities)
     save_changes!(sc.unmatched_complexities)
     save_changes!(sc.previous_vars)
+    save_changes!(sc.branch_unknown_from_output)
+    save_changes!(sc.branch_known_from_input)
 end
 
 function drop_changes!(sc::SolutionContext)
@@ -233,6 +241,8 @@ function drop_changes!(sc::SolutionContext)
     drop_changes!(sc.unused_explained_complexities)
     drop_changes!(sc.unmatched_complexities)
     drop_changes!(sc.previous_vars)
+    drop_changes!(sc.branch_unknown_from_output)
+    drop_changes!(sc.branch_known_from_input)
 end
 
 function create_next_var(sc::SolutionContext)
@@ -243,30 +253,31 @@ end
 
 function update_branch_priority(sc::SolutionContext, branch_id::Int, is_known::Bool)
     if is_known
-        pq = sc.pq_input
+        pq = sc.branch_known_from_input[branch_id] ? sc.pq_input : sc.pq_output
         q = sc.branch_queues_explained[branch_id]
     else
-        pq = sc.pq_output
+        pq = sc.branch_unknown_from_output[branch_id] ? sc.pq_output : sc.pq_input
         q = sc.branch_queues_unknown[branch_id]
     end
     if !isempty(q)
         min_cost = peek(q)[2]
         if is_known
-            pq[branch_id] =
+            pq[(branch_id, is_known)] =
                 (sc.explained_min_path_costs[branch_id] + min_cost) * sc.explained_complexity_factors[branch_id]
             if sc.verbose
-                @info "In branch $branch_id priority is $(pq[branch_id]) with path cost $(sc.explained_min_path_costs[branch_id]) + $(min_cost) and complexity factor $(sc.explained_complexity_factors[branch_id])"
+                @info "Known $(sc.branch_known_from_input[branch_id] ? "in" : "out" ) branch $branch_id priority is $(pq[(branch_id, is_known)]) with path cost $(sc.explained_min_path_costs[branch_id]) + $(min_cost) and complexity factor $(sc.explained_complexity_factors[branch_id])"
             end
         else
-            pq[branch_id] = (sc.unknown_min_path_costs[branch_id] + min_cost) * sc.unknown_complexity_factors[branch_id]
+            pq[(branch_id, is_known)] =
+                (sc.unknown_min_path_costs[branch_id] + min_cost) * sc.unknown_complexity_factors[branch_id]
             if sc.verbose
-                @info "Out branch $branch_id priority is $(pq[branch_id]) with path cost $(sc.unknown_min_path_costs[branch_id]) + $(min_cost) and complexity factor $(sc.unknown_complexity_factors[branch_id])"
+                @info "Unknown $(sc.branch_unknown_from_output[branch_id] ? "out" : "in" ) branch $branch_id priority is $(pq[(branch_id, is_known)]) with path cost $(sc.unknown_min_path_costs[branch_id]) + $(min_cost) and complexity factor $(sc.unknown_complexity_factors[branch_id])"
             end
         end
-    elseif haskey(pq, branch_id)
-        delete!(pq, branch_id)
+    elseif haskey(pq, (branch_id, is_known))
+        delete!(pq, (branch_id, is_known))
         if sc.verbose
-            @info "Dropped $(is_known ? "in" : "out") branch $branch_id"
+            @info "Dropped $(is_known ? "known" : "unknown") branch $branch_id"
         end
     end
 end

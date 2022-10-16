@@ -320,6 +320,7 @@ function try_get_reversed_values(sc::SolutionContext, p::Program, context, outpu
             sc.related_explained_complexity_branches[branch_id, :] = out_related_complexity_branches
         else
             sc.branch_is_unknown[branch_id] = true
+            sc.branch_unknown_from_output[branch_id] = sc.branch_unknown_from_output[output_branch_id]
             sc.unknown_min_path_costs[branch_id] = cost + sc.unknown_min_path_costs[output_branch_id]
             sc.unknown_complexity_factors[branch_id] = complexity_factor
             sc.unmatched_complexities[branch_id] = entry.complexity
@@ -832,6 +833,7 @@ function enumeration_iteration_finished_output(run_context, sc::SolutionContext,
             sc.branch_vars[branch_id] = var_id
             sc.branch_types[branch_id, t_id] = t_id
             sc.branch_is_unknown[branch_id] = true
+            sc.branch_unknown_from_output[branch_id] = sc.branch_unknown_from_output[output_branch_id]
             sc.unknown_min_path_costs[branch_id] = min_path_cost
             sc.unknown_complexity_factors[branch_id] = complexity_factor
 
@@ -874,7 +876,7 @@ function enumeration_iteration(
     q,
     bp::BlockPrototype,
     br_id,
-    from_input,
+    is_explained,
 )
     if is_reversible(bp.state.skeleton) || state_finished(bp.state)
         if sc.verbose
@@ -922,7 +924,7 @@ function enumeration_iteration(
             q[BlockPrototype(child, new_request, bp.input_vars, bp.output_var, bp.reverse)] = child.cost
         end
     end
-    update_branch_priority(sc, br_id, from_input)
+    update_branch_priority(sc, br_id, is_explained)
 end
 
 function enumerate_for_task(run_context, g::ContextualGrammar, type_weights, task, maximum_frontier, verbose = false)
@@ -974,10 +976,10 @@ function enumerate_for_task(run_context, g::ContextualGrammar, type_weights, tas
         if isempty(pq)
             continue
         end
-        br_id, pr = peek(pq)
-        q = (from_input ? sc.branch_queues_explained : sc.branch_queues_unknown)[br_id]
+        (br_id, is_explained), pr = peek(pq)
+        q = (is_explained ? sc.branch_queues_explained : sc.branch_queues_unknown)[br_id]
         bp = dequeue!(q)
-        enumeration_iteration(run_context, sc, finalizer, maxFreeParameters, g, q, bp, br_id, from_input)
+        enumeration_iteration(run_context, sc, finalizer, maxFreeParameters, g, q, bp, br_id, is_explained)
     end
 
     @info(collect(keys(hits)))

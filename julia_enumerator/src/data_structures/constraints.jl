@@ -72,6 +72,7 @@ function _tighten_constraint(
                 sc.branch_children[created_branch_id, children] = 1
 
                 sc.branch_is_unknown[created_branch_id] = true
+                sc.branch_unknown_from_output[created_branch_id] = sc.branch_unknown_from_output[branch_id]
                 sc.unknown_min_path_costs[created_branch_id] = sc.unknown_min_path_costs[branch_id]
                 sc.unknown_complexity_factors[created_branch_id] = sc.unknown_complexity_factors[branch_id]
                 sc.related_unknown_complexity_branches[created_branch_id, :] =
@@ -269,6 +270,7 @@ function _tighten_constraint(
                 sc.branch_types[created_branch_id, new_br_entry.type_id] = new_br_entry.type_id
                 if sc.branch_is_unknown[branch_id]
                     sc.branch_is_unknown[created_branch_id] = true
+                    sc.branch_unknown_from_output[created_branch_id] = sc.branch_unknown_from_output[branch_id]
                 end
                 deleteat!(sc.branch_children, parents, children)
                 sc.branch_children[parents, created_branch_id] = 1
