@@ -606,8 +606,8 @@ let%expect_test _ =
 let%expect_test _ =
   let t = new_version_table () in
   let p =
-    "let $v3 = Const(Any[]) in let $v1, $v2 = rev($inp0 = (cons $v1 $v2)) in (cons $v1 $v3)"
-    |> parse_program |> get_some
+    "let $v3 = Const(list(int), Any[]) in let $v1, $v2 = rev($inp0 = (cons $v1 $v2)) in (cons $v1 \
+     $v3)" |> parse_program |> get_some
     |> incorporate t (TNCon ("->", [ ("inp0", tint) ], tint, false))
   in
   Printf.printf "%s\n" (string_of_versions t p);
@@ -617,16 +617,16 @@ let%expect_test _ =
   Printf.printf "%s\n" (string_of_versions t p');
   [%expect
     {|
-    let Const(Any[]) in let rev($v1 = @(@(cons, $v1), $v0)) in @(@(cons, $v1), $v2)
-    let rev($v0 = @(@(cons, $v1), $v0)) in @(@(cons, $v1), Const(Any[]))
+    let Const(list(int), Any[]) in let rev($v1 = @(@(cons, $v1), $v0)) in @(@(cons, $v1), $v2)
+    let rev($v0 = @(@(cons, $v1), $v0)) in @(@(cons, $v1), Const(list(int), Any[]))
         |}]
 
 let%expect_test _ =
   let t = new_version_table () in
   let p =
     "let $v3 = (car $v2) in let $v4, $v5 = rev($v2 = (cons $v4 $v5)) in let $v6, $v7 = rev($v5 = \
-     (cons $v6 $v7)) in let $v8 = Const(Any[]) in let $v9 = (cons $v6 $v8) in (cons $v3 $v9)"
-    |> parse_program |> get_some
+     (cons $v6 $v7)) in let $v8 = Const(list(int), Any[]) in let $v9 = (cons $v6 $v8) in (cons $v3 \
+     $v9)" |> parse_program |> get_some
     |> incorporate t (TNCon ("->", [ ("v2", tint) ], tint, false))
   in
   Printf.printf "%s\n" (string_of_versions t p);
@@ -636,8 +636,8 @@ let%expect_test _ =
   Printf.printf "%s\n" (string_of_versions t p');
   [%expect
     {|
-    let @(car, $v0) in let rev($v1 = @(@(cons, $v1), $v0)) in let rev($v0 = @(@(cons, $v1), $v0)) in let Const(Any[]) in let @(@(cons, $v2), $v0) in @(@(cons, $v6), $v0)
-    let rev($v0 = @(@(cons, $v1), $v0)) in let rev($v0 = @(@(cons, $v1), $v0)) in let Const(Any[]) in let @(@(cons, $v2), $v0) in @(@(cons, @(car, $v6)), $v0)
+    let @(car, $v0) in let rev($v1 = @(@(cons, $v1), $v0)) in let rev($v0 = @(@(cons, $v1), $v0)) in let Const(list(int), Any[]) in let @(@(cons, $v2), $v0) in @(@(cons, $v6), $v0)
+    let rev($v0 = @(@(cons, $v1), $v0)) in let rev($v0 = @(@(cons, $v1), $v0)) in let Const(list(int), Any[]) in let @(@(cons, $v2), $v0) in @(@(cons, @(car, $v6)), $v0)
               |}]
 
 let rec substitute_rev_var t j r_is i : (int * int * int * int * int) option =
@@ -815,8 +815,8 @@ let%expect_test _ =
   let t = new_version_table () in
   let p =
     "let $v1, $v2 = rev($inp0 = (cons $v1 $v2)) in let $v3 = (car $v2) in let $v4, $v5 = rev($v2 = \
-     (cons $v4 $v5)) in let $v6, $v7 = rev($v5 = (cons $v6 $v7)) in let $v8 = Const(Any[]) in let \
-     $v9 = (cons $v6 $v8) in (cons $v3 $v9)" |> parse_program |> get_some
+     (cons $v4 $v5)) in let $v6, $v7 = rev($v5 = (cons $v6 $v7)) in let $v8 = Const(list(int), \
+     Any[]) in let $v9 = (cons $v6 $v8) in (cons $v3 $v9)" |> parse_program |> get_some
     |> incorporate t (TNCon ("->", [ ("inp0", tint) ], tint, false))
   in
   Printf.printf "%s\n" (string_of_versions t p);
@@ -828,7 +828,7 @@ let%expect_test _ =
   List.iter p' ~f:(fun p'' -> Printf.printf "%s\n" (string_of_versions t p''));
   [%expect
     {|
-    let rev($v0 = @(@(cons, $v1), $v0)) in let @(car, $v0) in let rev($v1 = @(@(cons, $v1), $v0)) in let rev($v0 = @(@(cons, $v1), $v0)) in let Const(Any[]) in let @(@(cons, $v2), $v0) in @(@(cons, $v6), $v0)
+    let rev($v0 = @(@(cons, $v1), $v0)) in let @(car, $v0) in let rev($v1 = @(@(cons, $v1), $v0)) in let rev($v0 = @(@(cons, $v1), $v0)) in let Const(list(int), Any[]) in let @(@(cons, $v2), $v0) in @(@(cons, $v6), $v0)
      |}]
 
 let rec min_var_index t j =
@@ -963,7 +963,8 @@ let reorder_lets t j =
 let%expect_test _ =
   let t = new_version_table () in
   let p =
-    "let $v1 = (car $inp0) in let $v2 = Const(Any[]) in (cons $v1 $v2)" |> parse_program |> get_some
+    "let $v1 = (car $inp0) in let $v2 = Const(list(int), Any[]) in (cons $v1 $v2)" |> parse_program
+    |> get_some
     |> incorporate t (TNCon ("->", [ ("inp0", tint) ], tint, false))
   in
   Printf.printf "%s\n" (string_of_versions t p);
@@ -971,15 +972,15 @@ let%expect_test _ =
   List.iter p' ~f:(fun p'' -> Printf.printf "%s\n" (string_of_versions t p''));
   [%expect
     {|
-    let @(car, $v0) in let Const(Any[]) in @(@(cons, $v1), $v0)
-    let Const(Any[]) in let @(car, $v1) in @(@(cons, $v0), $v1)
+    let @(car, $v0) in let Const(list(int), Any[]) in @(@(cons, $v1), $v0)
+    let Const(list(int), Any[]) in let @(car, $v1) in @(@(cons, $v0), $v1)
     |}]
 
 let%expect_test _ =
   let t = new_version_table () in
   let p =
-    "let $v1 = Const(4) in let $v2, $v3 = rev($inp0 = (cons $v2 $v3)) in let $v4 = (cons $v2 $v3) \
-     in (cons $v1 $v4)" |> parse_program |> get_some
+    "let $v1 = Const(int, 4) in let $v2, $v3 = rev($inp0 = (cons $v2 $v3)) in let $v4 = (cons $v2 \
+     $v3) in (cons $v1 $v4)" |> parse_program |> get_some
     |> incorporate t (TNCon ("->", [ ("inp0", tint) ], tint, false))
   in
   Printf.printf "%s\n" (string_of_versions t p);
@@ -987,15 +988,16 @@ let%expect_test _ =
   List.iter p' ~f:(fun p'' -> Printf.printf "%s\n" (string_of_versions t p''));
   [%expect
     {|
-    let Const(4) in let rev($v1 = @(@(cons, $v1), $v0)) in let @(@(cons, $v1), $v0) in @(@(cons, $v3), $v0)
-    let rev($v0 = @(@(cons, $v1), $v0)) in let Const(4) in let @(@(cons, $v2), $v1) in @(@(cons, $v1), $v0)
+    let Const(int, 4) in let rev($v1 = @(@(cons, $v1), $v0)) in let @(@(cons, $v1), $v0) in @(@(cons, $v3), $v0)
+    let rev($v0 = @(@(cons, $v1), $v0)) in let Const(int, 4) in let @(@(cons, $v2), $v1) in @(@(cons, $v1), $v0)
     |}]
 
 let%expect_test _ =
   let t = new_version_table () in
   let p =
     "let $v1, $v2 = rev($inp0 = (cons $v1 $v2)) in let $v3, $v4 = rev($v2 = (cons $v3 $v4)) in let \
-     $v5 = Const(Any[]) in let $v6 = (cons $v3 $v5) in (cons $v1 $v6)" |> parse_program |> get_some
+     $v5 = Const(list(int), Any[]) in let $v6 = (cons $v3 $v5) in (cons $v1 $v6)" |> parse_program
+    |> get_some
     |> incorporate t (TNCon ("->", [ ("inp0", tint) ], tint, false))
   in
   Printf.printf "%s\n" (string_of_versions t p);
@@ -1003,8 +1005,8 @@ let%expect_test _ =
   List.iter p' ~f:(fun p'' -> Printf.printf "%s\n" (string_of_versions t p''));
   [%expect
     {|
-    let rev($v0 = @(@(cons, $v1), $v0)) in let rev($v0 = @(@(cons, $v1), $v0)) in let Const(Any[]) in let @(@(cons, $v2), $v0) in @(@(cons, $v5), $v0)
-    let Const(Any[]) in let rev($v1 = @(@(cons, $v1), $v0)) in let rev($v0 = @(@(cons, $v1), $v0)) in let @(@(cons, $v1), $v4) in @(@(cons, $v4), $v0)
+    let rev($v0 = @(@(cons, $v1), $v0)) in let rev($v0 = @(@(cons, $v1), $v0)) in let Const(list(int), Any[]) in let @(@(cons, $v2), $v0) in @(@(cons, $v5), $v0)
+    let Const(list(int), Any[]) in let rev($v1 = @(@(cons, $v1), $v0)) in let rev($v0 = @(@(cons, $v1), $v0)) in let @(@(cons, $v1), $v4) in @(@(cons, $v4), $v0)
     |}]
 
 let%expect_test _ =
@@ -1026,8 +1028,8 @@ let%expect_test _ =
   let t = new_version_table () in
   let p =
     "let $v1 = (car $inp0) in let $v2, $v3 = rev($inp0 = (cons $v2 $v3)) in let $v4, $v5 = rev($v3 \
-     = (cons $v4 $v5)) in let $v6 = Const(Any[]) in let $v7 = (cons $v4 $v6) in (cons $v1 $v7)"
-    |> parse_program |> get_some
+     = (cons $v4 $v5)) in let $v6 = Const(list(int), Any[]) in let $v7 = (cons $v4 $v6) in (cons \
+     $v1 $v7)" |> parse_program |> get_some
     |> incorporate t (TNCon ("->", [ ("inp0", tint) ], tint, false))
   in
   Printf.printf "%s\n" (string_of_versions t p);
@@ -1035,17 +1037,17 @@ let%expect_test _ =
   List.iter p' ~f:(fun p'' -> Printf.printf "%s\n" (string_of_versions t p''));
   [%expect
     {|
-    let @(car, $v0) in let rev($v1 = @(@(cons, $v1), $v0)) in let rev($v0 = @(@(cons, $v1), $v0)) in let Const(Any[]) in let @(@(cons, $v2), $v0) in @(@(cons, $v6), $v0)
-    let Const(Any[]) in let @(car, $v1) in let rev($v2 = @(@(cons, $v1), $v0)) in let rev($v0 = @(@(cons, $v1), $v0)) in let @(@(cons, $v1), $v5) in @(@(cons, $v5), $v0)
-    let rev($v0 = @(@(cons, $v1), $v0)) in let @(car, $v2) in let rev($v1 = @(@(cons, $v1), $v0)) in let Const(Any[]) in let @(@(cons, $v2), $v0) in @(@(cons, $v4), $v0)
+    let @(car, $v0) in let rev($v1 = @(@(cons, $v1), $v0)) in let rev($v0 = @(@(cons, $v1), $v0)) in let Const(list(int), Any[]) in let @(@(cons, $v2), $v0) in @(@(cons, $v6), $v0)
+    let Const(list(int), Any[]) in let @(car, $v1) in let rev($v2 = @(@(cons, $v1), $v0)) in let rev($v0 = @(@(cons, $v1), $v0)) in let @(@(cons, $v1), $v5) in @(@(cons, $v5), $v0)
+    let rev($v0 = @(@(cons, $v1), $v0)) in let @(car, $v2) in let rev($v1 = @(@(cons, $v1), $v0)) in let Const(list(int), Any[]) in let @(@(cons, $v2), $v0) in @(@(cons, $v4), $v0)
      |}]
 
 let%expect_test _ =
   let t = new_version_table () in
   let p =
     "let $v1, $v2 = rev($inp0 = (cons $v1 $v2)) in let $v3 = (car $v2) in let $v4, $v5 = rev($v2 = \
-     (cons $v4 $v5)) in let $v6, $v7 = rev($v5 = (cons $v6 $v7)) in let $v8 = Const(Any[]) in let \
-     $v9 = (cons $v6 $v8) in (cons $v3 $v9)" |> parse_program |> get_some
+     (cons $v4 $v5)) in let $v6, $v7 = rev($v5 = (cons $v6 $v7)) in let $v8 = Const(list(int), \
+     Any[]) in let $v9 = (cons $v6 $v8) in (cons $v3 $v9)" |> parse_program |> get_some
     |> incorporate t (TNCon ("->", [ ("inp0", tint) ], tint, false))
   in
   Printf.printf "%s\n" (string_of_versions t p);
@@ -1053,8 +1055,8 @@ let%expect_test _ =
   List.iter p' ~f:(fun p'' -> Printf.printf "%s\n" (string_of_versions t p''));
   [%expect
     {|
-    let rev($v0 = @(@(cons, $v1), $v0)) in let @(car, $v0) in let rev($v1 = @(@(cons, $v1), $v0)) in let rev($v0 = @(@(cons, $v1), $v0)) in let Const(Any[]) in let @(@(cons, $v2), $v0) in @(@(cons, $v6), $v0)
-    let Const(Any[]) in let rev($v1 = @(@(cons, $v1), $v0)) in let @(car, $v0) in let rev($v1 = @(@(cons, $v1), $v0)) in let rev($v0 = @(@(cons, $v1), $v0)) in let @(@(cons, $v1), $v7) in @(@(cons, $v5), $v0)
+    let rev($v0 = @(@(cons, $v1), $v0)) in let @(car, $v0) in let rev($v1 = @(@(cons, $v1), $v0)) in let rev($v0 = @(@(cons, $v1), $v0)) in let Const(list(int), Any[]) in let @(@(cons, $v2), $v0) in @(@(cons, $v6), $v0)
+    let Const(list(int), Any[]) in let rev($v1 = @(@(cons, $v1), $v0)) in let @(car, $v0) in let rev($v1 = @(@(cons, $v1), $v0)) in let rev($v0 = @(@(cons, $v1), $v0)) in let @(@(cons, $v1), $v7) in @(@(cons, $v5), $v0)
         |}]
 
 let%expect_test _ =
@@ -1091,8 +1093,8 @@ let%expect_test _ =
   let t = new_version_table () in
   let p =
     "let $v1, $v2 = rev($inp0 = (cons $v1 $v2)) in let $v3, $v4 = rev($v2 = (cons $v3 $v4)) in let \
-     $v5 = (car $v4) in let $v6 = Const(Any[]) in let $v7 = (cons $v5 $v6) in let $v8, $v9 = \
-     wrap(let $v8, $v9 = rev($inp0 = (concat $v8 $v9)); let $v8 = $inp0) in (concat $v7 $v8)"
+     $v5 = (car $v4) in let $v6 = Const(list(int), Any[]) in let $v7 = (cons $v5 $v6) in let $v8, \
+     $v9 = wrap(let $v8, $v9 = rev($inp0 = (concat $v8 $v9)); let $v8 = $inp0) in (concat $v7 $v8)"
     |> parse_program |> get_some
     |> incorporate t (TNCon ("->", [ ("inp0", tint) ], tint, false))
   in
@@ -1101,9 +1103,9 @@ let%expect_test _ =
   List.iter p' ~f:(fun p'' -> Printf.printf "%s\n" (string_of_versions t p''));
   [%expect
     {|
-  let rev($v0 = @(@(cons, $v1), $v0)) in let rev($v0 = @(@(cons, $v1), $v0)) in let @(car, $v0) in let Const(Any[]) in let @(@(cons, $v1), $v0) in let wrap(let rev($v7 = @(@(concat, $v1), $v0)); v0 = $v7) in @(@(concat, $v2), $v1)
-  let wrap(let rev($v0 = @(@(concat, $v1), $v0)); v0 = $v0) in let rev($v2 = @(@(cons, $v1), $v0)) in let rev($v0 = @(@(cons, $v1), $v0)) in let @(car, $v0) in let Const(Any[]) in let @(@(cons, $v1), $v0) in @(@(concat, $v0), $v8)
-  let Const(Any[]) in let rev($v1 = @(@(cons, $v1), $v0)) in let rev($v0 = @(@(cons, $v1), $v0)) in let @(car, $v0) in let @(@(cons, $v0), $v5) in let wrap(let rev($v7 = @(@(concat, $v1), $v0)); v0 = $v7) in @(@(concat, $v2), $v1)
+  let rev($v0 = @(@(cons, $v1), $v0)) in let rev($v0 = @(@(cons, $v1), $v0)) in let @(car, $v0) in let Const(list(int), Any[]) in let @(@(cons, $v1), $v0) in let wrap(let rev($v7 = @(@(concat, $v1), $v0)); v0 = $v7) in @(@(concat, $v2), $v1)
+  let wrap(let rev($v0 = @(@(concat, $v1), $v0)); v0 = $v0) in let rev($v2 = @(@(cons, $v1), $v0)) in let rev($v0 = @(@(cons, $v1), $v0)) in let @(car, $v0) in let Const(list(int), Any[]) in let @(@(cons, $v1), $v0) in @(@(concat, $v0), $v8)
+  let Const(list(int), Any[]) in let rev($v1 = @(@(cons, $v1), $v0)) in let rev($v0 = @(@(cons, $v1), $v0)) in let @(car, $v0) in let @(@(cons, $v0), $v5) in let wrap(let rev($v7 = @(@(concat, $v1), $v0)); v0 = $v7) in @(@(concat, $v2), $v1)
           |}]
 
 let n_step_inversion ?inline:(il = false) t ~n j =

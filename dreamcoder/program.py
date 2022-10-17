@@ -199,7 +199,7 @@ class Program(object):
                     else:
                         return LetClause(e[1][1:], p(e[3]), p(e[5]))
                 if e[0] == "Const":
-                    return Constant(e[1])
+                    return Constant(Type.fromstring(e[1]), e[2])
                 f = p(e[0])
                 for x in e[1:]:
                     f = Application(f, p(x))
@@ -1018,11 +1018,12 @@ class FreeVariable(Program):
 
 
 class Constant(Program):
-    def __init__(self, value):
+    def __init__(self, tp, value):
+        self.tp = tp
         self.value = value
 
     def show(self, isFunction):
-        return f"Const({self.value})"
+        return f"Const({self.tp.show(False)}, {self.value})"
 
     @property
     def isConst(self):

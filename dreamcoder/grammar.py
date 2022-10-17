@@ -304,7 +304,29 @@ class Grammar(object):
                 expression.body,
                 silent=silent,
             )
+        if expression.isLetClause and expression.var_def.isConst:
+            merged_workspace = dict(workspace, **{expression.var_name: expression.var_def.tp})
+            context, var_requests, summary = self.likelihoodSummary(
+                context,
+                environment,
+                merged_workspace,
+                request,
+                expression.body,
+                silent=silent,
+            )
+            context, var_def_requests, def_summary = self.likelihoodSummary(
+                context,
+                environment,
+                workspace,
+                expression.var_def.tp,
+                expression.var_def,
+                silent=silent,
+            )
+            var_requests.update(var_def_requests)
+            var_requests.pop(expression.var_name)
+            summary.join(def_summary)
 
+            return context, var_requests, summary
         if expression.isLetClause:
             context, var_requests, summary = self.likelihoodSummary(
                 context,

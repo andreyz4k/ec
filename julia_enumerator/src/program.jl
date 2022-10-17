@@ -121,7 +121,7 @@ show_program(p::FreeVar, is_function::Bool) =
     isnothing(p.var_id) ? ["FREE_VAR"] : ["\$", (isa(p.var_id, Int) ? "v" : ""), "$(p.var_id)"]
 show_program(p::Hole, is_function::Bool) = ["??(", p.t, ")"]
 show_program(p::Invented, is_function::Bool) = vcat(["#"], show_program(p.b, false))
-show_program(p::SetConst, is_function::Bool) = vcat(["Const(", p.value, ")"])
+show_program(p::SetConst, is_function::Bool) = vcat(["Const("], show_type(p.t, true), [", ", p.value, ")"])
 show_program(p::LetClause, is_function::Bool) =
     vcat(["let \$v$(p.var_id) = "], show_program(p.v, false), [" in "], show_program(p.b, false))
 show_program(p::LetRevClause, is_function::Bool) = vcat(

@@ -1000,6 +1000,23 @@ def parseSExpression(s):
             if s[n] != "(":
                 raise ParseFailure(s)
 
+            tp = []
+            depth = 0
+            while True:
+                n += 1
+                if n >= len(s):
+                    raise ParseFailure(s)
+                if s[n] == "(":
+                    depth += 1
+                if s[n] == ")":
+                    depth -= 1
+                if s[n] == "," and depth == 0:
+                    n += 1
+                    break
+                tp.append(s[n])
+
+            tp = "".join(tp)
+
             value = []
             depth = 0
             while True:
@@ -1016,7 +1033,7 @@ def parseSExpression(s):
 
             n += 1
             value = "".join(value)
-            l = [name, value]
+            l = [name, tp, value]
             return l, n
         return name, n
 

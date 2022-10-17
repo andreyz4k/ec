@@ -131,7 +131,7 @@ def sample_programs():
             # -0.6931471805599453,
         ),
         (
-            "let $v1 = Const(0) in let $v2 = (map (lambda $0) $inp0) in (cons $v1 $v2)",
+            "let $v1 = Const(int, 0) in let $v2 = (map (lambda $0) $inp0) in (cons $v1 $v2)",
             {
                 "inp0": {
                     "list": 15,
@@ -168,72 +168,79 @@ def test_program_likelihood(base_grammar, base_task, program, complexities, expe
 def sample_wrapper_programs():
     programs = [
         {
-            "program": "let $v1 = Const(Any[]) in let $v2, $v3 = wrap(let $v2, $v3 = rev($inp0 = (concat $v2 $v3)); let $v2 = $v1) in let $v4 = Const(Any[]) in let $v5 = Const(Any[1]) in let $v6 = (concat $v4 $v5) in (concat $v3 $v6)",
+            "program": "let $v1 = Const(list(int), Any[]) in let $v2, $v3 = wrap(let $v2, $v3 = rev($inp0 = (concat $v2 $v3)); let $v2 = $v1) in let $v4 = Const(list(int), Any[]) in let $v5 = Const(list(int), Any[1]) in let $v6 = (concat $v4 $v5) in (concat $v3 $v6)",
             "time": 14.128462791442871,
             "logLikelihood": 0.0,
             # "logPrior": -6.356107660695891,
             "logPrior": -7.4547199493640015,
         },
         {
-            "program": "let $v1, $v2 = wrap(let $v1, $v2 = rev($inp0 = (concat $v1 $v2)); let $v2 = $inp0) in let $v3 = Const(Any[]) in let $v4 = Const(Any[1]) in let $v5 = (concat $v3 $v4) in (concat $v2 $v5)",
+            "program": "let $v1, $v2 = wrap(let $v1, $v2 = rev($inp0 = (concat $v1 $v2)); let $v2 = $inp0) in let $v3 = Const(list(int), Any[]) in let $v4 = Const(list(int), Any[1]) in let $v5 = (concat $v3 $v4) in (concat $v2 $v5)",
             "time": 14.270664930343628,
             "logLikelihood": 0.0,
             # "logPrior": -6.356107660695891,
             "logPrior": -7.4547199493640015,
         },
         {
-            "program": "let $v1 = Const(Any[]) in let $v2, $v3 = wrap(let $v2, $v3 = rev($inp0 = (concat $v2 $v3)); let $v3 = $v1) in let $v4 = Const(Any[]) in let $v5 = Const(Any[1]) in let $v6 = (concat $v4 $v5) in (concat $v2 $v6)",
+            "program": "let $v1 = Const(list(int), Any[]) in let $v2, $v3 = wrap(let $v2, $v3 = rev($inp0 = (concat $v2 $v3)); let $v3 = $v1) in let $v4 = Const(list(int), Any[]) in let $v5 = Const(list(int), Any[1]) in let $v6 = (concat $v4 $v5) in (concat $v2 $v6)",
             "time": 14.286531925201416,
             "logLikelihood": 0.0,
             # "logPrior": -6.356107660695891,
             "logPrior": -7.4547199493640015,
         },
         {
-            "program": "let $v1, $v2 = wrap(let $v1, $v2 = rev($inp0 = (concat $v1 $v2)); let $v1 = $inp0) in let $v3 = Const(Any[]) in let $v4 = Const(Any[1]) in let $v5 = (concat $v3 $v4) in (concat $v1 $v5)",
+            "program": "let $v1, $v2 = wrap(let $v1, $v2 = rev($inp0 = (concat $v1 $v2)); let $v1 = $inp0) in let $v3 = Const(list(int), Any[]) in let $v4 = Const(list(int), Any[1]) in let $v5 = (concat $v3 $v4) in (concat $v1 $v5)",
             "time": 14.27908992767334,
             "logLikelihood": 0.0,
             # "logPrior": -6.356107660695891,
             "logPrior": -7.4547199493640015,
         },
         {
-            "program": "let $v1 = Const(Any[]) in let $v2 = Const(Any[1]) in let $v3 = (concat $v1 $v2) in (concat $inp0 $v3)",
+            "program": "let $v1 = Const(list(int), Any[]) in let $v2 = Const(list(int), Any[1]) in let $v3 = (concat $v1 $v2) in (concat $inp0 $v3)",
             "time": 13.979617834091187,
             "logLikelihood": 0.0,
             "logPrior": -4.969813299576001,
         },
         {
-            "program": "let $v1, $v2 = wrap(let $v1, $v2 = rev($inp0 = (concat $v1 $v2)); let $v2 = $inp0) in let $v3 = Const(Any[1]) in (concat $v2 $v3)",
+            "program": "let $v1, $v2 = wrap(let $v1, $v2 = rev($inp0 = (concat $v1 $v2)); let $v2 = $inp0) in let $v3 = Const(list(int), Any[1]) in (concat $v2 $v3)",
             "time": 13.207619905471802,
             "logLikelihood": 0.0,
             # "logPrior": -3.8712010109078907,
             "logPrior": -4.969813299576001,
         },
         {
-            "program": "let $v1 = Const(Any[]) in let $v2, $v3 = wrap(let $v2, $v3 = rev($inp0 = (concat $v2 $v3)); let $v2 = $v1) in let $v4 = Const(Any[1]) in (concat $v3 $v4)",
+            "program": "let $v1 = Const(list(int), Any[]) in let $v2, $v3 = wrap(let $v2, $v3 = rev($inp0 = (concat $v2 $v3)); let $v2 = $v1) in let $v4 = Const(list(int), Any[1]) in (concat $v3 $v4)",
             "time": 12.554029941558838,
             "logLikelihood": 0.0,
             # "logPrior": -3.8712010109078907,
             "logPrior": -4.969813299576001,
         },
         {
-            "program": "let $v1, $v2 = wrap(let $v1, $v2 = rev($inp0 = (concat $v1 $v2)); let $v1 = $inp0) in let $v3 = Const(Any[1]) in (concat $v1 $v3)",
+            "program": "let $v1, $v2 = wrap(let $v1, $v2 = rev($inp0 = (concat $v1 $v2)); let $v1 = $inp0) in let $v3 = Const(list(int), Any[1]) in (concat $v1 $v3)",
             "time": 13.738729000091553,
             "logLikelihood": 0.0,
             # "logPrior": -3.8712010109078907,
             "logPrior": -4.969813299576001,
         },
         {
-            "program": "let $v1 = Const(Any[]) in let $v2, $v3 = wrap(let $v2, $v3 = rev($inp0 = (concat $v2 $v3)); let $v3 = $v1) in let $v4 = Const(Any[1]) in (concat $v2 $v4)",
+            "program": "let $v1 = Const(list(int), Any[]) in let $v2, $v3 = wrap(let $v2, $v3 = rev($inp0 = (concat $v2 $v3)); let $v3 = $v1) in let $v4 = Const(list(int), Any[1]) in (concat $v2 $v4)",
             "time": 13.747699975967407,
             "logLikelihood": 0.0,
             # "logPrior": -3.8712010109078907,
             "logPrior": -4.969813299576001,
         },
         {
-            "program": "let $v1 = Const(Any[1]) in (concat $inp0 $v1)",
+            "program": "let $v1 = Const(list(int), Any[1]) in (concat $inp0 $v1)",
             "time": 4.126955986022949,
             "logLikelihood": 0.0,
             "logPrior": -2.4849066497880004,
+        },
+        {
+            "program": "let $v1, $v2 = rev($inp0 = (cons $v1 $v2)) in let $v3 = Const(list(int), Any[]) in let $v4, $v5 = rev($v3 = (concat $v4 $v5)) in let $v6 = (+ $v1 (length $v4)) in let $v7 = (cdr $v2) in (cons $v6 $v7)",
+            "time": 9.622529983520508,
+            "logLikelihood": 0.0,
+            "logPrior": -14.735417144748743,
+            # "logPrior": -12.538192567412523,
         },
     ]
     return programs

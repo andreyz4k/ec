@@ -117,6 +117,15 @@ let eta_long request e =
         in
         visit output environment new_workspace e
     | Abstraction _, _ -> raise EtaExpandFailure
+    | LetClause (var_name, Const (t, k), body), _ ->
+        let merged_workspace =
+          merge_workspaces context workspace
+            (Hashtbl.of_alist_exn (module String) [ (var_name, t) ])
+        in
+        let body', var_requests = visit request environment merged_workspace body in
+        let def', var_requests' = visit t environment workspace (Const (t, k)) in
+        ( LetClause (var_name, def', body'),
+          Grammar.merge_workspaces context var_requests var_requests' )
     | LetClause (var_name, def, body), _ ->
         let body', var_requests = visit request environment workspace body in
         let def', var_requests' =

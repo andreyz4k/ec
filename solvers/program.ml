@@ -12,7 +12,7 @@ type program =
   | LetClause of string * program * program
   | LetRevClause of string list * string * program * program
   | FreeVar of string
-  | Const of string
+  | Const of tp * string
   | WrapEither of string list * string * string * program * program * program
 [@@deriving equal]
 
@@ -63,7 +63,7 @@ let rec show_program (is_function : bool) = function
       ^ String.concat ~sep:", " (List.map vars ~f:(fun var -> "$" ^ var))
       ^ " = rev($" ^ inp ^ " = " ^ show_program false def ^ ") in " ^ show_program false body
   | FreeVar n -> "$" ^ n
-  | Const n -> "Const(" ^ n ^ ")"
+  | Const (t, n) -> "Const(" ^ string_of_type t ^ ", " ^ n ^ ")"
   | WrapEither (vars, inp, fixer, def, f, body) ->
       let var_list = String.concat ~sep:", " (List.map vars ~f:(fun var -> "$" ^ var)) in
       "let " ^ var_list ^ " = wrap(let " ^ var_list ^ " = rev($" ^ inp ^ " = "
@@ -89,7 +89,7 @@ let rec program_equal p1 p2 =
       List.equal String.( = ) vns1 vns2 && String.( = ) iv1 iv2 && program_equal d1 d2
       && program_equal b1 b2
   | FreeVar v1, FreeVar v2 -> String.( = ) v1 v2
-  | Const c1, Const c2 -> String.( = ) c1 c2
+  | Const (t1, c1), Const (t2, c2) -> tp_eq t1 t2 && String.( = ) c1 c2
   | ( WrapEither (vars1, inp1, fixer1, def1, f1, body1),
       WrapEither (vars2, inp2, fixer2, def2, f2, body2) ) ->
       List.equal String.( = ) vars1 vars2
@@ -126,7 +126,7 @@ let rec compare_program p1 p2 =
   | LetRevClause (_, _, _, _), _ -> -1
   | FreeVar n1, FreeVar n2 -> String.compare n1 n2
   | FreeVar _, _ -> -1
-  | Const n1, Const n2 -> String.compare n1 n2
+  | Const (_, n1), Const (_, n2) -> String.compare n1 n2
   | Const _, _ -> -1
   | WrapEither (_, inp1, fixer1, def1, f1, body1), WrapEither (_, inp2, fixer2, def2, f2, body2) ->
       let c = compare_program def1 def2 in
@@ -162,6 +162,7 @@ let rec infer_program_type context environment p : tContext * tp =
       let context, ft = infer_program_type context environment f in
       let context = unify context ft (xt @> rt) in
       applyContext context rt
+  | Const (t, _) -> instantiate_type context t
   | _ ->
       raise (Failure ("Inferring program type is currently not supported: " ^ string_of_program p))
 
@@ -413,7 +414,7 @@ let rec strip_primitives = function
   | LetClause (n, d, b) -> LetClause (n, strip_primitives d, strip_primitives b)
   | LetRevClause (ns, ins, d, b) -> LetRevClause (ns, ins, strip_primitives d, strip_primitives b)
   | FreeVar n -> FreeVar n
-  | Const n -> Const n
+  | Const (t, n) -> Const (t, n)
   | WrapEither (vars, inp, fixer, def, f, body) ->
       WrapEither (vars, inp, fixer, strip_primitives def, f, strip_primitives body)
 
@@ -1022,6 +1023,23 @@ let program_parser : program parsing =
     Primitive (treal, "real", ref (v |> magical)) |> return_parse
   in
 
+  let obj_parser : string parsing =
+   fun (s, n) ->
+    let rec check consumed depth =
+      let k = n + consumed in
+      if k >= String.length s then []
+      else if depth = 0 && (Char.( = ) s.[k] ')' || Char.( = ) s.[k] ',') then []
+      else if Char.( = ) s.[k] '(' then s.[k] :: check (consumed + 1) (depth + 1)
+      else if Char.( = ) s.[k] ')' then s.[k] :: check (consumed + 1) (depth - 1)
+      else s.[k] :: check (consumed + 1) depth
+    in
+    let token = check 0 0 in
+    if List.length token = 0 then []
+    else
+      let token = String.concat ~sep:"" (token |> List.map ~f:(String.make 1)) in
+      [ (token, n + String.length token) ]
+  in
+
   let rec program_parser () : program parsing =
     application () <|> primitive <|> variable <|> free_variable <|> invented () <|> abstraction ()
     <|> fixed_real <|> let_clause () <|> let_rev_clause () <|> const_clause <|> wrap_either ()
@@ -1094,8 +1112,11 @@ let program_parser : program parsing =
     program_parser () %% fun b -> return_parse (LetRevClause (vs, inp, d, b))
   and const_clause =
     constant_parser "Const(" %% fun _ ->
-    token_parser (fun c -> Char.( <> ) c ')') %% fun n ->
-    constant_parser ")" %% fun _ -> return_parse (Const n)
+    obj_parser %% fun t ->
+    constant_parser "," %% fun _ ->
+    whitespace %% fun _ ->
+    obj_parser %% fun n ->
+    constant_parser ")" %% fun _ -> return_parse (Const (get_some (type_of_string t), n))
   and wrap_either () : program parsing =
     constant_parser "let" %% fun _ ->
     whitespace %% fun _ ->
@@ -1172,13 +1193,13 @@ let%test _ =
 
 let%test _ =
   parsing_test_case
-    "let $v1 = Const(Any[]) in let $v2 = Const(Any[0]) in let $v3 = (concat $v1 $v2) in (concat \
-     $inp0 $v3)"
+    "let $v1 = Const(list(int), Any[]) in let $v2 = Const(list(int), Any[0]) in let $v3 = (concat \
+     $v1 $v2) in (concat $inp0 $v3)"
 
 let%test _ =
   parsing_test_case
-    "let $v1 = Const(Any[5]) in let $v2 = Const(Any[]) in let $v3, $v4 = wrap(let $v3, $v4 = \
-     rev($inp0 = (concat $v3 $v4)); let $v3 = $v2) in (concat $v1 $v4)"
+    "let $v1 = Const(list(int), Any[5]) in let $v2 = Const(list(int), Any[]) in let $v3, $v4 = \
+     wrap(let $v3, $v4 = rev($inp0 = (concat $v3 $v4)); let $v3 = $v2) in (concat $v1 $v4)"
 
 (* let%test _ = parsing_test_case "(cons FREE_VAR FREE_VAR)"
    let%test _ = parsing_test_case "rev((cons FREE_VAR FREE_VAR), [$0])"

@@ -258,6 +258,16 @@ let make_likelihood_summary g request expression =
     | _ -> (
         (* not a function - must be an application instead of a lambda *)
         match p with
+        | LetClause (name, Const (t, k), body) ->
+            let merged_workspace =
+              merge_workspaces context workspace
+                (Hashtbl.of_alist_exn (module String) [ (name, t) ])
+            in
+            let var_requests = summarize r environment merged_workspace body in
+            let var_def_requests = summarize t environment workspace (Const (t, k)) in
+            let out_var_requests = merge_workspaces context var_requests var_def_requests in
+            Hashtbl.remove out_var_requests name;
+            out_var_requests
         | LetClause (name, def, body) ->
             let var_requests = summarize r environment workspace body in
             let var_def_requests =

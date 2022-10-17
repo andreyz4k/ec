@@ -1,3 +1,4 @@
+import re
 from typing import Dict
 
 
@@ -23,6 +24,35 @@ class Type(object):
         if "constructor" in j:
             return TypeConstructor(j["constructor"], [Type.fromjson(a) for a in j["arguments"]])
         assert False
+
+    @staticmethod
+    def fromstring(s):
+        m = re.match("t(\d+)$", s)
+        if m:
+            return TypeVariable(int(m.group(1)))
+
+        all_args = s.split(ARROW)
+        if len(all_args) > 1:
+            name = ARROW
+        elif "(" in s:
+            m = re.match("(\S+?)\((.*)\)$", s)
+            name = m.group(1)
+            all_args = m.group(2).split(",")
+        else:
+            name = s
+            all_args = []
+
+        if len(all_args) > 1 and ":" in all_args[0]:
+            args, output = all_args[:-1], all_args[-1]
+            parsed_args = {}
+            for arg_str in args:
+                arg_name, arg_t_str = arg_str.strip().split(":")
+                parsed_args[arg_name] = Type.fromstring(arg_t_str)
+
+            out = Type.fromstring(output)
+            return TypeNamedArgsConstructor(name, parsed_args, out)
+        else:
+            return TypeConstructor(name, [Type.fromstring(arg_str.strip()) for arg_str in all_args])
 
 
 class TypeConstructor(Type):

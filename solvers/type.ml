@@ -1,4 +1,5 @@
 open Core
+open Parser
 
 type tp =
   | TID of int
@@ -40,11 +41,8 @@ let nkind n ts o =
 type tContext = int * tp option Funarray.funarray
 
 let empty_context : tContext = (0, Funarray.empty)
-
 let make_arrow t q = kind "->" [ t; q ]
-
 let ( @> ) = make_arrow
-
 let is_arrow = function TCon ("->", _, _) -> true | TNCon ("->", _, _, _) -> true | _ -> false
 
 (* arguments_and_return_up_type (t1 @> t2 @> ... @> T) = ([t1;t2;...] T) *)
@@ -93,19 +91,18 @@ let rec show_type (is_return : bool) (t : tp) : string =
   | TCon (k, a, _) -> k ^ "(" ^ String.concat ~sep:", " (List.map a ~f:(show_type true)) ^ ")"
   | TNCon (k, args, o, _) when k = "->" ->
       let args_str =
-        String.concat ~sep:" -> " (List.map args ~f:(fun (v, t) -> v ^ ":" ^ (show_type true) t))
+        String.concat ~sep:" -> " (List.map args ~f:(fun (v, t) -> v ^ ":" ^ (show_type false) t))
       in
       if is_return then args_str ^ " -> " ^ show_type true o
       else "(" ^ args_str ^ " -> " ^ show_type true o ^ ")"
   | TNCon (k, [], o, _) -> k ^ "(" ^ show_type true o ^ ")"
   | TNCon (k, args, o, _) ->
       let args_str =
-        String.concat ~sep:", " (List.map args ~f:(fun (v, t) -> v ^ ":" ^ (show_type true) t))
+        String.concat ~sep:", " (List.map args ~f:(fun (v, t) -> v ^ ":" ^ (show_type false) t))
       in
       k ^ "(" ^ args_str ^ ", " ^ show_type true o ^ ")"
 
 let string_of_type = show_type true
-
 let makeTID (next, substitution) = (TID next, (next + 1, Funarray.cons None substitution))
 
 let rec makeTIDs (n : int) (k : tContext) : tContext =
@@ -317,47 +314,26 @@ let rec pad_type_with_arguments context n t =
     (context, a @> suffix)
 
 let make_ground g = TCon (g, [], false)
-
 let tint = make_ground "int"
-
 let tcharacter = make_ground "char"
-
 let treal = make_ground "real"
-
 let tboolean = make_ground "bool"
-
 let turtle = make_ground "turtle"
-
 let ttower = make_ground "tower"
-
 let tstate = make_ground "tstate"
-
 let tscalar = make_ground "tscalar"
-
 let tangle = make_ground "tangle"
-
 let tlength = make_ground "tlength"
-
 let t0 = TID 0
-
 let t1 = TID 1
-
 let t2 = TID 2
-
 let t3 = TID 3
-
 let t4 = TID 4
-
 let tlist t = kind "list" [ t ]
-
 let tstring = tlist tcharacter
-
 let tvar = make_ground "var"
-
 let tprogram = make_ground "program"
-
 let tmaybe t = kind "maybe" [ t ]
-
 let tcanvas = tlist tint
 
 let unify_many_types ts =
@@ -369,6 +345,103 @@ let unify_many_types ts =
          let k', t' = instantiate_type !k t' in
          k := unify k' t' t);
   applyContext !k t |> snd
+
+let type_parser : tp parsing =
+  let token = token_parser Char.is_alphanum in
+  let whitespace = token_parser ~can_be_empty:true Char.is_whitespace in
+  let number = token_parser Char.is_digit in
+
+  let rec type_parser () : tp parsing = t_simple () <|> t_func ()
+  and t_simple () = tid_parser <|> tcon_simple <|> tcon () <|> tncon ()
+  and t_func () = tcon_arrow () <|> tncon_arrow ()
+  and t_param () =
+    t_simple ()
+    <|> constant_parser "(" %% fun _ ->
+        t_func () %% fun f ->
+        constant_parser ")" %% fun _ -> return_parse f
+  and tid_parser : tp parsing =
+    constant_parser "t" %% fun _ ->
+    number %% fun n -> return_parse (TID (Int.of_string n))
+  and tcon_simple : tp parsing = token %% fun name -> return_parse (kind name [])
+  and args_seq maybe_args =
+    match maybe_args with
+    | None -> type_parser () %% fun t -> args_seq (Some [ t ])
+    | Some seq ->
+        return_parse (List.rev seq)
+        <|> constant_parser "," %% fun _ ->
+            whitespace %% fun _ ->
+            type_parser () %% fun t -> args_seq (Some (t :: seq))
+  and tcon () : tp parsing =
+    token %% fun name ->
+    constant_parser "(" %% fun _ ->
+    args_seq None %% fun args ->
+    constant_parser ")" %% fun _ -> return_parse (kind name args)
+  and tcon_arrow () : tp parsing =
+    t_param () %% fun p ->
+    return_parse p
+    <|> whitespace %% fun _ ->
+        constant_parser "->" %% fun _ ->
+        whitespace %% fun _ ->
+        tcon_arrow () %% fun q -> return_parse (make_arrow p q)
+  and named_arg () =
+    token %% fun n ->
+    constant_parser ":" %% fun _ ->
+    t_param () %% fun t -> return_parse (n, t)
+  and tncon_arrow_seq maybe_args =
+    whitespace %% fun _ ->
+    match maybe_args with
+    | None ->
+        named_arg () %% fun a ->
+        whitespace %% fun _ ->
+        constant_parser "->" %% fun _ -> tncon_arrow_seq (Some [ a ])
+    | Some seq ->
+        (t_simple () %% fun t -> return_parse (nkind "->" (List.rev seq) t))
+        <|> named_arg () %% fun a ->
+            whitespace %% fun _ ->
+            constant_parser "->" %% fun _ -> tncon_arrow_seq (Some (a :: seq))
+  and tncon_arrow () : tp parsing = tncon_arrow_seq None %% fun a -> return_parse a
+  and nargs_seq maybe_args =
+    match maybe_args with
+    | None ->
+        named_arg () %% fun a ->
+        constant_parser "," %% fun _ ->
+        whitespace %% fun _ -> nargs_seq (Some [ a ])
+    | Some seq ->
+        (t_simple () %% fun t -> return_parse (List.rev seq, t))
+        <|> named_arg () %% fun a ->
+            constant_parser "," %% fun _ ->
+            whitespace %% fun _ -> nargs_seq (Some (a :: seq))
+  and tncon () : tp parsing =
+    token %% fun name ->
+    constant_parser "(" %% fun _ ->
+    nargs_seq None %% fun (args, out) ->
+    constant_parser ")" %% fun _ -> return_parse (nkind name args out)
+  in
+
+  type_parser ()
+
+let type_of_string (s : string) : tp option = run_parser type_parser s
+
+let type_parsing_test_case s =
+  let top = type_of_string s in
+  match top with None -> false | Some t -> String.( = ) s (string_of_type t)
+
+let%test _ = type_parsing_test_case "t0"
+let%test _ = type_parsing_test_case "t1"
+let%test _ = type_parsing_test_case "int"
+let%test _ = type_parsing_test_case "list(int)"
+let%test _ = type_parsing_test_case "tuple(int, int)"
+let%test _ = type_parsing_test_case "int -> int"
+let%test _ = type_parsing_test_case "int -> int -> int"
+let%test _ = type_parsing_test_case "list(int) -> list(int)"
+let%test _ = type_parsing_test_case "list(int) -> list(int) -> list(int)"
+let%test _ = type_parsing_test_case "list(int) -> (int -> bool) -> list(bool)"
+let%test _ = type_parsing_test_case "inp0:list(int) -> list(int)"
+let%test _ = type_parsing_test_case "inp0:list(int) -> inp1:list(int) -> list(int)"
+let%test _ = type_parsing_test_case "f:(list(int) -> int) -> inp1:list(int) -> list(int)"
+let%test _ = type_parsing_test_case "obj(cells:list(tuple(int, int)), kind)"
+let%test _ = type_parsing_test_case "obj(cells:list(tuple(int, int)), pivot:bool, kind)"
+let%test _ = type_parsing_test_case "obj(f:(int -> int), cells:list(tuple(int, int)), kind)"
 
 let rec deserialize_type j =
   let open Yojson.Basic.Util in
