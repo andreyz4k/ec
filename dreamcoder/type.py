@@ -1,6 +1,8 @@
 import re
 from typing import Dict
 
+from dreamcoder.utilities import ParseFailure
+
 
 class UnificationFailure(Exception):
     pass
@@ -26,33 +28,102 @@ class Type(object):
         assert False
 
     @staticmethod
-    def fromstring(s):
-        m = re.match("t(\d+)$", s)
-        if m:
-            return TypeVariable(int(m.group(1)))
+    def _parse_type_expression(s):
+        s = s.strip()
 
-        all_args = s.split(ARROW)
-        if len(all_args) > 1:
-            name = ARROW
-        elif "(" in s:
-            m = re.match("(\S+?)\((.*)\)$", s)
-            name = m.group(1)
-            all_args = m.group(2).split(",")
-        else:
-            name = s
-            all_args = []
+        def parse_arg_list(n):
+            l = []
+            while s[n] != ")":
+                e, n = parse_type(n)
+                if l and isinstance(e, dict):
+                    l[0] = dict(l[0], **e)
+                else:
+                    l.append(e)
+            n += 1
+            return l, n
 
-        if len(all_args) > 1 and ":" in all_args[0]:
-            args, output = all_args[:-1], all_args[-1]
-            parsed_args = {}
-            for arg_str in args:
-                arg_name, arg_t_str = arg_str.strip().split(":")
-                parsed_args[arg_name] = Type.fromstring(arg_t_str)
+        def parse_type(n):
+            while n <= len(s) and s[n].isspace():
+                n += 1
+            if n == len(s):
+                raise ParseFailure(s)
 
-            out = Type.fromstring(output)
-            return TypeNamedArgsConstructor(name, parsed_args, out)
-        else:
-            return TypeConstructor(name, [Type.fromstring(arg_str.strip()) for arg_str in all_args])
+            name = []
+            while n < len(s) and not s[n].isspace() and s[n] not in ":()[],":
+                name.append(s[n])
+                n += 1
+            name = "".join(name)
+            t = name
+            key = None
+            if n == len(s) or s[n] == ")":
+                return name, n
+            if s[n] == ":":
+                key = name
+                n += 1
+                if s[n] == "(":
+                    n += 1
+                    arg, n = parse_type(n)
+                    n += 1
+                    t = arg
+                else:
+                    name = []
+                    while n < len(s) and not s[n].isspace() and s[n] not in ":()[],":
+                        name.append(s[n])
+                        n += 1
+                    name = "".join(name)
+                    t = name
+            if s[n] == "(":
+                n += 1
+                args_list, n = parse_arg_list(n)
+                t = [name, args_list]
+                if n == len(s) or s[n] == ")":
+                    return t, n
+            if s[n] == ",":
+                n += 1
+                if key:
+                    return {key: t}, n
+                return t, n
+            if s[n].isspace() and n + 2 < len(s) and s[n + 1 : n + 3] == ARROW:
+                n += 3
+                cont, n = parse_type(n)
+                if key:
+                    t = {key: t}
+                    if isinstance(cont, list) and cont[0] == ARROW and isinstance(cont[1], dict):
+                        t = dict(t, **cont[1])
+                        cont = cont[2]
+                    return [ARROW, t, cont], n
+                return [ARROW, t, cont], n
+            raise ParseFailure(s)
+
+        e, n = parse_type(0)
+        if n == len(s):
+            return e
+        raise ParseFailure(s)
+
+    @classmethod
+    def fromstring(cls, s):
+        exp = cls._parse_type_expression(s)
+
+        def p(e):
+            if isinstance(e, str):
+                m = re.match(r"t(\d+)$", e)
+                if m:
+                    return TypeVariable(int(m.group(1)))
+                return TypeConstructor(e, [])
+
+            if isinstance(e, list):
+                if len(e) == 2:
+                    name, args = e
+                    if len(args) == 2 and isinstance(args[0], dict):
+                        return TypeNamedArgsConstructor(name, {k: p(a) for (k, a) in args[0].items()}, p(args[1]))
+                    return TypeConstructor(name, [p(arg) for arg in args])
+                if e[0] == ARROW:
+                    if isinstance(e[1], dict):
+                        return TypeNamedArgsConstructor(ARROW, {k: p(a) for (k, a) in e[1].items()}, p(e[2]))
+                    return TypeConstructor(ARROW, [p(e[1]), p(e[2])])
+            raise ParseFailure(s)
+
+        return p(exp)
 
 
 class TypeConstructor(Type):
@@ -191,7 +262,7 @@ class TypeNamedArgsConstructor(Type):
         elif self.arguments == {}:
             return f"{self.name}({self.output.show(True)})"
         else:
-            args_str = f", ".join([f"{k}:{a.show(True)}" for (k, a) in self.arguments.items()])
+            args_str = f", ".join([f"{k}:{a.show(False)}" for (k, a) in self.arguments.items()])
             return f"{self.name}({args_str}, {self.output.show(True)})"
 
     def json(self):

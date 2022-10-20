@@ -442,6 +442,7 @@ let%test _ = type_parsing_test_case "f:(list(int) -> int) -> inp1:list(int) -> l
 let%test _ = type_parsing_test_case "obj(cells:list(tuple(int, int)), kind)"
 let%test _ = type_parsing_test_case "obj(cells:list(tuple(int, int)), pivot:bool, kind)"
 let%test _ = type_parsing_test_case "obj(f:(int -> int), cells:list(tuple(int, int)), kind)"
+let%test _ = type_parsing_test_case "obj(int -> int, list(tuple(int, int)), kind)"
 
 let rec deserialize_type j =
   let open Yojson.Basic.Util in
