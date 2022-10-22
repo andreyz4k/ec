@@ -34,6 +34,7 @@ type vt = {
   (* dynamic programming *)
   recursive_inversion_table : int option ra;
   n_step_table : (int * int, int) Hashtbl.t;
+  n_step_given_table : (int * int * int, int) Hashtbl.t;
   substitution_table : (int * int, (int, int) Hashtbl.t) Hashtbl.t;
 }
 [@@deriving show]
@@ -94,6 +95,7 @@ let new_version_table () : vt =
       (* equivalence_class=empty_resizable(); *)
       substitution_table = Hashtbl.Poly.create ();
       n_step_table = Hashtbl.Poly.create ();
+      n_step_given_table = Hashtbl.Poly.create ();
       recursive_inversion_table = empty_resizable ();
     }
   in
@@ -553,43 +555,49 @@ let rec shift_var_def_indices t j i =
   | _ -> j
 
 let rec beta_substitution t i d j =
-  match index_table t j with
-  | IndexSpace _ | TerminalSpace _ | Universe | Void -> j
-  | Union u -> u |> List.map ~f:(beta_substitution t i d) |> union t
-  | VarIndexSpace k ->
-      if i = k then shift_var_def_indices t d i else if k > i then version_var t (k - 1) else j
-  | ApplySpace (f, x) ->
-      let f' = beta_substitution t i d f in
-      let x' = beta_substitution t i d x in
-      version_apply t f' x'
-  | AbstractSpace b ->
-      let b' = beta_substitution t i d b in
-      version_abstract t b'
-  | LetSpace (dd, b) ->
-      let dd' = beta_substitution t i d dd in
-      let b' = beta_substitution t (i + 1) d b in
-      version_let t dd' b'
-  | LetRevSpace (vc, v, dd, b) ->
-      let v' =
-        match index_table t v with
-        | VarIndexSpace k -> if i = k then t.void else if k > i then version_var t (k - 1) else v
-        | _ -> assert false
-      in
-      let b' = beta_substitution t (i + vc) d b in
-      version_let_rev t vc v' dd b'
-  | WrapEitherSpace (vc, iv, fv, dd, f, b) ->
-      let v' =
-        match index_table t iv with
-        | VarIndexSpace k -> if i = k then t.void else if k > i then version_var t (k - 1) else iv
-        | _ -> assert false
-      in
-      let f' =
-        match index_table t f with
-        | VarIndexSpace k -> if i = k then t.void else if k > i then version_var t (k - 1) else f
-        | _ -> assert false
-      in
-      let b' = beta_substitution t (i + vc) d b in
-      version_wrap_either t vc v' fv dd f' b'
+  match index_table t d with
+  | TerminalSpace (Const _) -> t.void
+  | _ -> (
+      match index_table t j with
+      | IndexSpace _ | TerminalSpace _ | Universe | Void -> j
+      | Union u -> u |> List.map ~f:(beta_substitution t i d) |> union t
+      | VarIndexSpace k ->
+          if i = k then shift_var_def_indices t d i else if k > i then version_var t (k - 1) else j
+      | ApplySpace (f, x) ->
+          let f' = beta_substitution t i d f in
+          let x' = beta_substitution t i d x in
+          version_apply t f' x'
+      | AbstractSpace b ->
+          let b' = beta_substitution t i d b in
+          version_abstract t b'
+      | LetSpace (dd, b) ->
+          let dd' = beta_substitution t i d dd in
+          let b' = beta_substitution t (i + 1) d b in
+          version_let t dd' b'
+      | LetRevSpace (vc, v, dd, b) ->
+          let v' =
+            match index_table t v with
+            | VarIndexSpace k ->
+                if i = k then t.void else if k > i then version_var t (k - 1) else v
+            | _ -> assert false
+          in
+          let b' = beta_substitution t (i + vc) d b in
+          version_let_rev t vc v' dd b'
+      | WrapEitherSpace (vc, iv, fv, dd, f, b) ->
+          let v' =
+            match index_table t iv with
+            | VarIndexSpace k ->
+                if i = k then t.void else if k > i then version_var t (k - 1) else iv
+            | _ -> assert false
+          in
+          let f' =
+            match index_table t f with
+            | VarIndexSpace k ->
+                if i = k then t.void else if k > i then version_var t (k - 1) else f
+            | _ -> assert false
+          in
+          let b' = beta_substitution t (i + vc) d b in
+          version_wrap_either t vc v' fv dd f' b')
 
 let%expect_test _ =
   let t = new_version_table () in
@@ -618,7 +626,7 @@ let%expect_test _ =
   [%expect
     {|
     let Const(list(int), Any[]) in let rev($v1 = @(@(cons, $v1), $v0)) in @(@(cons, $v1), $v2)
-    let rev($v0 = @(@(cons, $v1), $v0)) in @(@(cons, $v1), Const(list(int), Any[]))
+    Void
         |}]
 
 let%expect_test _ =
@@ -1134,9 +1142,10 @@ let n_step_inversion ?inline:(il = false) t ~n j =
         let children' j =
           match index_table t j with
           | LetSpace (d, b) ->
-              let substituted = beta_substitution t 0 d b in
               version_let t (visit d) (visit b)
-              :: (match index_table t substituted with Void -> [] | _ -> [ visit substituted ])
+              ::
+              (let substituted = beta_substitution t 0 d b in
+               match index_table t substituted with Void -> [] | _ -> [ visit substituted ])
           | LetRevSpace (vc, v, d, b) ->
               version_let_rev t vc v (visit d) (visit b)
               :: List.map ~f:visit (beta_rev_substitution t j)
@@ -1159,6 +1168,85 @@ let n_step_inversion ?inline:(il = false) t ~n j =
 
       let ns = visit j |> beta_pruning t in
       Hashtbl.set t.n_step_table ~key ~data:ns;
+      ns
+
+let rec has_subprogram t i j =
+  if i = j then true
+  else
+    match index_table t j with
+    | Void | Universe -> assert false
+    | TerminalSpace _ | IndexSpace _ | VarIndexSpace _ -> false
+    | ApplySpace (f, x) -> has_subprogram t i f || has_subprogram t i x
+    | AbstractSpace b -> has_subprogram t i b
+    | LetSpace (d, b) -> has_subprogram t i d || has_subprogram t i b
+    | LetRevSpace (_vc, _v, d, b) -> has_subprogram t i d || has_subprogram t i b
+    | WrapEitherSpace (_vc, _iv, _fv, d, _f, b) -> has_subprogram t i d || has_subprogram t i b
+    | Union u -> List.exists ~f:(has_subprogram t i) u
+
+let n_step_inversion_with_invention ?inline:(il = false) t ~given ~n j =
+  let key = (n, j, given) in
+  match Hashtbl.find t.n_step_given_table key with
+  | Some ns -> ns
+  | None ->
+      (* list of length (n+1), corresponding to 0 steps, 1, ..., n *)
+      (* Each "step" is the union of an inverse inlining step and optionally an inlining step *)
+      let rec n_step ?(completed = 0) current : int list =
+        let step v =
+          if il then
+            let i = inline t v in
+            (* if completed = 0 && v = j then *)
+            (*   extract t i |> List.iter ~f:(fun expansion -> *)
+            (*       Printf.eprintf "%s\t%s\n" *)
+            (*         (extract t current |> List.hd_exn |> string_of_program) (string_of_program expansion)); *)
+            union t [ recursive_inversion t v; i ]
+          else recursive_inversion t v
+        in
+        let rest = if completed = n then [] else n_step ~completed:(completed + 1) (step current) in
+        beta_pruning t current :: rest
+      in
+
+      let rec visit j =
+        let children' j =
+          match index_table t j with
+          | LetSpace (d, b) ->
+              let normal_visited = version_let t (visit d) (visit b) in
+              if has_subprogram t given normal_visited then [ normal_visited ]
+              else
+                normal_visited
+                ::
+                (let substituted = beta_substitution t 0 d b in
+                 match index_table t substituted with
+                 | Void -> []
+                 | _ ->
+                     let substituted_visited = visit substituted in
+                     if has_subprogram t given substituted_visited then [ substituted_visited ]
+                     else [])
+          | LetRevSpace (vc, v, d, b) ->
+              let normal_visited = version_let_rev t vc v (visit d) (visit b) in
+              if has_subprogram t given normal_visited then [ normal_visited ]
+              else
+                normal_visited
+                :: (List.map ~f:visit (beta_rev_substitution t j)
+                   |> List.filter ~f:(has_subprogram t given))
+          | WrapEitherSpace (vc, iv, fv, d, f, b) ->
+              [ version_wrap_either t vc iv fv (visit d) (visit f) (visit b) ]
+          | _ -> assert false
+        in
+        let children =
+          match index_table t j with
+          | Union _ | Void | Universe -> assert false
+          | ApplySpace (f, x) -> version_apply t (visit f) (visit x)
+          | AbstractSpace b -> version_abstract t (visit b)
+          | IndexSpace _ | TerminalSpace _ -> j
+          | LetSpace (_, _) | LetRevSpace (_, _, _, _) | WrapEitherSpace _ ->
+              j :: reorder_lets t j |> List.map ~f:children' |> List.concat |> union t
+          | VarIndexSpace _n -> j
+        in
+        union t (children :: n_step j)
+      in
+
+      let ns = visit j |> beta_pruning t in
+      Hashtbl.set t.n_step_given_table ~key ~data:ns;
       ns
 
 (* let n_step_inversion ?inline:(il=false) t ~n j = *)
@@ -1306,7 +1394,8 @@ let rec minimum_cost_inhabitants ?(given = None) ?(canBeLambda = true) t j : flo
         | _ -> (
             match index_table t.cost_table_parent j with
             | Universe | Void -> assert false
-            | IndexSpace _ | TerminalSpace _ | VarIndexSpace _ -> (1., [ j ])
+            | IndexSpace _ | TerminalSpace _ -> (1., [ j ])
+            | VarIndexSpace _ -> (0., [ j ])
             | Union u ->
                 let children = u |> List.map ~f:(minimum_cost_inhabitants ~given ~canBeLambda t) in
                 let c = children |> List.map ~f:fst |> fold1 Float.min in
@@ -1335,7 +1424,7 @@ let rec minimum_cost_inhabitants ?(given = None) ?(canBeLambda = true) t j : flo
                 let bc, bs = minimum_cost_inhabitants ~given ~canBeLambda:true t b in
                 if is_invalid dc || is_invalid bc then (Float.infinity, [])
                 else
-                  ( dc +. bc +. epsilon_cost,
+                  ( dc +. bc,
                     ds
                     |> List.map ~f:(fun d' ->
                            bs |> List.map ~f:(fun b' -> version_let t.cost_table_parent d' b'))
@@ -1346,7 +1435,7 @@ let rec minimum_cost_inhabitants ?(given = None) ?(canBeLambda = true) t j : flo
                 let bc, bs = minimum_cost_inhabitants ~given ~canBeLambda:true t b in
                 if is_invalid vc || is_invalid dc || is_invalid bc then (Float.infinity, [])
                 else
-                  ( vc +. dc +. bc +. epsilon_cost,
+                  ( vc +. dc +. bc,
                     vs
                     |> List.map ~f:(fun v' ->
                            ds
@@ -1363,7 +1452,7 @@ let rec minimum_cost_inhabitants ?(given = None) ?(canBeLambda = true) t j : flo
                 if is_invalid vc || is_invalid fc || is_invalid dc || is_invalid bc then
                   (Float.infinity, [])
                 else
-                  ( vc +. fc +. dc +. bc +. epsilon_cost,
+                  ( vc +. fc +. dc +. bc,
                     vs
                     |> List.map ~f:(fun v' ->
                            fs
@@ -1408,7 +1497,8 @@ let rec minimal_inhabitant_cost ?(intersectionTable = None) ?(given = None) ?(ca
         | _ -> (
             match index_table t.cost_table_parent j with
             | Universe | Void -> assert false
-            | IndexSpace _ | TerminalSpace _ | VarIndexSpace _ -> 1.
+            | IndexSpace _ | TerminalSpace _ -> 1.
+            | VarIndexSpace _ -> 0.
             | Union u ->
                 u
                 |> List.map ~f:(minimal_inhabitant_cost ~intersectionTable ~given ~canBeLambda t)
@@ -1422,19 +1512,18 @@ let rec minimal_inhabitant_cost ?(intersectionTable = None) ?(given = None) ?(ca
                 +. minimal_inhabitant_cost ~intersectionTable ~given ~canBeLambda:false t f
                 +. minimal_inhabitant_cost ~intersectionTable ~given ~canBeLambda:true t x
             | LetSpace (d, b) ->
-                epsilon_cost
-                +. minimal_inhabitant_cost ~intersectionTable ~given ~canBeLambda:false t d
+                minimal_inhabitant_cost ~intersectionTable ~given ~canBeLambda:false t d
                 +. minimal_inhabitant_cost ~intersectionTable ~given ~canBeLambda:true t b
-            | LetRevSpace (_vcount, v, d, b) ->
-                epsilon_cost
-                +. minimal_inhabitant_cost ~intersectionTable ~given ~canBeLambda:false t v
-                +. minimal_inhabitant_cost ~intersectionTable ~given ~canBeLambda:false t d
+            | LetRevSpace (_vcount, _v, d, b) ->
+                (* epsilon_cost
+                   +. minimal_inhabitant_cost ~intersectionTable ~given ~canBeLambda:false t v *)
+                minimal_inhabitant_cost ~intersectionTable ~given ~canBeLambda:false t d
                 +. minimal_inhabitant_cost ~intersectionTable ~given ~canBeLambda:true t b
-            | WrapEitherSpace (_vcount, v, _fv, d, f, b) ->
-                epsilon_cost
-                +. minimal_inhabitant_cost ~intersectionTable ~given ~canBeLambda:false t v
-                +. minimal_inhabitant_cost ~intersectionTable ~given ~canBeLambda:false t f
-                +. minimal_inhabitant_cost ~intersectionTable ~given ~canBeLambda:false t d
+            | WrapEitherSpace (_vcount, _v, _fv, d, _f, b) ->
+                (* epsilon_cost
+                   +. minimal_inhabitant_cost ~intersectionTable ~given ~canBeLambda:false t v
+                   +. minimal_inhabitant_cost ~intersectionTable ~given ~canBeLambda:false t f *)
+                minimal_inhabitant_cost ~intersectionTable ~given ~canBeLambda:false t d
                 +. minimal_inhabitant_cost ~intersectionTable ~given ~canBeLambda:true t b)
       in
 
@@ -1588,8 +1677,8 @@ let calculate_candidate_costs v candidates =
          Hashtbl.set candidate_cost ~key:k ~data:(1. +. cost));
   candidate_cost
 
-let beam_costs'' ~ct ~bs (candidates : int list) (frontier_indices : int list list) : beam option ra
-    =
+let beam_costs'' ~ct ~bs (candidates : int list) (frontier_indices : int list list list) :
+    beam option ra =
   let ct : cost_table = ct in
   let candidates' = candidates in
   let candidates = Hash_set.Poly.of_list candidates in
@@ -1640,7 +1729,7 @@ let beam_costs'' ~ct ~bs (candidates : int list) (frontier_indices : int list li
             let domain = Hashtbl.keys db.relative_argument @ Hashtbl.keys bb.relative_argument in
             domain
             |> List.iter ~f:(fun i ->
-                   let c = epsilon_cost +. relative_argument db i +. relative_argument bb i in
+                   let c = relative_argument db i +. relative_argument bb i in
                    relax bm.relative_argument i c)
         | LetRevSpace (_vc, v, d, b) ->
             let vb = calculate_costs v in
@@ -1652,10 +1741,7 @@ let beam_costs'' ~ct ~bs (candidates : int list) (frontier_indices : int list li
             in
             domain
             |> List.iter ~f:(fun i ->
-                   let c =
-                     epsilon_cost +. relative_argument vb i +. relative_argument db i
-                     +. relative_argument bb i
-                   in
+                   let c = relative_argument db i +. relative_argument bb i in
                    relax bm.relative_argument i c)
         | WrapEitherSpace (_vc, v, _fv, d, f, b) ->
             let vb = calculate_costs v in
@@ -1668,10 +1754,7 @@ let beam_costs'' ~ct ~bs (candidates : int list) (frontier_indices : int list li
             in
             domain
             |> List.iter ~f:(fun i ->
-                   let c =
-                     epsilon_cost +. relative_argument vb i +. relative_argument fb i
-                     +. relative_argument db i +. relative_argument bb i
-                   in
+                   let c = relative_argument db i +. relative_argument bb i in
                    relax bm.relative_argument i c)
         | Union u ->
             u
@@ -1687,18 +1770,20 @@ let beam_costs'' ~ct ~bs (candidates : int list) (frontier_indices : int list li
         bm
   in
 
-  frontier_indices |> List.iter ~f:(List.iter ~f:(fun j -> ignore (calculate_costs j : beam)));
+  frontier_indices
+  |> List.iter ~f:(List.iter ~f:(List.iter ~f:(fun j -> ignore (calculate_costs j : beam))));
   caching_table
 
 (* For each of the candidates returns the minimum description length of the frontiers *)
-let beam_costs' ~ct ~bs (candidates : int list) (frontier_indices : int list list) : float list =
+let beam_costs' ~ct ~bs (candidates : int list) (frontier_indices : int list list list) : float list
+    =
   let caching_table = beam_costs'' ~ct ~bs candidates frontier_indices in
   let frontier_beams =
     frontier_indices
-    |> List.map ~f:(List.map ~f:(fun j -> get_resizable caching_table j |> get_some))
+    |> List.map ~f:(List.map ~f:(List.map ~f:(fun j -> get_resizable caching_table j |> get_some)))
   in
 
-  let score i =
+  let score i frontier_beams =
     let corpus_size =
       frontier_beams
       |> List.map ~f:(fun bs ->
@@ -1710,14 +1795,14 @@ let beam_costs' ~ct ~bs (candidates : int list) (frontier_indices : int list lis
     corpus_size
   in
 
-  candidates |> List.map ~f:score
+  List.map2_exn ~f:score candidates frontier_beams
 
-let beam_costs ~ct ~bs (candidates : int list) (frontier_indices : int list list) =
+let beam_costs ~ct ~bs (candidates : int list) (frontier_indices : int list list list) =
   let scored = List.zip_exn (beam_costs' ~ct ~bs candidates frontier_indices) candidates in
   scored |> List.sort ~compare:(fun (s1, _) (s2, _) -> Float.compare s1 s2)
 
 let batched_refactor ~ct (candidates : int list) (frontier_requests : tp list)
-    (frontier_indices : int list list) =
+    (frontier_indices : int list list list) =
   let caching_table = beam_costs'' ~ct ~bs:(List.length candidates) candidates frontier_indices in
 
   let v = ct.cost_table_parent in
@@ -1780,12 +1865,9 @@ let batched_refactor ~ct (candidates : int list) (frontier_requests : tp list)
       | Universe | Void -> assert false
   in
 
-  candidates
-  |> List.map ~f:(fun i ->
-         List.map2_exn frontier_indices frontier_requests ~f:(fun f req ->
-             let initial_workspace =
-               match req with
-               | TNCon (_, arguments, _, _) -> List.rev_map arguments ~f:fst
-               | _ -> []
-             in
-             f |> List.map ~f:(fun j -> refactor ~canBeLambda:true initial_workspace i j)))
+  List.map2_exn candidates frontier_indices ~f:(fun i inds ->
+      List.map2_exn inds frontier_requests ~f:(fun f req ->
+          let initial_workspace =
+            match req with TNCon (_, arguments, _, _) -> List.rev_map arguments ~f:fst | _ -> []
+          in
+          f |> List.map ~f:(fun j -> refactor ~canBeLambda:true initial_workspace i j)))

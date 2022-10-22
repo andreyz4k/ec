@@ -402,6 +402,18 @@ let compression_worker connection ~inline ~arity ~bs ~topK g frontiers =
   let candidates : program list = receive () in
   let candidates : int list = candidates |> List.map ~f:(incorporate' v []) in
 
+  let frontier_indices : int list list list =
+    time_it ~verbose:!verbose_compression "(worker) calculated version spaces" (fun () ->
+        candidates
+        |> List.map ~f:(fun i ->
+               !frontiers
+               |> List.map ~f:(fun f ->
+                      f.programs
+                      |> List.map ~f:(fun (p, _) ->
+                             incorporate v f.request p
+                             |> n_step_inversion_with_invention v ~given:i ~inline ~n:arity))))
+  in
+
   if !verbose_compression then (
     Printf.eprintf "(worker) Got %d candidates.\n" (List.length candidates);
     flush_everything ());
@@ -457,11 +469,16 @@ let compression_worker connection ~inline ~arity ~bs ~topK g frontiers =
     time_it ~verbose:!verbose_compression "(worker) batched rewrote frontiers" (fun () ->
         Gc.compact ();
         let invention_indices : int list = inventions |> List.map ~f:(incorporate' v []) in
-        let frontier_indices : int list list =
-          !frontiers
-          |> List.map ~f:(fun f ->
-                 f.programs
-                 |> List.map ~f:(n_step_inversion ~inline v ~n:arity % incorporate v f.request % fst))
+        let frontier_indices : int list list list =
+          invention_indices
+          |> List.map ~f:(fun i ->
+                 !frontiers
+                 |> List.map ~f:(fun f ->
+                        f.programs
+                        |> List.map
+                             ~f:
+                               (n_step_inversion_with_invention ~inline v ~given:i ~n:arity
+                               % incorporate v f.request % fst)))
         in
         let frontier_requests = !frontiers |> List.map ~f:(fun f -> f.request) in
         clear_dynamic_programming_tables v;
@@ -506,6 +523,7 @@ let compression_worker connection ~inline ~arity ~bs ~topK g frontiers =
     (* exchanging time for memory - invert everything again *)
     frontiers := original_frontiers;
     let v = new_version_table () in
+    let i = incorporate' v [] invention in
     let frontier_inversions = Hashtbl.Poly.create () in
     time_it ~verbose:!verbose_compression "(worker) did final inversion" (fun () ->
         !frontiers
@@ -513,11 +531,12 @@ let compression_worker connection ~inline ~arity ~bs ~topK g frontiers =
                f.programs
                |> List.iter ~f:(fun (p, _) ->
                       Hashtbl.set frontier_inversions ~key:(incorporate v f.request p)
-                        ~data:(n_step_inversion ~inline v ~n:arity (incorporate v f.request p)))));
+                        ~data:
+                          (n_step_inversion_with_invention ~inline v ~given:i ~n:arity
+                             (incorporate v f.request p)))));
     clear_dynamic_programming_tables v;
     Gc.compact ();
 
-    let i = incorporate' v [] invention in
     let new_cost_table = empty_cheap_cost_table v in
     time_it ~verbose:!verbose_compression "(worker) did final refactor" (fun () ->
         List.map !frontiers ~f:(fun frontier ->
@@ -789,6 +808,17 @@ let compression_step ~inline ~structurePenalty ~aic ~pseudoCounts ?(arity = 3) ~
   match candidates with
   | [] -> None
   | _ ->
+      let frontier_indices : int list list list =
+        candidates
+        |> List.map ~f:(fun i ->
+               !frontiers
+               |> List.map ~f:(fun f ->
+                      f.programs
+                      |> List.map
+                           ~f:
+                             (n_step_inversion_with_invention ~inline v ~given:i ~n:arity
+                             % incorporate v f.request % fst)))
+      in
       let ranked_candidates =
         time_it "beamed version spaces" (fun () ->
             beam_costs ~ct:cost_table ~bs candidates frontier_indices)
@@ -818,7 +848,7 @@ let compression_step ~inline ~structurePenalty ~aic ~pseudoCounts ?(arity = 3) ~
                   List.map frontier.programs ~f:(fun (originalProgram, ll) ->
                       let index =
                         incorporate v frontier.request originalProgram
-                        |> n_step_inversion v ~inline ~n:arity
+                        |> n_step_inversion_with_invention v ~given:i ~inline ~n:arity
                       in
                       let program =
                         minimal_inhabitant new_cost_table ~given:(Some i) initial_workspace index

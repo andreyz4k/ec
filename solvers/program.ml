@@ -26,7 +26,14 @@ let rec recursively_get_abstraction_body = function
   | Abstraction b -> recursively_get_abstraction_body b
   | e -> e
 
-let program_children = function Abstraction b -> [ b ] | Apply (m, n) -> [ m; n ] | _ -> []
+let program_children = function
+  | Abstraction b -> [ b ]
+  | Apply (m, n) -> [ m; n ]
+  | LetClause (_var, def, body) -> [ def; body ]
+  | LetRevClause (_vars, _inp, def, body) -> [ def; body ]
+  | WrapEither (_vars, _inp, _fixer, def, _f, body) -> [ def; body ]
+  | _ -> []
+
 let rec application_function = function Apply (f, _) -> application_function f | e -> e
 
 let rec application_parse = function
