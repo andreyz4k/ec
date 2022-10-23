@@ -17,12 +17,11 @@ function is_reversible(p::Apply)
     false
 end
 
-is_reversible(p::Invented) = is_reversible(p.p)
+is_reversible(p::Invented) = is_reversible(p.b)
 
 function is_reversible(p::Program)
     false
 end
-
 
 function _get_reversed_filled_program(p::Primitive)
     return all_abstractors[p]
@@ -81,7 +80,6 @@ reverse_cons = generic_reverse(every_primitive["cons"], _reverse_cons)
 
 all_abstractors[every_primitive["cons"]] = a -> b -> reverse_cons(a, b)
 
-
 function _replace_free_vars(p::FreeVar, replacements)
     popfirst!(replacements)
 end
@@ -94,7 +92,6 @@ end
 
 _replace_free_vars(p::Abstraction, replacements) = Abstraction(_replace_free_vars(p.b, replacements))
 _replace_free_vars(p::Program, replacements) = p
-
 
 function map_function_replacement(map_f, filled_types)
     if length(filled_types) == 1

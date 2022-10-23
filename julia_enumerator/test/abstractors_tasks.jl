@@ -412,7 +412,7 @@ import Redis
             ),
             "name" => "use eithers",
             "programTimeout" => 1,
-            "timeout" => 20,
+            "timeout" => 30,
             "verbose" => false,
             "shatter" => 10,
         )

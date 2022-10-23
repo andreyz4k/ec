@@ -162,7 +162,7 @@ import Redis
         ),
         "name" => "empty",
         "programTimeout" => 1,
-        "timeout" => 20,
+        "timeout" => 30,
         "verbose" => false,
         "shatter" => 10,
     )
@@ -419,7 +419,7 @@ import Redis
         ),
         "name" => "is-mod-k with k=1",
         "programTimeout" => 1,
-        "timeout" => 20,
+        "timeout" => 30,
         "verbose" => false,
         "shatter" => 10,
     )
@@ -663,7 +663,7 @@ import Redis
         ),
         "name" => "remove empty lists",
         "programTimeout" => 1.0,
-        "timeout" => 20,
+        "timeout" => 30,
         "verbose" => false,
         "shatter" => 10,
     )
@@ -776,7 +776,7 @@ import Redis
         ),
         "name" => "prepend-index-k with k=3",
         "programTimeout" => 1.0,
-        "timeout" => 20,
+        "timeout" => 30,
         "verbose" => false,
         "shatter" => 10,
     )
@@ -889,7 +889,7 @@ import Redis
         ),
         "name" => "range +1 maximum list",
         "programTimeout" => 1.0,
-        "timeout" => 20,
+        "timeout" => 30,
         "verbose" => false,
         "shatter" => 10,
     )
