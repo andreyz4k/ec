@@ -21,7 +21,7 @@ import Redis
         @test is_reversible(Apply(Apply(every_primitive["repeat"], Hole(tint, nothing)), Hole(tint, nothing)))
     end
 
-    @testset "Check reverrsible map" begin
+    @testset "Check reversible map" begin
         @test is_reversible(
             Apply(
                 Apply(
@@ -154,5 +154,26 @@ import Redis
         )
         @test rev_p([[[1, 1, 1], [2, 2], [4]], [[3, 3, 3, 3], [2, 2, 2], [8, 8, 8]]]) ==
               ([[1, 2, 4], [3, 2, 8]], [[3, 2, 1], [4, 3, 3]])
+    end
+
+    @testset "Reverse range" begin
+        skeleton = Apply(every_primitive["range"], Hole(tint, nothing))
+        filled_p, rev_p = get_reversed_filled_program(skeleton)
+        @test filled_p == Apply(every_primitive["range"], FreeVar(tint, nothing))
+        @test rev_p([0, 1, 2]) == (2,)
+        @test rev_p([]) == (-1,)
+    end
+
+    @testset "Reverse map with range" begin
+        skeleton = Apply(
+            Apply(every_primitive["map"], Abstraction(Apply(every_primitive["range"], Hole(tint, nothing)))),
+            Hole(tlist(tint), nothing),
+        )
+        filled_p, rev_p = get_reversed_filled_program(skeleton)
+        @test filled_p == Apply(
+            Apply(every_primitive["map"], Abstraction(Apply(every_primitive["range"], Index(0)))),
+            FreeVar(tlist(tint), nothing),
+        )
+        @test rev_p([[0, 1, 2], [0, 1], [0, 1, 2, 3]]) == ([2, 1, 3],)
     end
 end

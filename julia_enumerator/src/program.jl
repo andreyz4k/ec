@@ -25,20 +25,21 @@ struct Primitive <: Program
     t::Tp
     name::String
     code::Any
-
-    function Primitive(name::String, t::Tp, x; skip_saving = false)
-        p = new(t, name, x)
-        if !skip_saving
-            @assert !haskey(every_primitive, name)
-            every_primitive[name] = p
-        end
-        p
-    end
 end
+
 Base.hash(p::Primitive, h::UInt64) = hash(p.name, h)
 Base.:(==)(p::Primitive, q::Primitive) = p.name == q.name
 
 every_primitive = Dict{String,Primitive}()
+
+macro define_primitive(name, t, x)
+    return quote
+        local n = $(esc(name))
+        local p = Primitive($(esc(t)), n, $(esc(x)))
+        every_primitive[n] = p
+    end
+end
+
 struct Invented <: Program
     t::Tp
     b::Program
@@ -264,12 +265,7 @@ parse_variable = bind_parsers(
 
 parse_fixed_real = bind_parsers(
     constant_parser("real"),
-    (
-        _ -> bind_parsers(
-            parse_token,
-            (v -> Primitive(treal, "real", parse(Float64, v); skip_saving = true) |> return_parse),
-        )
-    ),
+    (_ -> bind_parsers(parse_token, (v -> Primitive(treal, "real", parse(Float64, v)) |> return_parse))),
 )
 
 parse_invented = bind_parsers(

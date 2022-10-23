@@ -60,43 +60,43 @@ _is_prime(n) = in(
     ]),
 )
 
-Primitive("map", arrow(arrow(t0, t1), tlist(t0), tlist(t1)), (f -> (xs -> map(f, xs))))
-Primitive(
+@define_primitive("map", arrow(arrow(t0, t1), tlist(t0), tlist(t1)), (f -> (xs -> map(f, xs))))
+@define_primitive(
     "unfold",
     arrow(t0, arrow(t0, tbool), arrow(t0, t1), arrow(t0, t0), tlist(t1)),
     (x -> (p -> (h -> (n -> _unfold(x, p, h, n))))),
 )
-Primitive("range", arrow(tint, tlist(tint)), (n -> collect(0:n-1)))
-Primitive("index", arrow(tint, tlist(t0), t0), (j -> (l -> l[j])))
-Primitive("tuple2_first", arrow(ttuple2(t0, t1), t0), (t -> t[1]))
-Primitive("tuple2_second", arrow(ttuple2(t0, t1), t1), (t -> t[2]))
-Primitive(
+@define_primitive("range", arrow(tint, tlist(tint)), (n -> collect(0:n-1)))
+@define_primitive("index", arrow(tint, tlist(t0), t0), (j -> (l -> l[j])))
+@define_primitive("tuple2_first", arrow(ttuple2(t0, t1), t0), (t -> t[1]))
+@define_primitive("tuple2_second", arrow(ttuple2(t0, t1), t1), (t -> t[2]))
+@define_primitive(
     "fold",
     arrow(tlist(t0), t1, arrow(t0, t1, t1), t1),
     (itr -> (init -> (op -> foldr((v, acc) -> op(v)(acc), itr, init = init)))),
 )
-Primitive("length", arrow(tlist(t0), tint), length)
+@define_primitive("length", arrow(tlist(t0), tint), length)
 
 # built-ins
-Primitive("if", arrow(tbool, t0, t0, t0), (c -> (t -> (f -> c ? t : f))))
-Primitive("+", arrow(tint, tint, tint), (a -> (b -> a + b)))
-Primitive("-", arrow(tint, tint, tint), (a -> (b -> a - b)))
-Primitive("empty", tlist(t0), [])
-Primitive("cons", arrow(t0, tlist(t0), tlist(t0)), (x -> (y -> vcat([x], y))))
-Primitive("car", arrow(tlist(t0), t0), (l -> l[1]))
-Primitive("cdr", arrow(tlist(t0), tlist(t0)), (l -> isempty(l) ? error("Empty list") : l[2:end]))
-Primitive("empty?", arrow(tlist(t0), tbool), isempty)
+@define_primitive("if", arrow(tbool, t0, t0, t0), (c -> (t -> (f -> c ? t : f))))
+@define_primitive("+", arrow(tint, tint, tint), (a -> (b -> a + b)))
+@define_primitive("-", arrow(tint, tint, tint), (a -> (b -> a - b)))
+@define_primitive("empty", tlist(t0), [])
+@define_primitive("cons", arrow(t0, tlist(t0), tlist(t0)), (x -> (y -> vcat([x], y))))
+@define_primitive("car", arrow(tlist(t0), t0), (l -> l[1]))
+@define_primitive("cdr", arrow(tlist(t0), tlist(t0)), (l -> isempty(l) ? error("Empty list") : l[2:end]))
+@define_primitive("empty?", arrow(tlist(t0), tbool), isempty)
 
-[Primitive(string(j), tint, j) for j = 0:1]
+[@define_primitive(string(j), tint, j) for j in 0:1]
 
-Primitive("*", arrow(tint, tint, tint), (a -> (b -> a * b)))
-Primitive("mod", arrow(tint, tint, tint), (a -> (b -> a % b)))
-Primitive("gt?", arrow(tint, tint, tbool), (a -> (b -> a > b)))
-Primitive("eq?", arrow(t0, t0, tbool), (a -> (b -> a == b)))
-Primitive("is-prime", arrow(tint, tbool), _is_prime)
-Primitive("is-square", arrow(tint, tbool), (n -> floor(sqrt(n))^2 == n))
+@define_primitive("*", arrow(tint, tint, tint), (a -> (b -> a * b)))
+@define_primitive("mod", arrow(tint, tint, tint), (a -> (b -> a % b)))
+@define_primitive("gt?", arrow(tint, tint, tbool), (a -> (b -> a > b)))
+@define_primitive("eq?", arrow(t0, t0, tbool), (a -> (b -> a == b)))
+@define_primitive("is-prime", arrow(tint, tbool), _is_prime)
+@define_primitive("is-square", arrow(tint, tbool), (n -> floor(sqrt(n))^2 == n))
 
-Primitive("repeat", arrow(t0, tint, tlist(t0)), (x -> (n -> fill(x, n))))
-Primitive("zip2", arrow(tlist(t0), tlist(t1), tlist(ttuple2(t0, t1))), (a -> (b -> zip(a, b))))
+@define_primitive("repeat", arrow(t0, tint, tlist(t0)), (x -> (n -> fill(x, n))))
+@define_primitive("zip2", arrow(tlist(t0), tlist(t1), tlist(ttuple2(t0, t1))), (a -> (b -> zip(a, b))))
 
-Primitive("concat", arrow(tlist(t0), tlist(t0), tlist(t0)), (a -> (b -> vcat(a, b))))
+@define_primitive("concat", arrow(tlist(t0), tlist(t0), tlist(t0)), (a -> (b -> vcat(a, b))))

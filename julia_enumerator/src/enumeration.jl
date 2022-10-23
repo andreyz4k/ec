@@ -335,12 +335,14 @@ function try_get_reversed_values(sc::SolutionContext, p::Program, context, outpu
 
         push!(new_branches, (var_id, branch_id, entry.type_id))
     end
-    for (_, branch_id, _) in new_branches
-        inds = [b_id for (_, b_id, _) in new_branches if b_id != branch_id]
-        if is_known
-            sc.related_explained_complexity_branches[branch_id, inds] = 1
-        else
-            sc.related_unknown_complexity_branches[branch_id, inds] = 1
+    if length(new_branches) > 1
+        for (_, branch_id, _) in new_branches
+            inds = [b_id for (_, b_id, _) in new_branches if b_id != branch_id]
+            if is_known
+                sc.related_explained_complexity_branches[branch_id, inds] = 1
+            else
+                sc.related_unknown_complexity_branches[branch_id, inds] = 1
+            end
         end
     end
     if length(either_branch_ids) >= 1

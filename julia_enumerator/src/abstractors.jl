@@ -47,7 +47,7 @@ function get_reversed_filled_program(p::Program)
     return fill_p, rev_p
 end
 
-function generic_reverse(prim, rev_function)
+function generic_reverse2(prim, rev_function)
     function _generic_reverse(a, b)
         fill_a, rev_a, filled_types_a = _get_reversed_filled_program(a)
         fill_b, rev_b, filled_types_b = _get_reversed_filled_program(b)
@@ -60,25 +60,61 @@ function generic_reverse(prim, rev_function)
     return _generic_reverse
 end
 
-function _reverse_repeat(value)
+function generic_reverse1(prim, rev_function)
+    function _generic_reverse(a)
+        fill_a, rev_a, filled_types_a = _get_reversed_filled_program(a)
+        function _reverse_function(value)
+            r_a, = rev_function(value)
+            return rev_a(r_a)
+        end
+        return Apply(prim, fill_a), _reverse_function, filled_types_a
+    end
+    return _generic_reverse
+end
+
+macro define_reverse_primitive(name, reverse_function)
+    return quote
+        local n = $(esc(name))
+        local prim = every_primitive[n]
+        if length(arguments_of_type(prim.t)) == 1
+            local reversed_func = generic_reverse1(prim, $(esc(reverse_function)))
+            local out = a -> reversed_func(a)
+        elseif length(arguments_of_type(prim.t)) == 2
+            local reversed_func = generic_reverse2(prim, $(esc(reverse_function)))
+            local out = a -> b -> reversed_func(a, b)
+        end
+        all_abstractors[prim] = out
+    end
+end
+
+macro define_custom_reverse_primitive(name, reverse_function)
+    return quote
+        local n = $(esc(name))
+        local prim = every_primitive[n]
+        if length(arguments_of_type(prim.t)) == 2
+            local out = a -> b -> $(esc(reverse_function))(a, b)
+        end
+        all_abstractors[prim] = out
+    end
+end
+
+function reverse_repeat(value)
     if any(v != value[1] for v in value)
         error("Elements are not equal")
     end
     return value[1], length(value)
 end
-reverse_repeat = generic_reverse(every_primitive["repeat"], _reverse_repeat)
 
-all_abstractors[every_primitive["repeat"]] = a -> b -> reverse_repeat(a, b)
+@define_reverse_primitive "repeat" reverse_repeat
 
-function _reverse_cons(value)
+function reverse_cons(value)
     if isempty(value)
         error("List is empty")
     end
     return value[1], value[2:end]
 end
-reverse_cons = generic_reverse(every_primitive["cons"], _reverse_cons)
 
-all_abstractors[every_primitive["cons"]] = a -> b -> reverse_cons(a, b)
+@define_reverse_primitive "cons" reverse_cons
 
 function _replace_free_vars(p::FreeVar, replacements)
     popfirst!(replacements)
@@ -135,9 +171,9 @@ function reverse_map(f, x)
     return Apply(Apply(every_primitive["map"], new_f), new_x), _reverse_map, filled_types
 end
 
-all_abstractors[every_primitive["map"]] = map_f -> x -> reverse_map(map_f, x)
+@define_custom_reverse_primitive "map" reverse_map
 
-function _reverse_concat(value)
+function reverse_concat(value)
     options_h = Dict()
     options_t = Dict()
     for i in range(0, length(value))
@@ -162,6 +198,16 @@ function _reverse_concat(value)
     end
     return out_h, out_t
 end
-reverse_concat = generic_reverse(every_primitive["concat"], _reverse_concat)
 
-all_abstractors[every_primitive["concat"]] = a -> b -> reverse_concat(a, b)
+@define_reverse_primitive "concat" reverse_concat
+
+function reverse_range(value)
+    for (i, v) in enumerate(value)
+        if v != i - 1
+            error("Invalid value")
+        end
+    end
+    return (length(value) - 1,)
+end
+
+@define_reverse_primitive "range" reverse_range
