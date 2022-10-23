@@ -35,6 +35,7 @@ type vt = {
   recursive_inversion_table : int option ra;
   n_step_table : (int * int, int) Hashtbl.t;
   n_step_given_table : (int * int * int, int) Hashtbl.t;
+  n_step_visited_given_table : (int * int * int, int) Hashtbl.t;
   substitution_table : (int * int, (int, int) Hashtbl.t) Hashtbl.t;
 }
 [@@deriving show]
@@ -96,6 +97,7 @@ let new_version_table () : vt =
       substitution_table = Hashtbl.Poly.create ();
       n_step_table = Hashtbl.Poly.create ();
       n_step_given_table = Hashtbl.Poly.create ();
+      n_step_visited_given_table = Hashtbl.Poly.create ();
       recursive_inversion_table = empty_resizable ();
     }
   in
@@ -1184,7 +1186,9 @@ let rec has_subprogram t i j =
     | Union u -> List.exists ~f:(has_subprogram t i) u
 
 let n_step_inversion_with_invention ?inline:(il = false) t ~given ~n j =
-  let key = (n, j, given) in
+  let key =
+    match index_table t j with LetSpace _ | LetRevSpace _ -> (n, j, given) | _ -> (n, j, 0)
+  in
   match Hashtbl.find t.n_step_given_table key with
   | Some ns -> ns
   | None ->
@@ -1206,43 +1210,51 @@ let n_step_inversion_with_invention ?inline:(il = false) t ~given ~n j =
       in
 
       let rec visit j =
-        let children' j =
-          match index_table t j with
-          | LetSpace (d, b) ->
-              let normal_visited = version_let t (visit d) (visit b) in
-              if has_subprogram t given normal_visited then [ normal_visited ]
-              else
-                normal_visited
-                ::
-                (let substituted = beta_substitution t 0 d b in
-                 match index_table t substituted with
-                 | Void -> []
-                 | _ ->
-                     let substituted_visited = visit substituted in
-                     if has_subprogram t given substituted_visited then [ substituted_visited ]
-                     else [])
-          | LetRevSpace (vc, v, d, b) ->
-              let normal_visited = version_let_rev t vc v (visit d) (visit b) in
-              if has_subprogram t given normal_visited then [ normal_visited ]
-              else
-                normal_visited
-                :: (List.map ~f:visit (beta_rev_substitution t j)
-                   |> List.filter ~f:(has_subprogram t given))
-          | WrapEitherSpace (vc, iv, fv, d, f, b) ->
-              [ version_wrap_either t vc iv fv (visit d) (visit f) (visit b) ]
-          | _ -> assert false
+        let visited_key =
+          match index_table t j with LetSpace _ | LetRevSpace _ -> (n, j, given) | _ -> (n, j, 0)
         in
-        let children =
-          match index_table t j with
-          | Union _ | Void | Universe -> assert false
-          | ApplySpace (f, x) -> version_apply t (visit f) (visit x)
-          | AbstractSpace b -> version_abstract t (visit b)
-          | IndexSpace _ | TerminalSpace _ -> j
-          | LetSpace (_, _) | LetRevSpace (_, _, _, _) | WrapEitherSpace _ ->
-              j :: reorder_lets t j |> List.map ~f:children' |> List.concat |> union t
-          | VarIndexSpace _n -> j
-        in
-        union t (children :: n_step j)
+        match Hashtbl.find t.n_step_visited_given_table visited_key with
+        | Some ns -> ns
+        | None ->
+            let children' j =
+              match index_table t j with
+              | LetSpace (d, b) ->
+                  let normal_visited = version_let t (visit d) (visit b) in
+                  if has_subprogram t given normal_visited then [ normal_visited ]
+                  else
+                    normal_visited
+                    ::
+                    (let substituted = beta_substitution t 0 d b in
+                     match index_table t substituted with
+                     | Void -> []
+                     | _ ->
+                         let substituted_visited = visit substituted in
+                         if has_subprogram t given substituted_visited then [ substituted_visited ]
+                         else [])
+              | LetRevSpace (vc, v, d, b) ->
+                  let normal_visited = version_let_rev t vc v (visit d) (visit b) in
+                  if has_subprogram t given normal_visited then [ normal_visited ]
+                  else
+                    normal_visited
+                    :: (List.map ~f:visit (beta_rev_substitution t j)
+                       |> List.filter ~f:(has_subprogram t given))
+              | WrapEitherSpace (vc, iv, fv, d, f, b) ->
+                  [ version_wrap_either t vc iv fv (visit d) (visit f) (visit b) ]
+              | _ -> assert false
+            in
+            let children =
+              match index_table t j with
+              | Union _ | Void | Universe -> assert false
+              | ApplySpace (f, x) -> version_apply t (visit f) (visit x)
+              | AbstractSpace b -> version_abstract t (visit b)
+              | IndexSpace _ | TerminalSpace _ -> j
+              | LetSpace (_, _) | LetRevSpace (_, _, _, _) | WrapEitherSpace _ ->
+                  j :: reorder_lets t j |> List.map ~f:children' |> List.concat |> union t
+              | VarIndexSpace _n -> j
+            in
+            let res = union t (children :: n_step j) in
+            Hashtbl.set t.n_step_visited_given_table ~key:visited_key ~data:res;
+            res
       in
 
       let ns = visit j |> beta_pruning t in
