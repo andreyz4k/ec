@@ -1172,18 +1172,37 @@ let n_step_inversion ?inline:(il = false) t ~n j =
       Hashtbl.set t.n_step_table ~key ~data:ns;
       ns
 
-let rec has_subprogram t i j =
-  if i = j then true
+let rec filter_with_subprogram t i j =
+  if i = j then (1, j)
   else
     match index_table t j with
     | Void | Universe -> assert false
-    | TerminalSpace _ | IndexSpace _ | VarIndexSpace _ -> false
-    | ApplySpace (f, x) -> has_subprogram t i f || has_subprogram t i x
-    | AbstractSpace b -> has_subprogram t i b
-    | LetSpace (d, b) -> has_subprogram t i d || has_subprogram t i b
-    | LetRevSpace (_vc, _v, d, b) -> has_subprogram t i d || has_subprogram t i b
-    | WrapEitherSpace (_vc, _iv, _fv, d, _f, b) -> has_subprogram t i d || has_subprogram t i b
-    | Union u -> List.exists ~f:(has_subprogram t i) u
+    | TerminalSpace _ | IndexSpace _ | VarIndexSpace _ -> (0, j)
+    | ApplySpace (f, x) ->
+        let fc, f' = filter_with_subprogram t i f in
+        let xc, x' = filter_with_subprogram t i x in
+        (fc + xc, version_apply t f' x')
+    | AbstractSpace b ->
+        let c, b' = filter_with_subprogram t i b in
+        (c, version_abstract t b')
+    | LetSpace (d, b) ->
+        let dc, d' = filter_with_subprogram t i d in
+        let bc, b' = filter_with_subprogram t i b in
+        (dc + bc, version_let t d' b')
+    | LetRevSpace (vc, v, d, b) ->
+        let dc, d' = filter_with_subprogram t i d in
+        let bc, b' = filter_with_subprogram t i b in
+        (dc + bc, version_let_rev t vc v d' b')
+    | WrapEitherSpace (vc, iv, fv, d, f, b) ->
+        let dc, d' = filter_with_subprogram t i d in
+        let bc, b' = filter_with_subprogram t i b in
+        (dc + bc, version_wrap_either t vc iv fv d' f b')
+    | Union u ->
+        let us = List.map u ~f:(filter_with_subprogram t i) in
+        if List.exists us ~f:(fun (c, _) -> c <> 0) then
+          ( us |> List.map ~f:fst |> List.max_elt ~compare |> get_some,
+            union t (List.filter_map us ~f:(fun (c, e) -> if c = 0 then None else Some e)) )
+        else (0, union t (List.map us ~f:snd))
 
 let n_step_inversion_with_invention ?inline:(il = false) t ~given ~n j =
   let key =
@@ -1220,24 +1239,30 @@ let n_step_inversion_with_invention ?inline:(il = false) t ~given ~n j =
               match index_table t j with
               | LetSpace (d, b) ->
                   let normal_visited = version_let t (visit d) (visit b) in
-                  if has_subprogram t given normal_visited then [ normal_visited ]
-                  else
-                    normal_visited
-                    ::
-                    (let substituted = beta_substitution t 0 d b in
-                     match index_table t substituted with
-                     | Void -> []
-                     | _ ->
-                         let substituted_visited = visit substituted in
-                         if has_subprogram t given substituted_visited then [ substituted_visited ]
-                         else [])
+                  let normal_c, _ = filter_with_subprogram t given normal_visited in
+
+                  normal_visited
+                  ::
+                  (let substituted = beta_substitution t 0 d b in
+                   match index_table t substituted with
+                   | Void -> []
+                   | _ ->
+                       let substituted_visited = visit substituted in
+                       let substituted_c, substituted_filtered =
+                         filter_with_subprogram t given substituted_visited
+                       in
+                       if substituted_c > normal_c then [ substituted_filtered ] else [])
               | LetRevSpace (vc, v, d, b) ->
                   let normal_visited = version_let_rev t vc v (visit d) (visit b) in
-                  if has_subprogram t given normal_visited then [ normal_visited ]
-                  else
-                    normal_visited
-                    :: (List.map ~f:visit (beta_rev_substitution t j)
-                       |> List.filter ~f:(has_subprogram t given))
+                  let normal_c, _ = filter_with_subprogram t given normal_visited in
+
+                  normal_visited
+                  :: (List.map ~f:visit (beta_rev_substitution t j)
+                     |> List.filter_map ~f:(fun substituted_visited ->
+                            let substituted_c, substituted_filtered =
+                              filter_with_subprogram t given substituted_visited
+                            in
+                            if substituted_c > normal_c then Some substituted_filtered else None))
               | WrapEitherSpace (vc, iv, fv, d, f, b) ->
                   [ version_wrap_either t vc iv fv (visit d) (visit f) (visit b) ]
               | _ -> assert false
