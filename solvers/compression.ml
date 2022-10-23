@@ -636,13 +636,14 @@ let compression_step_master ~inline ~nc ~structurePenalty ~aic ~pseudoCounts ?(a
   in
 
   let candidates : program list list =
-    sockets
-    |> List.map ~f:(fun s ->
-           let candidate_message : int list list * vs ra = receive s in
-           let candidates, candidate_table = candidate_message in
-           let candidate_table = { (new_version_table ()) with i2s = candidate_table } in
-           candidates |> List.map ~f:(List.map ~f:(singleton_head % extract candidate_table)))
-    |> List.concat
+    time_it "Got candidates" (fun () ->
+        sockets
+        |> List.map ~f:(fun s ->
+               let candidate_message : int list list * vs ra = receive s in
+               let candidates, candidate_table = candidate_message in
+               let candidate_table = { (new_version_table ()) with i2s = candidate_table } in
+               candidates |> List.map ~f:(List.map ~f:(singleton_head % extract candidate_table)))
+        |> List.concat)
   in
   let candidates : program list = occurs_multiple_times (List.concat candidates) in
   Printf.eprintf "Total number of candidates: %d\n" (List.length candidates);
@@ -653,10 +654,11 @@ let compression_step_master ~inline ~nc ~structurePenalty ~aic ~pseudoCounts ?(a
   send candidates;
 
   let candidate_scores : float list list =
-    sockets
-    |> List.map ~f:(fun s ->
-           let ss : float list = receive s in
-           ss)
+    time_it "Got candidate scores" (fun () ->
+        sockets
+        |> List.map ~f:(fun s ->
+               let ss : float list = receive s in
+               ss))
   in
   if !verbose_compression then (
     Printf.eprintf "(master) Received worker beams\n";
