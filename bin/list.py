@@ -1,4 +1,3 @@
-
 try:
     import binutil  # required to import from dreamcoder modules
 except ModuleNotFoundError:
@@ -9,11 +8,20 @@ from dreamcoder.dreamcoder import commandlineArguments
 from dreamcoder.utilities import numberOfCPUs
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     args = commandlineArguments(
-        enumerationTimeout=10, activation='tanh', iterations=10, recognitionTimeout=3600,
-        a=3, maximumFrontier=10, topK=2, pseudoCounts=30.0,
-        helmholtzRatio=0.5, structurePenalty=1.,
+        enumerationTimeout=10,
+        evaluationTimeout=3.0,
+        activation="tanh",
+        iterations=10,
+        recognitionTimeout=3600,
+        a=3,
+        maximumFrontier=10,
+        topK=2,
+        pseudoCounts=30.0,
+        helmholtzRatio=0.5,
+        structurePenalty=1.0,
         CPUs=numberOfCPUs(),
-        extras=list_options)
+        extras=list_options,
+    )
     main(args)

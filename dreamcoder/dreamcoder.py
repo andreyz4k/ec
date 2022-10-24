@@ -949,6 +949,7 @@ def commandlineArguments(
     extras=None,
     storeTaskMetrics=False,
     rewriteTaskMetrics=True,
+    evaluationTimeout=1.0,
 ):
     if cuda is None:
         cuda = torch.cuda.is_available()
@@ -969,6 +970,13 @@ def commandlineArguments(
         "--enumerationTimeout",
         default=enumerationTimeout,
         help="In seconds. default: %s" % enumerationTimeout,
+        type=int,
+    )
+    parser.add_argument(
+        "-te",
+        "--evaluationTimeout",
+        default=evaluationTimeout,
+        help="In seconds. default: %s" % evaluationTimeout,
         type=int,
     )
     parser.add_argument(
