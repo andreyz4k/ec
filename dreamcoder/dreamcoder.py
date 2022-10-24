@@ -150,6 +150,7 @@ def manage_enumerator_service(f):
         if kwargs.get("solver") == "julia":
             import redis
             from subprocess import TimeoutExpired
+
             r = redis.Redis(host="localhost", port=6379, db=0)
             r.flushdb()
             solver_file = os.path.join(get_root_dir(), "julia_enumerator", "src", "main.jl")
@@ -399,7 +400,13 @@ def ecIterator(
         else:
             _enumerator = lambda *args, **kw: multicoreEnumeration(result.grammars[-1], *args, **kw)
         enumerator = lambda *args, **kw: _enumerator(
-            *args, maximumFrontier=maximumFrontier, CPUs=CPUs, evaluationTimeout=evaluationTimeout, solver=solver, type_weights=type_weights, **kw
+            *args,
+            maximumFrontier=maximumFrontier,
+            CPUs=CPUs,
+            evaluationTimeout=evaluationTimeout,
+            solver=solver,
+            type_weights=type_weights,
+            **kw,
         )
         trainFrontiers, _, trainingTimes = enumerator(tasks, enumerationTimeout=enumerationTimeout)
         testFrontiers, _, testingTimes = enumerator(testingTasks, enumerationTimeout=testingTimeout, testing=True)
@@ -691,7 +698,14 @@ def evaluateOnTestingTasks(
 
 
 def default_wake_generative(
-    grammar, tasks, maximumFrontier=None, enumerationTimeout=None, CPUs=None, solver=None, evaluationTimeout=None, type_weights=None
+    grammar,
+    tasks,
+    maximumFrontier=None,
+    enumerationTimeout=None,
+    CPUs=None,
+    solver=None,
+    evaluationTimeout=None,
+    type_weights=None,
 ):
     topDownFrontiers, times = multicoreEnumeration(
         grammar,
@@ -949,7 +963,6 @@ def commandlineArguments(
     extras=None,
     storeTaskMetrics=False,
     rewriteTaskMetrics=True,
-    evaluationTimeout=1.0,
 ):
     if cuda is None:
         cuda = torch.cuda.is_available()
@@ -970,13 +983,6 @@ def commandlineArguments(
         "--enumerationTimeout",
         default=enumerationTimeout,
         help="In seconds. default: %s" % enumerationTimeout,
-        type=int,
-    )
-    parser.add_argument(
-        "-te",
-        "--evaluationTimeout",
-        default=evaluationTimeout,
-        help="In seconds. default: %s" % evaluationTimeout,
         type=int,
     )
     parser.add_argument(

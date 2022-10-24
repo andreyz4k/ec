@@ -11,7 +11,6 @@ from dreamcoder.utilities import numberOfCPUs
 if __name__ == "__main__":
     args = commandlineArguments(
         enumerationTimeout=10,
-        evaluationTimeout=3.0,
         activation="tanh",
         iterations=10,
         recognitionTimeout=3600,

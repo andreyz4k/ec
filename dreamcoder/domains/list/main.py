@@ -267,6 +267,13 @@ def list_options(parser):
     parser.add_argument("--split", metavar="TRAIN_RATIO", type=float, help="split test/train")
     parser.add_argument("-H", "--hidden", type=int, default=64, help="number of hidden units")
     parser.add_argument("--random-seed", type=int, default=17)
+    parser.add_argument(
+        "-te",
+        "--evaluationTimeout",
+        default=3.0,
+        help="In seconds. default: 3.0",
+        type=int,
+    )
 
 
 def main(args):
