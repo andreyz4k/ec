@@ -206,6 +206,7 @@ function save_changes!(sc::SolutionContext)
     save_changes!(sc.previous_vars)
     save_changes!(sc.branch_unknown_from_output)
     save_changes!(sc.branch_known_from_input)
+    nothing
 end
 
 function drop_changes!(sc::SolutionContext)
@@ -243,6 +244,7 @@ function drop_changes!(sc::SolutionContext)
     drop_changes!(sc.previous_vars)
     drop_changes!(sc.branch_unknown_from_output)
     drop_changes!(sc.branch_known_from_input)
+    nothing
 end
 
 function create_next_var(sc::SolutionContext)
@@ -725,6 +727,7 @@ function is_block_loops(sc::SolutionContext, bp::BlockPrototype)
 end
 
 function assert_context_consistency(sc::SolutionContext)
+    return
     function _validate_branch(branch_id)
         if sc.branch_is_explained[branch_id]
             if nnz(sc.branch_children[branch_id, :]) > 0

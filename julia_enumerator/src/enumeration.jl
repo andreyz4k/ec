@@ -92,46 +92,45 @@ function unwind_path(path, skeleton)
 end
 
 violates_symmetry(::Program, a, n) = false
+
+const illegal_combinations1 = Set([
+    #  McCarthy primitives
+    (0, "car", "cons"),
+    (0, "car", "empty"),
+    (0, "cdr", "cons"),
+    (0, "cdr", "empty"),
+    (1, "-", "0"),
+    (0, "+", "+"),
+    (0, "*", "*"),
+    (0, "empty?", "cons"),
+    (0, "empty?", "empty"),
+    (0, "zero?", "0"),
+    (0, "zero?", "1"),
+    (0, "zero?", "-1"),
+    #  bootstrap target
+    (1, "map", "empty"),
+    (0, "fold", "empty"),
+    (1, "index", "empty"),
+])
+
+const illegal_combinations2 = Set([
+    ("+", "0"),
+    ("*", "0"),
+    ("*", "1"),
+    ("zip", "empty"),
+    ("left", "left"),
+    ("left", "right"),
+    ("right", "right"),
+    ("right", "left"),
+    #   ("tower_embed","tower_embed")
+])
+
 function violates_symmetry(f::Primitive, a, n)
     a = application_function(a)
     if !isa(a, Primitive)
         return false
     end
-    return in(
-        (n, f.name, a.name),
-        Set([
-            #  McCarthy primitives
-            (0, "car", "cons"),
-            (0, "car", "empty"),
-            (0, "cdr", "cons"),
-            (0, "cdr", "empty"),
-            (1, "-", "0"),
-            (0, "+", "+"),
-            (0, "*", "*"),
-            (0, "empty?", "cons"),
-            (0, "empty?", "empty"),
-            (0, "zero?", "0"),
-            (0, "zero?", "1"),
-            (0, "zero?", "-1"),
-            #  bootstrap target
-            (1, "map", "empty"),
-            (0, "fold", "empty"),
-            (1, "index", "empty"),
-        ]),
-    ) || in(
-        (f.name, a.name),
-        Set([
-            ("+", "0"),
-            ("*", "0"),
-            ("*", "1"),
-            ("zip", "empty"),
-            ("left", "left"),
-            ("left", "right"),
-            ("right", "right"),
-            ("right", "left"),
-            #   ("tower_embed","tower_embed")
-        ]),
-    )
+    return in((n, f.name, a.name), illegal_combinations1) || in((f.name, a.name), illegal_combinations2)
 end
 
 has_index(p::Index, i) = p.n == i
@@ -625,7 +624,6 @@ function try_run_block(sc::SolutionContext, block::WrapEitherBlock, fixed_branch
 end
 
 function try_run_block_with_downstream(
-    run_context,
     sc::SolutionContext,
     block_id,
     fixed_branches,
@@ -638,12 +636,7 @@ function try_run_block_with_downstream(
     end
     # @info fixed_branches
     block = sc.blocks[block_id]
-    result = @run_with_timeout run_context["timeout"] run_context["redis"] try_run_block(
-        sc,
-        block,
-        fixed_branches,
-        target_output,
-    )
+    result = try_run_block(sc, block, fixed_branches, target_output)
     # @info result
     if isnothing(result) || result[1] == NoMatch
         return NoMatch
@@ -671,7 +664,6 @@ function try_run_block_with_downstream(
                 continue
             end
             down_match = try_run_block_with_downstream(
-                run_context,
                 sc,
                 b_id,
                 downstream_branches,
@@ -694,7 +686,7 @@ function try_run_block_with_downstream(
     end
 end
 
-function add_new_block(run_context, sc::SolutionContext, block_id, inputs, target_output)
+function add_new_block(sc::SolutionContext, block_id, inputs, target_output)
     # assert_context_consistency(sc)
     if sc.verbose
         @info "Adding block $block_id $(sc.blocks[block_id]) $inputs $target_output"
@@ -705,7 +697,7 @@ function add_new_block(run_context, sc::SolutionContext, block_id, inputs, targe
         if length(inputs) > 1
             error("Not implemented, fix active constraints")
         end
-        best_match = try_run_block_with_downstream(run_context, sc, block_id, inputs, target_output, true, Dict())
+        best_match = try_run_block_with_downstream(sc, block_id, inputs, target_output, true, Dict())
         # assert_context_consistency(sc)
         if best_match == NoMatch
             return nothing
@@ -771,18 +763,11 @@ function enqueue_updates(sc::SolutionContext, g)
     assert_context_consistency(sc)
 end
 
-function enumeration_iteration_finished_input(run_context, sc, bp)
+function enumeration_iteration_finished_input(sc, bp)
     state = bp.state
     if bp.reverse
         # @info "Try get reversed for $bp"
-        abstractor_results =
-            @run_with_timeout run_context["program_timeout"] run_context["redis"] create_reversed_block(
-                sc,
-                state.skeleton,
-                state.context,
-                bp.output_var,
-                state.cost,
-            )
+        abstractor_results = create_reversed_block(sc, state.skeleton, state.context, bp.output_var, state.cost)
         return abstractor_results
     else
         arg_types = [sc.types[reduce(any, sc.branch_types[branch_id, :])] for (_, branch_id) in bp.input_vars]
@@ -802,19 +787,12 @@ function enumeration_iteration_finished_input(run_context, sc, bp)
     end
 end
 
-function enumeration_iteration_finished_output(run_context, sc::SolutionContext, bp::BlockPrototype)
+function enumeration_iteration_finished_output(sc::SolutionContext, bp::BlockPrototype)
     state = bp.state
     is_reverse = is_reversible(state.skeleton)
     if is_reverse
         # @info "Try get reversed for $bp"
-        abstractor_results =
-            @run_with_timeout run_context["program_timeout"] run_context["redis"] try_get_reversed_inputs(
-                sc,
-                state.skeleton,
-                state.context,
-                bp.output_var[2],
-                state.cost,
-            )
+        abstractor_results = try_get_reversed_inputs(sc, state.skeleton, state.context, bp.output_var[2], state.cost)
         if !isnothing(abstractor_results)
             p, input_vars = abstractor_results
         else
@@ -869,6 +847,48 @@ function enumeration_iteration_finished_output(run_context, sc::SolutionContext,
     return [(block_id, input_branches, Dict(bp.output_var[1] => bp.output_var[2]))]
 end
 
+function enumeration_iteration_finished(sc::SolutionContext, finalizer, g, q, bp::BlockPrototype, br_id)
+    if sc.verbose
+        @info "Checking finished $bp"
+    end
+    if is_block_loops(sc, bp)
+        # @info "Block $bp creates a loop"
+        new_block_result = nothing
+    else
+        if sc.branch_is_unknown[br_id]
+            new_block_result = enumeration_iteration_finished_output(sc, bp)
+        else
+            new_block_result = enumeration_iteration_finished_input(sc, bp)
+        end
+    end
+    ok = true
+    if !isnothing(new_block_result)
+        for (new_block_id, input_branches, target_output) in new_block_result
+            new_solution_paths = add_new_block(sc, new_block_id, input_branches, target_output)
+            if !isnothing(new_solution_paths)
+                # @info "Got results $new_solution_paths"
+                for solution_path in new_solution_paths
+                    solution, cost = extract_solution(sc, solution_path)
+                    # @info "Got solution $solution with cost $cost"
+                    finalizer(solution, cost)
+                end
+            else
+                ok = false
+                break
+            end
+        end
+    else
+        ok = false
+    end
+    if ok
+        enqueue_updates(sc, g)
+        sc.total_number_of_enumerated_programs += 1
+        save_changes!(sc)
+    else
+        drop_changes!(sc)
+    end
+end
+
 function enumeration_iteration(
     run_context,
     sc::SolutionContext,
@@ -881,45 +901,14 @@ function enumeration_iteration(
     is_explained,
 )
     if is_reversible(bp.state.skeleton) || state_finished(bp.state)
-        if sc.verbose
-            @info "Checking finished $bp"
-        end
-        if is_block_loops(sc, bp)
-            # @info "Block $bp creates a loop"
-            new_block_result = nothing
-        else
-            if sc.branch_is_unknown[br_id]
-                new_block_result = enumeration_iteration_finished_output(run_context, sc, bp)
-            else
-                new_block_result = enumeration_iteration_finished_input(run_context, sc, bp)
-            end
-        end
-        ok = true
-        if !isnothing(new_block_result)
-            for (new_block_id, input_branches, target_output) in new_block_result
-                new_solution_paths = add_new_block(run_context, sc, new_block_id, input_branches, target_output)
-                if !isnothing(new_solution_paths)
-                    # @info "Got results $new_solution_paths"
-                    for solution_path in new_solution_paths
-                        solution, cost = extract_solution(sc, solution_path)
-                        # @info "Got solution $solution with cost $cost"
-                        finalizer(solution, cost)
-                    end
-                else
-                    ok = false
-                    break
-                end
-            end
-        else
-            ok = false
-        end
-        if ok
-            enqueue_updates(sc, g)
-            sc.total_number_of_enumerated_programs += 1
-            save_changes!(sc)
-        else
-            drop_changes!(sc)
-        end
+        @run_with_timeout run_context["program_timeout"] run_context["redis"] enumeration_iteration_finished(
+            sc,
+            finalizer,
+            g,
+            q,
+            bp,
+            br_id,
+        )
     else
         for child in block_state_successors(maxFreeParameters, g, bp.state)
             _, new_request = apply_context(child.context, bp.request)
@@ -950,10 +939,7 @@ function enumerate_for_task(run_context, g::ContextualGrammar, type_weights, tas
     assert_context_consistency(sc)
 
     finalizer = function (solution, cost)
-        ll = @run_with_timeout run_context["program_timeout"] run_context["redis"] task.log_likelihood_checker(
-            task,
-            solution,
-        )
+        ll = task.log_likelihood_checker(task, solution)
         if !isnothing(ll) && !isinf(ll)
             dt = time() - start_time
             res = HitResult(join(show_program(solution, false)), -cost, ll, dt)

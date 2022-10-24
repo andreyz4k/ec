@@ -411,8 +411,11 @@ number_of_free_parameters(p::Invented) = number_of_free_parameters(p.b)
 number_of_free_parameters(p::Abstraction) = number_of_free_parameters(p.b)
 number_of_free_parameters(p::Apply) = number_of_free_parameters(p.f) + number_of_free_parameters(p.x)
 number_of_free_parameters(p::FreeVar) = 1
+
+const free_param_keys = Set(["REAL", "STRING", "r_const"])
+
 number_of_free_parameters(p::Primitive) =
-    if in(p.name, Set(["REAL", "STRING", "r_const"]))
+    if in(p.name, free_param_keys)
         1
     else
         0
@@ -424,7 +427,8 @@ application_function(p::Program) = p
 
 function application_parse(p::Apply)
     (f, arguments) = application_parse(p.f)
-    (f, vcat(arguments, [p.x]))
+    push!(arguments, p.x)
+    (f, arguments)
 end
 application_parse(p::Program) = (p, [])
 

@@ -12,8 +12,7 @@ include("data_structures/data_structures.jl")
 include("data_complexity.jl")
 include("enumeration.jl")
 include("export.jl")
-
-
+include("profiling.jl")
 
 function run_solving_process(run_context, message)
     @info "running processing"
@@ -96,6 +95,5 @@ function worker_loop()
     end
     disconnect(conn)
 end
-
 
 end

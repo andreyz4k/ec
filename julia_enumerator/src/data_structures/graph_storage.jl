@@ -1,7 +1,7 @@
 
 using SuiteSparseGraphBLAS
 
-MAX_GRAPH_SIZE = 100_000
+const MAX_GRAPH_SIZE = 100_000
 
 struct GraphStorage
     edges::GBMatrix{Int}

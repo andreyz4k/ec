@@ -2,7 +2,6 @@
 import Redis
 import Redis: execute_command
 
-
 mutable struct RedisContext
     conn::Redis.RedisConnection
 end
@@ -22,12 +21,12 @@ function disconnect_redis(ctx::RedisContext)
     end
 end
 
-function set_timeout(redis, queue_name, end_time)
+function set_timeout(redis::RedisContext, queue_name::String, end_time::Float64)
     while true
         try
             conn = get_conn(redis)
             Redis.watch(conn, queue_name)
-            depth = Redis.hlen(conn, queue_name)
+            depth::Int = Redis.hlen(conn, queue_name)
             Redis.multi(conn)
             Redis.hset(conn, queue_name, depth, "$end_time|0")
             res = Redis.execute_command(conn, ["exec"])
@@ -42,12 +41,12 @@ function set_timeout(redis, queue_name, end_time)
     end
 end
 
-function remove_timeout(redis, queue_name, depth)
+function remove_timeout(redis::RedisContext, queue_name::String, depth::Int)
     while true
         try
             conn = get_conn(redis)
             Redis.watch(conn, queue_name)
-            status = Redis.hget(conn, queue_name, depth)
+            status::String = Redis.hget(conn, queue_name, depth)
             if status[end] == '0'
                 Redis.multi(conn)
                 Redis.hdel(conn, queue_name, depth)
@@ -69,7 +68,7 @@ function remove_timeout(redis, queue_name, depth)
     end
 end
 
-function clean_fired_timeout(redis, queue_name, depth)
+function clean_fired_timeout(redis::RedisContext, queue_name::String, depth::Int)
     while true
         try
             conn = get_conn(redis)
@@ -93,7 +92,6 @@ function clean_fired_timeout(redis, queue_name, depth)
         end
     end
 end
-
 
 macro run_with_timeout(timeout, redis, expr)
     return quote
