@@ -951,7 +951,7 @@ import Redis
         )
         @test length(solutions) == 0
         @test number_enumerated > 10
-        @test number_enumerated < 1000
+        @test number_enumerated < 2000
     end
 
     @testset "try_enumerate len" begin
@@ -1027,7 +1027,7 @@ import Redis
         )
         @test length(solutions) == 0
         @test number_enumerated >= 100
-        @test number_enumerated <= 2000
+        @test number_enumerated <= 3000
     end
 
     @testset "prepend-index-k with k=3" begin
@@ -1065,6 +1065,6 @@ import Redis
         )
         @test length(solutions) == 0
         @test number_enumerated >= 100
-        @test number_enumerated <= 2000
+        @test number_enumerated <= 3000
     end
 end

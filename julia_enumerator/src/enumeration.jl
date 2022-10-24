@@ -686,7 +686,7 @@ function try_run_block_with_downstream(
     end
 end
 
-function add_new_block(run_context, sc::SolutionContext, block_id, inputs, target_output)
+function add_new_block(sc::SolutionContext, block_id, inputs, target_output)
     # assert_context_consistency(sc)
     if sc.verbose
         @info "Adding block $block_id $(sc.blocks[block_id]) $inputs $target_output"
@@ -697,15 +697,7 @@ function add_new_block(run_context, sc::SolutionContext, block_id, inputs, targe
         if length(inputs) > 1
             error("Not implemented, fix active constraints")
         end
-        best_match =
-            @run_with_timeout run_context["program_timeout"] run_context["redis"] try_run_block_with_downstream(
-                sc,
-                block_id,
-                inputs,
-                target_output,
-                true,
-                Dict(),
-            )
+        best_match = try_run_block_with_downstream(sc, block_id, inputs, target_output, true, Dict())
         # assert_context_consistency(sc)
         if best_match == NoMatch
             return nothing
@@ -771,18 +763,11 @@ function enqueue_updates(sc::SolutionContext, g)
     assert_context_consistency(sc)
 end
 
-function enumeration_iteration_finished_input(run_context, sc, bp)
+function enumeration_iteration_finished_input(sc, bp)
     state = bp.state
     if bp.reverse
         # @info "Try get reversed for $bp"
-        abstractor_results =
-            @run_with_timeout run_context["program_timeout"] run_context["redis"] create_reversed_block(
-                sc,
-                state.skeleton,
-                state.context,
-                bp.output_var,
-                state.cost,
-            )
+        abstractor_results = create_reversed_block(sc, state.skeleton, state.context, bp.output_var, state.cost)
         return abstractor_results
     else
         arg_types = [sc.types[reduce(any, sc.branch_types[branch_id, :])] for (_, branch_id) in bp.input_vars]
@@ -802,19 +787,12 @@ function enumeration_iteration_finished_input(run_context, sc, bp)
     end
 end
 
-function enumeration_iteration_finished_output(run_context, sc::SolutionContext, bp::BlockPrototype)
+function enumeration_iteration_finished_output(sc::SolutionContext, bp::BlockPrototype)
     state = bp.state
     is_reverse = is_reversible(state.skeleton)
     if is_reverse
         # @info "Try get reversed for $bp"
-        abstractor_results =
-            @run_with_timeout run_context["program_timeout"] run_context["redis"] try_get_reversed_inputs(
-                sc,
-                state.skeleton,
-                state.context,
-                bp.output_var[2],
-                state.cost,
-            )
+        abstractor_results = try_get_reversed_inputs(sc, state.skeleton, state.context, bp.output_var[2], state.cost)
         if !isnothing(abstractor_results)
             p, input_vars = abstractor_results
         else
@@ -869,12 +847,37 @@ function enumeration_iteration_finished_output(run_context, sc::SolutionContext,
     return [(block_id, input_branches, Dict(bp.output_var[1] => bp.output_var[2]))]
 end
 
-function extract_solutions(sc, new_solution_paths, finalizer)
-    for solution_path in new_solution_paths
-        solution, cost = extract_solution(sc, solution_path)
-        # @info "Got solution $solution with cost $cost"
-        finalizer(solution, cost)
+function enumeration_iteration_finished(sc::SolutionContext, finalizer, g, bp::BlockPrototype, br_id)
+    if is_block_loops(sc, bp)
+        # @info "Block $bp creates a loop"
+        new_block_result = nothing
+    else
+        if sc.branch_is_unknown[br_id]
+            new_block_result = enumeration_iteration_finished_output(sc, bp)
+        else
+            new_block_result = enumeration_iteration_finished_input(sc, bp)
+        end
     end
+    ok = true
+    if !isnothing(new_block_result)
+        for (new_block_id, input_branches, target_output) in new_block_result
+            new_solution_paths = add_new_block(sc, new_block_id, input_branches, target_output)
+            if !isnothing(new_solution_paths)
+                # @info "Got results $new_solution_paths"
+                for solution_path in new_solution_paths
+                    solution, cost = extract_solution(sc, solution_path)
+                    # @info "Got solution $solution with cost $cost"
+                    finalizer(solution, cost)
+                end
+            else
+                ok = false
+                break
+            end
+        end
+    else
+        ok = false
+    end
+    return ok
 end
 
 function enumeration_iteration(
@@ -894,32 +897,15 @@ function enumeration_iteration(
         end
         if is_block_loops(sc, bp)
             # @info "Block $bp creates a loop"
-            new_block_result = nothing
-        else
-            if sc.branch_is_unknown[br_id]
-                new_block_result = enumeration_iteration_finished_output(run_context, sc, bp)
-            else
-                new_block_result = enumeration_iteration_finished_input(run_context, sc, bp)
-            end
-        end
-        ok = true
-        if !isnothing(new_block_result)
-            for (new_block_id, input_branches, target_output) in new_block_result
-                new_solution_paths = add_new_block(run_context, sc, new_block_id, input_branches, target_output)
-                if !isnothing(new_solution_paths)
-                    # @info "Got results $new_solution_paths"
-                    @run_with_timeout run_context["program_timeout"] run_context["redis"] extract_solutions(
-                        sc,
-                        new_solution_paths,
-                        finalizer,
-                    )
-                else
-                    ok = false
-                    break
-                end
-            end
-        else
             ok = false
+        else
+            ok = @run_with_timeout run_context["program_timeout"] run_context["redis"] enumeration_iteration_finished(
+                sc,
+                finalizer,
+                g,
+                bp,
+                br_id,
+            )
         end
         if ok
             enqueue_updates(sc, g)

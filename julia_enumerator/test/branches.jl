@@ -199,13 +199,8 @@ end
         )
         new_block_id = push!(sc.blocks, new_block)
 
-        new_solution_paths = add_new_block(
-            run_context,
-            sc,
-            new_block_id,
-            Dict(inp_var_id => inp_branch_id),
-            Dict(out_var_id => out_branch_id),
-        )
+        new_solution_paths =
+            add_new_block(sc, new_block_id, Dict(inp_var_id => inp_branch_id), Dict(out_var_id => out_branch_id))
         @test new_solution_paths == [Path(OrderedDict(out_var_id => new_block_id), Dict())]
 
         out_children = nonzeroinds(sc.branch_children[out_branch_id, :])
@@ -281,10 +276,10 @@ end
             [every_primitive["cdr"], FreeVar(sc.types[out_type_id], nothing)],
             g,
         )
-        new_block_result = enumeration_iteration_finished_output(run_context, sc, bp)
+        new_block_result = enumeration_iteration_finished_output(sc, bp)
         @test length(new_block_result) == 1
         first_block_id, input_branches, target_output = new_block_result[1]
-        new_solution_paths = add_new_block(run_context, sc, first_block_id, input_branches, target_output)
+        new_solution_paths = add_new_block(sc, first_block_id, input_branches, target_output)
         first_block_copy_id = first_block_id
         @test new_solution_paths == []
 
@@ -302,7 +297,6 @@ end
         new_block_id = push!(sc.blocks, new_block)
 
         new_solution_paths = add_new_block(
-            run_context,
             sc,
             new_block_id,
             Dict(inp_var_id => inp_branch_id),
@@ -405,10 +399,10 @@ end
         out_branch_id = 2
 
         bp = create_block_prototype(sc, out_branch_id, [every_primitive["concat"]], g)
-        new_block_result = enumeration_iteration_finished_output(run_context, sc, bp)
+        new_block_result = enumeration_iteration_finished_output(sc, bp)
         @test length(new_block_result) == 1
         first_block_id, input_branches, target_output = new_block_result[1]
-        new_solution_paths = add_new_block(run_context, sc, first_block_id, input_branches, target_output)
+        new_solution_paths = add_new_block(sc, first_block_id, input_branches, target_output)
         first_block_copy_id = 1
         @test new_solution_paths == []
 
@@ -471,13 +465,8 @@ end
         new_block = ProgramBlock(FreeVar(inp_type, inp_var_id), inp_type, 0.0, [inp_var_id], v2_var_id, false)
         new_block_id = push!(sc.blocks, new_block)
 
-        new_solution_paths = add_new_block(
-            run_context,
-            sc,
-            new_block_id,
-            Dict(inp_var_id => inp_branch_id),
-            Dict(v2_var_id => v2_branch_id),
-        )
+        new_solution_paths =
+            add_new_block(sc, new_block_id, Dict(inp_var_id => inp_branch_id), Dict(v2_var_id => v2_branch_id))
         new_block_copy_id = 3
         first_block_known_copy_id = 2
         @test new_solution_paths == []
@@ -539,7 +528,7 @@ end
 
         const_block = ProgramBlock(SetConst(inp_type, [5]), inp_type, 0.0, [], v1_var_id, false)
         const_block_id = push!(sc.blocks, const_block)
-        new_solution_paths = add_new_block(run_context, sc, const_block_id, Dict(), Dict(v1_var_id => v1_branch_id))
+        new_solution_paths = add_new_block(sc, const_block_id, Dict(), Dict(v1_var_id => v1_branch_id))
         const_block_copy_id = 4
 
         @test new_solution_paths == [
