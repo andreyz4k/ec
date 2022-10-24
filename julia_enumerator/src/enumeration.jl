@@ -848,15 +848,10 @@ function enumeration_iteration_finished_output(sc::SolutionContext, bp::BlockPro
 end
 
 function enumeration_iteration_finished(sc::SolutionContext, finalizer, g, bp::BlockPrototype, br_id)
-    if is_block_loops(sc, bp)
-        # @info "Block $bp creates a loop"
-        new_block_result = nothing
+    if sc.branch_is_unknown[br_id]
+        new_block_result = enumeration_iteration_finished_output(sc, bp)
     else
-        if sc.branch_is_unknown[br_id]
-            new_block_result = enumeration_iteration_finished_output(sc, bp)
-        else
-            new_block_result = enumeration_iteration_finished_input(sc, bp)
-        end
+        new_block_result = enumeration_iteration_finished_input(sc, bp)
     end
     ok = true
     if !isnothing(new_block_result)
@@ -906,6 +901,9 @@ function enumeration_iteration(
                 bp,
                 br_id,
             )
+            if isnothing(ok)
+                ok = false
+            end
         end
         if ok
             enqueue_updates(sc, g)
