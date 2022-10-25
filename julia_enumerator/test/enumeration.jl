@@ -938,7 +938,6 @@ using solver: load_problems, enumerate_for_task
         )
         @test length(solutions) == 0
         @test number_enumerated > 1000
-        @test number_enumerated < 4000
     end
 
     @testset "try_enumerate len" begin
@@ -998,7 +997,6 @@ using solver: load_problems, enumerate_for_task
         )
         @test length(solutions) == 0
         @test number_enumerated >= 1000
-        @test number_enumerated <= 10000
     end
 
     @testset "prepend-index-k with k=3" begin
@@ -1028,6 +1026,5 @@ using solver: load_problems, enumerate_for_task
         )
         @test length(solutions) == 0
         @test number_enumerated >= 1000
-        @test number_enumerated <= 4000
     end
 end
