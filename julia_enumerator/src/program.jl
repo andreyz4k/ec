@@ -430,7 +430,7 @@ function application_parse(p::Apply)
     push!(arguments, p.x)
     (f, arguments)
 end
-application_parse(p::Program) = (p, [])
+application_parse(p::Program) = (p, Program[])
 
 function analyze_evaluation(p::Abstraction)
     b = analyze_evaluation(p.b)

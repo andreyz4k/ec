@@ -1360,13 +1360,96 @@ function run_tests()
         ),
     ]
 
+    function _check_worker_timeouts(lk, active_timeouts)
+        function (t)
+            lock(lk) do
+                for depth in length(active_timeouts):-1:1
+                    threshold_time, status, retries = active_timeouts[depth]
+                    if status == 1
+                        if threshold_time + 10 < time()
+                            # active_timeouts[depth] = time(), 1, retries + 1
+                            if retries >= 3
+                                @warn "Killing worker because retried too many times $retries"
+                                # rmprocs(pid, waitfor = 0)
+                            else
+                                @warn "Interrupting worker again $retries"
+                                # interrupt(pid)
+                            end
+                        end
+                        break
+                    elseif threshold_time < time()
+                        max_depth = length(active_timeouts)
+                        last_threshold, _, _ = active_timeouts[max_depth]
+                        # active_timeouts[max_depth] = last_threshold, 1, retries + 1
+                        @warn "Interrupting worker "
+                        # interrupt(pid)
+                        break
+                    end
+                end
+            end
+        end
+    end
+
+    function _handle_timeout_messages(lk, timeout_request_channel, timeout_response_channel, active_timeouts)
+        while true
+            message = take!(timeout_request_channel)
+            lock(lk) do
+                if message[1] == 0
+                    _, threshold_time = message
+                    if length(active_timeouts) > 0 && active_timeouts[end][2] == 1
+                        put!(timeout_response_channel, -1)
+                    else
+                        push!(active_timeouts, (threshold_time, 0, 0))
+                        put!(timeout_response_channel, length(active_timeouts))
+                    end
+                elseif message[1] == 1
+                    _, depth, expected_status = message
+                    if depth > length(active_timeouts)
+                        put!(timeout_response_channel, 2)
+                    else
+                        if depth < length(active_timeouts)
+                            _, current_status, _ = active_timeouts[end]
+                            threshold_time, _, _ = active_timeouts[depth]
+                            if current_status == expected_status
+                                while depth < length(active_timeouts)
+                                    pop!(active_timeouts)
+                                end
+                            end
+                        else
+                            threshold_time, current_status, _ = active_timeouts[depth]
+                        end
+                        if current_status == expected_status
+                            pop!(active_timeouts)
+                            put!(timeout_response_channel, 0)
+                        else
+                            put!(timeout_response_channel, 1)
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    function start_timeout_monitor()
+        lk = ReentrantLock()
+        timeout_request_channel = RemoteChannel(() -> Channel{Tuple}(1))
+        timeout_response_channel = RemoteChannel(() -> Channel{Int}(1))
+        active_timeouts = []
+        Timer(_check_worker_timeouts(lk, active_timeouts), 1, interval = 1)
+        @async _handle_timeout_messages(lk, timeout_request_channel, timeout_response_channel, active_timeouts)
+        return timeout_request_channel, timeout_response_channel
+    end
+
+    req_channel, resp_channel = start_timeout_monitor()
+
     for payload in payloads
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
         enumerate_for_task(
-            Dict(
-                "redis" => RedisContext(Redis.RedisConnection(db = 2)),
+            Dict{String,Any}(
                 "program_timeout" => program_timeout,
                 "timeout" => timeout,
+                "timeout_request_channel" => req_channel,
+                "timeout_response_channel" => resp_channel,
             ),
             g,
             type_weights,

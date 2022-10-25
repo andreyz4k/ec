@@ -141,14 +141,14 @@ has_index(p::Apply, i) = has_index(p.f, i) || has_index(p.x, i)
 has_index(p::FreeVar, i) = false
 has_index(p::Abstraction, i) = has_index(p.b, i + 1)
 
-state_violates_symmetry(p::Abstraction) = state_violates_symmetry(p.b) || !has_index(p.b, 0)
-function state_violates_symmetry(p::Apply)
+state_violates_symmetry(p::Abstraction)::Bool = state_violates_symmetry(p.b) || !has_index(p.b, 0)
+function state_violates_symmetry(p::Apply)::Bool
     (f, a) = application_parse(p)
     return state_violates_symmetry(f) ||
            any(state_violates_symmetry, a) ||
            any(violates_symmetry(f, x, n) for (n, x) in enumerate(a))
 end
-state_violates_symmetry(::Program) = false
+state_violates_symmetry(::Program)::Bool = false
 
 function block_state_successors(
     maxFreeParameters,
@@ -894,7 +894,7 @@ function enumeration_iteration(
             # @info "Block $bp creates a loop"
             ok = false
         else
-            ok = @run_with_timeout run_context["program_timeout"] run_context["redis"] enumeration_iteration_finished(
+            ok = @run_with_timeout run_context "program_timeout" enumeration_iteration_finished(
                 sc,
                 finalizer,
                 g,
@@ -921,7 +921,14 @@ function enumeration_iteration(
     update_branch_priority(sc, br_id, is_explained)
 end
 
-function enumerate_for_task(run_context, g::ContextualGrammar, type_weights, task, maximum_frontier, verbose = false)
+function enumerate_for_task(
+    run_context::Dict{String,Any},
+    g::ContextualGrammar,
+    type_weights,
+    task,
+    maximum_frontier,
+    verbose = false,
+)
     #    Returns, for each task, (program,logPrior) as well as the total number of enumerated programs
     enumeration_timeout = get_enumeration_timeout(run_context["timeout"])
     run_context["timeout_checker"] = () -> enumeration_timed_out(enumeration_timeout)

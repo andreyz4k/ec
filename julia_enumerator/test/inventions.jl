@@ -1,8 +1,7 @@
 
 using Test
 
-using solver: load_problems, enumerate_for_task, RedisContext
-import Redis
+using solver: load_problems, enumerate_for_task
 
 @testset "Inventions" begin
     @testset "slice-k-n with k=2 and n=1" begin
@@ -117,11 +116,7 @@ import Redis
         )
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
-            Dict(
-                "redis" => RedisContext(Redis.RedisConnection(db = 2)),
-                "program_timeout" => program_timeout,
-                "timeout" => timeout,
-            ),
+            Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
             task,

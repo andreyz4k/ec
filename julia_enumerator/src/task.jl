@@ -1,5 +1,4 @@
 
-
 struct Task
     name::String
     task_type::Tp
@@ -12,7 +11,6 @@ end
 
 @enum MatchResult NoMatch = 0 TypeOnly = 1 Pattern = 2 Strict = 3
 
-
 function supervised_task_checker(task::Task, p::Program)
     p_analized = analyze_evaluation(p)
     if all(
@@ -21,6 +19,8 @@ function supervised_task_checker(task::Task, p::Program)
         catch e
             if isa(e, UnknownPrimitive)
                 error("Unknown primitive: $(e.name)")
+            elseif isa(e, InterruptException)
+                rethrow()
             else
                 @error e
                 @error p
@@ -33,7 +33,6 @@ function supervised_task_checker(task::Task, p::Program)
         log(0)
     end
 end
-
 
 function build_task(handler, name, task_type, examples, test_examples)
     Task(

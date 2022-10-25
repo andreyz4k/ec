@@ -1,8 +1,7 @@
 
 using Test
 
-using solver: load_problems, enumerate_for_task, RedisContext
-import Redis
+using solver: load_problems, enumerate_for_task
 
 @testset "Enumeration" begin
     payload1 = Dict(
@@ -901,11 +900,7 @@ import Redis
     @testset "try_enumerate add-k with k=1" begin
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload1)
         solutions, number_enumerated = @time enumerate_for_task(
-            Dict(
-                "redis" => RedisContext(Redis.RedisConnection(db = 2)),
-                "program_timeout" => program_timeout,
-                "timeout" => timeout,
-            ),
+            Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
             task,
@@ -919,11 +914,7 @@ import Redis
     @testset "try_enumerate empty" begin
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload2)
         solutions, number_enumerated = @time enumerate_for_task(
-            Dict(
-                "redis" => RedisContext(Redis.RedisConnection(db = 2)),
-                "program_timeout" => program_timeout,
-                "timeout" => timeout,
-            ),
+            Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
             task,
@@ -938,11 +929,7 @@ import Redis
     @testset "try_enumerate append-index-k with k=5" begin
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload3)
         solutions, number_enumerated = @time enumerate_for_task(
-            Dict(
-                "redis" => RedisContext(Redis.RedisConnection(db = 2)),
-                "program_timeout" => program_timeout,
-                "timeout" => timeout,
-            ),
+            Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
             task,
@@ -950,18 +937,14 @@ import Redis
             verbose,
         )
         @test length(solutions) == 0
-        @test number_enumerated > 10
-        @test number_enumerated < 2000
+        @test number_enumerated > 1000
+        @test number_enumerated < 4000
     end
 
     @testset "try_enumerate len" begin
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload4)
         solutions, number_enumerated = @time enumerate_for_task(
-            Dict(
-                "redis" => RedisContext(Redis.RedisConnection(db = 2)),
-                "program_timeout" => program_timeout,
-                "timeout" => timeout,
-            ),
+            Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
             task,
@@ -969,18 +952,14 @@ import Redis
             verbose,
         )
         @test length(solutions) >= 1
-        @test number_enumerated >= 50
-        @test number_enumerated <= 1000
+        @test number_enumerated >= 500
+        @test number_enumerated <= 2000
     end
 
     @testset "try_enumerate is-mod-k with k=1" begin
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload5)
         solutions, number_enumerated = @time enumerate_for_task(
-            Dict(
-                "redis" => RedisContext(Redis.RedisConnection(db = 2)),
-                "program_timeout" => program_timeout,
-                "timeout" => timeout,
-            ),
+            Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
             task,
@@ -995,11 +974,7 @@ import Redis
     @testset "prepend-k with k=0" begin
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload6)
         solutions, number_enumerated = @time enumerate_for_task(
-            Dict(
-                "redis" => RedisContext(Redis.RedisConnection(db = 2)),
-                "program_timeout" => program_timeout,
-                "timeout" => timeout,
-            ),
+            Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
             task,
@@ -1014,11 +989,7 @@ import Redis
     @testset "remove empty lists" begin
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload7)
         solutions, number_enumerated = @time enumerate_for_task(
-            Dict(
-                "redis" => RedisContext(Redis.RedisConnection(db = 2)),
-                "program_timeout" => program_timeout,
-                "timeout" => timeout,
-            ),
+            Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
             task,
@@ -1026,18 +997,14 @@ import Redis
             verbose,
         )
         @test length(solutions) == 0
-        @test number_enumerated >= 100
-        @test number_enumerated <= 3000
+        @test number_enumerated >= 1000
+        @test number_enumerated <= 10000
     end
 
     @testset "prepend-index-k with k=3" begin
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload8)
         solutions, number_enumerated = @time enumerate_for_task(
-            Dict(
-                "redis" => RedisContext(Redis.RedisConnection(db = 2)),
-                "program_timeout" => program_timeout,
-                "timeout" => timeout,
-            ),
+            Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
             task,
@@ -1052,11 +1019,7 @@ import Redis
     @testset "range +1 maximum list" begin
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload9)
         solutions, number_enumerated = @time enumerate_for_task(
-            Dict(
-                "redis" => RedisContext(Redis.RedisConnection(db = 2)),
-                "program_timeout" => program_timeout,
-                "timeout" => timeout,
-            ),
+            Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
             task,
@@ -1064,7 +1027,7 @@ import Redis
             verbose,
         )
         @test length(solutions) == 0
-        @test number_enumerated >= 100
-        @test number_enumerated <= 3000
+        @test number_enumerated >= 1000
+        @test number_enumerated <= 4000
     end
 end

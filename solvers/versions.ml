@@ -930,30 +930,26 @@ let rec reorder_lets' t j depth replacements =
           let j' = replace_var_indices t j depth min_repl max_repl in
           (repl_d, repl_vc, t.void, 0, t.void, t.void, j'))
 
+let reorder_lets'' t depth vc v fv f d b =
+  match (v, f) with
+  | v'', _ when v'' = t.void -> version_let t (shift_var_indices t d (-depth)) b
+  | _, f'' when f'' = t.void -> version_let_rev t vc (shift_var_indices t v (-depth)) d b
+  | _ ->
+      version_wrap_either t vc (shift_var_indices t v (-depth)) fv d
+        (shift_var_indices t f (-depth)) b
+
 let reorder_lets t j =
   match index_table t j with
   | LetSpace (d, b) ->
       reorder_lets' t b 1 []
       |> List.map ~f:(fun (depth, vc', v', fv', f', d', b') ->
              let b'' = version_let t (shift_var_indices t d vc') b' in
-             match (vc', f') with
-             | 1, _ -> version_let t (shift_var_indices t d' (-depth)) b''
-             | _, f'' when f'' = t.void ->
-                 version_let_rev t vc' (shift_var_indices t v' (-depth)) d' b''
-             | _ ->
-                 version_wrap_either t vc' (shift_var_indices t v' (-depth)) fv' d'
-                   (shift_var_indices t f' (-depth)) b'')
+             reorder_lets'' t depth vc' v' fv' f' d' b'')
   | LetRevSpace (vc, v, d, b) ->
       reorder_lets' t b vc []
       |> List.map ~f:(fun (depth, vc', v', fv', f', d', b') ->
              let b'' = version_let_rev t vc (shift_var_indices t v vc') d b' in
-             match (vc', f') with
-             | 1, _ -> version_let t (shift_var_indices t d' (-depth)) b''
-             | _, f'' when f'' = t.void ->
-                 version_let_rev t vc' (shift_var_indices t v' (-depth)) d' b''
-             | _ ->
-                 version_wrap_either t vc' (shift_var_indices t v' (-depth)) fv' d'
-                   (shift_var_indices t f' (-depth)) b'')
+             reorder_lets'' t depth vc' v' fv' f' d' b'')
   | WrapEitherSpace (vc, v, fv, d, f, b) ->
       reorder_lets' t b vc []
       |> List.map ~f:(fun (depth, vc', v', fv', f', d', b') ->
@@ -961,13 +957,7 @@ let reorder_lets t j =
                version_wrap_either t vc (shift_var_indices t v vc') fv d (shift_var_indices t f vc')
                  b'
              in
-             match (vc', f') with
-             | 1, _ -> version_let t (shift_var_indices t d' (-depth)) b''
-             | _, f'' when f'' = t.void ->
-                 version_let_rev t vc' (shift_var_indices t v' (-depth)) d' b''
-             | _ ->
-                 version_wrap_either t vc' (shift_var_indices t v' (-depth)) fv' d'
-                   (shift_var_indices t f' (-depth)) b'')
+             reorder_lets'' t depth vc' v' fv' f' d' b'')
   | _ -> []
 
 let%expect_test _ =

@@ -14,6 +14,28 @@ include("enumeration.jl")
 include("export.jl")
 include("profiling.jl")
 
+import Redis
+import Redis: execute_command
+
+mutable struct RedisContext
+    conn::Redis.RedisConnection
+end
+
+function get_conn(ctx::RedisContext)
+    if Redis.is_connected(ctx.conn)
+        ctx.conn
+    else
+        ctx.conn = Redis.RedisConnection()
+        ctx.conn
+    end
+end
+
+function disconnect_redis(ctx::RedisContext)
+    if Redis.is_connected(ctx.conn)
+        Redis.disconnect(ctx.conn)
+    end
+end
+
 function run_solving_process(run_context, message)
     @info "running processing"
     @info message
@@ -54,7 +76,7 @@ end
 
 using JSON
 
-function worker_loop()
+function worker_loop(req_channel, resp_channel)
     @info "Starting worker loop"
     redis = RedisContext(Redis.RedisConnection())
     while true
@@ -68,16 +90,20 @@ function worker_loop()
             timeout = payload["timeout"]
             name = payload["name"]
             output = try
-                result =
-                    @run_with_timeout timeout redis run_solving_process(Dict{String,Any}("redis" => redis), payload)
+                run_context = Dict{String,Any}(
+                    "timeout_request_channel" => req_channel,
+                    "timeout_response_channel" => resp_channel,
+                    "timeout" => timeout,
+                )
+                result = @run_with_timeout run_context "timeout" run_solving_process(run_context, payload)
                 if isnothing(result)
                     result = Dict("number_enumerated" => 0, "solutions" => [])
                 end
                 Dict("status" => "success", "payload" => result, "name" => name)
             catch e
                 buf = IOBuffer()
-                showerror(buf, e)
                 bt = catch_backtrace()
+                showerror(buf, e, bt)
                 @error "Error while running task" exception = (e, bt)
                 Dict("status" => "error", "payload" => String(take!(buf)), "name" => name)
             end
