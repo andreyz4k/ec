@@ -9,10 +9,13 @@ using solver:
     FreeVar,
     Abstraction,
     tlist,
+    t0,
     ttuple2,
     Index,
     get_reversed_filled_program,
-    is_reversible
+    is_reversible,
+    parse_program,
+    closed_inference
 using DataStructures: OrderedDict, Accumulator
 import Redis
 
@@ -175,5 +178,60 @@ import Redis
             FreeVar(tlist(tint), nothing),
         )
         @test rev_p([[0, 1, 2], [0, 1], [0, 1, 2, 3]]) == ([2, 1, 3],)
+    end
+
+    @testset "Invented abstractor" begin
+        source = "#(lambda (lambda (repeat (cons \$1 \$0))))"
+        expression = parse_program(source)
+        tp = closed_inference(expression)
+        @test is_reversible(expression)
+        skeleton = Apply(Apply(Apply(expression, Hole(t0, nothing)), Hole(tlist(t0), nothing)), Hole(tint, nothing))
+        @test is_reversible(skeleton)
+        filled_p, rev_p = get_reversed_filled_program(skeleton)
+        @test filled_p ==
+              Apply(Apply(Apply(expression, FreeVar(t0, nothing)), FreeVar(tlist(t0), nothing)), FreeVar(tint, nothing))
+        @test rev_p([[1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2, 3]]) == (1, [2, 3], 4)
+    end
+
+    @testset "Invented abstractor with range" begin
+        source = "#(lambda (repeat (range \$0)))"
+        expression = parse_program(source)
+        tp = closed_inference(expression)
+        @test is_reversible(expression)
+        skeleton = Apply(Apply(expression, Hole(tint, nothing)), Hole(tint, nothing))
+        @test is_reversible(skeleton)
+        filled_p, rev_p = get_reversed_filled_program(skeleton)
+        @test filled_p == Apply(Apply(expression, FreeVar(tint, nothing)), FreeVar(tint, nothing))
+        @test rev_p([[0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 3]]) == (3, 4)
+    end
+
+    @testset "Invented abstractor with range in map" begin
+        source = "#(lambda (repeat (range \$0)))"
+        expression = parse_program(source)
+        tp = closed_inference(expression)
+        @test is_reversible(expression)
+        skeleton = Apply(
+            Apply(
+                every_primitive["map"],
+                Abstraction(Apply(Apply(expression, Hole(tint, nothing)), Hole(tint, nothing))),
+            ),
+            Hole(tlist(ttuple2(tint, tint)), nothing),
+        )
+        @test is_reversible(skeleton)
+        filled_p, rev_p = get_reversed_filled_program(skeleton)
+        @test filled_p == Apply(
+            Apply(
+                every_primitive["map"],
+                Abstraction(
+                    Apply(
+                        Apply(expression, Apply(every_primitive["tuple2_first"], Index(0))),
+                        Apply(every_primitive["tuple2_second"], Index(0)),
+                    ),
+                ),
+            ),
+            Apply(Apply(every_primitive["zip2"], FreeVar(tlist(tint), nothing)), FreeVar(tlist(tint), nothing)),
+        )
+        @test rev_p([[[0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 3]], [[0, 1, 2], [0, 1, 2]]]) ==
+              ([3, 2], [4, 2])
     end
 end

@@ -10,64 +10,82 @@ function is_reversible(p::Apply)
         if isa(p.x, Hole)
             return !isarrow(p.x.t)
         end
-        if isa(p.x, Abstraction)
-            return is_reversible(p.x.b)
+        if isa(p.x, Index)
+            return true
+        end
+        if isa(p.x, Abstraction) || isa(p.x, Apply)
+            return is_reversible(p.x)
         end
     end
     false
 end
 
 is_reversible(p::Invented) = is_reversible(p.b)
+is_reversible(p::Abstraction) = is_reversible(p.b)
 
-function is_reversible(p::Program)
-    false
+is_reversible(p::Program) = false
+
+function _get_reversed_filled_program(p::Primitive, arguments)
+    return all_abstractors[p](arguments)
 end
 
-function _get_reversed_filled_program(p::Primitive)
-    return all_abstractors[p]
+function _get_reversed_filled_program(p::Invented, arguments)
+    filled_b, rev_b, updated_args, filled_types = _get_reversed_filled_program(p.b, arguments)
+    if filled_b != p.b
+        error("Incorrect filling in invented function")
+    end
+    return p, rev_b, updated_args, filled_types
 end
-
 noop(a) = (a,)
-function _get_reversed_filled_program(p::Hole)
-    return FreeVar(p.t, nothing), noop, [p.t]
+function _get_reversed_filled_program(p::Hole, arguments)
+    return FreeVar(p.t, nothing), noop, arguments, [p.t]
 end
 
-function _get_reversed_filled_program(p::Apply)
-    reversed_f = _get_reversed_filled_program(p.f)
-    return reversed_f(p.x)
+function _get_reversed_filled_program(p::Index, arguments)
+    return p, noop, arguments, []
 end
 
-function _get_reversed_filled_program(p::Abstraction)
-    fill_f, rev_f, filled_types = _get_reversed_filled_program(p.b)
-    return Abstraction(fill_f), rev_f, filled_types
+function _get_reversed_filled_program(p::Apply, arguments)
+    filled_x, reversed_x, _, filled_x_types = _get_reversed_filled_program(p.x, arguments)
+    push!(arguments, (filled_x, reversed_x, filled_x_types))
+    filled_f, reversed_f, updated_args, filled_f_types = _get_reversed_filled_program(p.f, arguments)
+    new_filled_x, _, new_filled_x_types = pop!(updated_args)
+    pop!(arguments)
+    return Apply(filled_f, new_filled_x), reversed_f, updated_args, vcat(filled_f_types, new_filled_x_types)
+end
+
+function _get_reversed_filled_program(p::Abstraction, arguments)
+    res = _get_reversed_filled_program(p.b, arguments)
+    fill_f, rev_f, updated_args, filled_types = res
+    return Abstraction(fill_f), rev_f, updated_args, filled_types
 end
 
 function get_reversed_filled_program(p::Program)
-    fill_p, rev_p, _ = _get_reversed_filled_program(p)
+    fill_p, rev_p, _, _ = _get_reversed_filled_program(p, [])
     return fill_p, rev_p
 end
 
 function generic_reverse2(prim, rev_function)
-    function _generic_reverse(a, b)
-        fill_a, rev_a, filled_types_a = _get_reversed_filled_program(a)
-        fill_b, rev_b, filled_types_b = _get_reversed_filled_program(b)
+    function _generic_reverse(arguments)
+        fill_a, rev_a, filled_types_a = arguments[end]
+        fill_b, rev_b, filled_types_b = arguments[end-1]
         function _reverse_function(value)
             r_a, r_b = rev_function(value)
             return rev_a(r_a)..., rev_b(r_b)...
         end
-        return Apply(Apply(prim, fill_a), fill_b), _reverse_function, vcat(filled_types_a, filled_types_b)
+        return prim, _reverse_function, copy(arguments), []
     end
     return _generic_reverse
 end
 
 function generic_reverse1(prim, rev_function)
-    function _generic_reverse(a)
-        fill_a, rev_a, filled_types_a = _get_reversed_filled_program(a)
+    function _generic_reverse(arguments)
+        fill_a, rev_a, filled_types_a = arguments[end]
         function _reverse_function(value)
             r_a, = rev_function(value)
             return rev_a(r_a)
         end
-        return Apply(prim, fill_a), _reverse_function, filled_types_a
+        return prim, _reverse_function, copy(arguments), []
     end
     return _generic_reverse
 end
@@ -77,11 +95,9 @@ macro define_reverse_primitive(name, reverse_function)
         local n = $(esc(name))
         local prim = every_primitive[n]
         if length(arguments_of_type(prim.t)) == 1
-            local reversed_func = generic_reverse1(prim, $(esc(reverse_function)))
-            local out = a -> reversed_func(a)
+            local out = generic_reverse1(prim, $(esc(reverse_function)))
         elseif length(arguments_of_type(prim.t)) == 2
-            local reversed_func = generic_reverse2(prim, $(esc(reverse_function)))
-            local out = a -> b -> reversed_func(a, b)
+            local out = generic_reverse2(prim, $(esc(reverse_function)))
         end
         all_abstractors[prim] = out
     end
@@ -92,7 +108,7 @@ macro define_custom_reverse_primitive(name, reverse_function)
         local n = $(esc(name))
         local prim = every_primitive[n]
         if length(arguments_of_type(prim.t)) == 2
-            local out = a -> b -> $(esc(reverse_function))(a, b)
+            local out = $(esc(reverse_function))
         end
         all_abstractors[prim] = out
     end
@@ -153,9 +169,9 @@ function zip_free_vars(filled_hole, filled_types)
     end
 end
 
-function reverse_map(f, x)
-    fill_f, rev_f, filled_types_f = _get_reversed_filled_program(f)
-    fill_x, rev_x, filled_types_x = _get_reversed_filled_program(x)
+function reverse_map(arguments)
+    fill_f, rev_f, filled_types_f = arguments[end]
+    fill_x, rev_x, filled_types_x = arguments[end-1]
     function _reverse_map(value)
         results = tuple([[] for _ in filled_types_f]...)
         for values in map(rev_f, value)
@@ -168,7 +184,10 @@ function reverse_map(f, x)
     new_f, _ = map_function_replacement(fill_f, filled_types_f)
     filled_types = vcat(filled_types_f, filled_types_x)
     new_x, filled_types = zip_free_vars(fill_x, filled_types)
-    return Apply(Apply(every_primitive["map"], new_f), new_x), _reverse_map, filled_types
+    updated_args = arguments[begin:end-2]
+    push!(updated_args, (new_x, rev_x, filled_types))
+    push!(updated_args, (new_f, rev_f, []))
+    return every_primitive["map"], _reverse_map, updated_args, []
 end
 
 @define_custom_reverse_primitive "map" reverse_map
