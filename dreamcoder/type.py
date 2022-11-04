@@ -523,6 +523,9 @@ class TypeWeights(object):
     def json(self):
         return self.weights
 
+    def __str__(self) -> str:
+        return str(self.weights)
+
 
 Context.EMPTY = Context(0, [])
 
