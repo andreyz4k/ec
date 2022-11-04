@@ -574,6 +574,7 @@ def ecIterator(
                 solver=solver,
                 recognitionSteps=recognitionSteps,
                 maximumFrontier=maximumFrontier,
+                type_weights=type_weights,
             )
 
             showHitMatrix(tasksHitTopDown, tasksHitBottomUp, wakingTaskBatch)
@@ -659,6 +660,7 @@ def evaluateOnTestingTasks(
             enumerationTimeout=enumerationTimeout,
             evaluationTimeout=evaluationTimeout,
             testing=True,
+            type_weights=type_weights,
         )
         updateTaskSummaryMetrics(
             result.recognitionTaskMetrics,
@@ -750,6 +752,7 @@ def sleep_recognition(
     cuda=None,
     CPUs=None,
     solver=None,
+    type_weights=None,
 ):
     eprint(
         "Using an ensemble size of %d. Note that we will only store and test on the best recognition model."
@@ -807,6 +810,7 @@ def sleep_recognition(
             enumerationTimeout=enumerationTimeout,
             evaluationTimeout=evaluationTimeout,
             solver=solver,
+            type_weights=type_weights,
         )
         ensembleFrontiers.append(bottomupFrontiers)
         ensembleTimes.append([t for t in allRecognitionTimes.values() if t is not None])
