@@ -326,7 +326,7 @@ def ecIterator(
     def checkpointPath(iteration, extra=""):
         parameters["iterations"] = iteration
         kvs = ["{}={}".format(ECResult.abbreviate(k), parameters[k]) for k in sorted(parameters.keys())]
-        return "{}_{}{}.pickle".format(outputPrefix, "_".join(kvs), extra)
+        return "{}_{}{}.pickle".format(outputPrefix, "_".join(kvs)[:200], extra)
 
     if message:
         message = " (" + message + ")"
