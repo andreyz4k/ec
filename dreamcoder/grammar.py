@@ -122,7 +122,10 @@ class Grammar(object):
     def json(self):
         j = {
             "logVariable": self.logVariable,
-            "productions": [{"expression": str(p), "logProbability": l} for l, _, p in self.productions],
+            "productions": [
+                {"expression": str(p), "logProbability": l, "type": str(t), "is_reversible": p.is_reversible}
+                for l, t, p in self.productions
+            ],
         }
         if self.continuationType is not None:
             j["continuationType"] = self.continuationType.json()
@@ -165,6 +168,7 @@ class Grammar(object):
         returnProbabilities=False,
         # Must be a leaf (have no arguments)?
         mustBeLeaf=False,
+        reversible_only=False,
     ):
         """Primitives that are candidates for being used given a requested type
         If returnTable is false (default): returns [((log)likelihood, tp, primitive, context)]
@@ -180,6 +184,8 @@ class Grammar(object):
                 newContext = newContext.unify(t.returns(), request)
                 t = t.apply(newContext)
                 if mustBeLeaf and t.isArrow():
+                    continue
+                if reversible_only and not p.is_reversible:
                     continue
                 candidates.append((l, t, p, newContext))
             except UnificationFailure:
@@ -200,7 +206,8 @@ class Grammar(object):
                 smallestIndex = Index(min(terminalIndices))
                 variableCandidates = [(t, v, k) for t, v, k in variableCandidates if t.isArrow() or v == smallestIndex]
 
-        candidates += [(self.logVariable - log(len(variableCandidates)), t, p, k) for t, p, k in variableCandidates]
+        if not reversible_only:
+            candidates += [(self.logVariable - log(len(variableCandidates)), t, p, k) for t, p, k in variableCandidates]
         if candidates == []:
             raise NoCandidates()
         # eprint("candidates inside buildCandidates before norm:")
@@ -271,7 +278,9 @@ class Grammar(object):
 
         return context, returnValue
 
-    def likelihoodSummary(self, context, environment, workspace, request, expression, silent=False):
+    def likelihoodSummary(
+        self, context, environment, workspace, request, expression, silent=False, reversible_only=False
+    ):
         if isinstance(request, TypeNamedArgsConstructor) and request.isArrow():
             merged_workspace = dict(workspace, **request.arguments)
             context, var_requests, summary = self.likelihoodSummary(
@@ -281,6 +290,7 @@ class Grammar(object):
                 request.output,
                 expression,
                 silent=silent,
+                reversible_only=reversible_only,
             )
             for var_name, var_type in request.arguments.items():
                 if var_name in var_requests:
@@ -303,6 +313,7 @@ class Grammar(object):
                 request.arguments[1],
                 expression.body,
                 silent=silent,
+                reversible_only=reversible_only,
             )
         if expression.isLetClause and expression.var_def.isConst:
             merged_workspace = dict(workspace, **{expression.var_name: expression.var_def.tp})
@@ -313,6 +324,7 @@ class Grammar(object):
                 request,
                 expression.body,
                 silent=silent,
+                reversible_only=reversible_only,
             )
             context, var_def_requests, def_summary = self.likelihoodSummary(
                 context,
@@ -321,6 +333,7 @@ class Grammar(object):
                 expression.var_def.tp,
                 expression.var_def,
                 silent=silent,
+                reversible_only=reversible_only,
             )
             var_requests.update(var_def_requests)
             var_requests.pop(expression.var_name)
@@ -335,6 +348,7 @@ class Grammar(object):
                 request,
                 expression.body,
                 silent=silent,
+                reversible_only=reversible_only,
             )
             context, var_def_requests, def_summary = self.likelihoodSummary(
                 context,
@@ -343,6 +357,7 @@ class Grammar(object):
                 var_requests[expression.var_name],
                 expression.var_def,
                 silent=silent,
+                reversible_only=reversible_only,
             )
             var_requests.update(var_def_requests)
             var_requests.pop(expression.var_name)
@@ -358,6 +373,7 @@ class Grammar(object):
                 workspace[expression.inp_var_name],
                 expression.vars_def,
                 silent=silent,
+                reversible_only=True,
             )
             merged_workspace = dict(workspace, **var_requests)
             context, var_body_requests, body_summary = self.likelihoodSummary(
@@ -367,6 +383,7 @@ class Grammar(object):
                 request,
                 expression.body,
                 silent=silent,
+                reversible_only=reversible_only,
             )
             summary.join(body_summary)
             var_body_requests[expression.inp_var_name] = workspace[expression.inp_var_name]
@@ -381,6 +398,7 @@ class Grammar(object):
                 workspace[expression.inp_var_name],
                 expression.vars_def,
                 silent=silent,
+                reversible_only=True,
             )
             merged_workspace = dict(workspace, **var_requests)
             context, var_body_requests, body_summary = self.likelihoodSummary(
@@ -390,6 +408,7 @@ class Grammar(object):
                 request,
                 expression.body,
                 silent=silent,
+                reversible_only=reversible_only,
             )
             summary.join(body_summary)
             context, var_fixer_requests, fixer_summary = self.likelihoodSummary(
@@ -399,6 +418,7 @@ class Grammar(object):
                 var_requests[expression.fixer_var_name],
                 expression.fixer_var,
                 silent=silent,
+                reversible_only=reversible_only,
             )
             summary.join(fixer_summary)
             var_body_requests.update(var_fixer_requests)
@@ -415,7 +435,9 @@ class Grammar(object):
             return context, {}, thisSummary
 
         # Build the candidates
-        candidates = self.buildCandidates(request, context, environment, normalize=False, returnTable=True)
+        candidates = self.buildCandidates(
+            request, context, environment, normalize=False, returnTable=True, reversible_only=reversible_only
+        )
 
         # A list of everything that would have been possible to use here
         possibles = [p for p in candidates.keys() if not p.isIndex]
@@ -461,7 +483,13 @@ class Grammar(object):
         for argumentType, argument in zip(argumentTypes, xs):
             argumentType = argumentType.apply(context)
             context, new_var_requests, newSummary = self.likelihoodSummary(
-                context, environment, workspace, argumentType, argument, silent=silent
+                context,
+                environment,
+                workspace,
+                argumentType,
+                argument,
+                silent=silent,
+                reversible_only=reversible_only,
             )
             if newSummary is None:
                 return context, {}, None

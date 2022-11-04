@@ -451,9 +451,9 @@ let enumerate_programs ?(extraQuiet = false) ?(maxFreeParameters = 0) ?(final = 
       g with
       library =
         g.library
-        |> List.filter ~f:(fun (p, _, _, _) -> not (is_recursion_primitive p))
+        |> List.filter ~f:(fun (p, _, _, _, _) -> not (is_recursion_primitive p))
         |> (* sort library by number of arguments so that it will tend to explore shorter things first *)
-        List.sort ~compare:(fun (_, a, _, _) (_, b, _, _) ->
+        List.sort ~compare:(fun (_, a, _, _, _) (_, b, _, _, _) ->
             List.length (arguments_of_type a) - List.length (arguments_of_type b));
     }
   in

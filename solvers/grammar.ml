@@ -6,7 +6,7 @@ open FastType
 
 type grammar = {
   logVariable : float;
-  library : (program * tp * float * (tContext -> tp -> tContext * tp list)) list;
+  library : (program * tp * float * (tContext -> tp -> tContext * tp list) * bool) list;
   continuation_type : tp option;
 }
 
@@ -16,7 +16,7 @@ let primitive_grammar ?(continuation_type = None) primitives =
       List.map primitives ~f:(fun p ->
           match p with
           | Primitive (t, _, _) ->
-              (p, t, 0.0 -. log (float_of_int (List.length primitives)), compile_unifier t)
+              (p, t, 0.0 -. log (float_of_int (List.length primitives)), compile_unifier t, false)
           | _ -> raise (Failure "primitive_grammar: not primitive"));
     logVariable = log 0.5;
     continuation_type;
@@ -30,14 +30,14 @@ let uniform_grammar ?(continuation_type = None) primitives =
     = List.length
         (List.dedup_and_sort
            ~compare:compare_program (* (fun p1 p2 -> String.compare (string_of_program p1) *)
-           (*     (string_of_program p2)) *) primitives)
+           (*     (string_of_program p2)) *) (List.map primitives ~f:fst))
   then
     {
       library =
-        List.map primitives ~f:(fun p ->
+        List.map primitives ~f:(fun (p, r) ->
             match p with
             | Primitive (t, _, _) | Invented (t, _) ->
-                (p, t, 0.0 -. log (float_of_int (List.length primitives)), compile_unifier t)
+                (p, t, 0.0 -. log (float_of_int (List.length primitives)), compile_unifier t, r)
             | _ -> raise (Failure "primitive_grammar: not primitive"));
       logVariable = log 0.5;
       continuation_type;
@@ -48,10 +48,11 @@ let strip_grammar { logVariable; continuation_type; library } =
   {
     logVariable;
     continuation_type;
-    library = library |> List.map ~f:(fun (p, t, l, u) -> (strip_primitives p, t, l, u));
+    library = library |> List.map ~f:(fun (p, t, l, u, r) -> (strip_primitives p, t, l, u, r));
   }
 
-let grammar_primitives g = g.library |> List.map ~f:(fun (p, _, _, _) -> p)
+let grammar_primitives g = g.library |> List.map ~f:(fun (p, _, _, _, _) -> p)
+let grammar_primitives_with_rev g = g.library |> List.map ~f:(fun (p, _, _, _, r) -> (p, r))
 
 let string_of_grammar g =
   (match g.continuation_type with
@@ -60,7 +61,7 @@ let string_of_grammar g =
   ^ string_of_float g.logVariable ^ "\tt0\t$_\n"
   ^ join ~separator:"\n"
       (g.library
-      |> List.map ~f:(fun (p, t, l, _) ->
+      |> List.map ~f:(fun (p, t, l, _, _) ->
              Float.to_string l ^ "\t" ^ string_of_type t ^ "\t" ^ string_of_program p))
 
 let grammar_log_weight g p =
@@ -68,7 +69,7 @@ let grammar_log_weight g p =
   else
     match
       g.library
-      |> List.filter_map ~f:(fun (p', _, l, _) -> if program_equal p p' then Some l else None)
+      |> List.filter_map ~f:(fun (p', _, l, _, _) -> if program_equal p p' then Some l else None)
     with
     | [ l ] -> l
     | _ :: _ ->
@@ -83,8 +84,21 @@ let grammar_log_weight g p =
                 "Could not find the following primitive:\n\t%s\n\tinside the DSL:\n%s\n"
                 (string_of_program p) (string_of_grammar g)))
 
-let unifying_expressions g environment request context : (program * tp list * tContext * float) list
-    =
+let rec is_reversible g p =
+  match p with
+  | Primitive _ ->
+      List.filter_map g.library ~f:(fun (p', _, _, _, r) ->
+          if program_equal p p' then Some r else None)
+      |> List.hd_exn
+  | Invented (_, b) -> is_reversible g b
+  | Apply (f, x) -> (
+      is_reversible g f
+      && match x with Index _ -> true | Abstraction _ | Apply _ -> is_reversible g x | _ -> false)
+  | Abstraction b -> is_reversible g b
+  | _ -> false
+
+let unifying_expressions ?(reversible_only = false) g environment request context :
+    (program * tp list * tContext * float) list =
   (* given a grammar environment requested type and typing context,
      what are all of the possible leaves that we might use?
      These could be productions in the grammar or they could be variables.
@@ -138,13 +152,15 @@ let unifying_expressions g environment request context : (program * tp list * tC
 
   let grammar_candidates =
     g.library
-    |> List.filter_map ~f:(fun (p, t, ll, u) ->
+    |> List.filter_map ~f:(fun (p, t, ll, u, r) ->
            try
-             let return_type = return_of_type t in
-             if not (might_unify return_type request) then None
+             if reversible_only && not r then None
              else
-               let context, arguments = u context request in
-               Some (p, arguments, context, ll)
+               let return_type = return_of_type t in
+               if not (might_unify return_type request) then None
+               else
+                 let context, arguments = u context request in
+                 Some (p, arguments, context, ll)
            with UnificationFailure -> None)
   in
 
@@ -241,20 +257,20 @@ let make_likelihood_summary g request expression =
   let s = empty_likelihood_summary () in
   let context = ref empty_context in
 
-  let rec summarize (r : tp) (environment : tp list) (workspace : (string, tp) Hashtbl.t)
-      (p : program) : (string, tp) Hashtbl.t =
+  let rec summarize ?(reversible_only = false) (r : tp) (environment : tp list)
+      (workspace : (string, tp) Hashtbl.t) (p : program) : (string, tp) Hashtbl.t =
     match r with
     (* a function - must start out with a sequence of lambdas *)
     | TNCon ("->", arguments, return_type, _) ->
         let new_workspace =
           merge_workspaces context workspace (Hashtbl.of_alist_exn (module String) arguments)
         in
-        let var_requests = summarize return_type environment new_workspace p in
+        let var_requests = summarize ~reversible_only return_type environment new_workspace p in
         var_requests
     | TCon ("->", [ argument; return_type ], _) ->
         let newEnvironment = argument :: environment in
         let body = remove_abstractions 1 p in
-        summarize return_type newEnvironment workspace body
+        summarize ~reversible_only return_type newEnvironment workspace body
     | _ -> (
         (* not a function - must be an application instead of a lambda *)
         match p with
@@ -263,33 +279,47 @@ let make_likelihood_summary g request expression =
               merge_workspaces context workspace
                 (Hashtbl.of_alist_exn (module String) [ (name, t) ])
             in
-            let var_requests = summarize r environment merged_workspace body in
-            let var_def_requests = summarize t environment workspace (Const (t, k)) in
+            let var_requests = summarize ~reversible_only r environment merged_workspace body in
+            let var_def_requests =
+              summarize ~reversible_only t environment workspace (Const (t, k))
+            in
             let out_var_requests = merge_workspaces context var_requests var_def_requests in
             Hashtbl.remove out_var_requests name;
             out_var_requests
         | LetClause (name, def, body) ->
-            let var_requests = summarize r environment workspace body in
+            let var_requests = summarize ~reversible_only r environment workspace body in
             let var_def_requests =
-              summarize (Hashtbl.find_exn var_requests name) environment workspace def
+              summarize ~reversible_only
+                (Hashtbl.find_exn var_requests name)
+                environment workspace def
             in
             let out_var_requests = merge_workspaces context var_requests var_def_requests in
             Hashtbl.remove out_var_requests name;
             out_var_requests
         | LetRevClause (_var_names, inp_name, def, body) ->
             let inp_name_request = Hashtbl.find_exn workspace inp_name in
-            let var_requests = summarize inp_name_request environment workspace def in
+            let var_requests =
+              summarize ~reversible_only:true inp_name_request environment workspace def
+            in
             let merged_workspace = merge_workspaces context workspace var_requests in
-            let var_body_requests = summarize r environment merged_workspace body in
+            let var_body_requests =
+              summarize ~reversible_only r environment merged_workspace body
+            in
             Hashtbl.set var_body_requests ~key:inp_name ~data:inp_name_request;
             var_body_requests
         | WrapEither (_vars, inp_name, fixer, def, f, body) ->
             let inp_name_request = Hashtbl.find_exn workspace inp_name in
-            let var_requests = summarize inp_name_request environment workspace def in
+            let var_requests =
+              summarize ~reversible_only:true inp_name_request environment workspace def
+            in
             let merged_workspace = merge_workspaces context workspace var_requests in
-            let var_body_requests = summarize r environment merged_workspace body in
+            let var_body_requests =
+              summarize ~reversible_only r environment merged_workspace body
+            in
             let var_fixer_requests =
-              summarize (Hashtbl.find_exn var_requests fixer) environment merged_workspace f
+              summarize ~reversible_only
+                (Hashtbl.find_exn var_requests fixer)
+                environment merged_workspace f
             in
             Hashtbl.set var_body_requests ~key:inp_name ~data:inp_name_request;
             Hashtbl.merge var_body_requests var_fixer_requests ~f:(fun ~key:_ -> function
@@ -297,7 +327,7 @@ let make_likelihood_summary g request expression =
         | FreeVar name -> Hashtbl.of_alist_exn (module String) [ (name, r) ]
         | Const _ -> Hashtbl.create (module String)
         | _ -> (
-            let candidates = unifying_expressions g environment r !context in
+            let candidates = unifying_expressions ~reversible_only g environment r !context in
             match walk_application_tree p with
             | [] -> raise (Failure "walking the application tree")
             | f :: xs -> (
@@ -312,7 +342,7 @@ let make_likelihood_summary g request expression =
                     record_likelihood_event s f
                       (candidates |> List.map ~f:(fun (candidate, _, _, _) -> candidate));
                     List.map (List.zip_exn xs argument_types) ~f:(fun (x, x_t) ->
-                        summarize x_t environment workspace x)
+                        summarize ~reversible_only x_t environment workspace x)
                     |> List.fold
                          ~init:(Hashtbl.create (module String))
                          ~f:(merge_workspaces context))))
@@ -325,7 +355,7 @@ let likelihood_under_grammar g request program =
   make_likelihood_summary g request program |> summary_likelihood g
 
 let grammar_has_recursion a g =
-  g.library |> List.exists ~f:(fun (p, _, _, _) -> is_recursion_of_arity a p)
+  g.library |> List.exists ~f:(fun (p, _, _, _, _) -> is_recursion_of_arity a p)
 
 (*  *)
 type contextual_grammar = {
@@ -369,7 +399,7 @@ let prune_contextual_grammar (g : contextual_grammar) =
           continuation_type = g.continuation_type;
           library =
             g.library
-            |> List.filter ~f:(fun (_, child_type, _, _) ->
+            |> List.filter ~f:(fun (_, child_type, _, _, _) ->
                    let child_type = return_of_type child_type in
                    try
                      let k, child_type = instantiate_type empty_context child_type in
@@ -391,7 +421,7 @@ let make_dummy_contextual g =
     variable_context = g;
     contextual_library =
       g.library
-      |> List.map ~f:(fun (e, t, _, _) -> (e, arguments_of_type t |> List.map ~f:(fun _ -> g)));
+      |> List.map ~f:(fun (e, t, _, _, _) -> (e, arguments_of_type t |> List.map ~f:(fun _ -> g)));
   }
   |> prune_contextual_grammar
 
@@ -408,8 +438,9 @@ let deserialize_grammar g =
              with UnificationFailure -> raise (Failure ("Could not type " ^ source))
            in
            let logProbability = p |> member "logProbability" |> to_number in
+           let r = p |> member "is_reversible" |> to_bool in
 
-           (e, t, logProbability, compile_unifier t))
+           (e, t, logProbability, compile_unifier t, r))
   in
   let continuation_type =
     try Some (g |> member "continuationType" |> deserialize_type) with _ -> None
@@ -426,10 +457,13 @@ let serialize_grammar { logVariable; continuation_type; library } =
          ( "productions",
            `List
              (library
-             |> List.map ~f:(fun (e, _, l, _) ->
+             |> List.map ~f:(fun (e, t, l, _, r) ->
                     `Assoc
                       [
-                        ("expression", `String (string_of_program e)); ("logProbability", `Float l);
+                        ("expression", `String (string_of_program e));
+                        ("logProbability", `Float l);
+                        ("type", `String (string_of_type t));
+                        ("is_reversible", `Bool r);
                       ])) );
        ]
       @

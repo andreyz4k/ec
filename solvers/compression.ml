@@ -58,9 +58,9 @@ let inside_outside ~pseudoCounts g (frontiers : frontier list) =
         log (actual (Index 0) +. pseudoCounts) -. log (possible (Index 0) +. pseudoCounts);
       library =
         g.library
-        |> List.map ~f:(fun (p, t, _, u) ->
+        |> List.map ~f:(fun (p, t, _, u, r) ->
                let l = log (actual p +. pseudoCounts) -. log (possible p +. pseudoCounts) in
-               (p, t, l, u));
+               (p, t, l, u, r));
     }
   in
   let g = update g in
@@ -90,8 +90,9 @@ let grammar_induction_score ~aic ~structurePenalty ~pseudoCounts frontiers g =
     ll
     -. (aic *. (List.length g.library |> Float.of_int))
     -. structurePenalty
-       *. (g.library |> List.map ~f:(fun (p, _, _, _) -> production_size p) |> sum |> Float.of_int)
-  )
+       *. (g.library
+          |> List.map ~f:(fun (p, _, _, _, _) -> production_size p)
+          |> sum |> Float.of_int) )
 
 exception EtaExpandFailure
 
@@ -699,7 +700,12 @@ let compression_step_master ~inline ~nc ~structurePenalty ~aic ~pseudoCounts ?(a
       assert (List.length new_frontiers = List.length candidates);
 
       let score frontiers candidate =
-        let new_grammar = uniform_grammar (normalize_invention candidate :: grammar_primitives g) in
+        let normalized_candidate = normalize_invention candidate in
+        let new_grammar =
+          uniform_grammar
+            ((normalized_candidate, is_reversible g normalized_candidate)
+            :: grammar_primitives_with_rev g)
+        in
         let g', s =
           grammar_induction_score ~aic ~pseudoCounts ~structurePenalty frontiers new_grammar
         in
@@ -834,7 +840,10 @@ let compression_step ~inline ~structurePenalty ~aic ~pseudoCounts ?(arity = 3) ~
           let new_primitive = invention_source |> normalize_invention in
           if List.mem ~equal:program_equal (grammar_primitives g) new_primitive then
             raise DuplicatePrimitive;
-          let new_grammar = uniform_grammar (new_primitive :: grammar_primitives g) in
+          let new_grammar =
+            uniform_grammar
+              ((new_primitive, is_reversible g new_primitive) :: grammar_primitives_with_rev g)
+          in
 
           let rewriter = rewrite_with_invention invention_source in
           (* Extract the frontiers in terms of the new primitive *)

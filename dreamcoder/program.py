@@ -125,6 +125,10 @@ class Program(object):
                 yield child.i - surroundingAbstractions
 
     @property
+    def is_reversible(self):
+        return False
+
+    @property
     def isIndex(self):
         return False
 
@@ -295,6 +299,17 @@ class Application(Program):
             self.falseBranch = None
             self.trueBranch = None
             self.branch = None
+
+    @property
+    def is_reversible(self):
+        if self.f.is_reversible:
+            if isinstance(self.x, Hole):
+                return self.x.t.isArrow()
+            elif isinstance(self.x, Index):
+                return True
+            elif isinstance(self.x, Abstraction) or isinstance(self.x, Application):
+                return self.x.is_reversible
+        return False
 
     def betaReduce(self):
         # See if either the function or the argument can be reduced
@@ -569,6 +584,10 @@ class Abstraction(Program):
         self.hashCode = None
 
     @property
+    def is_reversible(self):
+        return self.body.is_reversible
+
+    @property
     def isAbstraction(self):
         return True
 
@@ -661,12 +680,17 @@ class Abstraction(Program):
 class Primitive(Program):
     GLOBALS = {}
 
-    def __init__(self, name, ty, value):
+    def __init__(self, name, ty, value, is_reversible=False):
         self.tp = ty
         self.name = name
         self.value = value
+        self.isreversible = is_reversible
         if name not in Primitive.GLOBALS:
             Primitive.GLOBALS[name] = self
+
+    @property
+    def is_reversible(self):
+        return self.isreversible
 
     @property
     def isPrimitive(self):
@@ -756,6 +780,10 @@ class Invented(Program):
         self.body = body
         self.tp = self.body.infer()
         self.hashCode = None
+
+    @property
+    def is_reversible(self):
+        return self.body.is_reversible
 
     @property
     def isInvented(self):
