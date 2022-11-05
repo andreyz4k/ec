@@ -219,7 +219,7 @@ def _find(x):
 
 
 def _unfold(x):
-    return lambda p: lambda h: lambda n: __unfold(p, f, n, x)
+    return lambda p: lambda h: lambda n: __unfold(p, h, n, x)
 
 
 def __unfold(p, f, n, x, recursion_limit=50):

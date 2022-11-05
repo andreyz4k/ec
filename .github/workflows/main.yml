@@ -172,6 +172,54 @@ jobs:
       - name: run test
         run: python bin/list.py -t 20 -RS 5 -i 1 --solver=julia -g --primitives=julia
 
+  test-arc:
+    needs: [ocaml-build, create-virtualenv]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Julia
+        uses: julia-actions/setup-julia@latest
+        with:
+          version: '1.8'
+
+      - name: Download binaries patch
+        uses: actions/download-artifact@v3
+        with:
+          name: binaries_patch
+
+      - name: Apply binaries patch
+        run: |
+          if [ -s binaries_patch ]; then
+            git apply binaries_patch
+          fi
+          rm binaries_patch
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.7'
+
+      - uses: syphar/restore-virtualenv@v1
+        id: cache-virtualenv
+
+      - uses: julia-actions/julia-buildpkg@latest
+        with:
+          project: julia_enumerator
+
+      - name: set cores number
+        run: echo "JULIA_NUM_THREADS=$(getconf _NPROCESSORS_ONLN)" >> $GITHUB_ENV
+
+      - name: Setup redis
+        uses: zhulik/redis-action@1.1.0
+        with:
+          redis version: '5'
+
+      - name: run test
+        run: python bin/arc.py -t 20 -RS 5 -i 1
+
   test-julia-recognition-list:
     needs: [ocaml-build, create-virtualenv]
     runs-on: ubuntu-latest

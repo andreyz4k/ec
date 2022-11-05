@@ -8,3 +8,6 @@
 	path = pyccg
 	url = https://github.com/hans/pyccg
 	branch = master
+[submodule "dreamcoder/domains/arc/ARC"]
+	path = dreamcoder/domains/arc/ARC
+	url = git@github.com:fchollet/ARC.git

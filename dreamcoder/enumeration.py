@@ -26,7 +26,16 @@ def multicoreEnumeration(
 
     if solver == "julia":
         return multicore_enumeration_with_data(
-            g, type_weights, tasks, enumerationTimeout, evaluationTimeout, solver, CPUs, maximumFrontier, verbose, testing
+            g,
+            type_weights,
+            tasks,
+            enumerationTimeout,
+            evaluationTimeout,
+            solver,
+            CPUs,
+            maximumFrontier,
+            verbose,
+            testing,
         )
 
     # We don't use actual threads but instead use the multiprocessing
@@ -292,7 +301,9 @@ def multicore_enumeration_with_data(
 
     r = redis.Redis(host="localhost", port=6379, db=0)
     for task in tasks:
-        m = get_task_message(task, task2grammar[task], enumerationTimeout, evaluationTimeout, maximumFrontier, type_weights)
+        m = get_task_message(
+            task, task2grammar[task], enumerationTimeout, evaluationTimeout, maximumFrontier, type_weights
+        )
         r.rpush("tasks", m)
 
     for _ in range(len(tasks)):
@@ -455,9 +466,7 @@ def get_task_message(task, g, timeout, program_timeout, maximum_frontiers, type_
         "name": task.name,
         "request": task.request.json(),
         "maximumFrontier": maximum_frontiers,
-        "test_examples": [{"inputs": xs, "output": y} for xs, y in task.test_examples]
-        if task.test_examples
-        else [],
+        "test_examples": [{"inputs": xs, "output": y} for xs, y in task.test_examples] if task.test_examples else [],
     }
     if hasattr(task, "specialTask"):
         special, extra = task.specialTask
@@ -504,8 +513,8 @@ def parse_result_message(response, tasks_by_name, task2grammar):
         p = Program.parse(e["program"])
         try:
             frontier_entries.append(
-            FrontierEntry(program=p, logLikelihood=e["logLikelihood"], logPrior=g.logLikelihood(task.request, p))
-        )
+                FrontierEntry(program=p, logLikelihood=e["logLikelihood"], logPrior=g.logLikelihood(task.request, p))
+            )
         except:
             eprint(p)
             eprint(request)
