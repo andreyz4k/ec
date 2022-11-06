@@ -1036,8 +1036,10 @@ let program_parser : program parsing =
       let k = n + consumed in
       if k >= String.length s then []
       else if depth = 0 && (Char.( = ) s.[k] ')' || Char.( = ) s.[k] ',') then []
-      else if Char.( = ) s.[k] '(' then s.[k] :: check (consumed + 1) (depth + 1)
-      else if Char.( = ) s.[k] ')' then s.[k] :: check (consumed + 1) (depth - 1)
+      else if Char.( = ) s.[k] '(' || Char.( = ) s.[k] '[' then
+        s.[k] :: check (consumed + 1) (depth + 1)
+      else if Char.( = ) s.[k] ')' || Char.( = ) s.[k] ']' then
+        s.[k] :: check (consumed + 1) (depth - 1)
       else s.[k] :: check (consumed + 1) depth
     in
     let token = check 0 0 in
@@ -1207,6 +1209,15 @@ let%test _ =
   parsing_test_case
     "let $v1 = Const(list(int), Any[5]) in let $v2 = Const(list(int), Any[]) in let $v3, $v4 = \
      wrap(let $v3, $v4 = rev($inp0 = (concat $v3 $v4)); let $v3 = $v2) in (concat $v1 $v4)"
+
+let%test _ = parsing_test_case "let $v1 = Const(list(list(color)), Any[Any[0, 0, 0]]) in $v1"
+let%test _ = parsing_test_case "Const(list(list(color)), Any[Any[0, 0, 0]])"
+
+let%test _ =
+  parsing_test_case
+    "let $v1 = Const(list(list(color)), Any[Any[0, 0, 0]]) in let $v2, $v3 = rev($inp0 = (cons $v2 \
+     $v3)) in let $v4 = (car $v3) in let $v5 = Const(int, 1) in let $v6 = (repeat $v4 $v5) in let \
+     $v7 = (cons $v2 $v6) in (concat $v1 $v7)"
 
 (* let%test _ = parsing_test_case "(cons FREE_VAR FREE_VAR)"
    let%test _ = parsing_test_case "rev((cons FREE_VAR FREE_VAR), [$0])"
