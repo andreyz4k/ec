@@ -410,6 +410,6 @@ using solver: load_problems, enumerate_for_task
         )
         @test length(solutions) >= 1
         @test number_enumerated >= 10
-        @test number_enumerated <= 1000
+        @test number_enumerated <= 2000
     end
 end

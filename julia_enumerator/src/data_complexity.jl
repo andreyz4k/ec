@@ -1,26 +1,33 @@
 
 function get_complexity_summary(values, t::TypeConstructor)
-    result = Accumulator{String,Int64}()
-    result[t.name] = 1
+    accum = Accumulator{String,Int64}()
+    for value in values
+        get_complexity_summary(value, t, accum)
+    end
+    return accum
+end
+
+function get_complexity_summary(values, t::TypeConstructor, accum)
+    inc!(accum, t.name)
     if isempty(t.arguments)
-        return result
+        return
     elseif length(t.arguments) == 1
-        merge!(result, [get_complexity_summary(v, t.arguments[1]) for v in values]...)
-        return result
+        for v in values
+            get_complexity_summary(v, t.arguments[1], accum)
+        end
     else
         error("unsupported type constructor: " + t.name)
     end
 end
 
-function get_complexity_summary(values::EitherOptions, t::TypeConstructor)
+function get_complexity_summary(values::EitherOptions, t::TypeConstructor, accum)
     result = Accumulator{String,Int64}()
     for (h, option) in values.options
-        merge!(result, get_complexity_summary(option, t))
+        get_complexity_summary(option, t, result)
     end
     for (k, count) in result
-        result[k] = div(count, length(values.options))
+        inc!(accum, k, div(count, length(values.options)))
     end
-    return result
 end
 
 function get_complexity_summary_max(values::EitherOptions, t::TypeConstructor)
