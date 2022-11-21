@@ -449,7 +449,6 @@ function try_run_function(f, xs)
             error("Unknown primitive: $(e.name)")
         elseif isa(e, MethodError)
             @error(xs)
-            @error(workspace)
             rethrow()
         else
             # @error e

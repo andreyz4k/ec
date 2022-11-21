@@ -56,11 +56,13 @@ function value_updates(sc, block::Union{ReverseProgramBlock,WrapEitherBlock}, ta
         set_explained |= set_expl
         union!(next_blocks, n_blocks)
     end
-    if set_explained && length(out_branches) > 1
+    if set_explained
         known_from_input = any(sc.branch_known_from_input[fixed_branches[in_var]] for in_var in block.input_vars)
         for (_, branch_id) in out_branches
-            inds = [b_id for (_, b_id) in out_branches if b_id != branch_id]
-            sc.related_explained_complexity_branches[branch_id, inds] = 1
+            if length(out_branches) > 1
+                inds = [b_id for (_, b_id) in out_branches if b_id != branch_id]
+                sc.related_explained_complexity_branches[branch_id, inds] = 1
+            end
             if !sc.branch_known_from_input[branch_id]
                 sc.branch_known_from_input[branch_id] = known_from_input
             end

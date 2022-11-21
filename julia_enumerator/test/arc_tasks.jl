@@ -254,7 +254,7 @@ using solver: load_problems, enumerate_for_task
             ),
             "name" => "a85d4709.json",
             "programTimeout" => 3.0,
-            "timeout" => 20,
+            "timeout" => 40,
             "verbose" => false,
             "shatter" => 10,
         )

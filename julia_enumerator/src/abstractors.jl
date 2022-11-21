@@ -237,13 +237,13 @@ end
 @define_reverse_primitive "range" reverse_range
 
 function reverse_rows_to_grid(value)
-    [value[i, :] for i in (1:size(value, 1))]
+    ([value[i, :] for i in (1:size(value, 1))],)
 end
 
 @define_reverse_primitive "rows_to_grid" reverse_rows_to_grid
 
 function reverse_columns_to_grid(value)
-    [value[:, i] for i in (1:size(value, 2))]
+    ([value[:, i] for i in (1:size(value, 2))],)
 end
 
 @define_reverse_primitive "columns_to_grid" reverse_columns_to_grid
