@@ -45,3 +45,17 @@ function build_task(handler, name, task_type, examples, test_examples)
         [ex["output"] for ex in test_examples],
     )
 end
+
+function build_task(handler, name, task_type, examples, test_examples, special_task)
+    if special_task == "arc"
+        Task(
+            name,
+            task_type,
+            handler,
+            [Dict(k => vcat([r' for r in val]...) for (k, val) in ex["inputs"]) for ex in examples],
+            [vcat([r' for r in ex["output"]]...) for ex in examples],
+            [Dict(k => vcat([r' for r in val]...) for (k, val) in ex["inputs"]) for ex in test_examples],
+            [vcat([r' for r in ex["output"]]...) for ex in test_examples],
+        )
+    end
+end

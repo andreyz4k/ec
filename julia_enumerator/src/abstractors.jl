@@ -155,42 +155,47 @@ function map_function_replacement(map_f, filled_types)
     return _replace_free_vars(map_f, replacements), filled_types
 end
 
-function zip_free_vars(filled_hole, filled_types)
-    if length(filled_types) == 2
-        return filled_hole, [filled_types[2]]
-    elseif length(filled_types) == 3
-        return (
-            Apply(
-                Apply(every_primitive["zip2"], FreeVar(tlist(filled_types[1]), nothing)),
-                FreeVar(tlist(filled_types[2]), nothing),
-            ),
-            [tlist(filled_types[1]), tlist(filled_types[2])],
-        )
-    end
-end
-
-function reverse_map(arguments)
-    fill_f, rev_f, filled_types_f = arguments[end]
-    fill_x, rev_x, filled_types_x = arguments[end-1]
-    function _reverse_map(value)
-        results = tuple([[] for _ in filled_types_f]...)
-        for values in map(rev_f, value)
-            for (i, v) in enumerate(values)
-                push!(results[i], v)
-            end
+function reverse_map(name, type, zip_primitive)
+    function zip_free_vars(filled_hole, filled_types)
+        if length(filled_types) == 2
+            return filled_hole, [filled_types[2]]
+        elseif length(filled_types) == 3
+            return (
+                Apply(
+                    Apply(zip_primitive, FreeVar(type(filled_types[1]), nothing)),
+                    FreeVar(type(filled_types[2]), nothing),
+                ),
+                [type(filled_types[1]), type(filled_types[2])],
+            )
         end
-        return results
     end
-    new_f, _ = map_function_replacement(fill_f, filled_types_f)
-    filled_types = vcat(filled_types_f, filled_types_x)
-    new_x, filled_types = zip_free_vars(fill_x, filled_types)
-    updated_args = arguments[begin:end-2]
-    push!(updated_args, (new_x, rev_x, filled_types))
-    push!(updated_args, (new_f, rev_f, []))
-    return every_primitive["map"], _reverse_map, updated_args, []
+
+    function _reverse_map(arguments)
+        fill_f, rev_f, filled_types_f = arguments[end]
+        fill_x, rev_x, filled_types_x = arguments[end-1]
+        function __reverse_map(value)
+            results = tuple([[] for _ in filled_types_f]...)
+            for values in map(rev_f, value)
+                for (i, v) in enumerate(values)
+                    push!(results[i], v)
+                end
+            end
+            return results
+        end
+        new_f, _ = map_function_replacement(fill_f, filled_types_f)
+        filled_types = vcat(filled_types_f, filled_types_x)
+        new_x, filled_types = zip_free_vars(fill_x, filled_types)
+        updated_args = arguments[begin:end-2]
+        push!(updated_args, (new_x, rev_x, filled_types))
+        push!(updated_args, (new_f, rev_f, []))
+        return every_primitive[name], __reverse_map, updated_args, []
+    end
+
+    return _reverse_map
 end
 
-@define_custom_reverse_primitive "map" reverse_map
+@define_custom_reverse_primitive "map" reverse_map("map", tlist, every_primitive["zip2"])
+@define_custom_reverse_primitive "map_grid" reverse_map("map_grid", tgrid, every_primitive["zip_grid2"])
 
 function reverse_concat(value)
     options_h = Dict()
@@ -230,3 +235,15 @@ function reverse_range(value)
 end
 
 @define_reverse_primitive "range" reverse_range
+
+function reverse_rows_to_grid(value)
+    [value[i, :] for i in (1:size(value, 1))]
+end
+
+@define_reverse_primitive "rows_to_grid" reverse_rows_to_grid
+
+function reverse_columns_to_grid(value)
+    [value[:, i] for i in (1:size(value, 2))]
+end
+
+@define_reverse_primitive "columns_to_grid" reverse_columns_to_grid

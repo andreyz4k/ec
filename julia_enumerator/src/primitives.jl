@@ -61,6 +61,7 @@ _is_prime(n) = in(
 )
 
 @define_primitive("map", arrow(arrow(t0, t1), tlist(t0), tlist(t1)), (f -> (xs -> map(f, xs))))
+@define_primitive("map_grid", arrow(arrow(t0, t1), tgrid(t0), tgrid(t1)), (f -> (xs -> map(f, xs))))
 @define_primitive(
     "unfold",
     arrow(t0, arrow(t0, tbool), arrow(t0, t1), arrow(t0, t0), tlist(t1)),
@@ -68,6 +69,7 @@ _is_prime(n) = in(
 )
 @define_primitive("range", arrow(tint, tlist(tint)), (n -> collect(0:n-1)))
 @define_primitive("index", arrow(tint, tlist(t0), t0), (j -> (l -> l[j])))
+@define_primitive("index2", arrow(tint, tint, tgrid(t0), t0), (i -> (j -> (l -> l[i, j]))))
 @define_primitive("tuple2_first", arrow(ttuple2(t0, t1), t0), (t -> t[1]))
 @define_primitive("tuple2_second", arrow(ttuple2(t0, t1), t1), (t -> t[2]))
 @define_primitive(
@@ -75,7 +77,29 @@ _is_prime(n) = in(
     arrow(tlist(t0), t1, arrow(t0, t1, t1), t1),
     (itr -> (init -> (op -> foldr((v, acc) -> op(v)(acc), itr, init = init)))),
 )
+@define_primitive(
+    "fold_h",
+    arrow(tgrid(t0), tlist(t1), arrow(t0, t1, t1), tlist(t1)),
+    (
+        grid -> (
+            inits ->
+                (op -> [foldr((v, acc) -> op(v)(acc), view(grid, i, :), init = inits[i]) for i in size(grid, 1)])
+        )
+    ),
+)
+@define_primitive(
+    "fold_v",
+    arrow(tgrid(t0), tlist(t1), arrow(t0, t1, t1), tlist(t1)),
+    (
+        grid -> (
+            inits ->
+                (op -> [foldr((v, acc) -> op(v)(acc), view(grid, :, i), init = inits[i]) for i in size(grid, 2)])
+        )
+    ),
+)
 @define_primitive("length", arrow(tlist(t0), tint), length)
+@define_primitive("height", arrow(tlist(t0), tint), (g -> size(g, 1)))
+@define_primitive("width", arrow(tlist(t0), tint), (g -> size(g, 2)))
 
 # built-ins
 @define_primitive("if", arrow(tbool, t0, t0, t0), (c -> (t -> (f -> c ? t : f))))
@@ -98,5 +122,9 @@ _is_prime(n) = in(
 
 @define_primitive("repeat", arrow(t0, tint, tlist(t0)), (x -> (n -> fill(x, n))))
 @define_primitive("zip2", arrow(tlist(t0), tlist(t1), tlist(ttuple2(t0, t1))), (a -> (b -> zip(a, b))))
+@define_primitive("zip_grid2", arrow(tgrid(t0), tgrid(t1), tgrid(ttuple2(t0, t1))), (a -> (b -> zip(a, b))))
 
 @define_primitive("concat", arrow(tlist(t0), tlist(t0), tlist(t0)), (a -> (b -> vcat(a, b))))
+
+@define_primitive("rows_to_grid", arrow(tlist(tlist(t0)), tgrid(t0)), (rs -> vcat([r' for r in rs]...)))
+@define_primitive("columns_to_grid", arrow(tlist(tlist(t0)), tgrid(t0)), (cs -> hcat(cs...)))

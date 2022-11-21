@@ -13,7 +13,7 @@ from dreamcoder.grammar import Grammar
 from dreamcoder.task import NamedVarsTask, Task
 from dreamcoder.type import TypeWeights, arrow, tlist
 from dreamcoder.recognition import DummyFeatureExtractor, variable
-from dreamcoder.domains.arc.primitives import basePrimitives, tcolor
+from dreamcoder.domains.arc.primitives import basePrimitives, tcolor, tgrid
 
 
 def retrieveARCJSONTasks(directory, filenames=None):
@@ -37,7 +37,8 @@ def retrieveARCJSONTask(filename, directory):
     ioExamples = [((example["input"],), example["output"]) for example in loaded["train"]]
     evalExamples = [((example["input"],), example["output"]) for example in loaded["test"]]
 
-    task = Task(filename, arrow(tlist(tlist(tcolor)), tlist(tlist(tcolor))), ioExamples, test_examples=evalExamples)
+    task = Task(filename, arrow(tgrid(tcolor), tgrid(tcolor)), ioExamples, test_examples=evalExamples)
+    task.specialTask = ("arc", 5)
     return task
 
 
@@ -181,6 +182,7 @@ def main(args):
                 "color": 1.0,
                 "bool": 1.0,
                 "float": 1.0,
+                "grid": 1.0,
             }
         )
 

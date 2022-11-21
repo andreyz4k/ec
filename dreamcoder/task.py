@@ -245,6 +245,8 @@ class NamedVarsTask(Task):
             if task.test_examples
             else None
         )
+        if hasattr(task, "specialTask"):
+            self.specialTask = task.specialTask
 
 
 def squaredErrorLoss(prediction, target):

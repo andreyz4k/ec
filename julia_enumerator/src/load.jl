@@ -2,8 +2,8 @@
 function load_problems(message)
     grammar_payload = message["DSL"]
     # try
-        g = deserialize_grammar(grammar_payload)
-        grammar = make_dummy_contextual(g)
+    g = deserialize_grammar(grammar_payload)
+    grammar = make_dummy_contextual(g)
     # catch
     #     grammar = deserialize_contextual_grammar(grammar_payload)
     # end
@@ -26,13 +26,17 @@ function load_problems(message)
     name = task_payload["name"]
     test_examples = task_payload["test_examples"]
 
-    if haskey(task_payload, "specialTask")
-        handler = find_task_handler(task_payload["specialTask"], task_payload["extras"])
-    else
-        handler = supervised_task_checker
-    end
+    # if haskey(task_payload, "specialTask")
+    #     handler = find_task_handler(task_payload["specialTask"], task_payload["extras"])
+    # else
+    handler = supervised_task_checker
+    # end
 
-    task = build_task(handler, name, task_type, examples, test_examples)
+    if haskey(task_payload, "specialTask")
+        task = build_task(handler, name, task_type, examples, test_examples, task_payload["specialTask"])
+    else
+        task = build_task(handler, name, task_type, examples, test_examples)
+    end
 
     verbose = get(message, "verbose", false)
     timeout = message["timeout"]
