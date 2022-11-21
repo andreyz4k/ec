@@ -1,7 +1,7 @@
 
 function get_complexity_summary(values, t::TypeConstructor)
     result = Accumulator{String,Int64}()
-    result[t.name] = length(values)
+    result[t.name] = 1
     if isempty(t.arguments)
         return result
     elseif length(t.arguments) == 1
