@@ -61,8 +61,9 @@ let string_of_grammar g =
   ^ string_of_float g.logVariable ^ "\tt0\t$_\n"
   ^ join ~separator:"\n"
       (g.library
-      |> List.map ~f:(fun (p, t, l, _, _) ->
-             Float.to_string l ^ "\t" ^ string_of_type t ^ "\t" ^ string_of_program p))
+      |> List.map ~f:(fun (p, t, l, _, r) ->
+             Float.to_string l ^ "\t" ^ string_of_type t ^ "\t" ^ string_of_program p ^ "\t"
+             ^ string_of_bool r))
 
 let grammar_log_weight g p =
   if is_index p then g.logVariable
@@ -432,7 +433,13 @@ let deserialize_grammar g =
     g |> member "productions" |> to_list
     |> List.map ~f:(fun p ->
            let source = p |> member "expression" |> to_string in
-           let e = parse_program source |> safe_get_some ("Error parsing: " ^ source) in
+           let e =
+             match parse_program source with
+             | Some ex -> ex
+             | None ->
+                 let t = p |> member "type" |> to_string |> type_of_string |> get_some in
+                 primitive source t unit_reference
+           in
            let t =
              try infer_program_type empty_context [] e |> snd
              with UnificationFailure -> raise (Failure ("Could not type " ^ source))

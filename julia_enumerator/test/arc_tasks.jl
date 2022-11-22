@@ -191,6 +191,18 @@ using solver: load_problems, enumerate_for_task
                     ),
                     Dict{String,Any}(
                         "logProbability" => 0.0,
+                        "expression" => "rows",
+                        "is_reversible" => true,
+                        "type" => "grid(t0) -> list(list(t0))",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0.0,
+                        "expression" => "columns",
+                        "is_reversible" => true,
+                        "type" => "grid(t0) -> list(list(t0))",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0.0,
                         "expression" => "0",
                         "is_reversible" => false,
                         "type" => "int",

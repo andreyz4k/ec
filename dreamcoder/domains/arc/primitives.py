@@ -176,7 +176,15 @@ def _rows_to_grid(rs):
     return rs
 
 
+def _rows(rs):
+    return rs
+
+
 def _columns_to_grid(cs):
+    return [list(l) for l in zip(*cs)]
+
+
+def _columns(cs):
     return [list(l) for l in zip(*cs)]
 
 
@@ -211,6 +219,8 @@ def basePrimitives():
         Primitive("is-square", arrow(tint, tbool), _isSquare),
         Primitive("repeat", arrow(t0, tint, tlist(t0)), _repeat, is_reversible=True),
         Primitive("concat", arrow(tlist(t0), tlist(t0), tlist(t0)), _concat, is_reversible=True),
+        Primitive("rows", arrow(tgrid(t0), tlist(tlist(t0))), _rows, is_reversible=True),
+        Primitive("columns", arrow(tgrid(t0), tlist(tlist(t0))), _columns, is_reversible=True),
         Primitive("rows_to_grid", arrow(tlist(tlist(t0)), tgrid(t0)), _rows_to_grid, is_reversible=True),
         Primitive("columns_to_grid", arrow(tlist(tlist(t0)), tgrid(t0)), _columns_to_grid, is_reversible=True),
     ] + [Primitive(str(j), tint, j) for j in range(2)]

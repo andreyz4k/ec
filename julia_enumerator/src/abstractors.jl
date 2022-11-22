@@ -247,3 +247,14 @@ function reverse_columns_to_grid(value)
 end
 
 @define_reverse_primitive "columns_to_grid" reverse_columns_to_grid
+
+function reverse_rows(value)
+    (vcat([r' for r in value]...),)
+end
+
+function reverse_columns(value)
+    (hcat(value...),)
+end
+
+@define_reverse_primitive "rows" reverse_rows
+@define_reverse_primitive "columns" reverse_columns

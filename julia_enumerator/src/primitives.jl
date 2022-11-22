@@ -126,5 +126,8 @@ _is_prime(n) = in(
 
 @define_primitive("concat", arrow(tlist(t0), tlist(t0), tlist(t0)), (a -> (b -> vcat(a, b))))
 
+@define_primitive("rows", arrow(tgrid(t0), tlist(tlist(t0))), (g -> [g[i, :] for i in (1:size(g, 1))]))
+@define_primitive("columns", arrow(tgrid(t0), tlist(tlist(t0))), (g -> [g[:, i] for i in (1:size(g, 2))]))
+
 @define_primitive("rows_to_grid", arrow(tlist(tlist(t0)), tgrid(t0)), (rs -> vcat([r' for r in rs]...)))
 @define_primitive("columns_to_grid", arrow(tlist(tlist(t0)), tgrid(t0)), (cs -> hcat(cs...)))
