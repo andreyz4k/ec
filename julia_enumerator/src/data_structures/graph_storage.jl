@@ -92,6 +92,7 @@ function Base.deleteat!(storage::GraphStorage, i, j)
         mask = storage.deleted,
         desc = Descriptor(complement_mask = true, replace_output = true),
     )
+    storage
 end
 
 function SuiteSparseGraphBLAS.subassign!(

@@ -35,7 +35,7 @@ follow_path(skeleton::Hole, path) =
 
 follow_path(::Any, path) = throw(WrongPath())
 
-path_environment(path) = reverse([t.type for t in path if isa(t, ArgTurn)])
+path_environment(path) = reverse(Tp[t.type for t in path if isa(t, ArgTurn)])
 
 modify_skeleton(skeleton::Abstraction, template, path) =
     if isa(path[1], ArgTurn)
@@ -629,7 +629,7 @@ function try_run_block_with_downstream(
     target_output,
     is_new_block,
     created_paths,
-)
+)::MatchResult
     if sc.verbose
         @info "Running $block_id $(sc.blocks[block_id]) with inputs $fixed_branches and output $target_output"
     end
@@ -696,7 +696,7 @@ function add_new_block(sc::SolutionContext, block_id, inputs, target_output)
         if length(inputs) > 1
             error("Not implemented, fix active constraints")
         end
-        best_match = try_run_block_with_downstream(sc, block_id, inputs, target_output, true, Dict())
+        best_match::MatchResult = try_run_block_with_downstream(sc, block_id, inputs, target_output, true, Dict())
         # assert_context_consistency(sc)
         if best_match == NoMatch
             return nothing

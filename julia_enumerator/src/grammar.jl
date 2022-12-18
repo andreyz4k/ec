@@ -106,8 +106,8 @@ end
 
 function unifying_expressions(
     g::Grammar,
-    environment,
-    request,
+    environment::Vector{Tp},
+    request::Tp,
     context,
     abstractors_only,
 )::Vector{Tuple{Program,Vector{Tp},Context,Float64}}
