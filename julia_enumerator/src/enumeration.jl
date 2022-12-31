@@ -622,14 +622,17 @@ function try_run_block(sc::SolutionContext, block::WrapEitherBlock, fixed_branch
     return bm, new_out_branches, is_new_next_block, allow_fails, next_blocks, set_explained
 end
 
+function _is_target_output(sc::SolutionContext, out_branches)
+    return length(out_branches) == 1 && sc.target_branch_id == first(values(out_branches))
+end
+
 function try_run_block_with_downstream(
     sc::SolutionContext,
     block_id,
     fixed_branches,
     target_output,
     is_new_block,
-    created_paths,
-)::MatchResult
+)::Tuple{MatchResult,Vector{Dict{Int,Int}}}
     if sc.verbose
         @info "Running $block_id $(sc.blocks[block_id]) with inputs $fixed_branches and output $target_output"
     end
@@ -638,7 +641,7 @@ function try_run_block_with_downstream(
     result = try_run_block(sc, block, fixed_branches, target_output)
     # @info result
     if isnothing(result) || result[1] == NoMatch
-        return NoMatch
+        return NoMatch, []
     else
         bm, out_branches, is_new_next_block, allow_fails, next_blocks, set_explained = result
         # @info target_output
@@ -646,10 +649,17 @@ function try_run_block_with_downstream(
 
         # @info "Is new block $is_new_block is new next block $is_new_next_block set explained $set_explained"
 
-        block_created_paths =
-            get_new_paths_for_block(sc, block_id, is_new_block, created_paths, out_branches, fixed_branches)
-        new_paths = merge(created_paths, block_created_paths)
+        # block_created_paths =
+        #     get_new_paths_for_block(sc, block_id, is_new_block, created_paths, out_branches, fixed_branches)
 
+        update_previous_branches(
+            sc::SolutionContext,
+            block_id,
+            out_branches,
+            fixed_branches,
+            is_new_block,
+            set_explained,
+        )
         if is_new_block
             _save_block_branch_connections(sc, block_id, block, fixed_branches, Int[b_id for (_, b_id) in out_branches])
         end
@@ -657,31 +667,35 @@ function try_run_block_with_downstream(
             update_complexity_factors_known(sc, block, fixed_branches, out_branches)
         end
 
-        for (b_id, downstream_branches, downstream_target) in next_blocks
-            next_block = sc.blocks[b_id]
-            if !have_valid_paths(sc, [downstream_branches[v_id] for v_id in next_block.input_vars])
-                continue
-            end
-            down_match = try_run_block_with_downstream(
-                sc,
-                b_id,
-                downstream_branches,
-                downstream_target,
-                is_new_next_block,
-                new_paths,
-            )
-            if down_match == NoMatch
-                if allow_fails
+        if _is_target_output(sc, out_branches)
+            return bm, [Dict(sc.target_branch_id => block_id)]
+        else
+            path_traces = []
+            for (b_id, downstream_branches, downstream_target) in next_blocks
+                next_block = sc.blocks[b_id]
+                if !have_valid_paths(sc, [downstream_branches[v_id] for v_id in next_block.input_vars])
                     continue
-                else
-                    return NoMatch
                 end
-            else
-                bm = min(down_match, bm)
+                down_match, next_traces =
+                    try_run_block_with_downstream(sc, b_id, downstream_branches, downstream_target, is_new_next_block)
+                if down_match == NoMatch
+                    if allow_fails
+                        continue
+                    else
+                        return NoMatch, []
+                    end
+                else
+                    bm = min(down_match, bm)
+                    for trace in next_traces
+                        for b_id in values(out_branches)
+                            trace[b_id] = block_id
+                        end
+                        push!(path_traces, trace)
+                    end
+                end
             end
+            return bm, path_traces
         end
-
-        return bm
     end
 end
 
@@ -696,7 +710,8 @@ function add_new_block(sc::SolutionContext, block_id, inputs, target_output)
         if length(inputs) > 1
             error("Not implemented, fix active constraints")
         end
-        best_match::MatchResult = try_run_block_with_downstream(sc, block_id, inputs, target_output, true, Dict())
+        best_match::MatchResult, result_traces =
+            try_run_block_with_downstream(sc, block_id, inputs, target_output, true)
         # assert_context_consistency(sc)
         if best_match == NoMatch
             return nothing
@@ -704,9 +719,9 @@ function add_new_block(sc::SolutionContext, block_id, inputs, target_output)
             if sc.verbose
                 @info "Inserted block $block_id"
             end
-            result = update_context(sc)
+            update_context(sc)
             assert_context_consistency(sc)
-            return result
+            return result_traces
         end
     else
         _save_block_branch_connections(sc, block_id, block, inputs, Int[b_id for (_, b_id) in target_output])
@@ -718,9 +733,9 @@ function add_new_block(sc::SolutionContext, block_id, inputs, target_output)
         if sc.verbose
             @info "Inserted block $block_id"
         end
-        result = update_context(sc)
+        update_context(sc)
         assert_context_consistency(sc)
-        return result
+        return []
     end
 end
 
