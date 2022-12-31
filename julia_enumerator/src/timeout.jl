@@ -109,7 +109,8 @@ end
 macro run_with_timeout(run_context, timeout_key, expr)
     return quote
         local context = $(esc(run_context))
-        if !haskey(context, "timeout_request_channel")
+        # if !haskey(context, "timeout_request_channel")
+        if true
             $(esc(expr))
         else
             local timeout = context[$(esc(timeout_key))]
