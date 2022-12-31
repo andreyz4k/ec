@@ -25,6 +25,9 @@ function matching_with_unknown_candidates(sc, entry::ValueEntry, var_id)
     known_branches = emul(branches, sc.branch_is_not_copy[:])
 
     for known_branch_id in nonzeroinds(known_branches)
+        if known_branch_id == sc.target_branch_id
+            continue
+        end
         known_var_id = sc.branch_vars[known_branch_id]
         if vars_in_loop(sc, known_var_id, var_id)
             # || !is_branch_compatible(unknown_branch.key, unknown_branch, [input_branch])
@@ -60,6 +63,9 @@ function matching_with_unknown_candidates(sc, entry::NoDataEntry, var_id)
     known_branches = emul(branches, sc.branch_is_not_copy[:])
 
     for (known_branch_id, tp_id) in zip(findnz(known_branches)...)
+        if known_branch_id == sc.target_branch_id
+            continue
+        end
         known_var_id = sc.branch_vars[known_branch_id]
         if vars_in_loop(sc, known_var_id, var_id)
             # || !is_branch_compatible(unknown_branch.key, unknown_branch, [input_branch])
@@ -123,6 +129,9 @@ function matching_with_unknown_candidates(sc, entry::EitherEntry, var_id)
     known_branches = emul(branches, sc.branch_is_not_copy[:])
 
     for (known_branch_id, tp_id) in zip(findnz(known_branches)...)
+        if known_branch_id == sc.target_branch_id
+            continue
+        end
         known_var_id = sc.branch_vars[known_branch_id]
         if vars_in_loop(sc, known_var_id, var_id) ||
            !match_with_entry(sc, entry, sc.entries[sc.branch_entries[known_branch_id]])

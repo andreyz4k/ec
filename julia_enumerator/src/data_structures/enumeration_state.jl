@@ -94,6 +94,9 @@ function get_candidates_for_known_var(sc, branch_id, g::ContextualGrammar)
 end
 
 function enqueue_known_var(sc, branch_id, g)
+    if branch_id == sc.target_branch_id
+        return
+    end
     prototypes = get_candidates_for_known_var(sc, branch_id, g)
     if haskey(sc.branch_queues_explained, branch_id)
         q = sc.branch_queues_explained[branch_id]
