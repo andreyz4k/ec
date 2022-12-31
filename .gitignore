@@ -9,6 +9,7 @@
 *.p
 *.pyc
 *~
+*.mem
 __pycache__
 _build
 experimentOutputs
