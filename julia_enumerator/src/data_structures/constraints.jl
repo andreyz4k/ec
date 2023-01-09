@@ -112,7 +112,7 @@ function tighten_constraint(sc, constraint_id, new_branch_id, old_branch_id)
     old_entry = sc.entries[sc.branch_entries[old_branch_id]]
     constrained_branches = Dict(v => b for (b, v) in zip(findnz(sc.constrained_branches[:, constraint_id])...))
     constrained_context_id = sc.constrained_contexts[constraint_id]
-    new_constrained_branches, new_context_id = _tighten_constraint(
+    tighten_result = _tighten_constraint(
         sc,
         constrained_branches,
         constrained_context_id,
@@ -120,6 +120,10 @@ function tighten_constraint(sc, constraint_id, new_branch_id, old_branch_id)
         new_branch_id,
         old_entry,
     )
+    if isnothing(tighten_result)
+        return false
+    end
+    new_constrained_branches, new_context_id = tighten_result
 
     if !isempty(new_constrained_branches)
         new_constraint_id = increment!(sc.constraints_count)
@@ -137,6 +141,7 @@ function tighten_constraint(sc, constraint_id, new_branch_id, old_branch_id)
             sc.constrained_contexts[new_constraint_id] = new_context_id
         end
     end
+    return true
 end
 
 function _get_fixed_hashes(options::EitherOptions, value)
@@ -311,6 +316,15 @@ function _tighten_constraint(
         )
         out_block_branches = nonzeroinds(sc.branch_incoming_blocks[:, b_copy_id])
         target_branches = Int[haskey(out_branches, b) ? out_branches[b] : b for b in out_block_branches]
+
+        input_entries = Set(sc.branch_entries[b] for b in values(inputs))
+        if any(in(sc.branch_entries[b], input_entries) for b in target_branches)
+            if sc.verbose
+                @info "Fixing constraint leads to a redundant block"
+            end
+            return nothing
+        end
+
         _save_block_branch_connections(sc, b_id, sc.blocks[b_id], inputs, target_branches)
         for target_branch in target_branches
             update_complexity_factors_unknown(sc, inputs, target_branch)

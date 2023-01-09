@@ -288,6 +288,9 @@ function try_get_reversed_values(sc::SolutionContext, p::Program, context, outpu
         else
             new_entry = ValueEntry(t_id, values, complexity_summary, get_complexity(sc, complexity_summary))
         end
+        if new_entry == out_entry
+            return nothing
+        end
         push!(new_entries, (var_id, new_entry))
     end
 
@@ -499,8 +502,11 @@ function try_run_block(sc::SolutionContext, block::ProgramBlock, fixed_branches,
         end
         push!(outs, out_value)
     end
-    new_out_branches, is_new_next_block, allow_fails, next_blocks, set_explained =
-        value_updates(sc, block, target_output, outs, fixed_branches)
+    update_result = value_updates(sc, block, target_output, outs, fixed_branches)
+    if isnothing(update_result)
+        return NoMatch, []
+    end
+    new_out_branches, is_new_next_block, allow_fails, next_blocks, set_explained = update_result
     return bm, new_out_branches, is_new_next_block, allow_fails, next_blocks, set_explained
 end
 
@@ -547,9 +553,11 @@ function try_run_block(sc::SolutionContext, block::ReverseProgramBlock, fixed_br
         end
         push!(outs, out_values)
     end
-    new_out_branches, is_new_next_block, allow_fails, next_blocks, set_explained =
-        value_updates(sc, block, target_output, outs, fixed_branches)
-
+    update_result = value_updates(sc, block, target_output, outs, fixed_branches)
+    if isnothing(update_result)
+        return NoMatch, []
+    end
+    new_out_branches, is_new_next_block, allow_fails, next_blocks, set_explained = update_result
     return bm, new_out_branches, is_new_next_block, allow_fails, next_blocks, set_explained
 end
 
@@ -672,6 +680,9 @@ function try_run_block_with_downstream(
             )
             if down_match == NoMatch
                 if allow_fails
+                    if sc.verbose
+                        @info "Failed to run downstream block $b_id $(sc.blocks[b_id]) with inputs $downstream_branches and output $downstream_target but that is ok"
+                    end
                     continue
                 else
                     return NoMatch
@@ -932,7 +943,7 @@ function enumerate_for_task(
     enumeration_timeout = get_enumeration_timeout(run_context["timeout"])
     run_context["timeout_checker"] = () -> enumeration_timed_out(enumeration_timeout)
 
-    sc = create_starting_context(task, type_weights, verbose)
+    sc::SolutionContext = create_starting_context(task, type_weights, verbose)
 
     # Store the hits in a priority queue
     # We will only ever maintain maximumFrontier best solutions
@@ -980,6 +991,11 @@ function enumerate_for_task(
     end
 
     @info(collect(keys(hits)))
+    @info "Branches with incoming paths $(length(sc.incoming_paths.values))"
+    @info "Total incoming paths $(sum(length(v) for v in values(sc.incoming_paths.values)))"
+    @info "Incoming paths counts $([length(v) for v in values(sc.incoming_paths.values)])"
+    @info "Total incoming paths length $(sum(sum(length(path.main_path) + length(path.side_vars) for path in paths; init=0) for paths in values(sc.incoming_paths.values); init=0))"
+    @info "Total number of enumerated programs $(sc.total_number_of_enumerated_programs)"
 
     (collect(keys(hits)), sc.total_number_of_enumerated_programs)
 end

@@ -1708,8 +1708,9 @@ function run_tests()
     req_channel, resp_channel = start_timeout_monitor()
 
     for payload in payloads
+        @info payload["name"]
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
-        enumerate_for_task(
+        @time enumerate_for_task(
             Dict{String,Any}(
                 "program_timeout" => program_timeout,
                 "timeout" => timeout,
