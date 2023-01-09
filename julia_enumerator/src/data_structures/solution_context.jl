@@ -362,16 +362,16 @@ function update_previous_branches(
     set_explained,
 )
     bl = sc.blocks[bl_id]
-    if set_explained
-        prev_branches = Set{UInt64}()
-        for v_id in bl.input_vars
-            b_id = input_branches[v_id]
-            prev_branches = union(prev_branches, nonzeroinds(sc.previous_branches[b_id, :]))
-            push!(prev_branches, b_id)
-        end
-        sc.previous_branches[collect(values(output_branches)), collect(prev_branches)] = 1
-    else
+    # if set_explained
+    prev_branches = Set{UInt64}()
+    for v_id in bl.input_vars
+        b_id = input_branches[v_id]
+        prev_branches = union(prev_branches, nonzeroinds(sc.previous_branches[b_id, :]))
+        push!(prev_branches, b_id)
     end
+    sc.previous_branches[collect(values(output_branches)), collect(prev_branches)] = 1
+    # else
+    # end
 end
 
 function set_new_paths_for_block(

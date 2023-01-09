@@ -45,16 +45,47 @@ path_cost(sc, path::Path) = sum(sc.blocks[b_id].cost for b_id in unique(values(p
 
 path_sets_var(path::Path, var_id) = haskey(path.main_path, var_id)
 
-function have_valid_paths(sc, branches)
-    checked_branches = [branches[1]]
-    for br in view(branches, 2:length(branches))
-        for checked_br in checked_branches
-            if !any(paths_compatible(p1, p2) for p1 in sc.incoming_paths[br] for p2 in sc.incoming_paths[checked_br])
-                return false
+function have_valid_paths(sc, branch_ids)
+    prev_branches = Dict()
+    for br_id in branch_ids
+        prev_branches[br_id] = DefaultDict(() -> Set())
+        prev_branch_ids = nonzeroinds(sc.previous_branches[br_id, :])
+        for prev_br_id in prev_branch_ids
+            prev_var_id = sc.branch_vars[prev_br_id]
+            push!(prev_branches[br_id][prev_var_id], prev_br_id)
+        end
+        for rel_br_id in unique(nonzeroinds(sc.related_explained_complexity_branches[prev_branch_ids, :])[2])
+            rel_var_id = sc.branch_vars[rel_br_id]
+            push!(prev_branches[br_id][rel_var_id], rel_br_id)
+        end
+    end
+    @info "Checking paths compatibility"
+    @info prev_branches
+    prev_vars_count = counter(Int)
+    for (br_id, vars) in prev_branches
+        for var_id in keys(vars)
+            inc!(prev_vars_count, var_id)
+        end
+    end
+    @info prev_vars_count
+    for (var_id, count) in prev_vars_count
+        if count > 1
+            possible_branches = nothing
+            for br_id in branch_ids
+                if haskey(prev_branches[br_id], var_id)
+                    if isnothing(possible_branches)
+                        possible_branches = prev_branches[br_id][var_id]
+                    else
+                        possible_branches = intersect(possible_branches, prev_branches[br_id][var_id])
+                        if isempty(possible_branches)
+                            return false
+                        end
+                    end
+                end
             end
         end
-        push!(checked_branches, br)
     end
+
     return true
 end
 
