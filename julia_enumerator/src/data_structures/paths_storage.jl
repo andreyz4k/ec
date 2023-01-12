@@ -60,50 +60,89 @@ end
 
 extract_block_sequence(path::Path) = unique(collect(values(path.main_path)))
 
-struct PathsStorage
-    values::AbstractDict{Int,Vector{Path}}
-    new_values::AbstractDict{Int,Vector{Path}}
+mutable struct PathsStorage
+    transaction_depth::Int
+    values::Vector{AbstractDict{Int,Vector{Path}}}
 end
 
-PathsStorage() = PathsStorage(DefaultDict{Int,Vector{Path}}(() -> []), DefaultDict{Int,Vector{Path}}(() -> []))
+PathsStorage() = PathsStorage(0, [DefaultDict{Int,Vector{Path}}(() -> [])])
+
+function start_transaction!(storage::PathsStorage)
+    storage.transaction_depth += 1
+end
 
 function save_changes!(storage::PathsStorage)
-    for (k, v) in storage.new_values
-        if haskey(storage.values, k)
-            append!(storage.values[k], v)
-        else
-            storage.values[k] = v
+    if storage.transaction_depth + 1 <= length(storage.values)
+        new_values = storage.values[storage.transaction_depth+1]
+        last_values = storage.values[storage.transaction_depth]
+        for (k, v) in new_values
+            if haskey(last_values, k)
+                append!(last_values[k], v)
+            else
+                last_values[k] = v
+            end
         end
     end
     drop_changes!(storage)
 end
 
 function drop_changes!(storage::PathsStorage)
-    empty!(storage.new_values)
+    if storage.transaction_depth + 1 <= length(storage.values)
+        empty!(storage.values[storage.transaction_depth+1])
+    end
+    storage.transaction_depth -= 1
 end
 
 function Base.getindex(storage::PathsStorage, ind::Integer)
-    if !haskey(storage.new_values, ind)
-        return storage.values[ind]
+    result = nothing
+    for i in 1:min(storage.transaction_depth + 1, length(storage.values))
+        vals = storage.values[i]
+        if haskey(vals, ind)
+            if result === nothing
+                result = vals[ind]
+            else
+                result = vcat(result, vals[ind])
+            end
+        end
     end
-    if !haskey(storage.values, ind)
-        return storage.new_values[ind]
+    if result === nothing
+        result = Path[]
     end
-    return vcat(storage.values[ind], storage.new_values[ind])
+    return result
 end
 
 function Base.haskey(storage::PathsStorage, key::Integer)
-    return haskey(storage.values, key) || haskey(storage.new_values, key)
+    return any(haskey(storage.values[i], key) for i in 1:min(storage.transaction_depth + 1, length(storage.values)))
 end
 
 function Base.setindex!(storage::PathsStorage, value, ind::Integer)
-    storage.new_values[ind] = value
+    while storage.transaction_depth + 1 > length(storage.values)
+        push!(storage.values, DefaultDict{Int,Vector{Path}}(() -> []))
+    end
+    storage.values[storage.transaction_depth+1][ind] = value
 end
 
 function add_path!(storage::PathsStorage, branch_id, path)
-    push!(storage.new_values[branch_id], path)
+    while storage.transaction_depth + 1 > length(storage.values)
+        push!(storage.values, DefaultDict{Int,Vector{Path}}(() -> []))
+    end
+    push!(storage.values[storage.transaction_depth+1][branch_id], path)
 end
 
 function get_new_paths(storage::PathsStorage, branch_id)
-    return storage.new_values[branch_id]
+    result = nothing
+    for i in 2:min(storage.transaction_depth + 1, length(storage.values))
+        vals = storage.values[i]
+        if haskey(vals, branch_id)
+            if result === nothing
+                result = vals[branch_id]
+            else
+                result = vcat(result, vals[branch_id])
+            end
+        end
+    end
+    if result === nothing
+        result = Path[]
+    end
+    return result
 end

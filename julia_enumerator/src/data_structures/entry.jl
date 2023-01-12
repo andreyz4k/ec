@@ -12,7 +12,7 @@ end
 Base.hash(v::ValueEntry, h::UInt64) = hash(v.type_id, hash(v.values, h))
 Base.:(==)(v1::ValueEntry, v2::ValueEntry) = v1.type_id == v2.type_id && v1.values == v2.values
 
-get_matching_seq(entry::ValueEntry) = [(rv -> rv == v ? Strict : NoMatch) for v in entry.values]
+get_matching_seq(entry::ValueEntry) = [(rv -> rv == v) for v in entry.values]
 
 match_with_entry(sc, entry::ValueEntry, other::ValueEntry) = entry == other
 
@@ -49,7 +49,7 @@ end
 Base.hash(v::NoDataEntry, h::UInt64) = hash(v.type_id, h)
 Base.:(==)(v1::NoDataEntry, v2::NoDataEntry) = v1.type_id == v2.type_id
 
-get_matching_seq(entry::NoDataEntry) = Iterators.repeated(_ -> TypeOnly)
+get_matching_seq(entry::NoDataEntry) = Iterators.repeated(_ -> true)
 
 match_with_entry(sc, entry::NoDataEntry, other::ValueEntry) =
     might_unify(sc.types[entry.type_id], sc.types[other.type_id])
@@ -159,16 +159,16 @@ end
 
 function _match_options(value::EitherOptions)
     matchers = [_match_options(op) for (_, op) in value.options]
-    return rv -> (any(matcher(rv) != NoMatch for matcher in matchers)) ? Pattern : NoMatch
+    return rv -> (any(matcher(rv) for matcher in matchers))
 end
 
-_match_options(value) = (rv -> rv == value ? Strict : NoMatch)
+_match_options(value) = (rv -> rv == value)
 
 get_matching_seq(entry::EitherEntry) = [_match_options(value) for value in entry.values]
 
 function match_with_entry(sc, entry::EitherEntry, other::ValueEntry)
     matchers = get_matching_seq(entry)
-    return all(matcher(v) != NoMatch for (matcher, v) in zip(matchers, other.values))
+    return all(matcher(v) for (matcher, v) in zip(matchers, other.values))
 end
 
 is_subeither(wide::EitherOptions, narrow) = any(is_subeither(op, narrow) for op in wide.options)

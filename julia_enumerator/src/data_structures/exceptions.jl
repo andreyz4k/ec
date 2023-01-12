@@ -1,0 +1,2 @@
+
+struct EnumerationException <: Exception end

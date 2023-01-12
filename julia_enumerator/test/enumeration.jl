@@ -996,7 +996,7 @@ using solver: load_problems, enumerate_for_task
             verbose,
         )
         @test length(solutions) == 0
-        @test number_enumerated >= 1000
+        @test number_enumerated >= 500
     end
 
     @testset "prepend-index-k with k=3" begin

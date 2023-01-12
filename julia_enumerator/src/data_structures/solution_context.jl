@@ -121,6 +121,7 @@ function create_starting_context(task::Task, type_weights, verbose)::SolutionCon
         VectorStorage{Bool}(false),
         verbose,
     )
+    start_transaction!(sc)
     for (key, t) in argument_types
         values = [inp[key] for inp in task.train_inputs]
         complexity_summary = get_complexity_summary(values, t)
@@ -169,6 +170,60 @@ function create_starting_context(task::Task, type_weights, verbose)::SolutionCon
     sc.unmatched_complexities[branch_id] = entry.complexity
 
     return sc
+end
+
+function transaction(f, sc::SolutionContext)
+    try
+        start_transaction!(sc)
+        f()
+        save_changes!(sc)
+        return nothing
+    catch e
+        if isa(e, EnumerationException)
+            drop_changes!(sc)
+            return nothing
+        else
+            rethrow()
+        end
+    end
+end
+
+function start_transaction!(sc::SolutionContext)
+    start_transaction!(sc.entries)
+    start_transaction!(sc.types)
+    start_transaction!(sc.vars_count)
+    start_transaction!(sc.branches_count)
+    start_transaction!(sc.branch_is_explained)
+    start_transaction!(sc.branch_is_not_copy)
+    start_transaction!(sc.branch_is_unknown)
+    start_transaction!(sc.branch_entries)
+    start_transaction!(sc.branch_vars)
+    start_transaction!(sc.branch_types)
+    start_transaction!(sc.blocks)
+    start_transaction!(sc.block_copies_count)
+    start_transaction!(sc.constraints_count)
+    start_transaction!(sc.constraint_contexts)
+    start_transaction!(sc.branch_children)
+    start_transaction!(sc.branch_incoming_blocks)
+    start_transaction!(sc.branch_outgoing_blocks)
+    start_transaction!(sc.constrained_vars)
+    start_transaction!(sc.constrained_branches)
+    start_transaction!(sc.constrained_contexts)
+    start_transaction!(sc.related_explained_complexity_branches)
+    start_transaction!(sc.related_unknown_complexity_branches)
+    start_transaction!(sc.incoming_paths)
+    start_transaction!(sc.unknown_min_path_costs)
+    start_transaction!(sc.explained_min_path_costs)
+    start_transaction!(sc.unknown_complexity_factors)
+    start_transaction!(sc.explained_complexity_factors)
+    start_transaction!(sc.complexities)
+    start_transaction!(sc.added_upstream_complexities)
+    start_transaction!(sc.unused_explained_complexities)
+    start_transaction!(sc.unmatched_complexities)
+    start_transaction!(sc.previous_vars)
+    start_transaction!(sc.branch_unknown_from_output)
+    start_transaction!(sc.branch_known_from_input)
+    nothing
 end
 
 function save_changes!(sc::SolutionContext)

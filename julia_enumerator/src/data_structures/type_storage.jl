@@ -1,11 +1,15 @@
 
-
 struct TypeStorage
     types::IndexedStorage{Tp}
     unifiable_types::GraphStorage
 end
 
 TypeStorage() = TypeStorage(IndexedStorage{Tp}(), GraphStorage())
+
+function start_transaction!(storage::TypeStorage)
+    start_transaction!(storage.types)
+    start_transaction!(storage.unifiable_types)
+end
 
 function save_changes!(storage::TypeStorage)
     save_changes!(storage.types)
@@ -23,7 +27,7 @@ function Base.push!(storage::TypeStorage, type::Tp)::Int
     if new_id <= l
         return new_id
     end
-    for t_id = 1:l
+    for t_id in 1:l
         t = storage.types[t_id]
         if might_unify(t, type)
             storage.unifiable_types[t_id, new_id] = 1

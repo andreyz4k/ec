@@ -1,4 +1,5 @@
 
+include("exceptions.jl")
 include("indexed_storage.jl")
 include("graph_storage.jl")
 include("vector_storage.jl")

@@ -112,7 +112,7 @@ function tighten_constraint(sc, constraint_id, new_branch_id, old_branch_id)
     old_entry = sc.entries[sc.branch_entries[old_branch_id]]
     constrained_branches = Dict(v => b for (b, v) in zip(findnz(sc.constrained_branches[:, constraint_id])...))
     constrained_context_id = sc.constrained_contexts[constraint_id]
-    tighten_result = _tighten_constraint(
+    new_constrained_branches, new_context_id = _tighten_constraint(
         sc,
         constrained_branches,
         constrained_context_id,
@@ -120,10 +120,6 @@ function tighten_constraint(sc, constraint_id, new_branch_id, old_branch_id)
         new_branch_id,
         old_entry,
     )
-    if isnothing(tighten_result)
-        return false
-    end
-    new_constrained_branches, new_context_id = tighten_result
 
     if !isempty(new_constrained_branches)
         new_constraint_id = increment!(sc.constraints_count)
@@ -317,12 +313,17 @@ function _tighten_constraint(
         out_block_branches = nonzeroinds(sc.branch_incoming_blocks[:, b_copy_id])
         target_branches = Int[haskey(out_branches, b) ? out_branches[b] : b for b in out_block_branches]
 
-        input_entries = Set(sc.branch_entries[b] for b in values(inputs))
+        bl = sc.blocks[b_id]
+        if isa(bl, WrapEitherBlock)
+            input_entries = Set([sc.branch_entries[inputs[bl.input_vars[1]]]])
+        else
+            input_entries = Set(sc.branch_entries[b] for b in values(inputs))
+        end
         if any(in(sc.branch_entries[b], input_entries) for b in target_branches)
             if sc.verbose
                 @info "Fixing constraint leads to a redundant block"
             end
-            return nothing
+            throw(EnumerationException())
         end
 
         _save_block_branch_connections(sc, b_id, sc.blocks[b_id], inputs, target_branches)

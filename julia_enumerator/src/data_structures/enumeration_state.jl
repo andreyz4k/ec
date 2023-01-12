@@ -41,7 +41,7 @@ function get_const_options(sc, unknown_entry)
     end
     matching_seq = get_matching_seq(unknown_entry)
     for matcher in matching_seq
-        filter!(c -> matcher(c) != NoMatch, candidates)
+        filter!(c -> matcher(c), candidates)
         if isempty(candidates)
             return []
         end

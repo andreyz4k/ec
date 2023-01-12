@@ -244,9 +244,6 @@ function try_run_reversed_with_value(reverse_program, value::EitherOptions)
     outputs = []
     for (h, val) in value.options
         outs = try_run_reversed_with_value(reverse_program, val)
-        if isnothing(outs)
-            return nothing
-        end
         push!(hashes, h)
         push!(outputs, outs)
     end
@@ -270,9 +267,6 @@ function try_get_reversed_values(sc::SolutionContext, p::Program, context, outpu
     calculated_values = []
     for value in out_entry.values
         calculated_value = try_run_reversed_with_value(reverse_program, value)
-        if isnothing(calculated_value)
-            return nothing
-        end
         push!(calculated_values, calculated_value)
     end
 
@@ -289,7 +283,7 @@ function try_get_reversed_values(sc::SolutionContext, p::Program, context, outpu
             new_entry = ValueEntry(t_id, values, complexity_summary, get_complexity(sc, complexity_summary))
         end
         if new_entry == out_entry
-            return nothing
+            throw(EnumerationException())
         end
         push!(new_entries, (var_id, new_entry))
     end
@@ -362,11 +356,8 @@ function try_get_reversed_values(sc::SolutionContext, p::Program, context, outpu
 end
 
 function try_get_reversed_inputs(sc, p::Program, context, output_branch_id, cost)
-    reverse_results = try_get_reversed_values(sc, p, context, output_branch_id, cost, false)
-    if !isnothing(reverse_results)
-        new_p, _, inputs, _, _ = reverse_results
-        return new_p, inputs
-    end
+    new_p, _, inputs, _, _ = try_get_reversed_values(sc, p, context, output_branch_id, cost, false)
+    return new_p, inputs
 end
 
 function create_wrapping_block(
@@ -411,29 +402,21 @@ function create_wrapping_block(
 end
 
 function create_reversed_block(sc, p::Program, context, input_var::Tuple{Int,Int}, cost)
-    reverse_results = try_get_reversed_values(sc, p, context, input_var[2], cost, true)
-
-    if !isnothing(reverse_results)
-        new_p, reverse_program, output_vars, either_var_ids, either_branch_ids = reverse_results
-        block =
-            ReverseProgramBlock(new_p, reverse_program, cost, [input_var[1]], [v_id for (v_id, _, _) in output_vars])
-        if isempty(either_var_ids)
-            block_id = push!(sc.blocks, block)
-            return [(
-                block_id,
-                Dict(input_var[1] => input_var[2]),
-                Dict(v_id => b_id for (v_id, b_id, _) in output_vars),
-            )]
-        else
-            results = []
-            for (var_id, branch_id) in zip(either_var_ids, either_branch_ids)
-                push!(
-                    results,
-                    create_wrapping_block(sc, block, cost, input_var[1], input_var[2], output_vars, var_id, branch_id),
-                )
-            end
-            return results
+    new_p, reverse_program, output_vars, either_var_ids, either_branch_ids =
+        try_get_reversed_values(sc, p, context, input_var[2], cost, true)
+    block = ReverseProgramBlock(new_p, reverse_program, cost, [input_var[1]], [v_id for (v_id, _, _) in output_vars])
+    if isempty(either_var_ids)
+        block_id = push!(sc.blocks, block)
+        return [(block_id, Dict(input_var[1] => input_var[2]), Dict(v_id => b_id for (v_id, b_id, _) in output_vars))]
+    else
+        results = []
+        for (var_id, branch_id) in zip(either_var_ids, either_branch_ids)
+            push!(
+                results,
+                create_wrapping_block(sc, block, cost, input_var[1], input_var[2], output_vars, var_id, branch_id),
+            )
         end
+        return results
     end
 end
 
@@ -455,7 +438,7 @@ function try_run_function(f, xs)
             rethrow()
         else
             # @error e
-            return nothing
+            throw(EnumerationException())
         end
     end
 end
@@ -481,33 +464,23 @@ function try_run_block(sc::SolutionContext, block::ProgramBlock, fixed_branches,
     expected_output = sc.entries[sc.branch_entries[out_branch_id]]
     out_matcher = get_matching_seq(expected_output)
 
-    bm = Strict
     outs = []
     for (xs, matcher) in zip(inputs, out_matcher)
         out_value = try
             try_evaluate_program(block.analized_p, [], xs)
         catch e
-            @error xs
-            @error block.p
+            if !isa(e, EnumerationException)
+                @error xs
+                @error block.p
+            end
             rethrow()
         end
-        if isnothing(out_value)
-            return NoMatch, []
-        end
-        m = matcher(out_value)
-        if m == NoMatch
-            return NoMatch, []
-        else
-            bm = min(bm, m)
+        if isnothing(out_value) || !matcher(out_value)
+            throw(EnumerationException())
         end
         push!(outs, out_value)
     end
-    update_result = value_updates(sc, block, target_output, outs, fixed_branches)
-    if isnothing(update_result)
-        return NoMatch, []
-    end
-    new_out_branches, is_new_next_block, allow_fails, next_blocks, set_explained = update_result
-    return bm, new_out_branches, is_new_next_block, allow_fails, next_blocks, set_explained
+    return value_updates(sc, block, target_output, outs, fixed_branches)
 end
 
 function try_run_block(sc::SolutionContext, block::ReverseProgramBlock, fixed_branches, target_output)
@@ -517,7 +490,6 @@ function try_run_block(sc::SolutionContext, block::ReverseProgramBlock, fixed_br
         entry = sc.entries[sc.branch_entries[fixed_branch_id]]
         push!(inputs, entry.values)
     end
-    bm = Strict
     out_matchers = []
     out_branches = []
 
@@ -541,24 +513,16 @@ function try_run_block(sc::SolutionContext, block::ReverseProgramBlock, fixed_br
             rethrow()
         end
         if isnothing(out_values)
-            return NoMatch, []
+            throw(EnumerationException())
         end
         for (out_value, matcher) in zip(out_values, matchers)
-            m = matcher(out_value)
-            if m == NoMatch
-                return NoMatch, []
-            else
-                bm = min(bm, m)
+            if !matcher(out_value)
+                throw(EnumerationException())
             end
         end
         push!(outs, out_values)
     end
-    update_result = value_updates(sc, block, target_output, outs, fixed_branches)
-    if isnothing(update_result)
-        return NoMatch, []
-    end
-    new_out_branches, is_new_next_block, allow_fails, next_blocks, set_explained = update_result
-    return bm, new_out_branches, is_new_next_block, allow_fails, next_blocks, set_explained
+    return value_updates(sc, block, target_output, outs, fixed_branches)
 end
 
 function try_run_block(sc::SolutionContext, block::WrapEitherBlock, fixed_branches, target_output)
@@ -569,7 +533,6 @@ function try_run_block(sc::SolutionContext, block::WrapEitherBlock, fixed_branch
         entry = sc.entries[sc.branch_entries[fixed_branch_id]]
         push!(inputs, entry.values)
     end
-    bm = Strict
     out_matchers = []
     out_branches = []
 
@@ -593,7 +556,7 @@ function try_run_block(sc::SolutionContext, block::WrapEitherBlock, fixed_branch
             rethrow()
         end
         if isnothing(out_values)
-            return NoMatch, []
+            throw(EnumerationException())
         end
         push!(outs, out_values)
     end
@@ -615,19 +578,13 @@ function try_run_block(sc::SolutionContext, block::WrapEitherBlock, fixed_branch
         expected_output = sc.entries[sc.branch_entries[out_branch_id]]
         out_matcher = get_matching_seq(expected_output)
         for (out_value, matcher) in zip(fixed_values[var_id], out_matcher)
-            m = matcher(out_value)
-            if m == NoMatch
-                return NoMatch, []
-            else
-                bm = min(bm, m)
+            if !matcher(out_value)
+                throw(EnumerationException())
             end
         end
     end
     outputs = collect(zip([fixed_values[v_id] for v_id in block.output_vars]...))
-    new_out_branches, is_new_next_block, allow_fails, next_blocks, set_explained =
-        value_updates(sc, block, target_output, outputs, fixed_branches)
-
-    return bm, new_out_branches, is_new_next_block, allow_fails, next_blocks, set_explained
+    return value_updates(sc, block, target_output, outputs, fixed_branches)
 end
 
 function try_run_block_with_downstream(
@@ -637,40 +594,49 @@ function try_run_block_with_downstream(
     target_output,
     is_new_block,
     created_paths,
-)::MatchResult
+)
     if sc.verbose
         @info "Running $block_id $(sc.blocks[block_id]) with inputs $fixed_branches and output $target_output"
     end
     # @info fixed_branches
     block = sc.blocks[block_id]
-    result = try_run_block(sc, block, fixed_branches, target_output)
-    # @info result
-    if isnothing(result) || result[1] == NoMatch
-        return NoMatch
-    else
-        bm, out_branches, is_new_next_block, allow_fails, next_blocks, set_explained = result
-        # @info target_output
-        # @info out_branches
 
-        # @info "Is new block $is_new_block is new next block $is_new_next_block set explained $set_explained"
+    out_branches, is_new_next_block, allow_fails, next_blocks, set_explained =
+        try_run_block(sc, block, fixed_branches, target_output)
+    # @info target_output
+    # @info out_branches
 
-        block_created_paths =
-            get_new_paths_for_block(sc, block_id, is_new_block, created_paths, out_branches, fixed_branches)
-        new_paths = merge(created_paths, block_created_paths)
+    # @info "Is new block $is_new_block is new next block $is_new_next_block set explained $set_explained"
 
-        if is_new_block
-            _save_block_branch_connections(sc, block_id, block, fixed_branches, Int[b_id for (_, b_id) in out_branches])
+    block_created_paths =
+        get_new_paths_for_block(sc, block_id, is_new_block, created_paths, out_branches, fixed_branches)
+    new_paths = merge(created_paths, block_created_paths)
+
+    if is_new_block
+        _save_block_branch_connections(sc, block_id, block, fixed_branches, Int[b_id for (_, b_id) in out_branches])
+    end
+    if is_new_block || set_explained
+        update_complexity_factors_known(sc, block, fixed_branches, out_branches)
+    end
+
+    for (b_id, downstream_branches, downstream_target) in next_blocks
+        next_block = sc.blocks[b_id]
+        if !have_valid_paths(sc, [downstream_branches[v_id] for v_id in next_block.input_vars])
+            continue
         end
-        if is_new_block || set_explained
-            update_complexity_factors_known(sc, block, fixed_branches, out_branches)
-        end
-
-        for (b_id, downstream_branches, downstream_target) in next_blocks
-            next_block = sc.blocks[b_id]
-            if !have_valid_paths(sc, [downstream_branches[v_id] for v_id in next_block.input_vars])
-                continue
+        if allow_fails
+            transaction(sc) do
+                try_run_block_with_downstream(
+                    sc,
+                    b_id,
+                    downstream_branches,
+                    downstream_target,
+                    is_new_next_block,
+                    new_paths,
+                )
             end
-            down_match = try_run_block_with_downstream(
+        else
+            try_run_block_with_downstream(
                 sc,
                 b_id,
                 downstream_branches,
@@ -678,21 +644,7 @@ function try_run_block_with_downstream(
                 is_new_next_block,
                 new_paths,
             )
-            if down_match == NoMatch
-                if allow_fails
-                    if sc.verbose
-                        @info "Failed to run downstream block $b_id $(sc.blocks[b_id]) with inputs $downstream_branches and output $downstream_target but that is ok"
-                    end
-                    continue
-                else
-                    return NoMatch
-                end
-            else
-                bm = min(down_match, bm)
-            end
         end
-
-        return bm
     end
 end
 
@@ -707,18 +659,8 @@ function add_new_block(sc::SolutionContext, block_id, inputs, target_output)
         if length(inputs) > 1
             error("Not implemented, fix active constraints")
         end
-        best_match::MatchResult = try_run_block_with_downstream(sc, block_id, inputs, target_output, true, Dict())
+        try_run_block_with_downstream(sc, block_id, inputs, target_output, true, Dict())
         # assert_context_consistency(sc)
-        if best_match == NoMatch
-            return nothing
-        else
-            if sc.verbose
-                @info "Inserted block $block_id"
-            end
-            result = update_context(sc)
-            assert_context_consistency(sc)
-            return result
-        end
     else
         _save_block_branch_connections(sc, block_id, block, inputs, Int[b_id for (_, b_id) in target_output])
         if all(sc.branch_is_unknown[branch_id] for (var_id, branch_id) in inputs)
@@ -726,13 +668,13 @@ function add_new_block(sc::SolutionContext, block_id, inputs, target_output)
         else
             # error("Not implemented")
         end
-        if sc.verbose
-            @info "Inserted block $block_id"
-        end
-        result = update_context(sc)
-        assert_context_consistency(sc)
-        return result
     end
+    if sc.verbose
+        @info "Inserted block $block_id"
+    end
+    result = update_context(sc)
+    assert_context_consistency(sc)
+    return result
 end
 
 include("extract_solution.jl")
@@ -802,12 +744,7 @@ function enumeration_iteration_finished_output(sc::SolutionContext, bp::BlockPro
     is_reverse = is_reversible(state.skeleton)
     if is_reverse
         # @info "Try get reversed for $bp"
-        abstractor_results = try_get_reversed_inputs(sc, state.skeleton, state.context, bp.output_var[2], state.cost)
-        if !isnothing(abstractor_results)
-            p, input_vars = abstractor_results
-        else
-            return
-        end
+        p, input_vars = try_get_reversed_inputs(sc, state.skeleton, state.context, bp.output_var[2], state.cost)
     elseif isnothing(bp.input_vars)
         p, new_vars = capture_free_vars(sc, state.skeleton, state.context)
         input_vars = []
@@ -863,26 +800,17 @@ function enumeration_iteration_finished(sc::SolutionContext, finalizer, g, bp::B
     else
         new_block_result = enumeration_iteration_finished_input(sc, bp)
     end
-    ok = true
-    if !isnothing(new_block_result)
-        for (new_block_id, input_branches, target_output) in new_block_result
-            new_solution_paths = add_new_block(sc, new_block_id, input_branches, target_output)
-            if !isnothing(new_solution_paths)
-                # @info "Got results $new_solution_paths"
-                for solution_path in new_solution_paths
-                    solution, cost = extract_solution(sc, solution_path)
-                    # @info "Got solution $solution with cost $cost"
-                    finalizer(solution, cost)
-                end
-            else
-                ok = false
-                break
-            end
+    for (new_block_id, input_branches, target_output) in new_block_result
+        new_solution_paths = add_new_block(sc, new_block_id, input_branches, target_output)
+        # @info "Got results $new_solution_paths"
+        for solution_path in new_solution_paths
+            solution, cost = extract_solution(sc, solution_path)
+            # @info "Got solution $solution with cost $cost"
+            finalizer(solution, cost)
         end
-    else
-        ok = false
     end
-    return ok
+
+    return true
 end
 
 function enumeration_iteration(
@@ -900,27 +828,24 @@ function enumeration_iteration(
         if sc.verbose
             @info "Checking finished $bp"
         end
-        if is_block_loops(sc, bp)
-            # @info "Block $bp creates a loop"
-            ok = false
-        else
-            ok = @run_with_timeout run_context "program_timeout" enumeration_iteration_finished(
-                sc,
-                finalizer,
-                g,
-                bp,
-                br_id,
-            )
-            if isnothing(ok)
-                ok = false
+        transaction(sc) do
+            if is_block_loops(sc, bp)
+                # @info "Block $bp creates a loop"
+                throw(EnumerationException())
             end
-        end
-        if ok
+            enumeration_iteration_finished(sc, finalizer, g, bp, br_id)
+            # ok = @run_with_timeout run_context "program_timeout" enumeration_iteration_finished(
+            #     sc,
+            #     finalizer,
+            #     g,
+            #     bp,
+            #     br_id,
+            # )
+            # if isnothing(ok)
+            #     throw(EnumerationException())
+            # end
             enqueue_updates(sc, g)
             sc.total_number_of_enumerated_programs += 1
-            save_changes!(sc)
-        else
-            drop_changes!(sc)
         end
     else
         for child in block_state_successors(maxFreeParameters, g, bp.state)
@@ -991,10 +916,10 @@ function enumerate_for_task(
     end
 
     @info(collect(keys(hits)))
-    @info "Branches with incoming paths $(length(sc.incoming_paths.values))"
-    @info "Total incoming paths $(sum(length(v) for v in values(sc.incoming_paths.values)))"
-    @info "Incoming paths counts $([length(v) for v in values(sc.incoming_paths.values)])"
-    @info "Total incoming paths length $(sum(sum(length(path.main_path) + length(path.side_vars) for path in paths; init=0) for paths in values(sc.incoming_paths.values); init=0))"
+    @info "Branches with incoming paths $(length(sc.incoming_paths.values[1]))"
+    @info "Total incoming paths $(sum(length(v) for v in values(sc.incoming_paths.values[1])))"
+    @info "Incoming paths counts $([length(v) for v in values(sc.incoming_paths.values[1])])"
+    @info "Total incoming paths length $(sum(sum(length(path.main_path) + length(path.side_vars) for path in paths; init=0) for paths in values(sc.incoming_paths.values[1]); init=0))"
     @info "Total number of enumerated programs $(sc.total_number_of_enumerated_programs)"
 
     (collect(keys(hits)), sc.total_number_of_enumerated_programs)

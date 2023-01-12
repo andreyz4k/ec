@@ -1,41 +1,45 @@
 
 mutable struct CountStorage
-    value::Int
-    new_value::Union{Int,Nothing}
+    transaction_depth::Int
+    values::Vector{Int}
 end
 
-CountStorage() = CountStorage(0, nothing)
+CountStorage() = CountStorage(0, [0])
 
 function Base.getindex(storage::CountStorage)
-    if isnothing(storage.new_value)
-        return storage.value
-    end
-    return storage.new_value
+    return storage.values[end]
+end
+
+function start_transaction!(storage::CountStorage)
+    storage.transaction_depth += 1
 end
 
 function save_changes!(storage::CountStorage)
-    if !isnothing(storage.new_value)
-        storage.value = storage.new_value
-        drop_changes!(storage)
+    if storage.transaction_depth + 1 == length(storage.values)
+        v = pop!(storage.values)
+        storage.values[end] = v
     end
+    storage.transaction_depth -= 1
 end
 
 function drop_changes!(storage::CountStorage)
-    storage.new_value = nothing
+    if storage.transaction_depth + 1 == length(storage.values)
+        pop!(storage.values)
+    end
+    storage.transaction_depth -= 1
 end
 
 function increment!(storage::CountStorage)
-    if isnothing(storage.new_value)
-        storage.new_value = storage.value + 1
-    else
-        storage.new_value += 1
+    while storage.transaction_depth + 1 > length(storage.values)
+        push!(storage.values, storage.values[end])
     end
-    storage.new_value
+    storage.values[end] += 1
+    storage.values[end]
 end
 
 function get_new_values(storage::CountStorage)
-    if isnothing(storage.new_value)
+    if storage.transaction_depth == 0
         return 1:0
     end
-    return (storage.value+1):storage.new_value
+    return (storage.values[begin]+1):storage.values[end]
 end

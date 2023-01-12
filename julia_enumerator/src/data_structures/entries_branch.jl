@@ -20,7 +20,7 @@ function value_updates(sc, block::ProgramBlock, target_output, new_values, fixed
     branch_id = target_output[block.output_var]
     entry = sc.entries[sc.branch_entries[branch_id]]
     t_id = push!(sc.types, return_of_type(block.type))
-    update_result = updated_branches(
+    out_branch_id, is_new_next_block, allow_fails, next_blocks, set_explained = updated_branches(
         sc,
         entry,
         new_values,
@@ -30,10 +30,7 @@ function value_updates(sc, block::ProgramBlock, target_output, new_values, fixed
         !isa(block.p, FreeVar),
         fixed_branches,
     )
-    if isnothing(update_result)
-        return nothing
-    end
-    out_branch_id, is_new_next_block, allow_fails, next_blocks, set_explained = update_result
+
     out_branches = Dict(block.output_var => out_branch_id)
     if set_explained && !sc.branch_known_from_input[out_branch_id]
         sc.branch_known_from_input[out_branch_id] =
@@ -52,11 +49,8 @@ function value_updates(sc, block::Union{ReverseProgramBlock,WrapEitherBlock}, ta
         br_id = target_output[out_var]
         values = collect(values)
         entry = sc.entries[sc.branch_entries[br_id]]
-        update_result = updated_branches(sc, entry, values, out_var, br_id, entry.type_id, true, fixed_branches)
-        if isnothing(update_result)
-            return nothing
-        end
-        out_branch_id, is_new_nxt_block, all_fails, n_blocks, set_expl = update_result
+        out_branch_id, is_new_nxt_block, all_fails, n_blocks, set_expl =
+            updated_branches(sc, entry, values, out_var, br_id, entry.type_id, true, fixed_branches)
         is_new_next_block |= is_new_nxt_block
         out_branches[out_var] = out_branch_id
         allow_fails |= all_fails
@@ -193,9 +187,7 @@ function updated_branches(sc, entry::EitherEntry, new_values, var_id, branch_id,
         error("Either branch doesn't have constraints")
     end
     for constraint_id in parent_constraints
-        if !tighten_constraint(sc, constraint_id, new_branch_id, branch_id)
-            return nothing
-        end
+        tighten_constraint(sc, constraint_id, new_branch_id, branch_id)
     end
 
     allow_fails, next_blocks = _downstream_blocks_existing_branch(sc, var_id, new_branch_id, fixed_branches)
