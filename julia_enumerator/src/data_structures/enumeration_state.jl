@@ -7,6 +7,10 @@ struct ArgTurn <: Turn
     type::Tp
 end
 
+Base.:(==)(a::ArgTurn, b::ArgTurn) = a.type == b.type
+
+Base.hash(a::ArgTurn, h::UInt) = hash(a.type, h)
+
 struct EnumerationState
     skeleton::Program
     context::Context
@@ -16,6 +20,17 @@ struct EnumerationState
     abstractors_only::Bool
 end
 
+Base.:(==)(a::EnumerationState, b::EnumerationState) =
+    a.skeleton == b.skeleton &&
+    a.context == b.context &&
+    a.path == b.path &&
+    a.cost == b.cost &&
+    a.free_parameters == b.free_parameters &&
+    a.abstractors_only == b.abstractors_only
+
+Base.hash(a::EnumerationState, h::UInt) =
+    hash(a.skeleton, hash(a.context, hash(a.path, hash(a.cost, hash(a.free_parameters, hash(a.abstractors_only, h))))))
+
 struct BlockPrototype
     state::EnumerationState
     request::Tp
@@ -23,6 +38,16 @@ struct BlockPrototype
     output_var::Tuple{Int,Int}
     reverse::Bool
 end
+
+Base.:(==)(a::BlockPrototype, b::BlockPrototype) =
+    a.state == b.state &&
+    a.request == b.request &&
+    a.input_vars == b.input_vars &&
+    a.output_var == b.output_var &&
+    a.reverse == b.reverse
+
+Base.hash(a::BlockPrototype, h::UInt) =
+    hash(a.state, hash(a.request, hash(a.input_vars, hash(a.output_var, hash(a.reverse, h)))))
 
 function block_prototype(pr, inputs, output_var_id, output_branch_id, output_type)
     BlockPrototype(
@@ -120,8 +145,8 @@ function enqueue_known_var(sc, branch_id, g)
             update_branch_priority(sc, out_branch_id, false)
         end
     end
+    sc.branch_queues_explained[branch_id] = q
     if !isempty(q)
-        sc.branch_queues_explained[branch_id] = q
         update_branch_priority(sc, branch_id, true)
     end
 end

@@ -270,8 +270,26 @@ function _downstream_blocks_new_branch(sc, var_id, target_branch_id, out_branch_
 end
 
 function _save_block_branch_connections(sc, block_id, block, fixed_branches, out_branches)
-    block_copy_id = increment!(sc.block_copies_count)
     input_br_ids = UInt64[fixed_branches[var_id] for var_id in block.input_vars]
+    existing_outgoing = DefaultDict{UInt64,Int}(() -> 0)
+    for (_, bl_copy_id, bl_id) in zip(findnz(sc.branch_outgoing_blocks[input_br_ids, :])...)
+        if bl_id == block_id
+            existing_outgoing[bl_copy_id] += 1
+        end
+    end
+    for (bl_copy_id, count) in existing_outgoing
+        if count != length(input_br_ids)
+            continue
+        end
+        if Vector{Int}(nonzeroinds(sc.branch_incoming_blocks[:, bl_copy_id])) == out_branches
+            if sc.verbose
+                @info "Block $block_id $block already has connections for inputs $input_br_ids and outputs $out_branches"
+            end
+            throw(EnumerationException())
+        end
+    end
+
+    block_copy_id = increment!(sc.block_copies_count)
     sc.branch_outgoing_blocks[input_br_ids, block_copy_id] = block_id
     sc.branch_incoming_blocks[out_branches, block_copy_id] = block_id
     if sc.verbose

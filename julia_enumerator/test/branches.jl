@@ -201,14 +201,14 @@ end
 
         new_solution_paths =
             add_new_block(sc, new_block_id, Dict(inp_var_id => inp_branch_id), Dict(out_var_id => out_branch_id))
-        @test new_solution_paths == [Path(OrderedDict(out_var_id => new_block_id), Dict())]
+        @test new_solution_paths == Set([Path(OrderedDict(out_var_id => new_block_id), Dict())])
 
         out_children = nonzeroinds(sc.branch_children[out_branch_id, :])
         @test length(out_children) == 0
 
         @test sc.branch_is_explained[out_branch_id] == true
         @test sc.branch_is_not_copy[out_branch_id] == false
-        @test sc.incoming_paths[out_branch_id] == [Path(OrderedDict(out_var_id => new_block_id), Dict())]
+        @test sc.incoming_paths[out_branch_id] == Set([Path(OrderedDict(out_var_id => new_block_id), Dict())])
         @test nnz(sc.branch_incoming_blocks[out_branch_id, :]) == 1
         @test sc.branch_incoming_blocks[out_branch_id, new_block_id] == 1
         @test nnz(sc.branch_outgoing_blocks[out_branch_id, :]) == 0
@@ -281,7 +281,7 @@ end
         first_block_id, input_branches, target_output = new_block_result[1]
         new_solution_paths = add_new_block(sc, first_block_id, input_branches, target_output)
         first_block_copy_id = first_block_id
-        @test new_solution_paths == []
+        @test new_solution_paths == Set([])
 
         connection_var_id = 3
         connection_branch_id = 3
@@ -303,7 +303,7 @@ end
             Dict(connection_var_id => connection_branch_id),
         )
         @test new_solution_paths ==
-              [Path(OrderedDict(out_var_id => first_block_id, connection_var_id => new_block_id), Dict())]
+              Set([Path(OrderedDict(out_var_id => first_block_id, connection_var_id => new_block_id), Dict())])
         new_block_copy_id = new_block_id
 
         conn_children = nonzeroinds(sc.branch_children[connection_branch_id, :])
@@ -314,7 +314,7 @@ end
         @test sc.branch_entries[conn_child_id] == sc.branch_entries[inp_branch_id]
         @test sc.branch_vars[conn_child_id] == connection_var_id
         @test sc.branch_types[conn_child_id, :] == sc.branch_types[inp_branch_id, :]
-        @test sc.incoming_paths[conn_child_id] == [Path(OrderedDict(connection_var_id => new_block_id), Dict())]
+        @test sc.incoming_paths[conn_child_id] == Set([Path(OrderedDict(connection_var_id => new_block_id), Dict())])
         @test nnz(sc.branch_incoming_blocks[conn_child_id, :]) == 1
         @test sc.branch_incoming_blocks[conn_child_id, new_block_copy_id] == new_block_id
         @test nnz(sc.branch_outgoing_blocks[conn_child_id, :]) == 1
@@ -335,7 +335,7 @@ end
         @test length(out_children) == 0
 
         @test sc.incoming_paths[out_branch_id] ==
-              [Path(OrderedDict(out_var_id => first_block_id, connection_var_id => new_block_id), Dict())]
+              Set([Path(OrderedDict(out_var_id => first_block_id, connection_var_id => new_block_id), Dict())])
         @test nnz(sc.branch_incoming_blocks[out_branch_id, :]) == 2
         @test sc.branch_incoming_blocks[out_branch_id, first_block_copy_id] == first_block_id
         @test sc.branch_incoming_blocks[out_branch_id, first_block_known_copy_id] == first_block_id
@@ -404,7 +404,7 @@ end
         first_block_id, input_branches, target_output = new_block_result[1]
         new_solution_paths = add_new_block(sc, first_block_id, input_branches, target_output)
         first_block_copy_id = 1
-        @test new_solution_paths == []
+        @test new_solution_paths == Set([])
 
         v1_var_id = 3
         v2_var_id = 4
@@ -424,7 +424,7 @@ end
         @test sc.constrained_branches[v1_branch_id, constraint_id] == v1_var_id
         @test nnz(sc.constrained_vars[v1_var_id, :]) == 1
         @test sc.constrained_vars[v1_var_id, constraint_id] == v1_branch_id
-        @test sc.incoming_paths[v1_branch_id] == []
+        @test sc.incoming_paths[v1_branch_id] == Set([])
         @test nnz(sc.branch_incoming_blocks[v1_branch_id, :]) == 0
         @test nnz(sc.branch_outgoing_blocks[v1_branch_id, :]) == 1
         @test sc.branch_outgoing_blocks[v1_branch_id, first_block_copy_id] == first_block_id
@@ -446,7 +446,7 @@ end
         @test sc.constrained_branches[v2_branch_id, constraint_id] == v2_var_id
         @test nnz(sc.constrained_vars[v2_var_id, :]) == 1
         @test sc.constrained_vars[v2_var_id, constraint_id] == v2_branch_id
-        @test sc.incoming_paths[v2_branch_id] == []
+        @test sc.incoming_paths[v2_branch_id] == Set([])
         @test nnz(sc.branch_incoming_blocks[v2_branch_id, :]) == 0
         @test nnz(sc.branch_outgoing_blocks[v2_branch_id, :]) == 1
         @test sc.branch_outgoing_blocks[v2_branch_id, first_block_copy_id] == first_block_id
@@ -469,7 +469,7 @@ end
             add_new_block(sc, new_block_id, Dict(inp_var_id => inp_branch_id), Dict(v2_var_id => v2_branch_id))
         new_block_copy_id = 3
         first_block_known_copy_id = 2
-        @test new_solution_paths == []
+        @test new_solution_paths == Set()
 
         v2_children = nonzeroinds(sc.branch_children[v2_branch_id, :])
         @test length(v2_children) == 1
@@ -487,7 +487,7 @@ end
         @test sc.branch_children[v2_branch_id, v2_child_id] == 1
         @test nnz(sc.constrained_branches[v2_child_id, :]) == 0
         @test nnz(sc.constrained_vars[v2_var_id, :]) == 1
-        @test sc.incoming_paths[v2_child_id] == [Path(OrderedDict(v2_var_id => new_block_id), Dict())]
+        @test sc.incoming_paths[v2_child_id] == Set([Path(OrderedDict(v2_var_id => new_block_id), Dict())])
         @test nnz(sc.branch_incoming_blocks[v2_child_id, :]) == 1
         @test sc.branch_incoming_blocks[v2_child_id, new_block_copy_id] == new_block_id
         @test nnz(sc.branch_outgoing_blocks[v2_child_id, :]) == 1
@@ -512,7 +512,7 @@ end
         @test sc.branch_children[v1_branch_id, v1_child_id] == 1
         @test nnz(sc.constrained_branches[v1_child_id, :]) == 0
         @test nnz(sc.constrained_vars[v1_var_id, :]) == 1
-        @test sc.incoming_paths[v1_child_id] == []
+        @test sc.incoming_paths[v1_child_id] == Set([])
         @test nnz(sc.branch_incoming_blocks[v1_child_id, :]) == 0
         @test nnz(sc.branch_outgoing_blocks[v1_child_id, :]) == 1
         @test sc.branch_outgoing_blocks[v1_child_id, first_block_known_copy_id] == first_block_id
@@ -531,18 +531,18 @@ end
         new_solution_paths = add_new_block(sc, const_block_id, Dict(), Dict(v1_var_id => v1_branch_id))
         const_block_copy_id = 4
 
-        @test new_solution_paths == [
+        @test new_solution_paths == Set([
             Path(
                 OrderedDict(out_var_id => first_block_id, v2_var_id => new_block_id, v1_var_id => const_block_id),
                 Dict(),
             ),
-        ]
+        ])
 
         @test nnz(sc.branch_children[v2_child_id, :]) == 0
         @test nnz(sc.constrained_branches[v2_child_id, :]) == 0
 
         @test nnz(sc.constrained_vars[v2_var_id, :]) == 1
-        @test sc.incoming_paths[v2_child_id] == [Path(OrderedDict(v2_var_id => new_block_id), Dict())]
+        @test sc.incoming_paths[v2_child_id] == Set([Path(OrderedDict(v2_var_id => new_block_id), Dict())])
         @test nnz(sc.branch_incoming_blocks[v2_child_id, :]) == 1
         @test sc.branch_incoming_blocks[v2_child_id, new_block_copy_id] == new_block_id
         @test nnz(sc.branch_outgoing_blocks[v2_child_id, :]) == 1
@@ -563,7 +563,7 @@ end
         @test nnz(sc.branch_children[:, v1_child_id]) == 1
         @test sc.branch_children[v1_branch_id, v1_child_id] == 1
         @test nnz(sc.constrained_vars[v1_var_id, :]) == 1
-        @test sc.incoming_paths[v1_child_id] == [Path(OrderedDict(v1_var_id => const_block_id), Dict())]
+        @test sc.incoming_paths[v1_child_id] == Set([Path(OrderedDict(v1_var_id => const_block_id), Dict())])
         @test nnz(sc.branch_incoming_blocks[v1_child_id, :]) == 1
         @test sc.branch_incoming_blocks[v1_child_id, const_block_copy_id] == const_block_id
         @test nnz(sc.branch_outgoing_blocks[v1_child_id, :]) == 1
@@ -587,12 +587,12 @@ end
 
         @test nnz(sc.constrained_branches[out_branch_id, :]) == 0
         @test nnz(sc.constrained_vars[out_var_id, :]) == 0
-        @test sc.incoming_paths[out_branch_id] == [
+        @test sc.incoming_paths[out_branch_id] == Set([
             Path(
                 OrderedDict(out_var_id => first_block_id, v2_var_id => new_block_id, v1_var_id => const_block_id),
                 Dict(),
             ),
-        ]
+        ])
         @test nnz(sc.branch_incoming_blocks[out_branch_id, :]) == 2
         @test sc.branch_incoming_blocks[out_branch_id, first_block_copy_id] == first_block_id
         @test sc.branch_incoming_blocks[out_branch_id, first_block_known_copy_id] == first_block_id

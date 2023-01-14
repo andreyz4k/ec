@@ -7,6 +7,7 @@ struct Path
 end
 
 Base.:(==)(path1::Path, path2::Path) = path1.main_path == path2.main_path && path1.side_vars == path2.side_vars
+Base.hash(path::Path, h::UInt) = hash(path.main_path, hash(path.side_vars, h))
 
 empty_path() = Path(OrderedDict{Int,Int}(), Dict{Int,Int}())
 
@@ -62,10 +63,10 @@ extract_block_sequence(path::Path) = unique(collect(values(path.main_path)))
 
 mutable struct PathsStorage
     transaction_depth::Int
-    values::Vector{AbstractDict{Int,Vector{Path}}}
+    values::Vector{AbstractDict{Int,Set{Path}}}
 end
 
-PathsStorage() = PathsStorage(0, [DefaultDict{Int,Vector{Path}}(() -> [])])
+PathsStorage() = PathsStorage(0, [DefaultDict{Int,Set{Path}}(() -> Set{Path}())])
 
 function start_transaction!(storage::PathsStorage)
     storage.transaction_depth += 1
@@ -77,7 +78,7 @@ function save_changes!(storage::PathsStorage)
         last_values = storage.values[storage.transaction_depth]
         for (k, v) in new_values
             if haskey(last_values, k)
-                append!(last_values[k], v)
+                union!(last_values[k], v)
             else
                 last_values[k] = v
             end
@@ -101,12 +102,12 @@ function Base.getindex(storage::PathsStorage, ind::Integer)
             if result === nothing
                 result = vals[ind]
             else
-                result = vcat(result, vals[ind])
+                result = union(result, vals[ind])
             end
         end
     end
     if result === nothing
-        result = Path[]
+        result = Set{Path}()
     end
     return result
 end
@@ -117,14 +118,14 @@ end
 
 function Base.setindex!(storage::PathsStorage, value, ind::Integer)
     while storage.transaction_depth + 1 > length(storage.values)
-        push!(storage.values, DefaultDict{Int,Vector{Path}}(() -> []))
+        push!(storage.values, DefaultDict{Int,Set{Path}}(() -> Set{Path}()))
     end
     storage.values[storage.transaction_depth+1][ind] = value
 end
 
 function add_path!(storage::PathsStorage, branch_id, path)
     while storage.transaction_depth + 1 > length(storage.values)
-        push!(storage.values, DefaultDict{Int,Vector{Path}}(() -> []))
+        push!(storage.values, DefaultDict{Int,Set{Path}}(() -> Set{Path}()))
     end
     push!(storage.values[storage.transaction_depth+1][branch_id], path)
 end
@@ -137,12 +138,12 @@ function get_new_paths(storage::PathsStorage, branch_id)
             if result === nothing
                 result = vals[branch_id]
             else
-                result = vcat(result, vals[branch_id])
+                result = union(result, vals[branch_id])
             end
         end
     end
     if result === nothing
-        result = Path[]
+        result = Set{Path}()
     end
     return result
 end

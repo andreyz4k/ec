@@ -919,6 +919,26 @@ function enumerate_for_task(
     @info "Branches with incoming paths $(length(sc.incoming_paths.values[1]))"
     @info "Total incoming paths $(sum(length(v) for v in values(sc.incoming_paths.values[1])))"
     @info "Incoming paths counts $([length(v) for v in values(sc.incoming_paths.values[1])])"
+
+    if sc.verbose
+        @info "Entries for incoming paths "
+        for (br_id, v) in sc.incoming_paths.values[1]
+            @info (
+                length(v),
+                length(unique(v)),
+                br_id,
+                sc.branch_vars[br_id],
+                sc.branch_entries[br_id],
+                sc.entries[sc.branch_entries[br_id]],
+                [sc.blocks[b_id] for b_id in nonzeros(sc.branch_incoming_blocks[br_id, :])],
+            )
+            if length(v) != length(unique(v))
+                @warn "Incoming paths for branch $br_id"
+                @warn v
+            end
+        end
+    end
+
     @info "Total incoming paths length $(sum(sum(length(path.main_path) + length(path.side_vars) for path in paths; init=0) for paths in values(sc.incoming_paths.values[1]); init=0))"
     @info "Total number of enumerated programs $(sc.total_number_of_enumerated_programs)"
 

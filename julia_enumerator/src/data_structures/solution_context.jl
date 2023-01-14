@@ -419,6 +419,15 @@ function set_new_paths_for_block(
     check_path_cost,
     best_cost,
 )
+    if isa(bl.p, FreeVar)
+        filter!(input_paths) do path
+            if !haskey(path.main_path, bl.input_vars[1])
+                return true
+            end
+            prev_block = sc.blocks[path.main_path[bl.input_vars[1]]]
+            return !isa(prev_block, ProgramBlock) || !isa(prev_block.p, FreeVar)
+        end
+    end
     return Dict([
         set_new_paths_for_var(
             sc,
