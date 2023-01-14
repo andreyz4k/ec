@@ -49,9 +49,11 @@ Base.:(==)(a::BlockPrototype, b::BlockPrototype) =
 Base.hash(a::BlockPrototype, h::UInt) =
     hash(a.state, hash(a.request, hash(a.input_vars, hash(a.output_var, hash(a.reverse, h)))))
 
+EPSILON = 1e-3
+
 function block_prototype(pr, inputs, output_var_id, output_branch_id, output_type)
     BlockPrototype(
-        EnumerationState(pr, empty_context, [], 0.0, 0, false),
+        EnumerationState(pr, empty_context, [], EPSILON, 0, false),
         output_type,
         inputs,
         (output_var_id, output_branch_id),
@@ -103,7 +105,7 @@ function get_candidates_for_known_var(sc, branch_id, g::ContextualGrammar)
         push!(
             prototypes,
             BlockPrototype(
-                EnumerationState(Hole(type, g.no_context), empty_context, [], 0.0, 0, true),
+                EnumerationState(Hole(type, g.no_context), empty_context, [], EPSILON, 0, true),
                 type,
                 nothing,
                 (var_id, branch_id),
