@@ -346,7 +346,7 @@ function get_input_paths_for_new_block(sc::SolutionContext, bl, input_branches)
         next_paths = []
         for path in new_block_paths
             for inp_path in sc.incoming_paths[inp_branch_id]
-                new_path = merge(path, inp_path)
+                new_path = merge_paths(sc, path, inp_path)
                 if !isnothing(new_path)
                     push!(next_paths, new_path)
                 end
@@ -376,7 +376,7 @@ function get_input_paths_for_existing_block(sc::SolutionContext, bl, input_branc
                     inp_paths = sc.incoming_paths[inp_branch_id]
                 end
                 for inp_path in inp_paths
-                    new_path = merge(path, inp_path)
+                    new_path = merge_paths(sc, path, inp_path)
                     if !isnothing(new_path)
                         push!(next_paths, new_path)
                     end
@@ -481,7 +481,7 @@ function set_new_paths_for_var(
     out_branch_id = output_branches[var_id]
     new_block_paths = []
     for path in input_paths
-        p = merge_path(path, var_id, bl_id, side_vars)
+        p = merge_path(sc, path, var_id, bl_id, side_vars)
         add_path!(sc.incoming_paths, out_branch_id, p)
         push!(new_block_paths, p)
     end
