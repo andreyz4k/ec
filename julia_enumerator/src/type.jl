@@ -1,14 +1,8 @@
 
-using Memoize
-
 abstract type Tp end
 
 struct TypeVariable <: Tp
     id::Int64
-
-    @memoize function TypeVariable(id::Int64)
-        new(id)
-    end
 end
 
 struct TypeConstructor <: Tp
@@ -16,7 +10,7 @@ struct TypeConstructor <: Tp
     arguments::Vector{Tp}
     is_poly::Bool
 
-    @memoize function TypeConstructor(name, arguments)
+    function TypeConstructor(name, arguments)
         new(name, arguments, any(is_polymorphic(a) for a in arguments))
     end
 end
@@ -27,7 +21,7 @@ struct TypeNamedArgsConstructor <: Tp
     output::Tp
     is_poly::Bool
 
-    @memoize function TypeNamedArgsConstructor(name, arguments, output)
+    function TypeNamedArgsConstructor(name, arguments, output)
         new(name, arguments, output, any(is_polymorphic(a) for a in values(arguments)) || is_polymorphic(output))
     end
 end
@@ -82,8 +76,6 @@ end
 struct Context
     next_variable::Int64
     substitution::Dict{Int64,Tp}
-
-    @memoize Context(next_variable, substitution) = new(next_variable, substitution)
 end
 
 empty_context = Context(0, Dict())
@@ -92,7 +84,7 @@ Base.:(==)(a::Context, b::Context) = a.next_variable == b.next_variable && a.sub
 
 Base.hash(a::Context, h::UInt64) = hash(a.next_variable, hash(a.substitution, h))
 
-@memoize arrow(arguments...) =
+arrow(arguments...) =
     if length(arguments) == 1
         return arguments[1]
     else
@@ -121,7 +113,7 @@ tboolean = tbool  # alias
 tcharacter = baseType("char")
 tcolor = baseType("color")
 
-@memoize Dict function instantiate(t::TypeVariable, context, bindings = nothing)
+function instantiate(t::TypeVariable, context, bindings = nothing)
     if isnothing(bindings)
         bindings = Dict()
     end
@@ -134,7 +126,7 @@ tcolor = baseType("color")
     return (context, new)
 end
 
-@memoize Dict function instantiate(t::TypeConstructor, context, bindings = nothing)
+function instantiate(t::TypeConstructor, context, bindings = nothing)
     if !t.is_poly
         return context, t
     end
@@ -149,7 +141,7 @@ end
     return (context, TypeConstructor(t.name, new_arguments))
 end
 
-@memoize Dict function instantiate(t::TypeNamedArgsConstructor, context, bindings = nothing)
+function instantiate(t::TypeNamedArgsConstructor, context, bindings = nothing)
     if !t.is_poly
         return context, t
     end
@@ -165,37 +157,37 @@ end
     return (context, TypeNamedArgsConstructor(t.name, new_arguments, new_output))
 end
 
-@memoize arguments_of_type(t::TypeConstructor) =
+arguments_of_type(t::TypeConstructor) =
     if t.name == ARROW
         return vcat([t.arguments[1]], arguments_of_type(t.arguments[2]))
     else
         return []
     end
 
-@memoize arguments_of_type(t::TypeNamedArgsConstructor) =
+arguments_of_type(t::TypeNamedArgsConstructor) =
     if t.name == ARROW
         return vcat(collect(t.arguments), arguments_of_type(t.output))
     else
         return []
     end
 
-@memoize arguments_of_type(t::TypeVariable) = []
+arguments_of_type(t::TypeVariable) = []
 
-@memoize return_of_type(t::TypeConstructor) =
+return_of_type(t::TypeConstructor) =
     if t.name == ARROW
         return_of_type(t.arguments[2])
     else
         t
     end
 
-@memoize return_of_type(t::TypeNamedArgsConstructor) =
+return_of_type(t::TypeNamedArgsConstructor) =
     if t.name == ARROW
         return_of_type(t.output)
     else
         t
     end
 
-@memoize return_of_type(t::TypeVariable) = t
+return_of_type(t::TypeVariable) = t
 
 occurs(i::Int64, t::TypeVariable) = t.id == i
 occurs(i::Int64, t::TypeConstructor) =
@@ -257,7 +249,7 @@ _unify(context, t1::TypeNamedArgsConstructor, t2::TypeNamedArgsConstructor) =
 _unify(context, ::TypeNamedArgsConstructor, ::TypeConstructor) = throw(UnificationFailure())
 _unify(context, ::TypeConstructor, ::TypeNamedArgsConstructor) = throw(UnificationFailure())
 
-@memoize Dict function unify(context, t1, t2)
+function unify(context, t1, t2)
     (context, t1) = apply_context(context, t1)
     (context, t2) = apply_context(context, t2)
     if (!is_polymorphic(t1)) && (!is_polymorphic(t2))
@@ -271,20 +263,20 @@ _unify(context, ::TypeConstructor, ::TypeNamedArgsConstructor) = throw(Unificati
     end
 end
 
-@memoize might_unify(t1::TypeVariable, t2) = true
-@memoize might_unify(t1, t2::TypeVariable) = true
-@memoize might_unify(t1::TypeVariable, t2::TypeVariable) = true
-@memoize might_unify(t1::TypeConstructor, t2::TypeConstructor) =
+might_unify(t1::TypeVariable, t2) = true
+might_unify(t1, t2::TypeVariable) = true
+might_unify(t1::TypeVariable, t2::TypeVariable) = true
+might_unify(t1::TypeConstructor, t2::TypeConstructor) =
     t1.name == t2.name &&
     length(t1.arguments) == length(t2.arguments) &&
     all(might_unify(as1, as2) for (as1, as2) in zip(t1.arguments, t2.arguments))
-@memoize might_unify(t1::TypeNamedArgsConstructor, t2::TypeNamedArgsConstructor) =
+might_unify(t1::TypeNamedArgsConstructor, t2::TypeNamedArgsConstructor) =
     t1.name == t2.name &&
     keys(t1.arguments) == keys(t2.arguments) &&
     all(might_unify(as1, t2.arguments[k]) for (k, as1) in t1.arguments) &&
     might_unify(t1.output, t2.output)
-@memoize might_unify(t1::TypeNamedArgsConstructor, t2::TypeConstructor) = false
-@memoize might_unify(t1::TypeConstructor, t2::TypeNamedArgsConstructor) = false
+might_unify(t1::TypeNamedArgsConstructor, t2::TypeConstructor) = false
+might_unify(t1::TypeConstructor, t2::TypeNamedArgsConstructor) = false
 
 is_subtype(parent::TypeVariable, child) = true
 is_subtype(parent::TypeVariable, child::TypeVariable) = true
@@ -316,7 +308,7 @@ function bindTID(i, t, context)
     Context(context.next_variable, new_substitutions)
 end
 
-@memoize Dict function apply_context(context, t::TypeVariable)
+function apply_context(context, t::TypeVariable)
     tp = lookupTID(context, t.id)
     if isnothing(tp)
         (context, t)
@@ -327,7 +319,7 @@ end
     end
 end
 
-@memoize Dict function apply_context(context, t::TypeConstructor)
+function apply_context(context, t::TypeConstructor)
     if !is_polymorphic(t)
         (context, t)
     end
@@ -339,7 +331,7 @@ end
     (context, TypeConstructor(t.name, new_argtypes))
 end
 
-@memoize Dict function apply_context(context, t::TypeNamedArgsConstructor)
+function apply_context(context, t::TypeNamedArgsConstructor)
     if !is_polymorphic(t)
         (context, t)
     end

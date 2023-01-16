@@ -1,11 +1,8 @@
 
-using Memoize
-
 abstract type Program end
 
 struct Index <: Program
     n::Int64
-    @memoize Index(n) = new(n)
 end
 
 Base.hash(p::Index, h::UInt64) = hash(p.n, h)
@@ -13,7 +10,6 @@ Base.:(==)(p::Index, q::Index) = p.n == q.n
 
 struct Abstraction <: Program
     b::Program
-    @memoize Abstraction(b) = new(b)
 end
 Base.hash(p::Abstraction, h::UInt64) = hash(p.b, h)
 Base.:(==)(p::Abstraction, q::Abstraction) = p.b == q.b
@@ -21,7 +17,6 @@ Base.:(==)(p::Abstraction, q::Abstraction) = p.b == q.b
 struct Apply <: Program
     f::Program
     x::Program
-    @memoize Apply(f, x) = new(f, x)
 end
 Base.hash(p::Apply, h::UInt64) = hash(p.f, hash(p.x, h))
 Base.:(==)(p::Apply, q::Apply) = p.f == q.f && p.x == q.x
@@ -30,7 +25,6 @@ struct Primitive <: Program
     t::Tp
     name::String
     code::Any
-    @memoize Primitive(t, name, code) = new(t, name, code)
 end
 
 Base.hash(p::Primitive, h::UInt64) = hash(p.name, h)
@@ -49,7 +43,6 @@ end
 struct Invented <: Program
     t::Tp
     b::Program
-    @memoize Invented(t, b) = new(t, b)
 end
 Base.hash(p::Invented, h::UInt64) = hash(p.b, h)
 Base.:(==)(p::Invented, q::Invented) = p.b == q.b
@@ -57,7 +50,6 @@ Base.:(==)(p::Invented, q::Invented) = p.b == q.b
 struct Hole <: Program
     t::Tp
     grammar::Any
-    @memoize Hole(t, grammar) = new(t, grammar)
 end
 Base.hash(p::Hole, h::UInt64) = hash(p.t, hash(p.grammar, h))
 Base.:(==)(p::Hole, q::Hole) = p.t == q.t && p.grammar == q.grammar
@@ -65,7 +57,6 @@ Base.:(==)(p::Hole, q::Hole) = p.t == q.t && p.grammar == q.grammar
 struct FreeVar <: Program
     t::Tp
     var_id::Union{Int,Nothing,String}
-    @memoize FreeVar(t, var_id) = new(t, var_id)
 end
 Base.hash(p::FreeVar, h::UInt64) = hash(p.t, hash(p.var_id, h))
 Base.:(==)(p::FreeVar, q::FreeVar) = p.t == q.t && p.var_id == q.var_id
@@ -73,7 +64,6 @@ Base.:(==)(p::FreeVar, q::FreeVar) = p.t == q.t && p.var_id == q.var_id
 struct SetConst <: Program
     t::Tp
     value::Any
-    @memoize SetConst(t, value) = new(t, value)
 end
 Base.hash(p::SetConst, h::UInt64) = hash(p.t, hash(p.value, h))
 Base.:(==)(p::SetConst, q::SetConst) = p.t == q.t && p.value == q.value
@@ -82,7 +72,6 @@ struct LetClause <: Program
     var_id::Int
     v::Program
     b::Program
-    @memoize LetClause(var_id, v, b) = new(var_id, v, b)
 end
 Base.hash(p::LetClause, h::UInt64) = hash(p.var_id, h) + hash(p.v, h) + hash(p.b, h)
 Base.:(==)(p::LetClause, q::LetClause) = p.var_id == q.var_id && p.v == q.v && p.b == q.b
@@ -93,7 +82,6 @@ struct LetRevClause <: Program
     v::Program
     rev_v::Any
     b::Program
-    @memoize LetRevClause(var_ids, inp_var_id, v, rev_v, b) = new(var_ids, inp_var_id, v, rev_v, b)
 end
 Base.hash(p::LetRevClause, h::UInt64) = hash(p.var_ids, h) + hash(p.v, h) + hash(p.b, h)
 Base.:(==)(p::LetRevClause, q::LetRevClause) = p.var_ids == q.var_ids && p.v == q.v && p.b == q.b
@@ -106,8 +94,6 @@ struct WrapEither <: Program
     rev_v::Any
     f::FreeVar
     b::Program
-    @memoize WrapEither(var_ids, inp_var_id, fixer_var_id, v, rev_v, f, b) =
-        new(var_ids, inp_var_id, fixer_var_id, v, rev_v, f, b)
 end
 Base.hash(p::WrapEither, h::UInt64) =
     hash(p.var_ids, hash(p.inp_var_id, hash(p.fixer_var_id, hash(p.v, hash(p.f, hash(p.b, h))))))
@@ -439,7 +425,7 @@ number_of_free_parameters(::Index) = 0
 application_function(p::Apply) = application_function(p.f)
 application_function(p::Program) = p
 
-@memoize application_parse(p) = _application_parse(p, Program[])
+application_parse(p) = _application_parse(p, Program[])
 
 function _application_parse(p::Apply, arguments)
     push!(arguments, p.x)
@@ -447,23 +433,23 @@ function _application_parse(p::Apply, arguments)
 end
 _application_parse(p::Program, args) = (p, args)
 
-@memoize function analyze_evaluation(p::Abstraction)
+function analyze_evaluation(p::Abstraction)
     b = analyze_evaluation(p.b)
     (environment, workspace) -> (x -> (b(vcat([x], environment), workspace)))
 end
 
-@memoize analyze_evaluation(p::Index) = (environment, workspace) -> environment[p.n+1]
+analyze_evaluation(p::Index) = (environment, workspace) -> environment[p.n+1]
 
-@memoize analyze_evaluation(p::FreeVar) = (environment, workspace) -> workspace[p.var_id]
+analyze_evaluation(p::FreeVar) = (environment, workspace) -> workspace[p.var_id]
 
-@memoize analyze_evaluation(p::Primitive) = (_, _) -> p.code
+analyze_evaluation(p::Primitive) = (_, _) -> p.code
 
-@memoize function analyze_evaluation(p::Invented)
+function analyze_evaluation(p::Invented)
     b = analyze_evaluation(p.b)
     (_, _) -> b([], Dict())
 end
 
-@memoize function analyze_evaluation(p::Apply)
+function analyze_evaluation(p::Apply)
     if isa(p.f, Apply) && isa(p.f.f, Apply) && isa(p.f.f.f, Primitive) && p.f.f.f.name == "if"
         branch = analyze_evaluation(p.f.f.x)
         yes = analyze_evaluation(p.f.x)
@@ -477,15 +463,15 @@ end
     end
 end
 
-@memoize analyze_evaluation(p::SetConst) = (_, _) -> p.value
+analyze_evaluation(p::SetConst) = (_, _) -> p.value
 
-@memoize function analyze_evaluation(p::LetClause)
+function analyze_evaluation(p::LetClause)
     v = analyze_evaluation(p.v)
     b = analyze_evaluation(p.b)
     (environment, workspace) -> b(environment, merge(workspace, Dict(p.var_id => v(environment, workspace))))
 end
 
-@memoize function analyze_evaluation(p::LetRevClause)
+function analyze_evaluation(p::LetRevClause)
     b = analyze_evaluation(p.b)
     (environment, workspace) -> begin
         vals = p.rev_v(workspace[p.inp_var_id])
@@ -493,7 +479,7 @@ end
     end
 end
 
-@memoize function analyze_evaluation(p::WrapEither)
+function analyze_evaluation(p::WrapEither)
     b = analyze_evaluation(p.b)
     f = analyze_evaluation(p.f)
     (environment, workspace) -> begin
@@ -516,7 +502,7 @@ end
     end
 end
 
-@memoize function analyze_evaluation(p::ExceptionProgram)
+function analyze_evaluation(p::ExceptionProgram)
     (environment, workspace) -> error("Inapplicable program")
 end
 
