@@ -159,16 +159,12 @@ abstract type AbstractProgramBlock end
 
 struct ProgramBlock <: AbstractProgramBlock
     p::Program
-    analized_p::Function
     type::Tp
     cost::Float64
     input_vars::Vector{UInt64}
     output_var::UInt64
     is_reversible::Bool
 end
-
-ProgramBlock(p::Program, type::Tp, cost, input_vars, output_var, is_reversible) =
-    ProgramBlock(p, analyze_evaluation(p), type, cost, input_vars, output_var, is_reversible)
 
 Base.show(io::IO, block::ProgramBlock) = print(
     io,
@@ -438,18 +434,29 @@ function analyze_evaluation(p::Abstraction)::Function
     (environment, workspace) -> (x -> (b(vcat([x], environment), workspace)))
 end
 
-analyze_evaluation(p::Index) = (environment, workspace) -> environment[p.n+1]
+function _run_with_arguments(p::Abstraction, arguments, workspace)
+    x -> begin
+        push!(arguments, x)
+        res = _run_with_arguments(p.b, arguments, workspace)
+        pop!(arguments)
+        return res
+    end
+end
 
 analyze_evaluation(p::Index)::Function = (environment, workspace) -> environment[p.n+1]
+_run_with_arguments(p::Index, environment, workspace) = environment[end-p.n]
 
 analyze_evaluation(p::FreeVar)::Function = (environment, workspace) -> workspace[p.var_id]
+_run_with_arguments(p::FreeVar, environment, workspace) = workspace[p.var_id]
 
 analyze_evaluation(p::Primitive)::Function = (_, _) -> p.code
+_run_with_arguments(p::Primitive, environment, workspace) = p.code
 
 function analyze_evaluation(p::Invented)::Function
     b = analyze_evaluation(p.b)
     (_, _) -> b([], Dict())
 end
+_run_with_arguments(p::Invented, environment, workspace) = _run_with_arguments(p.b, environment, workspace)
 
 function analyze_evaluation(p::Apply)::Function
     if isa(p.f, Apply) && isa(p.f.f, Apply) && isa(p.f.f.f, Primitive) && p.f.f.f.name == "if"
@@ -465,7 +472,23 @@ function analyze_evaluation(p::Apply)::Function
     end
 end
 
+function _run_with_arguments(p::Apply, arguments, workspace)
+    if isa(p.f, Apply) && isa(p.f.f, Apply) && isa(p.f.f.f, Primitive) && p.f.f.f.name == "if"
+        branch = _run_with_arguments(p.f.f.x, arguments, workspace)
+        if branch
+            _run_with_arguments(p.f.x, arguments, workspace)
+        else
+            _run_with_arguments(p.x, arguments, workspace)
+        end
+    else
+        f = _run_with_arguments(p.f, arguments, workspace)
+        x = _run_with_arguments(p.x, arguments, workspace)
+        return f(x)
+    end
+end
+
 analyze_evaluation(p::SetConst)::Function = (_, _) -> p.value
+_run_with_arguments(p::SetConst, environment, workspace) = p.value
 
 function analyze_evaluation(p::LetClause)::Function
     v = analyze_evaluation(p.v)
@@ -473,12 +496,39 @@ function analyze_evaluation(p::LetClause)::Function
     (environment, workspace) -> b(environment, merge(workspace, Dict(p.var_id => v(environment, workspace))))
 end
 
+function _run_with_arguments(p::LetClause, arguments, workspace)
+    v = _run_with_arguments(p.v, arguments, workspace)
+    workspace[p.var_id] = v
+    b = _run_with_arguments(p.b, arguments, workspace)
+    delete!(workspace, p.var_id)
+    return b
+end
+
 function analyze_evaluation(p::LetRevClause)::Function
     b = analyze_evaluation(p.b)
     (environment, workspace) -> begin
         vals = p.rev_v(workspace[p.inp_var_id])
-        b(environment, merge(workspace, Dict(var_id => val for (var_id, val) in zip(p.var_ids, vals))))
+        for i in 1:length(p.var_ids)
+            workspace[p.var_ids[i]] = vals[i]
+        end
+        res = b(environment, workspace)
+        for var_id in p.var_ids
+            delete!(workspace, var_id)
+        end
+        return res
     end
+end
+
+function _run_with_arguments(p::LetRevClause, arguments, workspace)
+    vals = p.rev_v(workspace[p.inp_var_id])
+    for i in 1:length(p.var_ids)
+        workspace[p.var_ids[i]] = vals[i]
+    end
+    b = _run_with_arguments(p.b, arguments, workspace)
+    for var_id in p.var_ids
+        delete!(workspace, var_id)
+    end
+    return b
 end
 
 function analyze_evaluation(p::WrapEither)::Function
@@ -486,7 +536,10 @@ function analyze_evaluation(p::WrapEither)::Function
     f = analyze_evaluation(p.f)
     (environment, workspace) -> begin
         vals = p.rev_v(workspace[p.inp_var_id])
-        unfixed_vals = Dict(var_id => val for (var_id, val) in zip(p.var_ids, vals))
+        unfixed_vals = Dict()
+        for i in 1:length(p.var_ids)
+            unfixed_vals[p.var_ids[i]] = vals[i]
+        end
         fixed_val = f(environment, workspace)
 
         fixed_hashes = [_get_fixed_hashes(unfixed_vals[p.fixer_var_id], fixed_val)]
@@ -504,8 +557,39 @@ function analyze_evaluation(p::WrapEither)::Function
     end
 end
 
+function _run_with_arguments(p::WrapEither, arguments, workspace)
+    vals = p.rev_v(workspace[p.inp_var_id])
+    unfixed_vals = Dict()
+    for i in 1:length(p.var_ids)
+        unfixed_vals[p.var_ids[i]] = vals[i]
+    end
+    fixed_val = _run_with_arguments(p.f, arguments, workspace)
+
+    fixed_hashes = [_get_fixed_hashes(unfixed_vals[p.fixer_var_id], fixed_val)]
+
+    fixed_values = Dict()
+    for (var_id, target_value) in unfixed_vals
+        if var_id == p.fixer_var_id
+            fixed_values[var_id] = fixed_val
+        else
+            fixed_values[var_id] = _fix_option_hashes(fixed_hashes, [target_value])[1]
+        end
+    end
+
+    merge!(workspace, fixed_values)
+    b = _run_with_arguments(p.b, arguments, workspace)
+    for var_id in p.var_ids
+        delete!(workspace, var_id)
+    end
+    return b
+end
+
 function analyze_evaluation(p::ExceptionProgram)::Function
     (environment, workspace) -> error("Inapplicable program")
+end
+
+function run_with_arguments(p::Program, arguments, workspace)
+    _run_with_arguments(p, reverse(arguments), workspace)
 end
 
 function run_analyzed_with_arguments(@nospecialize(p::Function), arguments, workspace)

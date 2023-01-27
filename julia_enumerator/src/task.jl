@@ -11,7 +11,7 @@ end
 
 function _test_one_example(p, xs, y)
     try
-        run_analyzed_with_arguments(p, [], xs) == y
+        run_with_arguments(p, [], Dict{Any,Any}(xs)) == y
     catch e
         if isa(e, UnknownPrimitive)
             error("Unknown primitive: $(e.name)")
@@ -20,20 +20,20 @@ function _test_one_example(p, xs, y)
         else
             @error e
             @error p
-            false
+            rethrow()
         end
     end
 end
 
 function supervised_task_checker(task::Task, p::Program)
-    p_analized = analyze_evaluation(p)
+    # p_analized = analyze_evaluation(p)
     for i in 1:length(task.train_inputs)
-        if !_test_one_example(p_analized, task.train_inputs[i], task.train_outputs[i])
+        if !_test_one_example(p, task.train_inputs[i], task.train_outputs[i])
             return log(0)
         end
     end
     for i in 1:length(task.test_inputs)
-        if !_test_one_example(p_analized, task.test_inputs[i], task.test_outputs[i])
+        if !_test_one_example(p, task.test_inputs[i], task.test_outputs[i])
             return log(0)
         end
     end

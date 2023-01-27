@@ -453,7 +453,7 @@ function try_run_function(f::Function, xs)
 end
 
 function try_evaluate_program(p, xs, workspace)
-    try_run_function(run_analyzed_with_arguments, [p, xs, workspace])
+    try_run_function(run_with_arguments, [p, xs, workspace])
 end
 
 function try_run_block(sc::SolutionContext, block::ProgramBlock, fixed_branches, target_output)
@@ -476,7 +476,7 @@ function try_run_block(sc::SolutionContext, block::ProgramBlock, fixed_branches,
     for i in 1:sc.example_count
         xs = inputs[i]
         out_value = try
-            try_evaluate_program(block.analized_p, [], xs)
+            try_evaluate_program(block.p, [], xs)
         catch e
             if !isa(e, EnumerationException)
                 @error xs
