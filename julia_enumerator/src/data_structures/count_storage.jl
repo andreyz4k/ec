@@ -1,7 +1,7 @@
 
 mutable struct CountStorage
     transaction_depth::Int
-    values::Vector{Int}
+    values::Vector{UInt64}
 end
 
 CountStorage() = CountStorage(0, [0])

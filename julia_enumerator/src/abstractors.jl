@@ -1,11 +1,11 @@
 
 all_abstractors = Dict{Program,Any}()
 
-function is_reversible(p::Primitive)
+function is_reversible(p::Primitive)::Bool
     return haskey(all_abstractors, p)
 end
 
-function is_reversible(p::Apply)
+function is_reversible(p::Apply)::Bool
     if is_reversible(p.f)
         if isa(p.x, Hole)
             return !isarrow(p.x.t)
@@ -20,10 +20,10 @@ function is_reversible(p::Apply)
     false
 end
 
-is_reversible(p::Invented) = is_reversible(p.b)
-is_reversible(p::Abstraction) = is_reversible(p.b)
+is_reversible(p::Invented)::Bool = is_reversible(p.b)
+is_reversible(p::Abstraction)::Bool = is_reversible(p.b)
 
-is_reversible(p::Program) = false
+is_reversible(p::Program)::Bool = false
 
 function _get_reversed_filled_program(p::Primitive, arguments)
     return all_abstractors[p](arguments)

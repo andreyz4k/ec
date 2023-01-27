@@ -25,12 +25,12 @@ function extract_solution(sc::SolutionContext, solution_path::Path)
     end
     # @info output
     # Renaming variables for comparison between programs and remove variables copying
-    output = alpha_substitution(output, Dict(), 1, sc.input_keys)[1]
+    output = alpha_substitution(output, Dict{UInt64,Any}(), UInt64(1), sc.input_keys)[1]
     # @info output
     return (output, cost)
 end
 
-function alpha_substitution(p::LetClause, replacements, next_index, input_keys)
+function alpha_substitution(p::LetClause, replacements, next_index::UInt64, input_keys)
     if isa(p.v, FreeVar)
         if haskey(input_keys, p.v.var_id)
             replacements[p.var_id] = input_keys[p.v.var_id]
@@ -50,7 +50,7 @@ function alpha_substitution(p::LetClause, replacements, next_index, input_keys)
     end
 end
 
-function alpha_substitution(p::LetRevClause, replacements, next_index, input_keys)
+function alpha_substitution(p::LetRevClause, replacements, next_index::UInt64, input_keys)
     new_var_ids = []
     for var_id in p.var_ids
         replacements[var_id] = next_index
@@ -69,7 +69,7 @@ function alpha_substitution(p::LetRevClause, replacements, next_index, input_key
     return LetRevClause(new_var_ids, new_inp_var_id, new_v, p.rev_v, new_b), next_index
 end
 
-function alpha_substitution(p::WrapEither, replacements, next_index, input_keys)
+function alpha_substitution(p::WrapEither, replacements, next_index::UInt64, input_keys)
     new_var_ids = []
     for var_id in p.var_ids
         replacements[var_id] = next_index
@@ -90,7 +90,7 @@ function alpha_substitution(p::WrapEither, replacements, next_index, input_keys)
     return WrapEither(new_var_ids, new_inp_var_id, new_fixer_var_id, new_v, p.rev_v, new_f, new_b), next_index
 end
 
-function alpha_substitution(p::FreeVar, replacements, next_index, input_keys)
+function alpha_substitution(p::FreeVar, replacements, next_index::UInt64, input_keys)
     if haskey(input_keys, p.var_id)
         return FreeVar(p.t, input_keys[p.var_id]), next_index
     elseif haskey(replacements, p.var_id)
@@ -100,15 +100,15 @@ function alpha_substitution(p::FreeVar, replacements, next_index, input_keys)
     end
 end
 
-function alpha_substitution(p::Abstraction, replacements, next_index, input_keys)
+function alpha_substitution(p::Abstraction, replacements, next_index::UInt64, input_keys)
     new_b, next_index = alpha_substitution(p.b, replacements, next_index, input_keys)
     Abstraction(new_b), next_index
 end
 
-function alpha_substitution(p::Apply, replacements, next_index, input_keys)
+function alpha_substitution(p::Apply, replacements, next_index::UInt64, input_keys)
     new_f, next_index = alpha_substitution(p.f, replacements, next_index, input_keys)
     new_x, next_index = alpha_substitution(p.x, replacements, next_index, input_keys)
     return Apply(new_f, new_x), next_index
 end
 
-alpha_substitution(p::Program, replacements, next_index, input_keys) = p, next_index
+alpha_substitution(p::Program, replacements, next_index::UInt64, input_keys) = p, next_index

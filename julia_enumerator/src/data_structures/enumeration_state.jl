@@ -34,8 +34,8 @@ Base.hash(a::EnumerationState, h::UInt) =
 struct BlockPrototype
     state::EnumerationState
     request::Tp
-    input_vars::Union{Dict{Int,Int},Nothing}
-    output_var::Tuple{Int,Int}
+    input_vars::Union{Dict{UInt64,UInt64},Nothing}
+    output_var::Tuple{UInt64,UInt64}
     reverse::Bool
 end
 
@@ -128,7 +128,7 @@ function enqueue_known_var(sc, branch_id, g)
     if haskey(sc.branch_queues_explained, branch_id)
         q = sc.branch_queues_explained[branch_id]
     else
-        q = PriorityQueue()
+        q = PriorityQueue{BlockPrototype,Float64}()
     end
     for bp in prototypes
         if sc.verbose
@@ -140,7 +140,7 @@ function enqueue_known_var(sc, branch_id, g)
         else
             out_branch_id = bp.output_var[2]
             if !haskey(sc.branch_queues_unknown, out_branch_id)
-                sc.branch_queues_unknown[out_branch_id] = PriorityQueue()
+                sc.branch_queues_unknown[out_branch_id] = PriorityQueue{BlockPrototype,Float64}()
             end
             out_q = sc.branch_queues_unknown[out_branch_id]
             out_q[bp] = bp.state.cost
@@ -158,7 +158,7 @@ function enqueue_unknown_var(sc, branch_id, g)
     if haskey(sc.branch_queues_unknown, branch_id)
         q = sc.branch_queues_unknown[branch_id]
     else
-        q = PriorityQueue()
+        q = PriorityQueue{BlockPrototype,Float64}()
     end
     for bp in prototypes
         if sc.verbose
@@ -170,7 +170,7 @@ function enqueue_unknown_var(sc, branch_id, g)
            !isnothing(sc.explained_min_path_costs[first(bp.input_vars)[2]])
             inp_branch_id = first(bp.input_vars)[2]
             if !haskey(sc.branch_queues_explained, inp_branch_id)
-                sc.branch_queues_explained[inp_branch_id] = PriorityQueue()
+                sc.branch_queues_explained[inp_branch_id] = PriorityQueue{BlockPrototype,Float64}()
             end
             in_q = sc.branch_queues_explained[inp_branch_id]
             in_q[bp] = bp.state.cost

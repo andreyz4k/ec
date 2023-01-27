@@ -6,15 +6,15 @@ mutable struct SolutionContext
     vars_count::CountStorage
     branches_count::CountStorage
 
-    branch_is_unknown::VectorStorage{Bool}
-    branch_is_explained::VectorStorage{Bool}
-    branch_is_not_copy::VectorStorage{Bool}
+    branch_is_unknown::VectorStorage{Bool,Bool}
+    branch_is_explained::VectorStorage{Bool,Bool}
+    branch_is_not_copy::VectorStorage{Bool,Bool}
 
-    branch_entries::VectorStorage{Int}
-    branch_vars::VectorStorage{Int}
+    branch_entries::VectorStorage{UInt64,Nothing}
+    branch_vars::VectorStorage{UInt64,Nothing}
 
     "[branch_id x type_id] -> type_id"
-    branch_types::GraphStorage
+    branch_types::GraphStorage{Nothing}
 
     blocks::IndexedStorage{AbstractProgramBlock}
     block_copies_count::CountStorage
@@ -23,51 +23,51 @@ mutable struct SolutionContext
     constraint_contexts::IndexedStorage{Context}
 
     "[parent_branch_id x child_branch_id] -> {nothing, 1}"
-    branch_children::GraphStorage
+    branch_children::GraphStorage{Nothing}
 
     "[branch_id x block_copy_id] -> block_id"
-    branch_incoming_blocks::GraphStorage
+    branch_incoming_blocks::GraphStorage{Nothing}
     "[branch_id x block_copy_id] -> block_id"
-    branch_outgoing_blocks::GraphStorage
+    branch_outgoing_blocks::GraphStorage{Nothing}
 
     "[var_id x constraint_id] -> branch_id"
-    constrained_vars::GraphStorage
+    constrained_vars::GraphStorage{Nothing}
     "[branch_id x constraint_id] -> var_id"
-    constrained_branches::GraphStorage
+    constrained_branches::GraphStorage{Nothing}
     "constraint_id -> context_id"
-    constrained_contexts::VectorStorage{Int}
+    constrained_contexts::VectorStorage{UInt64,Nothing}
 
     "[branch_id x related_branch_id] -> {nothing, 1}"
-    related_explained_complexity_branches::GraphStorage
+    related_explained_complexity_branches::GraphStorage{Nothing}
     "[branch_id x related_branch_id] -> {nothing, 1}"
-    related_unknown_complexity_branches::GraphStorage
+    related_unknown_complexity_branches::GraphStorage{Nothing}
 
     "branch_id -> [{var_id -> block_id}]"
     incoming_paths::PathsStorage
 
-    unknown_min_path_costs::VectorStorage{Float64}
-    explained_min_path_costs::VectorStorage{Float64}
-    unknown_complexity_factors::VectorStorage{Float64}
-    explained_complexity_factors::VectorStorage{Float64}
-    complexities::VectorStorage{Float64}
-    added_upstream_complexities::VectorStorage{Float64}
-    unused_explained_complexities::VectorStorage{Float64}
-    unmatched_complexities::VectorStorage{Float64}
+    unknown_min_path_costs::VectorStorage{Float64,Nothing}
+    explained_min_path_costs::VectorStorage{Float64,Nothing}
+    unknown_complexity_factors::VectorStorage{Float64,Nothing}
+    explained_complexity_factors::VectorStorage{Float64,Nothing}
+    complexities::VectorStorage{Float64,Nothing}
+    added_upstream_complexities::VectorStorage{Float64,Nothing}
+    unused_explained_complexities::VectorStorage{Float64,Nothing}
+    unmatched_complexities::VectorStorage{Float64,Nothing}
 
     "[previous_var_id x following_var_id] -> {nothing, 1}"
-    previous_vars::GraphStorage
+    previous_vars::GraphStorage{Nothing}
 
-    input_keys::Dict{Int,String}
-    target_branch_id::Int
+    input_keys::Dict{UInt64,String}
+    target_branch_id::UInt64
     example_count::Int64
     type_weights::Dict{String,Float64}
     total_number_of_enumerated_programs::Int64
-    pq_input::PriorityQueue
-    pq_output::PriorityQueue
-    branch_queues_unknown::Dict{Int,PriorityQueue}
-    branch_queues_explained::Dict{Int,PriorityQueue}
-    branch_unknown_from_output::VectorStorage{Bool}
-    branch_known_from_input::VectorStorage{Bool}
+    pq_input::PriorityQueue{Tuple{UInt64,Bool},Float64,Base.Order.ForwardOrdering}
+    pq_output::PriorityQueue{Tuple{UInt64,Bool},Float64,Base.Order.ForwardOrdering}
+    branch_queues_unknown::Dict{UInt64,PriorityQueue{BlockPrototype,Float64,Base.Order.ForwardOrdering}}
+    branch_queues_explained::Dict{UInt64,PriorityQueue{BlockPrototype,Float64,Base.Order.ForwardOrdering}}
+    branch_unknown_from_output::VectorStorage{Bool,Bool}
+    branch_known_from_input::VectorStorage{Bool,Bool}
 
     verbose::Bool
 end
@@ -83,8 +83,8 @@ function create_starting_context(task::Task, type_weights, verbose)::SolutionCon
         VectorStorage{Bool}(false),
         VectorStorage{Bool}(false),
         VectorStorage{Bool}(false),
-        VectorStorage{Int}(),
-        VectorStorage{Int}(),
+        VectorStorage{UInt64}(),
+        VectorStorage{UInt64}(),
         GraphStorage(),
         IndexedStorage{AbstractProgramBlock}(),
         CountStorage(),
@@ -95,7 +95,7 @@ function create_starting_context(task::Task, type_weights, verbose)::SolutionCon
         GraphStorage(),
         GraphStorage(),
         GraphStorage(),
-        VectorStorage{Int}(),
+        VectorStorage{UInt64}(),
         GraphStorage(),
         GraphStorage(),
         PathsStorage(),
@@ -108,13 +108,13 @@ function create_starting_context(task::Task, type_weights, verbose)::SolutionCon
         VectorStorage{Float64}(),
         VectorStorage{Float64}(),
         GraphStorage(),
-        Dict{Int,String}(),
+        Dict{UInt64,String}(),
         0,
         example_count,
         type_weights,
         0,
-        PriorityQueue(),
-        PriorityQueue(),
+        PriorityQueue{Tuple{UInt64,Bool},Float64}(),
+        PriorityQueue{Tuple{UInt64,Bool},Float64}(),
         Dict(),
         Dict(),
         VectorStorage{Bool}(false),
@@ -308,7 +308,7 @@ function create_next_var(sc::SolutionContext)
     return v
 end
 
-function update_branch_priority(sc::SolutionContext, branch_id::Int, is_known::Bool)
+function update_branch_priority(sc::SolutionContext, branch_id::UInt64, is_known::Bool)
     if is_known
         pq = sc.branch_known_from_input[branch_id] ? sc.pq_input : sc.pq_output
         q = sc.branch_queues_explained[branch_id]
@@ -742,8 +742,12 @@ function update_context(sc::SolutionContext)
 
     return get_new_paths(sc.incoming_paths, sc.target_branch_id)
 end
+function update_prev_follow_vars(sc::SolutionContext, block_id::UInt64)
+    bl = sc.blocks[block_id]
+    _update_prev_follow_vars(sc, bl)
+end
 
-function update_prev_follow_vars(sc::SolutionContext, bl::ProgramBlock)
+function _update_prev_follow_vars(sc::SolutionContext, bl::ProgramBlock)
     if isempty(bl.input_vars)
         return
     end
@@ -755,7 +759,7 @@ function update_prev_follow_vars(sc::SolutionContext, bl::ProgramBlock)
     end
 end
 
-function update_prev_follow_vars(sc, bl::Union{ReverseProgramBlock,WrapEitherBlock})
+function _update_prev_follow_vars(sc, bl::Union{ReverseProgramBlock,WrapEitherBlock})
     inp_prev_vars = reduce(any, sc.previous_vars[:, bl.input_vars], dims = 2)
     out_foll_vars = reduce(any, sc.previous_vars[bl.output_vars, :], dims = 1; desc = Descriptor())
     # for inp_var_id in inp_vars

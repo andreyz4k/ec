@@ -1,5 +1,5 @@
 
-function run_tests()
+function run_tests(is_start)
     payloads = Any[
         Dict{String,Any}(
             "DSL" => Dict{String,Any}(
@@ -1695,33 +1695,15 @@ function run_tests()
         end
     end
 
-    function start_timeout_monitor()
-        lk = ReentrantLock()
-        timeout_request_channel = RemoteChannel(() -> Channel{Tuple}(1))
-        timeout_response_channel = RemoteChannel(() -> Channel{Int}(1))
-        active_timeouts = []
-        Timer(_check_worker_timeouts(lk, active_timeouts), 1, interval = 1)
-        @async _handle_timeout_messages(lk, timeout_request_channel, timeout_response_channel, active_timeouts)
-        return timeout_request_channel, timeout_response_channel
+    if is_start
+        payloads = payloads[1:3]
+    else
+        payloads = payloads[4:end]
     end
-
-    req_channel, resp_channel = start_timeout_monitor()
 
     for payload in payloads
         @info payload["name"]
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
-        @time enumerate_for_task(
-            Dict{String,Any}(
-                "program_timeout" => program_timeout,
-                "timeout" => timeout,
-                "timeout_request_channel" => req_channel,
-                "timeout_response_channel" => resp_channel,
-            ),
-            g,
-            type_weights,
-            task,
-            maximum_frontier,
-            verbose,
-        )
+        @time enumerate_for_task(g, type_weights, task, maximum_frontier, timeout, verbose)
     end
 end

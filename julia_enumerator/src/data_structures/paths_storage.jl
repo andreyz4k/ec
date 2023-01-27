@@ -2,8 +2,8 @@
 using DataStructures
 
 struct Path
-    main_path::OrderedDict{Int,Int}
-    side_vars::Dict{Int,Int}
+    main_path::OrderedDict{UInt64,UInt64}
+    side_vars::Dict{UInt64,UInt64}
     cost::Float64
 end
 
@@ -12,7 +12,7 @@ Base.hash(path::Path, h::UInt) = hash(path.main_path, hash(path.side_vars, h))
 
 Base.isless(path1::Path, path2::Path) = path1.cost < path2.cost
 
-empty_path() = Path(OrderedDict{Int,Int}(), Dict{Int,Int}(), 0.0)
+empty_path() = Path(OrderedDict{UInt64,UInt64}(), Dict{UInt64,UInt64}(), 0.0)
 
 function paths_compatible(path1::Path, path2::Path)
     for (v, b) in path2.main_path
@@ -71,13 +71,13 @@ using DataStructures
 
 mutable struct PathsStorage
     transaction_depth::Int
-    values::Vector{AbstractDict{Int,SortedSet{Path,Base.ReverseOrdering}}}
+    values::Vector{DefaultDict{UInt64,SortedSet{Path,Base.ReverseOrdering}}}
 end
 
 PathsStorage() = PathsStorage(
     0,
     [
-        DefaultDict{Int,SortedSet{Path,Base.ReverseOrdering}}(
+        DefaultDict{UInt64,SortedSet{Path,Base.ReverseOrdering}}(
             () -> SortedSet{Path,Base.ReverseOrdering}(Base.ReverseOrdering()),
         ),
     ],
@@ -112,7 +112,7 @@ function drop_changes!(storage::PathsStorage)
     storage.transaction_depth -= 1
 end
 
-function Base.getindex(storage::PathsStorage, ind::Integer)
+function Base.getindex(storage::PathsStorage, ind::UInt64)
     result = nothing
     for i in 1:min(storage.transaction_depth + 1, length(storage.values))
         vals = storage.values[i]
@@ -130,15 +130,15 @@ function Base.getindex(storage::PathsStorage, ind::Integer)
     return result
 end
 
-function Base.haskey(storage::PathsStorage, key::Integer)
+function Base.haskey(storage::PathsStorage, key::UInt64)
     return any(haskey(storage.values[i], key) for i in 1:min(storage.transaction_depth + 1, length(storage.values)))
 end
 
-function Base.setindex!(storage::PathsStorage, value, ind::Integer)
+function Base.setindex!(storage::PathsStorage, value, ind::UInt64)
     while storage.transaction_depth + 1 > length(storage.values)
         push!(
             storage.values,
-            DefaultDict{Int,SortedSet{Path,Base.ReverseOrdering}}(
+            DefaultDict{UInt64,SortedSet{Path,Base.ReverseOrdering}}(
                 () -> SortedSet{Path,Base.ReverseOrdering}(Base.ReverseOrdering()),
             ),
         )
@@ -150,12 +150,13 @@ function add_path!(storage::PathsStorage, branch_id, path)
     while storage.transaction_depth + 1 > length(storage.values)
         push!(
             storage.values,
-            DefaultDict{Int,SortedSet{Path,Base.ReverseOrdering}}(
+            DefaultDict{UInt64,SortedSet{Path,Base.ReverseOrdering}}(
                 () -> SortedSet{Path,Base.ReverseOrdering}(Base.ReverseOrdering()),
             ),
         )
     end
     push!(storage.values[storage.transaction_depth+1][branch_id], path)
+    nothing
 end
 
 function get_new_paths(storage::PathsStorage, branch_id)

@@ -16,7 +16,13 @@ end
 #     return true
 # end
 
-function value_updates(sc, block::ProgramBlock, target_output, new_values, fixed_branches)
+function value_updates(
+    sc,
+    block::ProgramBlock,
+    target_output::Dict{UInt64,UInt64},
+    new_values,
+    fixed_branches::Dict{UInt64,UInt64},
+)
     branch_id = target_output[block.output_var]
     entry = sc.entries[sc.branch_entries[branch_id]]
     t_id = push!(sc.types, return_of_type(block.type))
@@ -31,7 +37,7 @@ function value_updates(sc, block::ProgramBlock, target_output, new_values, fixed
         fixed_branches,
     )
 
-    out_branches = Dict(block.output_var => out_branch_id)
+    out_branches = Dict{UInt64,UInt64}(block.output_var => out_branch_id)
     if set_explained && !sc.branch_known_from_input[out_branch_id]
         sc.branch_known_from_input[out_branch_id] =
             any(sc.branch_known_from_input[fixed_branches[in_var]] for in_var in block.input_vars)
@@ -39,15 +45,22 @@ function value_updates(sc, block::ProgramBlock, target_output, new_values, fixed
     return out_branches, is_new_next_block, allow_fails, next_blocks, set_explained
 end
 
-function value_updates(sc, block::Union{ReverseProgramBlock,WrapEitherBlock}, target_output, new_values, fixed_branches)
+function value_updates(
+    sc,
+    block::Union{ReverseProgramBlock,WrapEitherBlock},
+    target_output::Dict{UInt64,UInt64},
+    new_values,
+    fixed_branches::Dict{UInt64,UInt64},
+)
     out_branches = Dict()
     is_new_next_block = false
     allow_fails = false
     set_explained = false
     next_blocks = Set()
-    for (out_var, values) in zip(block.output_vars, zip(new_values...))
+    for i in 1:length(block.output_vars)
+        out_var = block.output_vars[i]
+        values = new_values[i]
         br_id = target_output[out_var]
-        values = collect(values)
         entry = sc.entries[sc.branch_entries[br_id]]
         out_branch_id, is_new_nxt_block, all_fails, n_blocks, set_expl =
             updated_branches(sc, entry, values, out_var, br_id, entry.type_id, true, fixed_branches)
@@ -72,7 +85,16 @@ function value_updates(sc, block::Union{ReverseProgramBlock,WrapEitherBlock}, ta
     return out_branches, is_new_next_block, allow_fails, next_blocks, set_explained
 end
 
-function updated_branches(sc, entry::ValueEntry, new_values, var_id, branch_id, t_id, is_meaningful, fixed_branches)
+function updated_branches(
+    sc,
+    entry::ValueEntry,
+    @nospecialize(new_values),
+    var_id::UInt64,
+    branch_id::UInt64,
+    t_id::UInt64,
+    is_meaningful::Bool,
+    fixed_branches::Dict{UInt64,UInt64},
+)
     if is_meaningful && sc.branch_is_not_copy[branch_id] != true
         sc.branch_is_not_copy[branch_id] = true
     end
@@ -86,7 +108,7 @@ function updated_branches(sc, entry::ValueEntry, new_values, var_id, branch_id, 
     return branch_id, false, allow_fails, next_blocks, set_explained
 end
 
-function find_related_branches(sc, branch_id, new_entry, new_entry_index)
+function find_related_branches(sc, branch_id, new_entry, new_entry_index)::Tuple{Vector{UInt64},Union{UInt64,Nothing}}
     possible_parents = UInt64[]
     for child_id in nonzeroinds(sc.branch_children[branch_id, :])
         if sc.branch_entries[child_id] == new_entry_index
@@ -110,7 +132,16 @@ function find_related_branches(sc, branch_id, new_entry, new_entry_index)
     end
 end
 
-function updated_branches(sc, entry::NoDataEntry, new_values, var_id, branch_id, t_id, is_meaningful, fixed_branches)
+function updated_branches(
+    sc,
+    entry::NoDataEntry,
+    @nospecialize(new_values),
+    var_id::UInt64,
+    branch_id::UInt64,
+    t_id::UInt64,
+    is_meaningful::Bool,
+    fixed_branches::Dict{UInt64,UInt64},
+)
     complexity_summary = get_complexity_summary(new_values, sc.types[t_id])
     new_entry = ValueEntry(t_id, new_values, complexity_summary, get_complexity(sc, complexity_summary))
     new_entry_index = push!(sc.entries, new_entry)
@@ -150,7 +181,16 @@ function updated_branches(sc, entry::NoDataEntry, new_values, var_id, branch_id,
     return new_branch_id, true, allow_fails, next_blocks, true
 end
 
-function updated_branches(sc, entry::EitherEntry, new_values, var_id, branch_id, t_id, is_meaningful, fixed_branches)
+function updated_branches(
+    sc,
+    entry::EitherEntry,
+    @nospecialize(new_values),
+    var_id::UInt64,
+    branch_id::UInt64,
+    t_id::UInt64,
+    is_meaningful::Bool,
+    fixed_branches::Dict{UInt64,UInt64},
+)
     complexity_summary = get_complexity_summary(new_values, sc.types[t_id])
     new_entry = ValueEntry(t_id, new_values, complexity_summary, get_complexity(sc, complexity_summary))
     new_entry_index = push!(sc.entries, new_entry)
@@ -281,7 +321,7 @@ function _save_block_branch_connections(sc, block_id, block, fixed_branches, out
         if count != length(input_br_ids)
             continue
         end
-        if Vector{Int}(nonzeroinds(sc.branch_incoming_blocks[:, bl_copy_id])) == out_branches
+        if Vector{UInt64}(nonzeroinds(sc.branch_incoming_blocks[:, bl_copy_id])) == out_branches
             if sc.verbose
                 @info "Block $block_id $block already has connections for inputs $input_br_ids and outputs $out_branches"
             end

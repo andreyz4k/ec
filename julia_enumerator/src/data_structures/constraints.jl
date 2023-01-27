@@ -1,19 +1,19 @@
 
 function _find_relatives_for_type(sc, t, branch_id, branch_type)
     if branch_type == t && sc.branch_is_unknown[branch_id]
-        return branch_id, Int[], Int[]
+        return branch_id, UInt64[], UInt64[]
     end
     if sc.branch_is_explained[branch_id] && is_subtype(t, branch_type)
         return nothing, nonzeroinds(sc.branch_children[:, branch_id]), Int[branch_id]
     end
-    parents = Int[]
-    children = Int[]
+    parents = UInt64[]
+    children = UInt64[]
     for child_id in nonzeroinds(sc.branch_children[branch_id, :])
         child_type = sc.types[reduce(any, sc.branch_types[child_id, :])]
         if is_subtype(child_type, t)
             exact_match, parents_, children_ = _find_relatives_for_type(sc, t, child_id, child_type)
             if !isnothing(exact_match)
-                return exact_match, Int[], Int[]
+                return exact_match, UInt64[], UInt64[]
             end
             union!(parents, parents_)
             union!(children, children_)
@@ -96,7 +96,7 @@ function _tighten_constraint(
             (v, b) in zip(sc.branch_vars[inp_branches], inp_branches)
         )
         out_block_branches = nonzeroinds(sc.branch_incoming_blocks[:, b_copy_id])
-        target_branches = Int[haskey(out_branches, b) ? out_branches[b] : b for b in out_block_branches]
+        target_branches = UInt64[haskey(out_branches, b) ? out_branches[b] : b for b in out_block_branches]
         _save_block_branch_connections(sc, b_id, sc.blocks[b_id], inputs, target_branches)
     end
 
@@ -125,8 +125,8 @@ function tighten_constraint(sc, constraint_id, new_branch_id, old_branch_id)
         new_constraint_id = increment!(sc.constraints_count)
         # @info "Added new constraint on tighten $new_constraint_id from $constraint_id"
 
-        vars = Int[]
-        branches = Int[]
+        vars = UInt64[]
+        branches = UInt64[]
         for (var_id, branch_id) in new_constrained_branches
             push!(vars, var_id)
             push!(branches, branch_id)
@@ -201,17 +201,17 @@ end
 
 function _find_relatives_for_either(sc, new_entry, branch_id, old_entry)
     if old_entry == new_entry
-        return branch_id, Int[], Int[]
+        return branch_id, UInt64[], UInt64[]
     end
 
-    parents = Int[]
-    children = Int[]
+    parents = UInt64[]
+    children = UInt64[]
     for child_id in nonzeroinds(sc.branch_children[branch_id, :])
         child_entry = sc.entries[sc.branch_entries[child_id]]
         if is_subeither(child_entry.values, new_entry.values)
             exact_match, parents_, children_ = _find_relatives_for_either(sc, new_entry, child_id, child_entry)
             if !isnothing(exact_match)
-                return exact_match, Int[], Int[]
+                return exact_match, UInt64[], UInt64[]
             end
             union!(parents, parents_)
             union!(children, children_)
@@ -311,7 +311,7 @@ function _tighten_constraint(
             (v, b) in zip(sc.branch_vars[inp_branches], inp_branches)
         )
         out_block_branches = nonzeroinds(sc.branch_incoming_blocks[:, b_copy_id])
-        target_branches = Int[haskey(out_branches, b) ? out_branches[b] : b for b in out_block_branches]
+        target_branches = UInt64[haskey(out_branches, b) ? out_branches[b] : b for b in out_block_branches]
 
         bl = sc.blocks[b_id]
         if isa(bl, WrapEitherBlock)

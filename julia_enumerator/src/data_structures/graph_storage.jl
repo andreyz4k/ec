@@ -3,15 +3,15 @@ using SuiteSparseGraphBLAS
 
 const MAX_GRAPH_SIZE = 100_000
 
-mutable struct GraphStorage
+mutable struct GraphStorage{F}
     transaction_depth::Int
-    edges::GBMatrix{Int}
-    updates_stack::Vector{Tuple{GBMatrix{Int},GBMatrix{Int}}}
+    edges::GBMatrix{UInt64,F}
+    updates_stack::Vector{Tuple{GBMatrix{UInt64,Nothing},GBMatrix{Int,Int}}}
 end
 
-GraphStorage() = GraphStorage(0, GBMatrix{Int}(MAX_GRAPH_SIZE, MAX_GRAPH_SIZE), [])
+GraphStorage() = GraphStorage{Nothing}(0, GBMatrix{UInt64}(MAX_GRAPH_SIZE, MAX_GRAPH_SIZE), [])
 
-GraphStorage(v) = GraphStorage(0, GBMatrix{Int}(MAX_GRAPH_SIZE, MAX_GRAPH_SIZE, fill = v), [])
+GraphStorage(v::F) where {F} = GraphStorage{F}(0, GBMatrix{UInt64}(MAX_GRAPH_SIZE, MAX_GRAPH_SIZE, fill = v), [])
 
 function start_transaction!(storage::GraphStorage)
     storage.transaction_depth += 1
@@ -61,7 +61,7 @@ function drop_changes!(storage::GraphStorage)
     storage.transaction_depth -= 1
 end
 
-function Base.getindex(storage::GraphStorage, i::Integer, j::Integer)
+function Base.getindex(storage::GraphStorage, i::UInt64, j::UInt64)
     for k in min(length(storage.updates_stack), storage.transaction_depth):-1:1
         new_val = storage.updates_stack[k][1][i, j]
         if isnothing(new_val) && storage.updates_stack[k][2][i, j] != 1
@@ -106,7 +106,7 @@ function ensure_stack_depth(storage::GraphStorage, depth::Int)
     while storage.transaction_depth > length(storage.updates_stack)
         push!(
             storage.updates_stack,
-            (GBMatrix{Int}(MAX_GRAPH_SIZE, MAX_GRAPH_SIZE), GBMatrix{Int}(MAX_GRAPH_SIZE, MAX_GRAPH_SIZE, fill = 0)),
+            (GBMatrix{UInt64}(MAX_GRAPH_SIZE, MAX_GRAPH_SIZE), GBMatrix{Int}(MAX_GRAPH_SIZE, MAX_GRAPH_SIZE, fill = 0)),
         )
     end
 end

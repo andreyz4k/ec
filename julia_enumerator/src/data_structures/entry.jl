@@ -3,7 +3,7 @@ abstract type Entry end
 
 using DataStructures: Accumulator
 struct ValueEntry <: Entry
-    type_id::Int
+    type_id::UInt64
     values::Vector
     complexity_summary::Accumulator
     complexity::Float64
@@ -13,6 +13,7 @@ Base.hash(v::ValueEntry, h::UInt64) = hash(v.type_id, hash(v.values, h))
 Base.:(==)(v1::ValueEntry, v2::ValueEntry) = v1.type_id == v2.type_id && v1.values == v2.values
 
 get_matching_seq(entry::ValueEntry) = [(rv -> rv == v) for v in entry.values]
+match_at_index(entry::ValueEntry, index::Int, value) = entry.values[index] == value
 
 match_with_entry(sc, entry::ValueEntry, other::ValueEntry) = entry == other
 
@@ -44,12 +45,13 @@ end
 const_options(entry::ValueEntry) = [entry.values[1]]
 
 struct NoDataEntry <: Entry
-    type_id::Int
+    type_id::UInt64
 end
 Base.hash(v::NoDataEntry, h::UInt64) = hash(v.type_id, h)
 Base.:(==)(v1::NoDataEntry, v2::NoDataEntry) = v1.type_id == v2.type_id
 
 get_matching_seq(entry::NoDataEntry) = Iterators.repeated(_ -> true)
+match_at_index(entry::NoDataEntry, index::Int, value) = true
 
 match_with_entry(sc, entry::NoDataEntry, other::ValueEntry) =
     might_unify(sc.types[entry.type_id], sc.types[other.type_id])
@@ -111,7 +113,7 @@ struct EitherOptions
 end
 
 struct EitherEntry <: Entry
-    type_id::Int
+    type_id::UInt64
     values::Vector
     complexity_summary::Accumulator
     complexity::Float64
@@ -165,6 +167,7 @@ end
 _match_options(value) = (rv -> rv == value)
 
 get_matching_seq(entry::EitherEntry) = [_match_options(value) for value in entry.values]
+match_at_index(entry::EitherEntry, index::Int, value) = _match_options(entry.values[index])(value)
 
 function match_with_entry(sc, entry::EitherEntry, other::ValueEntry)
     matchers = get_matching_seq(entry)

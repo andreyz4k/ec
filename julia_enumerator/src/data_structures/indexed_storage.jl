@@ -1,20 +1,20 @@
 
 mutable struct IndexedStorage{T}
     transaction_depth::Int
-    values_stack::Vector{Tuple{Vector{T},Dict{T,Int}}}
+    values_stack::Vector{Tuple{Vector{T},Dict{T,UInt64}}}
     total_length::Int
 end
 
-IndexedStorage{T}() where {T} = IndexedStorage{T}(0, [(Vector{T}(), Dict{T,Int}())], 0)
+IndexedStorage{T}() where {T} = IndexedStorage{T}(0, [(Vector{T}(), Dict{T,UInt64}())], 0)
 
-function Base.push!(storage::IndexedStorage{T}, value::T)::Int where {T}
+function Base.push!(storage::IndexedStorage{T}, value::T)::UInt64 where {T}
     for (_, val_to_ind) in reverse(storage.values_stack)
         if haskey(val_to_ind, value)
             return val_to_ind[value]
         end
     end
     while storage.transaction_depth + 1 > length(storage.values_stack)
-        push!(storage.values_stack, (Vector{T}(), Dict{T,Int}()))
+        push!(storage.values_stack, (Vector{T}(), Dict{T,UInt64}()))
     end
     push!(storage.values_stack[storage.transaction_depth+1][1], value)
     storage.total_length += 1
@@ -22,7 +22,7 @@ function Base.push!(storage::IndexedStorage{T}, value::T)::Int where {T}
     return storage.total_length
 end
 
-function Base.getindex(storage::IndexedStorage, ind::Integer)
+function Base.getindex(storage::IndexedStorage, ind::UInt64)
     for (values, _) in storage.values_stack
         if ind <= length(values)
             return values[ind]
@@ -35,7 +35,7 @@ function Base.length(storage::IndexedStorage)
     return storage.total_length
 end
 
-function get_index(storage::IndexedStorage, value)::Int
+function get_index(storage::IndexedStorage, value)::UInt64
     for (_, val_to_ind) in storage.values_stack
         if haskey(val_to_ind, value)
             return val_to_ind[value]

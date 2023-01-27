@@ -42,7 +42,7 @@ function run_solving_process(run_context, message)
     task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, _verbose, program_timeout = load_problems(message)
     run_context["program_timeout"] = program_timeout
     run_context["timeout"] = timeout
-    solutions, number_enumerated = enumerate_for_task(run_context, g, type_weights, task, maximum_frontier)
+    solutions, number_enumerated = enumerate_for_task(g, type_weights, task, maximum_frontier, timeout)
     return export_frontiers(number_enumerated, task, solutions)
 end
 
@@ -89,13 +89,13 @@ function worker_loop(req_channel, resp_channel)
             payload = JSON.parse(message)
             timeout = payload["timeout"]
             name = payload["name"]
-            output = try
+            output = @time try
                 run_context = Dict{String,Any}(
                     "timeout_request_channel" => req_channel,
                     "timeout_response_channel" => resp_channel,
                     "timeout" => timeout,
                 )
-                result = @run_with_timeout run_context "timeout" run_solving_process(run_context, payload)
+                result = run_solving_process(run_context, payload)
                 if isnothing(result)
                     result = Dict("number_enumerated" => 0, "solutions" => [])
                 end

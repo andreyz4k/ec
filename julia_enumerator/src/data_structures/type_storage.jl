@@ -1,7 +1,7 @@
 
 struct TypeStorage
     types::IndexedStorage{Tp}
-    unifiable_types::GraphStorage
+    unifiable_types::GraphStorage{Nothing}
 end
 
 TypeStorage() = TypeStorage(IndexedStorage{Tp}(), GraphStorage())
@@ -21,13 +21,13 @@ function drop_changes!(storage::TypeStorage)
     drop_changes!(storage.unifiable_types)
 end
 
-function Base.push!(storage::TypeStorage, type::Tp)::Int
+function Base.push!(storage::TypeStorage, type::Tp)::UInt64
     l = length(storage.types)
     new_id = push!(storage.types, type)
     if new_id <= l
         return new_id
     end
-    for t_id in 1:l
+    for t_id::UInt64 in 1:l
         t = storage.types[t_id]
         if might_unify(t, type)
             storage.unifiable_types[t_id, new_id] = 1
@@ -40,14 +40,14 @@ function Base.push!(storage::TypeStorage, type::Tp)::Int
     return new_id
 end
 
-function Base.getindex(storage::TypeStorage, id::Integer)
+function Base.getindex(storage::TypeStorage, id::UInt64)
     return storage.types[id]
 end
 
-function get_sub_types(storage::TypeStorage, type_id::Integer)
+function get_sub_types(storage::TypeStorage, type_id::UInt64)
     return nonzeroinds(storage.unifiable_types[:, type_id])
 end
 
-function get_super_types(storage::TypeStorage, type_id::Integer)
+function get_super_types(storage::TypeStorage, type_id::UInt64)
     return nonzeroinds(storage.unifiable_types[type_id, :])
 end

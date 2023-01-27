@@ -899,28 +899,16 @@ using solver: load_problems, enumerate_for_task
 
     @testset "try_enumerate add-k with k=1" begin
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload1)
-        solutions, number_enumerated = @time enumerate_for_task(
-            Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
-            g,
-            type_weights,
-            task,
-            maximum_frontier,
-            verbose,
-        )
+        solutions, number_enumerated =
+            @time enumerate_for_task(g, type_weights, task, maximum_frontier, timeout, verbose)
         @test length(solutions) == 0
         @test number_enumerated > 50
     end
 
     @testset "try_enumerate empty" begin
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload2)
-        solutions, number_enumerated = @time enumerate_for_task(
-            Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
-            g,
-            type_weights,
-            task,
-            maximum_frontier,
-            verbose,
-        )
+        solutions, number_enumerated =
+            @time enumerate_for_task(g, type_weights, task, maximum_frontier, timeout, verbose)
         @test length(solutions) >= 1
         @test number_enumerated >= 100
         @test number_enumerated < 1000
@@ -928,28 +916,16 @@ using solver: load_problems, enumerate_for_task
 
     @testset "try_enumerate append-index-k with k=5" begin
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload3)
-        solutions, number_enumerated = @time enumerate_for_task(
-            Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
-            g,
-            type_weights,
-            task,
-            maximum_frontier,
-            verbose,
-        )
+        solutions, number_enumerated =
+            @time enumerate_for_task(g, type_weights, task, maximum_frontier, timeout, verbose)
         @test length(solutions) == 0
         @test number_enumerated > 1000
     end
 
     @testset "try_enumerate len" begin
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload4)
-        solutions, number_enumerated = @time enumerate_for_task(
-            Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
-            g,
-            type_weights,
-            task,
-            maximum_frontier,
-            verbose,
-        )
+        solutions, number_enumerated =
+            @time enumerate_for_task(g, type_weights, task, maximum_frontier, timeout, verbose)
         @test length(solutions) >= 1
         @test number_enumerated >= 500
         @test number_enumerated <= 2000
@@ -957,14 +933,8 @@ using solver: load_problems, enumerate_for_task
 
     @testset "try_enumerate is-mod-k with k=1" begin
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload5)
-        solutions, number_enumerated = @time enumerate_for_task(
-            Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
-            g,
-            type_weights,
-            task,
-            maximum_frontier,
-            verbose,
-        )
+        solutions, number_enumerated =
+            @time enumerate_for_task(g, type_weights, task, maximum_frontier, timeout, verbose)
         @test length(solutions) >= 5
         @test number_enumerated >= 50
         @test number_enumerated <= 1000
@@ -972,14 +942,8 @@ using solver: load_problems, enumerate_for_task
 
     @testset "prepend-k with k=0" begin
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload6)
-        solutions, number_enumerated = @time enumerate_for_task(
-            Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
-            g,
-            type_weights,
-            task,
-            maximum_frontier,
-            verbose,
-        )
+        solutions, number_enumerated =
+            @time enumerate_for_task(g, type_weights, task, maximum_frontier, timeout, verbose)
         @test length(solutions) >= 1
         @test number_enumerated >= 10
         @test number_enumerated <= 2000
@@ -987,28 +951,16 @@ using solver: load_problems, enumerate_for_task
 
     @testset "remove empty lists" begin
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload7)
-        solutions, number_enumerated = @time enumerate_for_task(
-            Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
-            g,
-            type_weights,
-            task,
-            maximum_frontier,
-            verbose,
-        )
+        solutions, number_enumerated =
+            @time enumerate_for_task(g, type_weights, task, maximum_frontier, timeout, verbose)
         @test length(solutions) == 0
         @test number_enumerated >= 500
     end
 
     @testset "prepend-index-k with k=3" begin
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload8)
-        solutions, number_enumerated = @time enumerate_for_task(
-            Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
-            g,
-            type_weights,
-            task,
-            maximum_frontier,
-            verbose,
-        )
+        solutions, number_enumerated =
+            @time enumerate_for_task(g, type_weights, task, maximum_frontier, timeout, verbose)
         @test length(solutions) >= 0
         @test number_enumerated >= 100
         @test number_enumerated <= 2000
@@ -1016,14 +968,8 @@ using solver: load_problems, enumerate_for_task
 
     @testset "range +1 maximum list" begin
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload9)
-        solutions, number_enumerated = @time enumerate_for_task(
-            Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
-            g,
-            type_weights,
-            task,
-            maximum_frontier,
-            verbose,
-        )
+        solutions, number_enumerated =
+            @time enumerate_for_task(g, type_weights, task, maximum_frontier, timeout, verbose)
         @test length(solutions) == 0
         @test number_enumerated >= 800
     end

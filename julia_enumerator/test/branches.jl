@@ -184,10 +184,10 @@ end
         )
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
         sc = create_starting_context(task, type_weights, false)
-        inp_var_id = 1
-        out_var_id = 2
-        inp_branch_id = 1
-        out_branch_id = 2
+        inp_var_id::UInt64 = 1
+        out_var_id::UInt64 = 2
+        inp_branch_id::UInt64 = 1
+        out_branch_id::UInt64 = 2
         inp_type_id = reduce(any, sc.branch_types[inp_branch_id, :])
         new_block = ProgramBlock(
             FreeVar(sc.types[inp_type_id], inp_var_id),
@@ -263,10 +263,10 @@ end
         )
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
         sc = create_starting_context(task, type_weights, false)
-        inp_var_id = 1
-        out_var_id = 2
-        inp_branch_id = 1
-        out_branch_id = 2
+        inp_var_id::UInt64 = 1
+        out_var_id::UInt64 = 2
+        inp_branch_id::UInt64 = 1
+        out_branch_id::UInt64 = 2
         inp_type_id = reduce(any, sc.branch_types[inp_branch_id, :])
         out_type_id = reduce(any, sc.branch_types[out_branch_id, :])
 
@@ -283,8 +283,8 @@ end
         first_block_copy_id = first_block_id
         @test new_solution_paths == Set([])
 
-        connection_var_id = 3
-        connection_branch_id = 3
+        connection_var_id::UInt64 = 3
+        connection_branch_id::UInt64 = 3
 
         new_block = ProgramBlock(
             FreeVar(sc.types[inp_type_id], inp_var_id),
@@ -394,26 +394,26 @@ end
         )
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
         sc = create_starting_context(task, type_weights, false)
-        inp_var_id = 1
-        out_var_id = 2
-        inp_branch_id = 1
-        out_branch_id = 2
+        inp_var_id::UInt64 = 1
+        out_var_id::UInt64 = 2
+        inp_branch_id::UInt64 = 1
+        out_branch_id::UInt64 = 2
 
         bp = create_block_prototype(sc, out_branch_id, [every_primitive["concat"]], g)
         new_block_result = enumeration_iteration_finished_output(sc, bp)
         @test length(new_block_result) == 1
         first_block_id, input_branches, target_output = new_block_result[1]
         new_solution_paths = add_new_block(sc, first_block_id, input_branches, target_output)
-        first_block_copy_id = 1
+        first_block_copy_id::UInt64 = 1
         @test new_solution_paths == Set([])
 
-        v1_var_id = 3
-        v2_var_id = 4
+        v1_var_id::UInt64 = 3
+        v2_var_id::UInt64 = 4
 
-        v1_branch_id = 3
-        v2_branch_id = 4
+        v1_branch_id::UInt64 = 3
+        v2_branch_id::UInt64 = 4
 
-        constraint_id = 1
+        constraint_id::UInt64 = 1
         @test sc.constrained_contexts[constraint_id] === nothing
 
         @test sc.branch_entries[v1_branch_id] == 3
@@ -468,8 +468,8 @@ end
 
         new_solution_paths =
             add_new_block(sc, new_block_id, Dict(inp_var_id => inp_branch_id), Dict(v2_var_id => v2_branch_id))
-        new_block_copy_id = 3
-        first_block_known_copy_id = 2
+        new_block_copy_id::UInt64 = 3
+        first_block_known_copy_id::UInt64 = 2
         @test new_solution_paths == Set()
 
         v2_children = nonzeroinds(sc.branch_children[v2_branch_id, :])
@@ -529,8 +529,8 @@ end
 
         const_block = ProgramBlock(SetConst(inp_type, [5]), inp_type, 0.0, [], v1_var_id, false)
         const_block_id = push!(sc.blocks, const_block)
-        new_solution_paths = add_new_block(sc, const_block_id, Dict(), Dict(v1_var_id => v1_branch_id))
-        const_block_copy_id = 4
+        new_solution_paths = add_new_block(sc, const_block_id, Dict{UInt64,UInt64}(), Dict(v1_var_id => v1_branch_id))
+        const_block_copy_id::UInt64 = 4
 
         @test new_solution_paths == Set([
             Path(

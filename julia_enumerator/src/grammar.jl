@@ -11,7 +11,6 @@ struct ContextualGrammar
     contextual_library::Dict{Program,Vector{Grammar}}
 end
 
-
 function deserialize_grammar(payload)
     log_variable = payload["logVariable"]
 
@@ -41,13 +40,11 @@ function deserialize_grammar(payload)
     Grammar(log_variable, productions, continuation_type)
 end
 
-
 function make_dummy_contextual(g::Grammar)
     contextual_library = Dict(e => [g for _ in arguments_of_type(t)] for (e, t, _) in g.library)
     cg = ContextualGrammar(g, g, contextual_library)
     prune_contextual_grammar(cg)
 end
-
 
 function _prune(expression, gs)
     t = closed_inference(expression)
@@ -74,7 +71,6 @@ function _prune(expression, gs)
     end
 end
 
-
 function prune_contextual_grammar(g::ContextualGrammar)
     ContextualGrammar(g.no_context, g.variable_context, Dict(e => _prune(e, gs) for (e, gs) in g.contextual_library))
 end
@@ -92,7 +88,6 @@ function deserialize_contextual_grammar(payload)
     prune_contextual_grammar(grammar)
 end
 
-
 function lse(l::Vector{Float64})::Float64
     if length(l) == 0
         error("LSE: Empty sequence")
@@ -102,7 +97,6 @@ function lse(l::Vector{Float64})::Float64
     largest = maximum(l)
     return largest + log(sum(exp(z - largest) for z in l))
 end
-
 
 function unifying_expressions(
     g::Grammar,
@@ -118,7 +112,7 @@ function unifying_expressions(
     #    (leaf, argument types, context with leaf return type unified with requested type, normalized log likelihood)
 
     if abstractors_only
-        variable_candidates = []
+        variable_candidates = Tuple{Program,Vector{Tp},Context,Float64}[]
     else
         variable_candidates = collect(skipmissing(map(enumerate(environment)) do (j, t)
             p = Index(j - 1)
@@ -154,37 +148,41 @@ function unifying_expressions(
         end
 
         nv = log(length(variable_candidates))
-        variable_candidates = [(p, t, k, ll - nv) for (p, t, k, ll) in variable_candidates]
+        variable_candidates =
+            Tuple{Program,Vector{Tp},Context,Float64}[(p, t, k, ll - nv) for (p, t, k, ll) in variable_candidates]
     end
 
-    grammar_candidates = collect(skipmissing(map(g.library) do (p, t, ll)
-        try
-            if abstractors_only && !haskey(all_abstractors, p)
-                return missing
+    grammar_candidates = collect(
+        Tuple{Program,Vector{Tp},Context,Float64},
+        skipmissing(map(g.library) do (p, t, ll)
+            try
+                if abstractors_only && !haskey(all_abstractors, p)
+                    return missing
+                end
+                if !might_unify(return_of_type(t), request)
+                    return missing
+                else
+                    new_context, t = instantiate(t, context)
+                    new_context = unify(new_context, return_of_type(t), request)
+                    (new_context, t) = apply_context(new_context, t)
+                    return (p, arguments_of_type(t), new_context, ll)
+                end
+            catch e
+                if isa(e, UnificationFailure)
+                    return missing
+                else
+                    rethrow()
+                end
             end
-            if !might_unify(return_of_type(t), request)
-                return missing
-            else
-                new_context, t = instantiate(t, context)
-                new_context = unify(new_context, return_of_type(t), request)
-                (new_context, t) = apply_context(new_context, t)
-                return (p, arguments_of_type(t), new_context, ll)
-            end
-        catch e
-            if isa(e, UnificationFailure)
-                return missing
-            else
-                rethrow()
-            end
-        end
-    end))
+        end),
+    )
 
     candidates = vcat(variable_candidates, grammar_candidates)
     if isempty(candidates)
-        return []
+        return Tuple{Program,Vector{Tp},Context,Float64}[]
     end
     z = lse([ll for (_, _, _, ll) in candidates])
-    return [(p, t, k, z - ll) for (p, t, k, ll) in candidates]
+    return Tuple{Program,Vector{Tp},Context,Float64}[(p, t, k, z - ll) for (p, t, k, ll) in candidates]
 end
 
 function following_expressions(g::Grammar, request)

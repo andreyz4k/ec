@@ -9,27 +9,35 @@ struct Task
     test_outputs::Any
 end
 
+function _test_one_example(p, xs, y)
+    try
+        run_analyzed_with_arguments(p, [], xs) == y
+    catch e
+        if isa(e, UnknownPrimitive)
+            error("Unknown primitive: $(e.name)")
+        elseif isa(e, InterruptException)
+            rethrow()
+        else
+            @error e
+            @error p
+            false
+        end
+    end
+end
+
 function supervised_task_checker(task::Task, p::Program)
     p_analized = analyze_evaluation(p)
-    if all(
-        try
-            run_analyzed_with_arguments(p_analized, [], xs) == y
-        catch e
-            if isa(e, UnknownPrimitive)
-                error("Unknown primitive: $(e.name)")
-            elseif isa(e, InterruptException)
-                rethrow()
-            else
-                @error e
-                @error p
-                false
-            end
-        end for (xs, y) in zip(vcat(task.train_inputs, task.test_inputs), vcat(task.train_outputs, task.test_outputs))
-    )
-        0.0
-    else
-        log(0)
+    for i in 1:length(task.train_inputs)
+        if !_test_one_example(p_analized, task.train_inputs[i], task.train_outputs[i])
+            return log(0)
+        end
     end
+    for i in 1:length(task.test_inputs)
+        if !_test_one_example(p_analized, task.test_inputs[i], task.test_outputs[i])
+            return log(0)
+        end
+    end
+    return 0.0
 end
 
 function build_task(handler, name, task_type, examples, test_examples)

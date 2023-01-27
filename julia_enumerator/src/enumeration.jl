@@ -1,8 +1,8 @@
 
 using DataStructures
 
-get_enumeration_timeout(timeout) = time() + timeout
-enumeration_timed_out(timeout) = time() > timeout
+get_enumeration_timeout(timeout)::Float64 = time() + timeout
+enumeration_timed_out(timeout)::Bool = time() > timeout
 
 get_argument_requests(::Index, argument_types, cg) = [(at, cg.variable_context) for at in argument_types]
 get_argument_requests(::FreeVar, argumet_types, cg) = []
@@ -235,11 +235,11 @@ function capture_free_vars(sc::SolutionContext, p::FreeVar, context)
     FreeVar(t, var_id), [(var_id, t)]
 end
 
-function try_run_reversed_with_value(reverse_program, value)
+function try_run_reversed_with_value(reverse_program::Function, value)
     try_run_function(reverse_program, [value])
 end
 
-function try_run_reversed_with_value(reverse_program, value::EitherOptions)
+function try_run_reversed_with_value(reverse_program::Function, value::EitherOptions)
     hashes = []
     outputs = []
     for (h, val) in value.options
@@ -264,17 +264,22 @@ function try_get_reversed_values(sc::SolutionContext, p::Program, context, outpu
     p, reverse_program = get_reversed_filled_program(p)
     out_entry = sc.entries[sc.branch_entries[output_branch_id]]
 
-    calculated_values = []
+    new_p, new_vars = capture_free_vars(sc, p, context)
+    new_vars_count = length(new_vars)
+
+    calculated_values = [[] for _ in 1:new_vars_count]
     for value in out_entry.values
         calculated_value = try_run_reversed_with_value(reverse_program, value)
-        push!(calculated_values, calculated_value)
+        for i in 1:new_vars_count
+            push!(calculated_values[i], calculated_value[i])
+        end
     end
 
-    new_p, new_vars = capture_free_vars(sc, p, context)
-
     new_entries = []
-    for ((var_id, t), values) in zip(new_vars, zip(calculated_values...))
-        values = collect(values)
+
+    for i in 1:new_vars_count
+        var_id, t = new_vars[i]
+        values = calculated_values[i]
         complexity_summary = get_complexity_summary(values, t)
         t_id = push!(sc.types, t)
         if any(isa(value, EitherOptions) for value in values)
@@ -293,8 +298,8 @@ function try_get_reversed_values(sc::SolutionContext, p::Program, context, outpu
         out_entry.complexity + sum(entry.complexity for (_, entry) in new_entries)
 
     new_branches = []
-    either_branch_ids = Int[]
-    either_var_ids = Int[]
+    either_branch_ids = UInt64[]
+    either_var_ids = UInt64[]
 
     if is_known
         out_related_complexity_branches = sc.related_explained_complexity_branches[output_branch_id, :]
@@ -367,8 +372,8 @@ function create_wrapping_block(
     input_var,
     input_branch,
     output_vars,
-    var_id,
-    branch_id,
+    var_id::UInt64,
+    branch_id::UInt64,
 )
     unknown_type_id = [t_id for (v_id, _, t_id) in output_vars if v_id == var_id][1]
     new_var = create_next_var(sc)
@@ -401,13 +406,17 @@ function create_wrapping_block(
     return wrapper_block_id, input_branches, target_outputs
 end
 
-function create_reversed_block(sc, p::Program, context, input_var::Tuple{Int,Int}, cost)
+function create_reversed_block(sc, p::Program, context, input_var::Tuple{UInt64,UInt64}, cost)
     new_p, reverse_program, output_vars, either_var_ids, either_branch_ids =
         try_get_reversed_values(sc, p, context, input_var[2], cost, true)
     block = ReverseProgramBlock(new_p, reverse_program, cost, [input_var[1]], [v_id for (v_id, _, _) in output_vars])
     if isempty(either_var_ids)
         block_id = push!(sc.blocks, block)
-        return [(block_id, Dict(input_var[1] => input_var[2]), Dict(v_id => b_id for (v_id, b_id, _) in output_vars))]
+        return [(
+            block_id,
+            Dict{UInt64,UInt64}(input_var[1] => input_var[2]),
+            Dict{UInt64,UInt64}(v_id => b_id for (v_id, b_id, _) in output_vars),
+        )]
     else
         results = []
         for (var_id, branch_id) in zip(either_var_ids, either_branch_ids)
@@ -420,7 +429,7 @@ function create_reversed_block(sc, p::Program, context, input_var::Tuple{Int,Int
     end
 end
 
-function try_run_function(f, xs)
+function try_run_function(f::Function, xs)
     try
         f(xs...)
     catch e
@@ -455,17 +464,17 @@ function try_run_block(sc::SolutionContext, block::ProgramBlock, fixed_branches,
     for var_id in block.input_vars
         fixed_branch_id = fixed_branches[var_id]
         entry = sc.entries[sc.branch_entries[fixed_branch_id]]
-        for (i, input) in enumerate(entry.values)
-            inputs[i][var_id] = input
+        for i in 1:sc.example_count
+            inputs[i][var_id] = entry.values[i]
         end
     end
 
     out_branch_id = target_output[block.output_var]
     expected_output = sc.entries[sc.branch_entries[out_branch_id]]
-    out_matcher = get_matching_seq(expected_output)
 
     outs = []
-    for (xs, matcher) in zip(inputs, out_matcher)
+    for i in 1:sc.example_count
+        xs = inputs[i]
         out_value = try
             try_evaluate_program(block.analized_p, [], xs)
         catch e
@@ -475,7 +484,7 @@ function try_run_block(sc::SolutionContext, block::ProgramBlock, fixed_branches,
             end
             rethrow()
         end
-        if isnothing(out_value) || !matcher(out_value)
+        if isnothing(out_value) || !match_at_index(expected_output, i, out_value)
             throw(EnumerationException())
         end
         push!(outs, out_value)
@@ -485,26 +494,31 @@ end
 
 function try_run_block(sc::SolutionContext, block::ReverseProgramBlock, fixed_branches, target_output)
     inputs = []
+
+    for _ in 1:sc.example_count
+        push!(inputs, [])
+    end
     for var_id in block.input_vars
         fixed_branch_id = fixed_branches[var_id]
         entry = sc.entries[sc.branch_entries[fixed_branch_id]]
-        push!(inputs, entry.values)
+        for i in 1:sc.example_count
+            push!(inputs[i], entry.values[i])
+        end
     end
-    out_matchers = []
-    out_branches = []
+
+    out_entries = []
+    outputs_count = length(block.output_vars)
 
     for var_id in block.output_vars
         out_branch_id = target_output[var_id]
-        push!(out_branches, out_branch_id)
         expected_output = sc.entries[sc.branch_entries[out_branch_id]]
-        out_matcher = get_matching_seq(expected_output)
-        push!(out_matchers, out_matcher)
+        push!(out_entries, expected_output)
     end
 
-    outs = []
-    input_vals = zip(inputs...)
+    outs = Vector{Any}[[] for _ in 1:outputs_count]
 
-    for (xs, matchers) in zip(input_vals, zip(out_matchers...))
+    for i in 1:sc.example_count
+        xs = inputs[i]
         out_values = try
             try_run_function(block.reverse_program, xs)
         catch e
@@ -515,12 +529,13 @@ function try_run_block(sc::SolutionContext, block::ReverseProgramBlock, fixed_br
         if isnothing(out_values)
             throw(EnumerationException())
         end
-        for (out_value, matcher) in zip(out_values, matchers)
-            if !matcher(out_value)
+        for j in 1:outputs_count
+            v = out_values[j]
+            if !match_at_index(out_entries[j], i, v)
                 throw(EnumerationException())
             end
+            push!(outs[j], v)
         end
-        push!(outs, out_values)
     end
     return value_updates(sc, block, target_output, outs, fixed_branches)
 end
@@ -528,26 +543,24 @@ end
 function try_run_block(sc::SolutionContext, block::WrapEitherBlock, fixed_branches, target_output)
     inputs = []
     main_block = block.main_block
+
+    for _ in 1:sc.example_count
+        push!(inputs, [])
+    end
     for var_id in main_block.input_vars
         fixed_branch_id = fixed_branches[var_id]
         entry = sc.entries[sc.branch_entries[fixed_branch_id]]
-        push!(inputs, entry.values)
-    end
-    out_matchers = []
-    out_branches = []
-
-    for var_id in main_block.output_vars
-        out_branch_id = target_output[var_id]
-        push!(out_branches, out_branch_id)
-        expected_output = sc.entries[sc.branch_entries[out_branch_id]]
-        out_matcher = get_matching_seq(expected_output)
-        push!(out_matchers, out_matcher)
+        for i in 1:sc.example_count
+            push!(inputs[i], entry.values[i])
+        end
     end
 
-    outs = []
-    input_vals = zip(inputs...)
+    outputs_count = length(block.output_vars)
 
-    for xs in input_vals
+    outs = Vector{Any}[[] for _ in 1:outputs_count]
+
+    for i in 1:sc.example_count
+        xs = inputs[i]
         out_values = try
             try_run_function(main_block.reverse_program, xs)
         catch e
@@ -558,32 +571,36 @@ function try_run_block(sc::SolutionContext, block::WrapEitherBlock, fixed_branch
         if isnothing(out_values)
             throw(EnumerationException())
         end
-        push!(outs, out_values)
+        for j in 1:outputs_count
+            push!(outs[j], out_values[j])
+        end
     end
-    targets = Dict(out_var => collect(values) for (out_var, values) in zip(main_block.output_vars, zip(outs...)))
+
     fixer_branch_id = fixed_branches[block.input_vars[2]]
     fixer_entry = sc.entries[sc.branch_entries[fixer_branch_id]]
+    fixer_index = findfirst(isequal(block.fixer_var), block.output_vars)
 
-    fixed_hashes =
-        [_get_fixed_hashes(options, value) for (options, value) in zip(targets[block.fixer_var], fixer_entry.values)]
+    fixed_hashes = [_get_fixed_hashes(outs[fixer_index][j], fixer_entry.values[j]) for j in 1:sc.example_count]
 
-    fixed_values = Dict()
-    for (var_id, target_values) in targets
-        if var_id == block.fixer_var
-            fixed_values[var_id] = fixer_entry.values
+    outputs = Vector{Any}[]
+    for i in 1:outputs_count
+        var_id = block.output_vars[i]
+        target_values = outs[i]
+        if i == fixer_index
+            fixed_values = fixer_entry.values
         else
-            fixed_values[var_id] = _fix_option_hashes(fixed_hashes, target_values)
+            fixed_values = _fix_option_hashes(fixed_hashes, target_values)
         end
         out_branch_id = target_output[var_id]
         expected_output = sc.entries[sc.branch_entries[out_branch_id]]
-        out_matcher = get_matching_seq(expected_output)
-        for (out_value, matcher) in zip(fixed_values[var_id], out_matcher)
-            if !matcher(out_value)
+        for j in 1:sc.example_count
+            v = fixed_values[j]
+            if !match_at_index(expected_output, j, v)
                 throw(EnumerationException())
             end
         end
+        push!(outputs, fixed_values)
     end
-    outputs = collect(zip([fixed_values[v_id] for v_id in block.output_vars]...))
     return value_updates(sc, block, target_output, outputs, fixed_branches)
 end
 
@@ -653,8 +670,7 @@ function add_new_block(sc::SolutionContext, block_id, inputs, target_output)
     if sc.verbose
         @info "Adding block $block_id $(sc.blocks[block_id]) $inputs $target_output"
     end
-    block = sc.blocks[block_id]
-    update_prev_follow_vars(sc, block)
+    update_prev_follow_vars(sc, block_id)
     if all(sc.branch_is_explained[branch_id] for (var_id, branch_id) in inputs)
         if length(inputs) > 1
             error("Not implemented, fix active constraints")
@@ -662,6 +678,7 @@ function add_new_block(sc::SolutionContext, block_id, inputs, target_output)
         try_run_block_with_downstream(sc, block_id, inputs, target_output, true, Dict())
         # assert_context_consistency(sc)
     else
+        block = sc.blocks[block_id]
         _save_block_branch_connections(sc, block_id, block, inputs, Int[b_id for (_, b_id) in target_output])
         if all(sc.branch_is_unknown[branch_id] for (var_id, branch_id) in inputs)
             update_complexity_factors_unknown(sc, inputs, target_output[block.output_var])
@@ -733,8 +750,8 @@ function enumeration_iteration_finished_input(sc, bp)
             false,
         )
         new_block_id = push!(sc.blocks, new_block)
-        input_branches = Dict(var_id => branch_id for (var_id, branch_id) in bp.input_vars)
-        target_output = Dict(bp.output_var[1] => bp.output_var[2])
+        input_branches = Dict{UInt64,UInt64}(var_id => branch_id for (var_id, branch_id) in bp.input_vars)
+        target_output = Dict{UInt64,UInt64}(bp.output_var[1] => bp.output_var[2])
         return [(new_block_id, input_branches, target_output)]
     end
 end
@@ -787,11 +804,11 @@ function enumeration_iteration_finished_output(sc::SolutionContext, bp::BlockPro
     else
         p_type = arrow(arg_types..., return_of_type(bp.request))
     end
-    input_branches = Dict(var_id => branch_id for (var_id, branch_id, _) in input_vars)
+    input_branches = Dict{UInt64,UInt64}(var_id => branch_id for (var_id, branch_id, _) in input_vars)
     new_block =
         ProgramBlock(p, p_type, state.cost, [var_id for (var_id, _, _) in input_vars], bp.output_var[1], is_reverse)
     block_id = push!(sc.blocks, new_block)
-    return [(block_id, input_branches, Dict(bp.output_var[1] => bp.output_var[2]))]
+    return [(block_id, input_branches, Dict{UInt64,UInt64}(bp.output_var[1] => bp.output_var[2]))]
 end
 
 function enumeration_iteration_finished(sc::SolutionContext, finalizer, g, bp::BlockPrototype, br_id)
@@ -814,15 +831,14 @@ function enumeration_iteration_finished(sc::SolutionContext, finalizer, g, bp::B
 end
 
 function enumeration_iteration(
-    run_context,
     sc::SolutionContext,
     finalizer,
-    maxFreeParameters,
-    g,
+    maxFreeParameters::Int,
+    g::ContextualGrammar,
     q,
     bp::BlockPrototype,
-    br_id,
-    is_explained,
+    br_id::UInt64,
+    is_explained::Bool,
 )
     if is_reversible(bp.state.skeleton) || state_finished(bp.state)
         if sc.verbose
@@ -857,22 +873,21 @@ function enumeration_iteration(
 end
 
 function enumerate_for_task(
-    run_context::Dict{String,Any},
     g::ContextualGrammar,
-    type_weights,
-    task,
-    maximum_frontier,
-    verbose = false,
+    type_weights::Dict{String,Any},
+    task::Task,
+    maximum_frontier::Int,
+    timeout::Int,
+    verbose::Bool = false,
 )
     #    Returns, for each task, (program,logPrior) as well as the total number of enumerated programs
-    enumeration_timeout = get_enumeration_timeout(run_context["timeout"])
-    run_context["timeout_checker"] = () -> enumeration_timed_out(enumeration_timeout)
+    enumeration_timeout = get_enumeration_timeout(timeout)
 
-    sc::SolutionContext = create_starting_context(task, type_weights, verbose)
+    sc = create_starting_context(task, type_weights, verbose)
 
     # Store the hits in a priority queue
     # We will only ever maintain maximumFrontier best solutions
-    hits = PriorityQueue()
+    hits = PriorityQueue{HitResult,Float64}()
 
     maxFreeParameters = 2
 
@@ -912,9 +927,15 @@ function enumerate_for_task(
         (br_id, is_explained), pr = peek(pq)
         q = (is_explained ? sc.branch_queues_explained : sc.branch_queues_unknown)[br_id]
         bp = dequeue!(q)
-        enumeration_iteration(run_context, sc, finalizer, maxFreeParameters, g, q, bp, br_id, is_explained)
+        enumeration_iteration(sc, finalizer, maxFreeParameters, g, q, bp, br_id, is_explained)
     end
 
+    log_results(sc, hits)
+
+    (collect(keys(hits)), sc.total_number_of_enumerated_programs)
+end
+
+function log_results(sc, hits)
     @info(collect(keys(hits)))
     @info "Branches with incoming paths $(length(sc.incoming_paths.values[1]))"
     @info "Total incoming paths $(sum(length(v) for v in values(sc.incoming_paths.values[1])))"
@@ -941,6 +962,4 @@ function enumerate_for_task(
 
     @info "Total incoming paths length $(sum(sum(length(path.main_path) + length(path.side_vars) for path in paths; init=0) for paths in values(sc.incoming_paths.values[1]); init=0))"
     @info "Total number of enumerated programs $(sc.total_number_of_enumerated_programs)"
-
-    (collect(keys(hits)), sc.total_number_of_enumerated_programs)
 end

@@ -56,7 +56,7 @@ Base.:(==)(p::Hole, q::Hole) = p.t == q.t && p.grammar == q.grammar
 
 struct FreeVar <: Program
     t::Tp
-    var_id::Union{Int,Nothing,String}
+    var_id::Union{UInt64,Nothing,String}
 end
 Base.hash(p::FreeVar, h::UInt64) = hash(p.t, hash(p.var_id, h))
 Base.:(==)(p::FreeVar, q::FreeVar) = p.t == q.t && p.var_id == q.var_id
@@ -69,7 +69,7 @@ Base.hash(p::SetConst, h::UInt64) = hash(p.t, hash(p.value, h))
 Base.:(==)(p::SetConst, q::SetConst) = p.t == q.t && p.value == q.value
 
 struct LetClause <: Program
-    var_id::Int
+    var_id::UInt64
     v::Program
     b::Program
 end
@@ -77,8 +77,8 @@ Base.hash(p::LetClause, h::UInt64) = hash(p.var_id, h) + hash(p.v, h) + hash(p.b
 Base.:(==)(p::LetClause, q::LetClause) = p.var_id == q.var_id && p.v == q.v && p.b == q.b
 
 struct LetRevClause <: Program
-    var_ids::Vector{Int}
-    inp_var_id::Union{Int,String}
+    var_ids::Vector{UInt64}
+    inp_var_id::Union{UInt64,String}
     v::Program
     rev_v::Any
     b::Program
@@ -87,9 +87,9 @@ Base.hash(p::LetRevClause, h::UInt64) = hash(p.var_ids, h) + hash(p.v, h) + hash
 Base.:(==)(p::LetRevClause, q::LetRevClause) = p.var_ids == q.var_ids && p.v == q.v && p.b == q.b
 
 struct WrapEither <: Program
-    var_ids::Vector{Int}
-    inp_var_id::Union{Int,String}
-    fixer_var_id::Int
+    var_ids::Vector{UInt64}
+    inp_var_id::Union{UInt64,String}
+    fixer_var_id::UInt64
     v::Program
     rev_v::Any
     f::FreeVar
@@ -119,7 +119,7 @@ show_program(p::Apply, is_function::Bool) =
     end
 show_program(p::Primitive, is_function::Bool) = [p.name]
 show_program(p::FreeVar, is_function::Bool) =
-    isnothing(p.var_id) ? ["FREE_VAR"] : ["\$", (isa(p.var_id, Int) ? "v" : ""), "$(p.var_id)"]
+    isnothing(p.var_id) ? ["FREE_VAR"] : ["\$", (isa(p.var_id, UInt64) ? "v" : ""), "$(p.var_id)"]
 show_program(p::Hole, is_function::Bool) = ["??(", p.t, ")"]
 show_program(p::Invented, is_function::Bool) = vcat(["#"], show_program(p.b, false))
 show_program(p::SetConst, is_function::Bool) = vcat(["Const("], show_type(p.t, true), [", ", p.value, ")"])
@@ -130,7 +130,7 @@ show_program(p::LetRevClause, is_function::Bool) = vcat(
         "let ",
         join(["\$v$v" for v in p.var_ids], ", "),
         " = rev(\$",
-        (isa(p.inp_var_id, Int) ? "v" : ""),
+        (isa(p.inp_var_id, UInt64) ? "v" : ""),
         "$(p.inp_var_id) = ",
     ],
     show_program(p.v, false),
@@ -144,7 +144,7 @@ show_program(p::WrapEither, is_function::Bool) = vcat(
         " = wrap(let ",
         join(["\$v$v" for v in p.var_ids], ", "),
         " = rev(\$",
-        (isa(p.inp_var_id, Int) ? "v" : ""),
+        (isa(p.inp_var_id, UInt64) ? "v" : ""),
         "$(p.inp_var_id) = ",
     ],
     show_program(p.v, false),
@@ -162,8 +162,8 @@ struct ProgramBlock <: AbstractProgramBlock
     analized_p::Function
     type::Tp
     cost::Float64
-    input_vars::Vector{Int}
-    output_var::Int
+    input_vars::Vector{UInt64}
+    output_var::UInt64
     is_reversible::Bool
 end
 
@@ -199,8 +199,8 @@ struct ReverseProgramBlock <: AbstractProgramBlock
     p::Program
     reverse_program::Any
     cost::Float64
-    input_vars::Vector{Int}
-    output_vars::Vector{Int}
+    input_vars::Vector{UInt64}
+    output_vars::Vector{UInt64}
 end
 
 Base.show(io::IO, block::ReverseProgramBlock) =
@@ -217,10 +217,10 @@ Base.hash(block::ReverseProgramBlock, h::UInt64) =
 
 struct WrapEitherBlock <: AbstractProgramBlock
     main_block::ReverseProgramBlock
-    fixer_var::Int
+    fixer_var::UInt64
     cost::Float64
-    input_vars::Vector{Int}
-    output_vars::Vector{Int}
+    input_vars::Vector{UInt64}
+    output_vars::Vector{UInt64}
 end
 
 Base.:(==)(block::WrapEitherBlock, other::WrapEitherBlock) =
@@ -433,23 +433,25 @@ function _application_parse(p::Apply, arguments)
 end
 _application_parse(p::Program, args) = (p, args)
 
-function analyze_evaluation(p::Abstraction)
+function analyze_evaluation(p::Abstraction)::Function
     b = analyze_evaluation(p.b)
     (environment, workspace) -> (x -> (b(vcat([x], environment), workspace)))
 end
 
 analyze_evaluation(p::Index) = (environment, workspace) -> environment[p.n+1]
 
-analyze_evaluation(p::FreeVar) = (environment, workspace) -> workspace[p.var_id]
+analyze_evaluation(p::Index)::Function = (environment, workspace) -> environment[p.n+1]
 
-analyze_evaluation(p::Primitive) = (_, _) -> p.code
+analyze_evaluation(p::FreeVar)::Function = (environment, workspace) -> workspace[p.var_id]
 
-function analyze_evaluation(p::Invented)
+analyze_evaluation(p::Primitive)::Function = (_, _) -> p.code
+
+function analyze_evaluation(p::Invented)::Function
     b = analyze_evaluation(p.b)
     (_, _) -> b([], Dict())
 end
 
-function analyze_evaluation(p::Apply)
+function analyze_evaluation(p::Apply)::Function
     if isa(p.f, Apply) && isa(p.f.f, Apply) && isa(p.f.f.f, Primitive) && p.f.f.f.name == "if"
         branch = analyze_evaluation(p.f.f.x)
         yes = analyze_evaluation(p.f.x)
@@ -463,15 +465,15 @@ function analyze_evaluation(p::Apply)
     end
 end
 
-analyze_evaluation(p::SetConst) = (_, _) -> p.value
+analyze_evaluation(p::SetConst)::Function = (_, _) -> p.value
 
-function analyze_evaluation(p::LetClause)
+function analyze_evaluation(p::LetClause)::Function
     v = analyze_evaluation(p.v)
     b = analyze_evaluation(p.b)
     (environment, workspace) -> b(environment, merge(workspace, Dict(p.var_id => v(environment, workspace))))
 end
 
-function analyze_evaluation(p::LetRevClause)
+function analyze_evaluation(p::LetRevClause)::Function
     b = analyze_evaluation(p.b)
     (environment, workspace) -> begin
         vals = p.rev_v(workspace[p.inp_var_id])
@@ -479,7 +481,7 @@ function analyze_evaluation(p::LetRevClause)
     end
 end
 
-function analyze_evaluation(p::WrapEither)
+function analyze_evaluation(p::WrapEither)::Function
     b = analyze_evaluation(p.b)
     f = analyze_evaluation(p.f)
     (environment, workspace) -> begin
@@ -502,11 +504,11 @@ function analyze_evaluation(p::WrapEither)
     end
 end
 
-function analyze_evaluation(p::ExceptionProgram)
+function analyze_evaluation(p::ExceptionProgram)::Function
     (environment, workspace) -> error("Inapplicable program")
 end
 
-function run_analyzed_with_arguments(p, arguments, workspace)
+function run_analyzed_with_arguments(@nospecialize(p::Function), arguments, workspace)
     l = p([], workspace)
     for x in arguments
         l = l(x)
