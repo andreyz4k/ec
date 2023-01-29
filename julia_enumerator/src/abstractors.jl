@@ -36,7 +36,7 @@ function _get_reversed_filled_program(p::Invented, arguments)
     end
     return p, rev_b, updated_args, filled_types
 end
-noop(a) = (a,)
+noop(a)::Vector{Any} = [a]
 function _get_reversed_filled_program(p::Hole, arguments)
     return FreeVar(p.t, nothing), noop, arguments, [p.t]
 end
@@ -69,9 +69,9 @@ function generic_reverse2(prim, rev_function)
     function _generic_reverse(arguments)
         fill_a, rev_a, filled_types_a = arguments[end]
         fill_b, rev_b, filled_types_b = arguments[end-1]
-        function _reverse_function(value)
+        function _reverse_function(value)::Vector{Any}
             r_a, r_b = rev_function(value)
-            return rev_a(r_a)..., rev_b(r_b)...
+            return vcat(rev_a(r_a), rev_b(r_b))
         end
         return prim, _reverse_function, copy(arguments), []
     end
@@ -81,9 +81,9 @@ end
 function generic_reverse1(prim, rev_function)
     function _generic_reverse(arguments)
         fill_a, rev_a, filled_types_a = arguments[end]
-        function _reverse_function(value)
-            r_a, = rev_function(value)
-            return rev_a(r_a)
+        function _reverse_function(value)::Vector{Any}
+            r_a = rev_function(value)
+            return rev_a(r_a[1])
         end
         return prim, _reverse_function, copy(arguments), []
     end
@@ -114,20 +114,20 @@ macro define_custom_reverse_primitive(name, reverse_function)
     end
 end
 
-function reverse_repeat(value)
+function reverse_repeat(value)::Vector{Any}
     if any(v != value[1] for v in value)
         error("Elements are not equal")
     end
-    return value[1], length(value)
+    return [value[1], length(value)]
 end
 
 @define_reverse_primitive "repeat" reverse_repeat
 
-function reverse_cons(value)
+function reverse_cons(value)::Vector{Any}
     if isempty(value)
         error("List is empty")
     end
-    return value[1], value[2:end]
+    return [value[1], value[2:end]]
 end
 
 @define_reverse_primitive "cons" reverse_cons
@@ -173,8 +173,8 @@ function reverse_map(name, type, zip_primitive)
     function _reverse_map(arguments)
         fill_f, rev_f, filled_types_f = arguments[end]
         fill_x, rev_x, filled_types_x = arguments[end-1]
-        function __reverse_map(value)
-            results = tuple([[] for _ in filled_types_f]...)
+        function __reverse_map(value)::Vector{Any}
+            results = [[] for _ in filled_types_f]
             for values in map(rev_f, value)
                 for (i, v) in enumerate(values)
                     push!(results[i], v)
@@ -197,7 +197,7 @@ end
 @define_custom_reverse_primitive "map" reverse_map("map", tlist, every_primitive["zip2"])
 @define_custom_reverse_primitive "map_grid" reverse_map("map_grid", tgrid, every_primitive["zip_grid2"])
 
-function reverse_concat(value)
+function reverse_concat(value)::Vector{Any}
     options_h = Dict()
     options_t = Dict()
     for i in range(0, length(value))
@@ -220,40 +220,40 @@ function reverse_concat(value)
     else
         EitherOptions(options_t)
     end
-    return out_h, out_t
+    return [out_h, out_t]
 end
 
 @define_reverse_primitive "concat" reverse_concat
 
-function reverse_range(value)
+function reverse_range(value)::Vector{Any}
     for (i, v) in enumerate(value)
         if v != i - 1
             error("Invalid value")
         end
     end
-    return (length(value) - 1,)
+    return [length(value) - 1]
 end
 
 @define_reverse_primitive "range" reverse_range
 
-function reverse_rows_to_grid(value)
-    ([value[i, :] for i in (1:size(value, 1))],)
+function reverse_rows_to_grid(value)::Vector{Any}
+    [[value[i, :] for i in (1:size(value, 1))]]
 end
 
 @define_reverse_primitive "rows_to_grid" reverse_rows_to_grid
 
-function reverse_columns_to_grid(value)
-    ([value[:, i] for i in (1:size(value, 2))],)
+function reverse_columns_to_grid(value)::Vector{Any}
+    [[value[:, i] for i in (1:size(value, 2))]]
 end
 
 @define_reverse_primitive "columns_to_grid" reverse_columns_to_grid
 
-function reverse_rows(value)
-    (vcat([r' for r in value]...),)
+function reverse_rows(value)::Vector{Any}
+    [vcat([r' for r in value]...)]
 end
 
-function reverse_columns(value)
-    (hcat(value...),)
+function reverse_columns(value)::Vector{Any}
+    [hcat(value...)]
 end
 
 @define_reverse_primitive "rows" reverse_rows

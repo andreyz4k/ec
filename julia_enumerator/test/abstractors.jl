@@ -62,15 +62,15 @@ import Redis
         skeleton = Apply(Apply(every_primitive["repeat"], Hole(tint, nothing)), Hole(tint, nothing))
         filled_p, rev_p = get_reversed_filled_program(skeleton)
         @test filled_p == Apply(Apply(every_primitive["repeat"], FreeVar(tint, nothing)), FreeVar(tint, nothing))
-        @test rev_p([[1, 2, 3], [1, 2, 3]]) == ([1, 2, 3], 2)
-        @test rev_p([1, 1, 1]) == (1, 3)
+        @test rev_p([[1, 2, 3], [1, 2, 3]]) == [[1, 2, 3], 2]
+        @test rev_p([1, 1, 1]) == [1, 3]
     end
 
     @testset "Reverse cons" begin
         skeleton = Apply(Apply(every_primitive["cons"], Hole(tint, nothing)), Hole(tint, nothing))
         filled_p, rev_p = get_reversed_filled_program(skeleton)
         @test filled_p == Apply(Apply(every_primitive["cons"], FreeVar(tint, nothing)), FreeVar(tint, nothing))
-        @test rev_p([1, 2, 3]) == (1, [2, 3])
+        @test rev_p([1, 2, 3]) == [1, [2, 3]]
     end
 
     @testset "Reverse combined abstractors" begin
@@ -83,7 +83,7 @@ import Redis
             Apply(every_primitive["cons"], FreeVar(tint, nothing)),
             Apply(Apply(every_primitive["repeat"], FreeVar(tint, nothing)), FreeVar(tint, nothing)),
         )
-        @test rev_p([1, 2, 2, 2]) == (1, 2, 3)
+        @test rev_p([1, 2, 2, 2]) == [1, 2, 3]
     end
 
     @testset "Reverse map" begin
@@ -107,7 +107,7 @@ import Redis
             ),
             Apply(Apply(every_primitive["zip2"], FreeVar(tlist(tint), nothing)), FreeVar(tlist(tint), nothing)),
         )
-        @test rev_p([[1, 1, 1], [2, 2], [4]]) == ([1, 2, 4], [3, 2, 1])
+        @test rev_p([[1, 1, 1], [2, 2], [4]]) == [[1, 2, 4], [3, 2, 1]]
     end
 
     @testset "Reverse nested map" begin
@@ -156,15 +156,15 @@ import Redis
             ),
         )
         @test rev_p([[[1, 1, 1], [2, 2], [4]], [[3, 3, 3, 3], [2, 2, 2], [8, 8, 8]]]) ==
-              ([[1, 2, 4], [3, 2, 8]], [[3, 2, 1], [4, 3, 3]])
+              [[[1, 2, 4], [3, 2, 8]], [[3, 2, 1], [4, 3, 3]]]
     end
 
     @testset "Reverse range" begin
         skeleton = Apply(every_primitive["range"], Hole(tint, nothing))
         filled_p, rev_p = get_reversed_filled_program(skeleton)
         @test filled_p == Apply(every_primitive["range"], FreeVar(tint, nothing))
-        @test rev_p([0, 1, 2]) == (2,)
-        @test rev_p([]) == (-1,)
+        @test rev_p([0, 1, 2]) == [2]
+        @test rev_p([]) == [-1]
     end
 
     @testset "Reverse map with range" begin
@@ -177,7 +177,7 @@ import Redis
             Apply(every_primitive["map"], Abstraction(Apply(every_primitive["range"], Index(0)))),
             FreeVar(tlist(tint), nothing),
         )
-        @test rev_p([[0, 1, 2], [0, 1], [0, 1, 2, 3]]) == ([2, 1, 3],)
+        @test rev_p([[0, 1, 2], [0, 1], [0, 1, 2, 3]]) == [[2, 1, 3]]
     end
 
     @testset "Invented abstractor" begin
@@ -190,7 +190,7 @@ import Redis
         filled_p, rev_p = get_reversed_filled_program(skeleton)
         @test filled_p ==
               Apply(Apply(Apply(expression, FreeVar(t0, nothing)), FreeVar(tlist(t0), nothing)), FreeVar(tint, nothing))
-        @test rev_p([[1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2, 3]]) == (1, [2, 3], 4)
+        @test rev_p([[1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2, 3]]) == [1, [2, 3], 4]
     end
 
     @testset "Invented abstractor with range" begin
@@ -202,7 +202,7 @@ import Redis
         @test is_reversible(skeleton)
         filled_p, rev_p = get_reversed_filled_program(skeleton)
         @test filled_p == Apply(Apply(expression, FreeVar(tint, nothing)), FreeVar(tint, nothing))
-        @test rev_p([[0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 3]]) == (3, 4)
+        @test rev_p([[0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 3]]) == [3, 4]
     end
 
     @testset "Invented abstractor with range in map" begin
@@ -232,6 +232,6 @@ import Redis
             Apply(Apply(every_primitive["zip2"], FreeVar(tlist(tint), nothing)), FreeVar(tlist(tint), nothing)),
         )
         @test rev_p([[[0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 3]], [[0, 1, 2], [0, 1, 2]]]) ==
-              ([3, 2], [4, 2])
+              [[3, 2], [4, 2]]
     end
 end
