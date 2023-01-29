@@ -751,25 +751,15 @@ function _update_prev_follow_vars(sc::SolutionContext, bl::ProgramBlock)
     if isempty(bl.input_vars)
         return
     end
-    inp_prev_vars = reduce(any, sc.previous_vars[:, bl.input_vars], dims = 2)
-    subassign!(sc.previous_vars, inp_prev_vars, :, bl.output_var; mask = inp_prev_vars)
-    out_foll_vars = sc.previous_vars[bl.output_var, :]
-    for inp_var_id in bl.input_vars
-        subassign!(sc.previous_vars, out_foll_vars, inp_var_id, :; mask = out_foll_vars)
-    end
+    inp_prev_vars = nonzeroinds(reduce(any, sc.previous_vars[:, bl.input_vars], dims = 2))
+    out_foll_vars = nonzeroinds(sc.previous_vars[bl.output_var, :])
+    sc.previous_vars[inp_prev_vars, out_foll_vars] = 1
 end
 
 function _update_prev_follow_vars(sc, bl::Union{ReverseProgramBlock,WrapEitherBlock})
-    inp_prev_vars = reduce(any, sc.previous_vars[:, bl.input_vars], dims = 2)
-    out_foll_vars = reduce(any, sc.previous_vars[bl.output_vars, :], dims = 1; desc = Descriptor())
-    # for inp_var_id in inp_vars
-    #     subassign!(sc.previous_vars, out_foll_vars', inp_var_id, :; mask=out_foll_vars')
-    # end
-    out_foll_var_inds = nonzeroinds(out_foll_vars)
-    sc.previous_vars[bl.input_vars, out_foll_var_inds] = 1
-    for out_var_id in bl.output_vars
-        subassign!(sc.previous_vars, inp_prev_vars, :, out_var_id; mask = inp_prev_vars)
-    end
+    inp_prev_vars = nonzeroinds(reduce(any, sc.previous_vars[:, bl.input_vars], dims = 2))
+    out_foll_vars = nonzeroinds(reduce(any, sc.previous_vars[bl.output_vars, :], dims = 1; desc = Descriptor()))
+    sc.previous_vars[inp_prev_vars, out_foll_vars] = 1
 end
 
 function vars_in_loop(sc::SolutionContext, known_var_id, unknown_var_id)

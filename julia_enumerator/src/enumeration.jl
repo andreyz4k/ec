@@ -630,7 +630,7 @@ function try_run_block_with_downstream(
     new_paths = merge(created_paths, block_created_paths)
 
     if is_new_block
-        _save_block_branch_connections(sc, block_id, block, fixed_branches, Int[b_id for (_, b_id) in out_branches])
+        _save_block_branch_connections(sc, block_id, block, fixed_branches, UInt64[b_id for (_, b_id) in out_branches])
     end
     if is_new_block || set_explained
         update_complexity_factors_known(sc, block, fixed_branches, out_branches)
@@ -679,7 +679,7 @@ function add_new_block(sc::SolutionContext, block_id, inputs, target_output)
         # assert_context_consistency(sc)
     else
         block = sc.blocks[block_id]
-        _save_block_branch_connections(sc, block_id, block, inputs, Int[b_id for (_, b_id) in target_output])
+        _save_block_branch_connections(sc, block_id, block, inputs, UInt64[b_id for (_, b_id) in target_output])
         if all(sc.branch_is_unknown[branch_id] for (var_id, branch_id) in inputs)
             update_complexity_factors_unknown(sc, inputs, target_output[block.output_var])
         else

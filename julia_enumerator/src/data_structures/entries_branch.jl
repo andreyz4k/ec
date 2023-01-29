@@ -262,7 +262,7 @@ function _downstream_branch_options_known(sc, block_id, block_copy_id, fixed_bra
             break
         end
     end
-    return allow_fails, Set(), Set([(block_id, new_fixed_branches, Int[b_id for (_, b_id) in target_output])])
+    return allow_fails, Set(), Set([(block_id, new_fixed_branches, UInt64[b_id for (_, b_id) in target_output])])
 end
 
 function _downstream_blocks_existing_branch(sc, var_id, out_branch_id, fixed_branches)
