@@ -241,133 +241,75 @@ function lookup_primitive(name)
     end
 end
 
-parse_token = token_parser(
-    c -> isletter(c) || isdigit(c) || in(c, ['_', '-', '?', '/', '.', '*', '\'', '+', ',', '>', '<', '@', '|']),
-)
-parse_whitespace = token_parser(can_be_empty = true, isspace)
-parse_number = token_parser(isdigit)
+using ParserCombinator
 
-parse_primitive = bind_parsers(parse_token, (name -> try
-    return_parse(lookup_primitive(name))
-catch e
-    # @error "Error finding type of primitive $name"
-    parse_failure
-end))
+parse_token = p"([a-zA-Z0-9_\-+*/',.<>|@?])+"
 
-parse_variable = bind_parsers(
-    constant_parser("\$"),
-    (_ -> bind_parsers(parse_number, (n -> Index(parse(Int64, n)) |> return_parse))),
-)
+parse_whitespace = Drop(Star(Space()))
 
-parse_fixed_real = bind_parsers(
-    constant_parser("real"),
-    (_ -> bind_parsers(parse_token, (v -> Primitive(treal, "real", parse(Float64, v)) |> return_parse))),
-)
+parse_number = p"([0-9])+" > (s -> parse(Int64, s))
 
-parse_invented = bind_parsers(
-    constant_parser("#"),
-    (
-        _ -> bind_parsers(
-            _parse_program,
-            (p -> begin
-                t = try
-                    infer_program_type(empty_context, [], p)[2]
-                catch e
-                    if isa(e, UnificationFailure) || isa(e, UnboundVariable)
-                        @warn "WARNING: Could not type check invented $p"
-                        t0
-                    else
-                        rethrow()
-                    end
-                end
+using AutoHashEquals
+@auto_hash_equals mutable struct MatchPrimitive <: Delegate
+    name::Symbol
+    matcher::Matcher
 
-                return_parse(Invented(t, p))
-            end),
-        )
-    ),
-)
+    MatchPrimitive(matcher) = new(:MatchPrimitive, matcher)
+end
 
-nabstractions(n, b) = n == 0 ? b : nabstractions((n - 1), (Abstraction(b)))
+@auto_hash_equals struct MatchPrimitiveState <: DelegateState
+    state::State
+end
 
-parse_abstraction = bind_parsers(
-    constant_parser("(lambda"),
-    (
-        _ -> branch_parsers(
-            bind_parsers(
-                parse_whitespace,
-                (
-                    _ -> bind_parsers(
-                        _parse_program,
-                        (b -> bind_parsers(constant_parser(")"), (_ -> return_parse(Abstraction(b))))),
-                    )
-                ),
-            ),
-            bind_parsers(
-                parse_number,
-                (
-                    n -> bind_parsers(
-                        parse_whitespace,
-                        (
-                            _ -> bind_parsers(
-                                _parse_program,
-                                (
-                                    b -> bind_parsers(
-                                        constant_parser(")"),
-                                        (_ -> return_parse(nabstractions((parse(Int64, n)), b))),
-                                    )
-                                ),
-                            )
-                        ),
-                    )
-                ),
-            ),
-        )
-    ),
-)
+function ParserCombinator.success(k::Config, m::MatchPrimitive, s, t, i, r::Value)
+    try
+        result = lookup_primitive(r[1])
+        Success(MatchPrimitiveState(t), i, Any[result])
+    catch e
+        # @error "Error finding type of primitive $(r[1])"
+        FAILURE
+    end
+end
+parse_primitive = MatchPrimitive(parse_token)
 
-parse_application_sequence(maybe_function) = bind_parsers(
-    parse_whitespace,
-    (
-        _ -> if isnothing(maybe_function)
-            bind_parsers(_parse_program, (f -> parse_application_sequence(f)))
+parse_variable = P"\$" + parse_number > Index
+
+parse_fixed_real = P"real" + parse_token > (v -> Primitive(treal, "real", parse(Float64, v)))
+
+_parse_program = Delayed()
+
+parse_invented = P"#" + _parse_program > (p -> begin
+    t = try
+        infer_program_type(empty_context, [], p)[2]
+    catch e
+        if isa(e, UnificationFailure) || isa(e, UnboundVariable)
+            @warn "WARNING: Could not type check invented $p"
+            t0
         else
-            branch_parsers(
-                return_parse(maybe_function),
-                bind_parsers(_parse_program, (x -> parse_application_sequence(Apply(maybe_function, x)))),
-            )
+            rethrow()
         end
-    ),
-)
+    end
 
-parse_application = bind_parsers(
-    constant_parser("("),
-    (
-        _ -> bind_parsers(
-            parse_application_sequence(nothing),
-            (a -> bind_parsers(constant_parser(")"), (_ -> return_parse(a)))),
-        )
-    ),
-)
+    Invented(t, p)
+end)
 
-parse_exception = bind_parsers(constant_parser("exception"), _ -> return_parse(ExceptionProgram()))
+parse_abstraction = P"\(lambda " + parse_whitespace + _parse_program + P"\)" > Abstraction
 
-_parse_program = branch_parsers(
-    parse_application,
-    parse_exception,
-    parse_primitive,
-    parse_variable,
-    parse_invented,
-    parse_abstraction,
-    parse_fixed_real,
-)
+parse_application = P"\(" + Repeat(_parse_program + parse_whitespace, 2, ALL) + P"\)" |> (xs -> foldl(Apply, xs))
+
+parse_exception = P"exception" > ExceptionProgram
+
+_parse_program.matcher =
+    parse_application |
+    parse_exception |
+    parse_variable |
+    parse_invented |
+    parse_abstraction |
+    parse_primitive |
+    parse_fixed_real
 
 function parse_program(s)
-    res = first((p for (p, n) in _parse_program(s, 1) if n == length(s) + 1), 1)
-    if isempty(res)
-        error("Could not parse: $s")
-    else
-        res[1]
-    end
+    parse_one(s, _parse_program)[1]
 end
 
 function infer_program_type(context, environment, p::Index)::Tuple{Context,Tp}

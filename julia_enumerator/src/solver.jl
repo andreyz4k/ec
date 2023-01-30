@@ -2,7 +2,6 @@ module solver
 
 include("timeout.jl")
 include("logging.jl")
-include("parser.jl")
 include("type.jl")
 include("program.jl")
 include("grammar.jl")
