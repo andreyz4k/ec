@@ -235,25 +235,26 @@ function capture_free_vars(sc::SolutionContext, p::FreeVar, context)
     FreeVar(t, var_id), [(var_id, t)]
 end
 
-function try_run_reversed_with_value(reverse_program::Function, value)
+function try_run_reversed_with_value(reverse_program::Function, value, new_vars_count)
     try_run_function(reverse_program, [value])
 end
 
-function try_run_reversed_with_value(reverse_program::Function, value::EitherOptions)
+function try_run_reversed_with_value(reverse_program::Function, value::EitherOptions, new_vars_count)
     hashes = []
-    outputs = []
+    outputs = [[] for _ in 1:new_vars_count]
     for (h, val) in value.options
-        outs = try_run_reversed_with_value(reverse_program, val)
+        outs = try_run_reversed_with_value(reverse_program, val, new_vars_count)
         push!(hashes, h)
-        push!(outputs, outs)
+        for i in 1:new_vars_count
+            push!(outputs[i], outs[i])
+        end
     end
     results = []
-    for values in zip(outputs...)
-        values = collect(values)
+    for values in outputs
         if allequal(values)
             push!(results, values[1])
         else
-            options = Dict(h => v for (h, v) in zip(hashes, values))
+            options = Dict(hashes[i] => values[i] for i in 1:length(hashes))
             push!(results, EitherOptions(options))
         end
     end
@@ -269,7 +270,7 @@ function try_get_reversed_values(sc::SolutionContext, p::Program, context, outpu
 
     calculated_values = [[] for _ in 1:new_vars_count]
     for value in out_entry.values
-        calculated_value = try_run_reversed_with_value(reverse_program, value)
+        calculated_value = try_run_reversed_with_value(reverse_program, value, new_vars_count)
         for i in 1:new_vars_count
             push!(calculated_values[i], calculated_value[i])
         end

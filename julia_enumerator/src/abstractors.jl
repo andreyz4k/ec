@@ -67,8 +67,8 @@ end
 
 function generic_reverse2(prim, rev_function)
     function _generic_reverse(arguments)
-        fill_a, rev_a, filled_types_a = arguments[end]
-        fill_b, rev_b, filled_types_b = arguments[end-1]
+        rev_a = arguments[end][2]
+        rev_b = arguments[end-1][2]
         function _reverse_function(value)::Vector{Any}
             r_a, r_b = rev_function(value)
             return vcat(rev_a(r_a), rev_b(r_b))
@@ -80,7 +80,7 @@ end
 
 function generic_reverse1(prim, rev_function)
     function _generic_reverse(arguments)
-        fill_a, rev_a, filled_types_a = arguments[end]
+        rev_a = arguments[end][2]
         function _reverse_function(value)::Vector{Any}
             r_a = rev_function(value)
             return rev_a(r_a[1])

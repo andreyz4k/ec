@@ -240,7 +240,7 @@ function _tighten_constraint(
     # @info new_branch
     new_entry = sc.entries[sc.branch_entries[new_branch_id]]
     # @info new_entry
-    fixed_hashes = [_get_fixed_hashes(options, value) for (options, value) in zip(old_entry.values, new_entry.values)]
+    fixed_hashes = [_get_fixed_hashes(old_entry.values[j], new_entry.values[j]) for j in 1:sc.example_count]
     # @info fixed_hashes
 
     for (var_id, branch_id) in constrained_branches
