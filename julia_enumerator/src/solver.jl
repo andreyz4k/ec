@@ -78,6 +78,7 @@ using JSON
 function worker_loop(req_channel, resp_channel)
     @info "Starting worker loop"
     redis = RedisContext(Redis.RedisConnection())
+    i = 1
     while true
         try
             message = get_new_task(redis)
@@ -88,6 +89,8 @@ function worker_loop(req_channel, resp_channel)
             payload = JSON.parse(message)
             timeout = payload["timeout"]
             name = payload["name"]
+            @info "Running task number $i $name"
+            i += 1
             output = @time try
                 run_context = Dict{String,Any}(
                     "timeout_request_channel" => req_channel,

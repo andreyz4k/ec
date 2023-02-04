@@ -202,7 +202,7 @@ sample_payload = Dict{String,Any}(
     "type_weights" =>
         Dict{String,Any}("int" => 1.0, "list" => 1.0, "color" => 1.0, "bool" => 1.0, "float" => 1.0, "grid" => 1.0),
     "programTimeout" => 3.0,
-    "timeout" => 40,
+    "timeout" => 60,
     "verbose" => false,
     "shatter" => 10,
 )
@@ -1095,6 +1095,9 @@ function run_tests(is_start)
             ),
         ),
     ]
+end
+
+function run_arc_tests(is_start)
 
     #get files in directory
     files = readdir("dreamcoder/domains/arc/ARC/data/training", join = true)
@@ -1104,6 +1107,8 @@ function run_tests(is_start)
         # payloads = vcat(payloads[1:2], arc_payloads)
     else
         payloads = [create_arc_task(file) for file in files[4:15]]
+        f = "dreamcoder/domains/arc/ARC/data/training/50cb2852.json"
+        payloads += [create_arc_task(f)]
         # payloads = payloads[3:end]
     end
 

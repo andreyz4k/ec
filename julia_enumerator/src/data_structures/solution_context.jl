@@ -482,8 +482,10 @@ function set_new_paths_for_var(
     new_block_paths = []
     for path in input_paths
         p = merge_path(sc, path, var_id, bl_id, side_vars)
-        add_path!(sc.incoming_paths, out_branch_id, p)
-        push!(new_block_paths, p)
+        path_added = add_path!(sc.incoming_paths, out_branch_id, p)
+        if path_added
+            push!(new_block_paths, p)
+        end
     end
     if check_path_cost &&
        (isnothing(sc.explained_min_path_costs[out_branch_id]) || best_cost < sc.explained_min_path_costs[out_branch_id])

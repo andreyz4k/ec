@@ -155,8 +155,19 @@ function add_path!(storage::PathsStorage, branch_id, path)
             ),
         )
     end
-    push!(storage.values[storage.transaction_depth+1][branch_id], path)
-    nothing
+    last_values = storage.values[storage.transaction_depth+1]
+    if length(last_values[branch_id]) == STORE_MAX_PATHS
+        if first(last_values[branch_id]) > path
+            push!(last_values[branch_id], path)
+            pop!(last_values[branch_id])
+            return true
+        else
+            return false
+        end
+    else
+        push!(last_values[branch_id], path)
+        return true
+    end
 end
 
 function get_new_paths(storage::PathsStorage, branch_id)

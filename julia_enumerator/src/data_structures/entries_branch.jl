@@ -52,7 +52,7 @@ function value_updates(
     new_values,
     fixed_branches::Dict{UInt64,UInt64},
 )
-    out_branches = Dict()
+    out_branches = Dict{UInt64,UInt64}()
     is_new_next_block = false
     allow_fails = false
     set_explained = false
