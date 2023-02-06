@@ -60,14 +60,11 @@ _is_prime(n) = in(
     ]),
 )
 
-@define_primitive("map", arrow(arrow(t0, t1), tlist(t0), tlist(t1)), (f -> (xs -> map(f, xs))))
-@define_primitive("map_grid", arrow(arrow(t0, t1), tgrid(t0), tgrid(t1)), (f -> (xs -> map(f, xs))))
 @define_primitive(
     "unfold",
     arrow(t0, arrow(t0, tbool), arrow(t0, t1), arrow(t0, t0), tlist(t1)),
     (x -> (p -> (h -> (n -> _unfold(x, p, h, n))))),
 )
-@define_primitive("range", arrow(tint, tlist(tint)), (n -> collect(0:n-1)))
 @define_primitive("index", arrow(tint, tlist(t0), t0), (j -> (l -> l[j])))
 @define_primitive("index2", arrow(tint, tint, tgrid(t0), t0), (i -> (j -> (l -> l[i, j]))))
 @define_primitive("tuple2_first", arrow(ttuple2(t0, t1), t0), (t -> t[1]))
@@ -106,7 +103,6 @@ _is_prime(n) = in(
 @define_primitive("+", arrow(tint, tint, tint), (a -> (b -> a + b)))
 @define_primitive("-", arrow(tint, tint, tint), (a -> (b -> a - b)))
 @define_primitive("empty", tlist(t0), [])
-@define_primitive("cons", arrow(t0, tlist(t0), tlist(t0)), (x -> (y -> vcat([x], y))))
 @define_primitive("car", arrow(tlist(t0), t0), (l -> l[1]))
 @define_primitive("cdr", arrow(tlist(t0), tlist(t0)), (l -> isempty(l) ? error("Empty list") : l[2:end]))
 @define_primitive("empty?", arrow(tlist(t0), tbool), isempty)
@@ -120,14 +116,5 @@ _is_prime(n) = in(
 @define_primitive("is-prime", arrow(tint, tbool), _is_prime)
 @define_primitive("is-square", arrow(tint, tbool), (n -> floor(sqrt(n))^2 == n))
 
-@define_primitive("repeat", arrow(t0, tint, tlist(t0)), (x -> (n -> fill(x, n))))
 @define_primitive("zip2", arrow(tlist(t0), tlist(t1), tlist(ttuple2(t0, t1))), (a -> (b -> zip(a, b))))
 @define_primitive("zip_grid2", arrow(tgrid(t0), tgrid(t1), tgrid(ttuple2(t0, t1))), (a -> (b -> zip(a, b))))
-
-@define_primitive("concat", arrow(tlist(t0), tlist(t0), tlist(t0)), (a -> (b -> vcat(a, b))))
-
-@define_primitive("rows", arrow(tgrid(t0), tlist(tlist(t0))), (g -> [g[i, :] for i in (1:size(g, 1))]))
-@define_primitive("columns", arrow(tgrid(t0), tlist(tlist(t0))), (g -> [g[:, i] for i in (1:size(g, 2))]))
-
-@define_primitive("rows_to_grid", arrow(tlist(tlist(t0)), tgrid(t0)), (rs -> vcat([r' for r in rs]...)))
-@define_primitive("columns_to_grid", arrow(tlist(tlist(t0)), tgrid(t0)), (cs -> hcat(cs...)))

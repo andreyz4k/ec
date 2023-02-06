@@ -90,9 +90,10 @@ function generic_reverse1(prim, rev_function)
     return _generic_reverse
 end
 
-macro define_reverse_primitive(name, reverse_function)
+macro define_reverse_primitive(name, t, x, reverse_function)
     return quote
         local n = $(esc(name))
+        @define_primitive n $t $x
         local prim = every_primitive[n]
         if length(arguments_of_type(prim.t)) == 1
             local out = generic_reverse1(prim, $(esc(reverse_function)))
@@ -103,9 +104,10 @@ macro define_reverse_primitive(name, reverse_function)
     end
 end
 
-macro define_custom_reverse_primitive(name, reverse_function)
+macro define_custom_reverse_primitive(name, t, x, reverse_function)
     return quote
         local n = $(esc(name))
+        @define_primitive n $t $x
         local prim = every_primitive[n]
         if length(arguments_of_type(prim.t)) == 2
             local out = $(esc(reverse_function))
@@ -121,7 +123,7 @@ function reverse_repeat(value)::Vector{Any}
     return [value[1], length(value)]
 end
 
-@define_reverse_primitive "repeat" reverse_repeat
+@define_reverse_primitive "repeat" arrow(t0, tint, tlist(t0)) (x -> (n -> fill(x, n))) reverse_repeat
 
 function reverse_cons(value)::Vector{Any}
     if isempty(value)
@@ -130,7 +132,7 @@ function reverse_cons(value)::Vector{Any}
     return [value[1], value[2:end]]
 end
 
-@define_reverse_primitive "cons" reverse_cons
+@define_reverse_primitive "cons" arrow(t0, tlist(t0), tlist(t0)) (x -> (y -> vcat([x], y))) reverse_cons
 
 function _replace_free_vars(p::FreeVar, replacements)
     popfirst!(replacements)
@@ -194,8 +196,18 @@ function reverse_map(name, type, zip_primitive)
     return _reverse_map
 end
 
-@define_custom_reverse_primitive "map" reverse_map("map", tlist, every_primitive["zip2"])
-@define_custom_reverse_primitive "map_grid" reverse_map("map_grid", tgrid, every_primitive["zip_grid2"])
+@define_custom_reverse_primitive(
+    "map",
+    arrow(arrow(t0, t1), tlist(t0), tlist(t1)),
+    (f -> (xs -> map(f, xs))),
+    reverse_map("map", tlist, every_primitive["zip2"])
+)
+@define_custom_reverse_primitive(
+    "map_grid",
+    arrow(arrow(t0, t1), tgrid(t0), tgrid(t1)),
+    (f -> (xs -> map(f, xs))),
+    reverse_map("map_grid", tgrid, every_primitive["zip_grid2"])
+)
 
 function reverse_concat(value)::Vector{Any}
     options_h = Dict()
@@ -223,7 +235,7 @@ function reverse_concat(value)::Vector{Any}
     return [out_h, out_t]
 end
 
-@define_reverse_primitive "concat" reverse_concat
+@define_reverse_primitive "concat" arrow(tlist(t0), tlist(t0), tlist(t0)) (a -> (b -> vcat(a, b))) reverse_concat
 
 function reverse_range(value)::Vector{Any}
     for (i, v) in enumerate(value)
@@ -234,19 +246,29 @@ function reverse_range(value)::Vector{Any}
     return [length(value) - 1]
 end
 
-@define_reverse_primitive "range" reverse_range
+@define_reverse_primitive "range" arrow(tint, tlist(tint)) (n -> collect(0:n-1)) reverse_range
 
 function reverse_rows_to_grid(value)::Vector{Any}
     [[value[i, :] for i in (1:size(value, 1))]]
 end
 
-@define_reverse_primitive "rows_to_grid" reverse_rows_to_grid
+@define_reverse_primitive(
+    "rows_to_grid",
+    arrow(tlist(tlist(t0)), tgrid(t0)),
+    (rs -> vcat([r' for r in rs]...)),
+    reverse_rows_to_grid
+)
 
 function reverse_columns_to_grid(value)::Vector{Any}
     [[value[:, i] for i in (1:size(value, 2))]]
 end
 
-@define_reverse_primitive "columns_to_grid" reverse_columns_to_grid
+@define_reverse_primitive(
+    "columns_to_grid",
+    arrow(tlist(tlist(t0)), tgrid(t0)),
+    (cs -> hcat(cs...)),
+    reverse_columns_to_grid
+)
 
 function reverse_rows(value)::Vector{Any}
     [vcat([r' for r in value]...)]
@@ -256,5 +278,15 @@ function reverse_columns(value)::Vector{Any}
     [hcat(value...)]
 end
 
-@define_reverse_primitive "rows" reverse_rows
-@define_reverse_primitive "columns" reverse_columns
+@define_reverse_primitive(
+    "rows",
+    arrow(tgrid(t0), tlist(tlist(t0))),
+    (g -> [g[i, :] for i in (1:size(g, 1))]),
+    reverse_rows
+)
+@define_reverse_primitive(
+    "columns",
+    arrow(tgrid(t0), tlist(tlist(t0))),
+    (g -> [g[:, i] for i in (1:size(g, 2))]),
+    reverse_columns
+)
