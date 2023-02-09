@@ -119,7 +119,8 @@ show_program(p::Apply, is_function::Bool) =
     end
 show_program(p::Primitive, is_function::Bool) = [p.name]
 show_program(p::FreeVar, is_function::Bool) =
-    isnothing(p.var_id) ? ["FREE_VAR"] : ["\$", (isa(p.var_id, UInt64) ? "v" : ""), "$(p.var_id)"]
+    isnothing(p.var_id) ? vcat(["FREE_VAR("], show_type(p.t, true), [")"]) :
+    ["\$", (isa(p.var_id, UInt64) ? "v" : ""), "$(p.var_id)"]
 show_program(p::Hole, is_function::Bool) = ["??(", p.t, ")"]
 show_program(p::Invented, is_function::Bool) = vcat(["#"], show_program(p.b, false))
 show_program(p::SetConst, is_function::Bool) = vcat(["Const("], show_type(p.t, true), [", ", p.value, ")"])
@@ -531,7 +532,11 @@ function analyze_evaluation(p::ExceptionProgram)::Function
 end
 
 function run_with_arguments(p::Program, arguments, workspace)
-    _run_with_arguments(p, reverse(arguments), workspace)
+    l = _run_with_arguments(p, [], workspace)
+    for x in arguments
+        l = l(x)
+    end
+    return l
 end
 
 function run_analyzed_with_arguments(@nospecialize(p::Function), arguments, workspace)

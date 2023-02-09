@@ -1,63 +1,85 @@
 
-all_abstractors = Dict{Program,Any}()
+all_abstractors = Dict{Program,Tuple{Vector,Any}}()
 
-function is_reversible(p::Primitive)::Bool
-    return haskey(all_abstractors, p)
+function _is_reversible(p::Primitive)
+    if haskey(all_abstractors, p)
+        all_abstractors[p][1]
+    else
+        nothing
+    end
 end
 
-function is_reversible(p::Apply)::Bool
-    if is_reversible(p.f)
-        if isa(p.x, Hole)
-            return !isarrow(p.x.t)
-        end
-        if isa(p.x, Index)
-            return true
-        end
-        if isa(p.x, Abstraction) || isa(p.x, Apply)
-            return is_reversible(p.x)
+function _is_reversible(p::Apply)
+    rev_f = _is_reversible(p.f)
+    if !isnothing(rev_f)
+        if isempty(rev_f)
+            if isa(p.x, Hole)
+                if !isarrow(p.x.t)
+                    return rev_f
+                else
+                    return nothing
+                end
+            end
+            if isa(p.x, Index)
+                return rev_f
+            end
+            if isa(p.x, Abstraction) || isa(p.x, Apply)
+                return _is_reversible(p.x)
+            end
+        else
+            checker = rev_f[end]
+            if checker(p.x)
+                return view(rev_f, 1:length(rev_f)-1)
+            else
+                return nothing
+            end
         end
     end
-    false
+    nothing
 end
 
-is_reversible(p::Invented)::Bool = is_reversible(p.b)
-is_reversible(p::Abstraction)::Bool = is_reversible(p.b)
+_is_reversible(p::Invented) = _is_reversible(p.b)
+_is_reversible(p::Abstraction) = _is_reversible(p.b)
 
-is_reversible(p::Program)::Bool = false
+_is_reversible(p::Program) = nothing
+
+is_reversible(p::Program)::Bool = !isnothing(_is_reversible(p))
 
 function _get_reversed_filled_program(p::Primitive, arguments)
-    return all_abstractors[p](arguments)
+    return all_abstractors[p][2](arguments)
 end
 
 function _get_reversed_filled_program(p::Invented, arguments)
     filled_b, rev_b, updated_args, filled_types = _get_reversed_filled_program(p.b, arguments)
     if filled_b != p.b
+        @info filled_b
+        @info p.b
         error("Incorrect filling in invented function")
     end
     return p, rev_b, updated_args, filled_types
 end
 noop(a)::Vector{Any} = [a]
 function _get_reversed_filled_program(p::Hole, arguments)
-    return FreeVar(p.t, nothing), noop, arguments, [p.t]
+    return FreeVar(p.t, nothing), noop, [], [p.t]
 end
 
 function _get_reversed_filled_program(p::Index, arguments)
-    return p, noop, arguments, []
+    return p, noop, [], []
 end
 
 function _get_reversed_filled_program(p::Apply, arguments)
-    filled_x, reversed_x, _, filled_x_types = _get_reversed_filled_program(p.x, arguments)
-    push!(arguments, (filled_x, reversed_x, filled_x_types))
+    push!(arguments, p.x)
     filled_f, reversed_f, updated_args, filled_f_types = _get_reversed_filled_program(p.f, arguments)
-    new_filled_x, _, new_filled_x_types = pop!(updated_args)
-    pop!(arguments)
-    return Apply(filled_f, new_filled_x), reversed_f, updated_args, vcat(filled_f_types, new_filled_x_types)
+    new_filled_x = pop!(updated_args)
+    return Apply(filled_f, new_filled_x), reversed_f, updated_args, filled_f_types
 end
 
 function _get_reversed_filled_program(p::Abstraction, arguments)
     res = _get_reversed_filled_program(p.b, arguments)
     fill_f, rev_f, updated_args, filled_types = res
-    return Abstraction(fill_f), rev_f, updated_args, filled_types
+    filled_a, rev_a, _, filled_a_types = _get_reversed_filled_program(pop!(arguments), arguments)
+    pushfirst!(updated_args, filled_a)
+    return Abstraction(fill_f), rev_f, updated_args, vcat(filled_types, filled_a_types)
 end
 
 function get_reversed_filled_program(p::Program)
@@ -67,25 +89,26 @@ end
 
 function generic_reverse2(prim, rev_function)
     function _generic_reverse(arguments)
-        rev_a = arguments[end][2]
-        rev_b = arguments[end-1][2]
+        filled_a, rev_a, _, filled_a_types = _get_reversed_filled_program(pop!(arguments), arguments)
+        filled_b, rev_b, _, filled_b_types = _get_reversed_filled_program(pop!(arguments), arguments)
         function _reverse_function(value)::Vector{Any}
             r_a, r_b = rev_function(value)
             return vcat(rev_a(r_a), rev_b(r_b))
         end
-        return prim, _reverse_function, copy(arguments), []
+        return prim, _reverse_function, [filled_b, filled_a], vcat(filled_a_types, filled_b_types)
     end
     return _generic_reverse
 end
 
 function generic_reverse1(prim, rev_function)
     function _generic_reverse(arguments)
-        rev_a = arguments[end][2]
+        a = pop!(arguments)
+        filled_a, rev_a, _, filled_a_types = _get_reversed_filled_program(a, arguments)
         function _reverse_function(value)::Vector{Any}
             r_a = rev_function(value)
             return rev_a(r_a[1])
         end
-        return prim, _reverse_function, copy(arguments), []
+        return prim, _reverse_function, [filled_a], filled_a_types
     end
     return _generic_reverse
 end
@@ -100,7 +123,7 @@ macro define_reverse_primitive(name, t, x, reverse_function)
         elseif length(arguments_of_type(prim.t)) == 2
             local out = generic_reverse2(prim, $(esc(reverse_function)))
         end
-        all_abstractors[prim] = out
+        all_abstractors[prim] = [], out
     end
 end
 
@@ -109,9 +132,7 @@ macro define_custom_reverse_primitive(name, t, x, reverse_function)
         local n = $(esc(name))
         @define_primitive n $t $x
         local prim = every_primitive[n]
-        if length(arguments_of_type(prim.t)) == 2
-            local out = $(esc(reverse_function))
-        end
+        local out = $(esc(reverse_function))
         all_abstractors[prim] = out
     end
 end
@@ -173,8 +194,9 @@ function reverse_map(name, type, zip_primitive)
     end
 
     function _reverse_map(arguments)
-        fill_f, rev_f, filled_types_f = arguments[end]
-        fill_x, rev_x, filled_types_x = arguments[end-1]
+        fill_f, rev_f, _, filled_types_f = _get_reversed_filled_program(pop!(arguments).b, arguments)
+        fill_f = Abstraction(fill_f)
+        fill_x, rev_x, _, filled_types_x = _get_reversed_filled_program(pop!(arguments), arguments)
         function __reverse_map(value)::Vector{Any}
             results = [[] for _ in filled_types_f]
             for values in map(rev_f, value)
@@ -187,13 +209,10 @@ function reverse_map(name, type, zip_primitive)
         new_f, _ = map_function_replacement(fill_f, filled_types_f)
         filled_types = vcat(filled_types_f, filled_types_x)
         new_x, filled_types = zip_free_vars(fill_x, filled_types)
-        updated_args = arguments[begin:end-2]
-        push!(updated_args, (new_x, rev_x, filled_types))
-        push!(updated_args, (new_f, rev_f, []))
-        return every_primitive[name], __reverse_map, updated_args, []
+        return every_primitive[name], __reverse_map, [new_x, new_f], filled_types
     end
 
-    return _reverse_map
+    return [], _reverse_map
 end
 
 @define_custom_reverse_primitive(
@@ -202,6 +221,7 @@ end
     (f -> (xs -> map(f, xs))),
     reverse_map("map", tlist, every_primitive["zip2"])
 )
+
 @define_custom_reverse_primitive(
     "map_grid",
     arrow(arrow(t0, t1), tgrid(t0), tgrid(t1)),
@@ -284,9 +304,156 @@ end
     (g -> [g[i, :] for i in (1:size(g, 1))]),
     reverse_rows
 )
+
 @define_reverse_primitive(
     "columns",
     arrow(tgrid(t0), tlist(tlist(t0))),
     (g -> [g[:, i] for i in (1:size(g, 2))]),
     reverse_columns
+)
+
+function rev_select(base, others)
+    result = copy(base)
+    for i in 1:length(others)
+        if others[i] !== nothing
+            result[i] = others[i]
+        end
+    end
+    return result
+end
+
+function _is_reversible_selector(p::Index, is_top_index)
+    if is_top_index
+        return 0
+    end
+    if p.n == 0
+        return 1
+    else
+        return 2
+    end
+end
+
+_is_reversible_selector(p::Primitive, is_top_index) = 2
+_is_reversible_selector(p::Program, is_top_index) = 0
+
+function _is_reversible_selector(p::Apply, is_top_index)
+    if is_top_index
+        if isa(p.x, Hole)
+            if isa(p.f, Apply) && p.f.f == every_primitive["eq?"]
+                return _is_reversible_selector(p.f.x, false)
+            else
+                return 0
+            end
+        else
+            return min(_is_reversible_selector(p.f, false), _is_reversible_selector(p.x, false))
+        end
+    else
+        if isa(p.x, Hole)
+            return 0
+        else
+            return min(_is_reversible_selector(p.f, false), _is_reversible_selector(p.x, false))
+        end
+    end
+end
+
+is_reversible_selector(p::Abstraction) = _is_reversible_selector(p.b, true) == 1
+is_reversible_selector(p::Program) = false
+
+fill_selector(p::Hole) = FreeVar(p.t, nothing)
+fill_selector(p::Apply) = Apply(fill_selector(p.f), fill_selector(p.x))
+fill_selector(p::Abstraction) = Abstraction(fill_selector(p.b))
+fill_selector(p::Program) = p
+
+function reverse_rev_select(name)
+    function _reverse_rev_select(arguments)
+        f = pop!(arguments)
+        fill_f = fill_selector(f)
+        fill_base, rev_base, _, filled_types_base = _get_reversed_filled_program(pop!(arguments), arguments)
+        fill_others, rev_others, _, filled_types_others = _get_reversed_filled_program(pop!(arguments), arguments)
+        __reverse_rev_select = if f == fill_f
+            function (value)
+                results_base = Array{Any}(undef, size(value)...)
+                results_others = Array{Any}(undef, size(value)...)
+                for i in 1:length(value)
+                    if try_evaluate_program(fill_f, [value[i]], Dict())
+                        results_base[i] = value[i]
+                        results_others[i] = nothing
+                    else
+                        results_base[i] = nothing
+                        results_others[i] = value[i]
+                    end
+                end
+                if all(v == results_base[1] for v in results_base)
+                    error("All elements are equal according to selector")
+                end
+                return vcat(rev_base(results_base), rev_others(results_others))
+            end
+        elseif isa(f, Abstraction) &&
+               isa(f.b, Apply) &&
+               isa(f.b.x, Hole) &&
+               isa(f.b.f, Apply) &&
+               f.b.f.f == every_primitive["eq?"]
+            function (value)
+                options_selector = Dict()
+                options_base = Dict()
+                options_others = Dict()
+                checked_options = Set()
+
+                selector = Abstraction(f.b.f.x)
+
+                for i in 1:length(value)
+                    selector_option = try_evaluate_program(selector, [value[i]], Dict())
+                    if in(selector_option, checked_options)
+                        continue
+                    end
+                    results_base = Array{Any}(undef, size(value)...)
+                    results_others = Array{Any}(undef, size(value)...)
+                    for j in 1:length(value)
+                        if try_evaluate_program(selector, [value[j]], Dict()) == selector_option
+                            results_base[j] = value[j]
+                            results_others[j] = nothing
+                        else
+                            results_base[j] = nothing
+                            results_others[j] = value[j]
+                        end
+                    end
+                    option_hash = hash((selector_option, results_base, results_others))
+                    options_selector[option_hash] = selector_option
+                    options_base[option_hash] = results_base
+                    options_others[option_hash] = results_others
+                end
+
+                if length(options_selector) < 2
+                    error("All elements are equal according to selector")
+                end
+
+                out_selector = EitherOptions(options_selector)
+                out_base = EitherOptions(options_base)
+                out_others = EitherOptions(options_others)
+
+                return vcat([out_selector], rev_base(out_base), rev_others(out_others))
+            end
+        else
+            error("Can't reverse rev_select with selector $f")
+        end
+        return every_primitive[name],
+        __reverse_rev_select,
+        [fill_others, fill_base, fill_f],
+        vcat(filled_types_base, filled_types_others)
+    end
+    return [is_reversible_selector], _reverse_rev_select
+end
+
+@define_custom_reverse_primitive(
+    "rev_select",
+    arrow(arrow(t0, tbool), tlist(t0), tlist(t0), tlist(t0)),
+    (f -> (base -> (others -> rev_select(base, others)))),
+    reverse_rev_select("rev_select")
+)
+
+@define_custom_reverse_primitive(
+    "rev_select_grid",
+    arrow(arrow(t0, tbool), tgrid(t0), tgrid(t0), tgrid(t0)),
+    (f -> (base -> (others -> rev_select(base, others)))),
+    reverse_rev_select("rev_select_grid")
 )

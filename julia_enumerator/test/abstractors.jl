@@ -12,6 +12,8 @@ using solver:
     t0,
     ttuple2,
     Index,
+    SetConst,
+    EitherOptions,
     get_reversed_filled_program,
     is_reversible,
     parse_program,
@@ -54,6 +56,54 @@ import Redis
                     ),
                 ),
                 Hole(tlist(ttuple2(tlist(tint), tlist(tint))), nothing),
+            ),
+        )
+    end
+
+    @testset "Check reversible select" begin
+        @test is_reversible(
+            Apply(
+                Apply(
+                    Apply(
+                        every_primitive["rev_select"],
+                        Abstraction(Apply(Apply(every_primitive["eq?"], Index(0)), Hole(tint, nothing))),
+                    ),
+                    Hole(tlist(tint), nothing),
+                ),
+                Hole(tlist(tint), nothing),
+            ),
+        )
+        @test !is_reversible(
+            Apply(
+                Apply(
+                    Apply(
+                        every_primitive["rev_select"],
+                        Abstraction(Apply(Apply(every_primitive["eq?"], Hole(tint, nothing)), Hole(tint, nothing))),
+                    ),
+                    Hole(tlist(tint), nothing),
+                ),
+                Hole(tlist(tint), nothing),
+            ),
+        )
+        @test is_reversible(
+            Apply(
+                Apply(
+                    Apply(every_primitive["rev_select"], Abstraction(Apply(every_primitive["empty?"], Index(0)))),
+                    Hole(tlist(tint), nothing),
+                ),
+                Hole(tlist(tint), nothing),
+            ),
+        )
+        @test !is_reversible(
+            Apply(
+                Apply(
+                    Apply(
+                        every_primitive["rev_select"],
+                        Abstraction(Apply(every_primitive["empty?"], Hole(tint, nothing))),
+                    ),
+                    Hole(tlist(tint), nothing),
+                ),
+                Hole(tlist(tint), nothing),
             ),
         )
     end
@@ -178,6 +228,60 @@ import Redis
             FreeVar(tlist(tint), nothing),
         )
         @test rev_p([[0, 1, 2], [0, 1], [0, 1, 2, 3]]) == [[2, 1, 3]]
+    end
+
+    @testset "Reverse rev select" begin
+        skeleton = Apply(
+            Apply(
+                Apply(
+                    every_primitive["rev_select"],
+                    Abstraction(Apply(Apply(every_primitive["eq?"], Index(0)), Hole(tint, nothing))),
+                ),
+                Hole(tlist(tint), nothing),
+            ),
+            Hole(tlist(tint), nothing),
+        )
+        filled_p, rev_p = get_reversed_filled_program(skeleton)
+        @test filled_p == Apply(
+            Apply(
+                Apply(
+                    every_primitive["rev_select"],
+                    Abstraction(Apply(Apply(every_primitive["eq?"], Index(0)), FreeVar(tint, nothing))),
+                ),
+                FreeVar(tlist(tint), nothing),
+            ),
+            FreeVar(tlist(tint), nothing),
+        )
+        rev_res = rev_p([1, 2, 1, 3, 2, 1])
+        expected = Dict(
+            1 => [1, [1, nothing, 1, nothing, nothing, 1], [nothing, 2, nothing, 3, 2, nothing]],
+            2 => [2, [nothing, 2, nothing, nothing, 2, nothing], [1, nothing, 1, 3, nothing, 1]],
+            3 => [3, [nothing, nothing, nothing, 3, nothing, nothing], [1, 2, 1, nothing, 2, 1]],
+        )
+        for (k, v) in rev_res[1].options
+            for i in 1:3
+                @test rev_res[i].options[k] == expected[v][i]
+            end
+        end
+    end
+
+    @testset "Reverse rev select with empty" begin
+        skeleton = Apply(
+            Apply(
+                Apply(every_primitive["rev_select"], Abstraction(Apply(every_primitive["empty?"], Index(0)))),
+                Hole(tlist(tlist(tint)), nothing),
+            ),
+            Hole(tlist(tlist(tint)), nothing),
+        )
+        filled_p, rev_p = get_reversed_filled_program(skeleton)
+        @test filled_p == Apply(
+            Apply(
+                Apply(every_primitive["rev_select"], Abstraction(Apply(every_primitive["empty?"], Index(0)))),
+                FreeVar(tlist(tlist(tint)), nothing),
+            ),
+            FreeVar(tlist(tlist(tint)), nothing),
+        )
+        @test rev_p([[0, 1, 2], [], [0, 1, 2, 3]]) == [[nothing, [], nothing], [[0, 1, 2], nothing, [0, 1, 2, 3]]]
     end
 
     @testset "Invented abstractor" begin
