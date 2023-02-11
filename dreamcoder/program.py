@@ -190,10 +190,17 @@ class Program(object):
                     return Abstraction(p(e[1]))
                 if e[0] == "let":
                     if e[-3][0] == "rev":
-                        return LetRevClause([v[1:] for v in e[1:-4]], e[-3][1][1:], p(e[-3][3]), p(e[-1]))
+                        return LetRevClause(
+                            [v[0][1:] for v in e[1:-4]],
+                            [Type.fromstring(v[1]) for v in e[1:-4]],
+                            e[-3][1][1:],
+                            p(e[-3][3]),
+                            p(e[-1]),
+                        )
                     elif e[-3][0] == "wrap":
                         return WrapEither(
-                            [v[1:] for v in e[1:-4]],
+                            [v[0][1:] for v in e[1:-4]],
+                            [Type.fromstring(v[1]) for v in e[1:-4]],
                             e[-3][1][-3][1][1:],
                             e[-3][1][-1][1][1:],
                             p(e[-3][1][-3][-1]),
@@ -201,7 +208,7 @@ class Program(object):
                             p(e[-1]),
                         )
                     else:
-                        return LetClause(e[1][1:], p(e[3]), p(e[5]))
+                        return LetClause(e[1][0][1:], Type.fromstring(e[1][1]), p(e[3]), p(e[5]))
                 if e[0] == "Const":
                     return Constant(Type.fromstring(e[1]), e[2])
                 f = p(e[0])
@@ -976,8 +983,9 @@ Hole.single = Hole()
 
 
 class LetClause(Program):
-    def __init__(self, var_name, var_def, body):
+    def __init__(self, var_name, var_type, var_def, body):
         self.var_name = var_name
+        self.var_type = var_type
         self.var_def = var_def
         self.body = body
 
@@ -990,8 +998,9 @@ class LetClause(Program):
 
 
 class LetRevClause(Program):
-    def __init__(self, var_names, inp_var_name, vars_def, body):
+    def __init__(self, var_names, var_types, inp_var_name, vars_def, body):
         self.var_names = var_names
+        self.var_types = var_types
         self.inp_var_name = inp_var_name
         self.vars_def = vars_def
         self.body = body
@@ -1010,8 +1019,9 @@ class LetRevClause(Program):
 
 
 class WrapEither(Program):
-    def __init__(self, var_names, inp_var_name, fixer_var_name, vars_def, fixer_var, body):
+    def __init__(self, var_names, var_types, inp_var_name, fixer_var_name, vars_def, fixer_var, body):
         self.var_names = var_names
+        self.var_types = var_types
         self.inp_var_name = inp_var_name
         self.fixer_var_name = fixer_var_name
         self.vars_def = vars_def

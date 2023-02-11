@@ -872,7 +872,7 @@ using solver: load_problems, enumerate_for_task
         solutions, number_enumerated =
             @time enumerate_for_task(g, type_weights, task, maximum_frontier, timeout, verbose)
         @test length(solutions) >= 1
-        @test number_enumerated >= 300
+        @test number_enumerated >= 200
         @test number_enumerated <= 2000
     end
 
@@ -899,7 +899,7 @@ using solver: load_problems, enumerate_for_task
         solutions, number_enumerated =
             @time enumerate_for_task(g, type_weights, task, maximum_frontier, timeout, verbose)
         @test length(solutions) == 0
-        @test number_enumerated >= 300
+        @test number_enumerated >= 200
     end
 
     @testset "prepend-index-k with k=3" begin

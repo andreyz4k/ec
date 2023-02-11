@@ -315,8 +315,8 @@ class Grammar(object):
                 silent=silent,
                 reversible_only=reversible_only,
             )
-        if expression.isLetClause and expression.var_def.isConst:
-            merged_workspace = dict(workspace, **{expression.var_name: expression.var_def.tp})
+        if expression.isLetClause:
+            merged_workspace = dict(workspace, **{expression.var_name: expression.var_type})
             context, var_requests, summary = self.likelihoodSummary(
                 context,
                 environment,
@@ -330,31 +330,7 @@ class Grammar(object):
                 context,
                 environment,
                 workspace,
-                expression.var_def.tp,
-                expression.var_def,
-                silent=silent,
-                reversible_only=reversible_only,
-            )
-            var_requests.update(var_def_requests)
-            var_requests.pop(expression.var_name)
-            summary.join(def_summary)
-
-            return context, var_requests, summary
-        if expression.isLetClause:
-            context, var_requests, summary = self.likelihoodSummary(
-                context,
-                environment,
-                workspace,
-                request,
-                expression.body,
-                silent=silent,
-                reversible_only=reversible_only,
-            )
-            context, var_def_requests, def_summary = self.likelihoodSummary(
-                context,
-                environment,
-                workspace,
-                var_requests[expression.var_name],
+                expression.var_type,
                 expression.var_def,
                 silent=silent,
                 reversible_only=reversible_only,

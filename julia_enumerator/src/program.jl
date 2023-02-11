@@ -70,6 +70,7 @@ Base.:(==)(p::SetConst, q::SetConst) = p.t == q.t && p.value == q.value
 
 struct LetClause <: Program
     var_id::UInt64
+    var_type::Tp
     v::Program
     b::Program
 end
@@ -78,6 +79,7 @@ Base.:(==)(p::LetClause, q::LetClause) = p.var_id == q.var_id && p.v == q.v && p
 
 struct LetRevClause <: Program
     var_ids::Vector{UInt64}
+    var_types::Vector{Tp}
     inp_var_id::Union{UInt64,String}
     v::Program
     rev_v::Any
@@ -88,6 +90,7 @@ Base.:(==)(p::LetRevClause, q::LetRevClause) = p.var_ids == q.var_ids && p.v == 
 
 struct WrapEither <: Program
     var_ids::Vector{UInt64}
+    var_types::Vector{Tp}
     inp_var_id::Union{UInt64,String}
     fixer_var_id::UInt64
     v::Program
@@ -124,30 +127,28 @@ show_program(p::FreeVar, is_function::Bool) =
 show_program(p::Hole, is_function::Bool) = ["??(", p.t, ")"]
 show_program(p::Invented, is_function::Bool) = vcat(["#"], show_program(p.b, false))
 show_program(p::SetConst, is_function::Bool) = vcat(["Const("], show_type(p.t, true), [", ", p.value, ")"])
-show_program(p::LetClause, is_function::Bool) =
-    vcat(["let \$v$(p.var_id) = "], show_program(p.v, false), [" in "], show_program(p.b, false))
+show_program(p::LetClause, is_function::Bool) = vcat(
+    ["let \$v$(p.var_id)::"],
+    show_type(p.var_type, true),
+    [" = "],
+    show_program(p.v, false),
+    [" in "],
+    show_program(p.b, false),
+)
 show_program(p::LetRevClause, is_function::Bool) = vcat(
-    [
-        "let ",
-        join(["\$v$v" for v in p.var_ids], ", "),
-        " = rev(\$",
-        (isa(p.inp_var_id, UInt64) ? "v" : ""),
-        "$(p.inp_var_id) = ",
-    ],
+    ["let "],
+    vcat([vcat(["\$v$v::"], show_type(t, true), [", "]) for (v, t) in zip(p.var_ids, p.var_types)]...)[1:end-1],
+    [" = rev(\$", (isa(p.inp_var_id, UInt64) ? "v" : ""), "$(p.inp_var_id) = "],
     show_program(p.v, false),
     [") in "],
     show_program(p.b, false),
 )
 show_program(p::WrapEither, is_function::Bool) = vcat(
-    [
-        "let ",
-        join(["\$v$v" for v in p.var_ids], ", "),
-        " = wrap(let ",
-        join(["\$v$v" for v in p.var_ids], ", "),
-        " = rev(\$",
-        (isa(p.inp_var_id, UInt64) ? "v" : ""),
-        "$(p.inp_var_id) = ",
-    ],
+    ["let "],
+    vcat([vcat(["\$v$v::"], show_type(t, true), [", "]) for (v, t) in zip(p.var_ids, p.var_types)]...)[1:end-1],
+    [" = wrap(let "],
+    vcat([vcat(["\$v$v::"], show_type(t, true), [", "]) for (v, t) in zip(p.var_ids, p.var_types)]...)[1:end-1],
+    [" = rev(\$", (isa(p.inp_var_id, UInt64) ? "v" : ""), "$(p.inp_var_id) = "],
     show_program(p.v, false),
     ["); let \$v$(p.fixer_var_id) = "],
     show_program(p.f, false),
@@ -198,6 +199,7 @@ struct ReverseProgramBlock <: AbstractProgramBlock
     cost::Float64
     input_vars::Vector{UInt64}
     output_vars::Vector{UInt64}
+    output_types::Vector{Tp}
 end
 
 Base.show(io::IO, block::ReverseProgramBlock) =
@@ -218,6 +220,7 @@ struct WrapEitherBlock <: AbstractProgramBlock
     cost::Float64
     input_vars::Vector{UInt64}
     output_vars::Vector{UInt64}
+    output_types::Vector{Tp}
 end
 
 Base.:(==)(block::WrapEitherBlock, other::WrapEitherBlock) =
