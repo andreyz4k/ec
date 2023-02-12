@@ -5,7 +5,7 @@ type tp =
   | TID of int
   | TCon of string * tp list * bool
   | TNCon of string * (string * tp) list * tp * bool
-[@@deriving equal]
+[@@deriving equal, show]
 
 let is_polymorphic = function TID _ -> true | TCon (_, _, p) -> p | TNCon (_, _, _, p) -> p
 

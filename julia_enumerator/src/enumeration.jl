@@ -400,14 +400,7 @@ function create_wrapping_block(
     sc.unmatched_complexities[new_branch_id] = sc.complexities[branch_id]
     # sc.related_unknown_complexity_branches[new_branch_id, :] = out_related_complexity_branches
 
-    wrapper_block = WrapEitherBlock(
-        block,
-        var_id,
-        cost,
-        [input_var, new_var],
-        [v_id for (v_id, _, _) in output_vars],
-        [sc.types[t_id] for (_, _, t_id) in output_vars],
-    )
+    wrapper_block = WrapEitherBlock(block, var_id, cost, [input_var, new_var], [v_id for (v_id, _, _) in output_vars])
     wrapper_block_id = push!(sc.blocks, wrapper_block)
     target_outputs = Dict(v_id => b_id for (v_id, b_id, _) in output_vars)
     input_branches = Dict(input_var => input_branch, new_var => new_branch_id)
@@ -417,14 +410,7 @@ end
 function create_reversed_block(sc::SolutionContext, p::Program, context, input_var::Tuple{UInt64,UInt64}, cost)
     new_p, reverse_program, output_vars, either_var_ids, either_branch_ids =
         try_get_reversed_values(sc, p, context, input_var[2], cost, true)
-    block = ReverseProgramBlock(
-        new_p,
-        reverse_program,
-        cost,
-        [input_var[1]],
-        [v_id for (v_id, _, _) in output_vars],
-        [sc.types[t_id] for (_, _, t_id) in output_vars],
-    )
+    block = ReverseProgramBlock(new_p, reverse_program, cost, [input_var[1]], [v_id for (v_id, _, _) in output_vars])
     if isempty(either_var_ids)
         block_id = push!(sc.blocks, block)
         return [(

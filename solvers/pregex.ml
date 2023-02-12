@@ -298,8 +298,8 @@ let rec substitute_constant_regex constant p =
       Apply (substitute_constant_regex constant f, substitute_constant_regex constant x)
   | Invented (t, b) -> Invented (t, substitute_constant_regex constant b)
   | Primitive (_, "r_const", _) -> constant
-  | LetClause (v, d, b) ->
-      LetClause (v, substitute_constant_regex constant d, substitute_constant_regex constant b)
+  | LetClause (v, t, d, b) ->
+      LetClause (v, t, substitute_constant_regex constant d, substitute_constant_regex constant b)
   | LetRevClause (v, iv, d, b) ->
       LetRevClause
         (v, iv, substitute_constant_regex constant d, substitute_constant_regex constant b)

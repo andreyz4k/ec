@@ -118,21 +118,14 @@ let eta_long request e =
         in
         visit output environment new_workspace e
     | Abstraction _, _ -> raise EtaExpandFailure
-    | LetClause (var_name, Const (t, k), body), _ ->
+    | LetClause (var_name, var_type, def, body), _ ->
         let merged_workspace =
           merge_workspaces context workspace
-            (Hashtbl.of_alist_exn (module String) [ (var_name, t) ])
+            (Hashtbl.of_alist_exn (module String) [ (var_name, var_type) ])
         in
         let body', var_requests = visit request environment merged_workspace body in
-        let def', var_requests' = visit t environment workspace (Const (t, k)) in
-        ( LetClause (var_name, def', body'),
-          Grammar.merge_workspaces context var_requests var_requests' )
-    | LetClause (var_name, def, body), _ ->
-        let body', var_requests = visit request environment workspace body in
-        let def', var_requests' =
-          visit (Hashtbl.find_exn var_requests var_name) environment workspace def
-        in
-        ( LetClause (var_name, def', body'),
+        let def', var_requests' = visit var_type environment workspace def in
+        ( LetClause (var_name, var_type, def', body'),
           Grammar.merge_workspaces context var_requests var_requests' )
     | LetRevClause (var_names, inp_name, def, body), _ ->
         let inp_name_request = Hashtbl.find_exn workspace inp_name in
@@ -171,7 +164,7 @@ let eta_long request e =
               | Abstraction _ -> assert false (* not in beta long form *)
               | Apply (_, _) -> assert false
               | Const _ | FreeVar _ -> request
-              | LetClause (_, _, _) | LetRevClause (_, _, _, _) | WrapEither (_, _, _, _, _, _) ->
+              | LetClause _ | LetRevClause _ | WrapEither _ ->
                   raise (Failure "Eta-expand failure: LetClause or LetRevClause in application")
             in
             let var_requests =
@@ -211,12 +204,7 @@ let normalize_invention i =
     | Abstraction b -> Abstraction (visit (d + 1) b)
     | Apply (f, x) -> Apply (visit d f, visit d x)
     | (Primitive (_, _, _) | Invented (_, _)) as e -> e
-    | Const _
-    | LetClause (_, _, _)
-    | LetRevClause (_, _, _, _)
-    | WrapEither (_, _, _, _, _, _)
-    | FreeVar _ ->
-        raise UnificationFailure
+    | Const _ | LetClause _ | LetRevClause _ | WrapEither _ | FreeVar _ -> raise UnificationFailure
   in
 
   let renamed = visit 0 i in
@@ -243,7 +231,7 @@ let rewrite_with_invention i =
       | Apply (f, x) -> Apply (visit f, visit x)
       | Abstraction b -> Abstraction (visit b)
       | Index _ | Primitive (_, _, _) | Invented (_, _) | FreeVar _ | Const _ -> e
-      | LetClause (v, d, b) -> LetClause (v, visit d, visit b)
+      | LetClause (v, dt, d, b) -> LetClause (v, dt, visit d, visit b)
       | LetRevClause (vns, inp_v, d, b) -> LetRevClause (vns, inp_v, visit d, visit b)
       | WrapEither (vars, inp, fixer, def, f, body) ->
           WrapEither (vars, inp, fixer, visit def, f, visit body)
@@ -288,12 +276,7 @@ let nontrivial e =
         visit d x
     | Abstraction b -> visit (d + 1) b
     | Primitive (_, _, _) | Invented (_, _) -> incr primitives
-    | Const _
-    | LetClause (_, _, _)
-    | LetRevClause (_, _, _, _)
-    | WrapEither (_, _, _, _, _, _)
-    | FreeVar _ ->
-        assert false
+    | Const _ | LetClause _ | LetRevClause _ | WrapEither _ | FreeVar _ -> assert false
   in
   visit 0 e;
   !primitives > 1 || (!primitives = 1 && !duplicated_indices > 0)
@@ -333,7 +316,7 @@ let compression_worker connection ~inline ~arity ~bs ~topK g frontiers =
               | Apply (f, x) -> 1 + program_size f + program_size x
               | Abstraction b -> 1 + program_size b
               | Index _ | Invented (_, _) | Primitive (_, _, _) | Const _ -> 1
-              | LetClause (_, d, b) -> 1 + program_size d + program_size b
+              | LetClause (_, _, d, b) -> 1 + program_size d + program_size b
               | LetRevClause (_, _, d, b) -> 1 + program_size d + program_size b
               | WrapEither (_, _, _, def, _, body) -> 2 + program_size def + program_size body
               | FreeVar _ -> 1
@@ -342,7 +325,7 @@ let compression_worker connection ~inline ~arity ~bs ~topK g frontiers =
               | Apply (f, x) -> 1 + max (program_height f) (program_height x)
               | Abstraction b -> 1 + program_height b
               | Index _ | Invented (_, _) | Primitive (_, _, _) | Const _ -> 1
-              | LetClause (_, d, b) -> 1 + max (program_height d) (program_height b)
+              | LetClause (_, _, d, b) -> 1 + max (program_height d) (program_height b)
               | LetRevClause (_, _, d, b) -> 1 + max (program_height d) (program_height b)
               | WrapEither (_, _, _, def, _, body) ->
                   2 + max (program_height def) (program_height body)

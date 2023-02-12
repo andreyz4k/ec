@@ -191,16 +191,14 @@ class Program(object):
                 if e[0] == "let":
                     if e[-3][0] == "rev":
                         return LetRevClause(
-                            [v[0][1:] for v in e[1:-4]],
-                            [Type.fromstring(v[1]) for v in e[1:-4]],
+                            [v[1:] for v in e[1:-4]],
                             e[-3][1][1:],
                             p(e[-3][3]),
                             p(e[-1]),
                         )
                     elif e[-3][0] == "wrap":
                         return WrapEither(
-                            [v[0][1:] for v in e[1:-4]],
-                            [Type.fromstring(v[1]) for v in e[1:-4]],
+                            [v[1:] for v in e[1:-4]],
                             e[-3][1][-3][1][1:],
                             e[-3][1][-1][1][1:],
                             p(e[-3][1][-3][-1]),
@@ -990,7 +988,12 @@ class LetClause(Program):
         self.body = body
 
     def show(self, isFunction):
-        return "let $%s = %s in %s" % (self.var_name, self.var_def.show(False), self.body.show(False))
+        return "let $%s::%s = %s in %s" % (
+            self.var_name,
+            self.var_type.show(False),
+            self.var_def.show(False),
+            self.body.show(False),
+        )
 
     @property
     def isLetClause(self):
@@ -998,9 +1001,8 @@ class LetClause(Program):
 
 
 class LetRevClause(Program):
-    def __init__(self, var_names, var_types, inp_var_name, vars_def, body):
+    def __init__(self, var_names, inp_var_name, vars_def, body):
         self.var_names = var_names
-        self.var_types = var_types
         self.inp_var_name = inp_var_name
         self.vars_def = vars_def
         self.body = body
@@ -1019,9 +1021,8 @@ class LetRevClause(Program):
 
 
 class WrapEither(Program):
-    def __init__(self, var_names, var_types, inp_var_name, fixer_var_name, vars_def, fixer_var, body):
+    def __init__(self, var_names, inp_var_name, fixer_var_name, vars_def, fixer_var, body):
         self.var_names = var_names
-        self.var_types = var_types
         self.inp_var_name = inp_var_name
         self.fixer_var_name = fixer_var_name
         self.vars_def = vars_def

@@ -339,7 +339,7 @@ let dfs_around_skeleton cg ~maxFreeParameters ~lower_bound ~upper_bound state k 
     | Primitive (_, _, _) -> false
     | FreeVar _ -> false
     | Const _ -> false
-    | LetClause (_, d, b) -> free b || free d
+    | LetClause (_, _, d, b) -> free b || free d
     | LetRevClause (_, _, d, b) -> free b || free d
     | WrapEither (_, _, _, d, _, b) -> free b || free d
   in

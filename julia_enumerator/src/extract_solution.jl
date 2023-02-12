@@ -1,12 +1,11 @@
 
 block_to_let(block::ProgramBlock, output) = LetClause(block.output_var, return_of_type(block.type), block.p, output)
 block_to_let(block::ReverseProgramBlock, output) =
-    LetRevClause(block.output_vars, block.output_types, block.input_vars[1], block.p, block.reverse_program, output)
+    LetRevClause(block.output_vars, block.input_vars[1], block.p, block.reverse_program, output)
 
 function block_to_let(block::WrapEitherBlock, output)
     WrapEither(
         block.output_vars,
-        block.output_types,
         block.input_vars[1],
         block.fixer_var,
         block.main_block.p,
@@ -67,7 +66,7 @@ function alpha_substitution(p::LetRevClause, replacements, next_index::UInt64, i
         new_inp_var_id = p.inp_var_id
     end
     new_b, next_index = alpha_substitution(p.b, replacements, next_index, input_keys)
-    return LetRevClause(new_var_ids, p.var_types, new_inp_var_id, new_v, p.rev_v, new_b), next_index
+    return LetRevClause(new_var_ids, new_inp_var_id, new_v, p.rev_v, new_b), next_index
 end
 
 function alpha_substitution(p::WrapEither, replacements, next_index::UInt64, input_keys)
@@ -88,8 +87,7 @@ function alpha_substitution(p::WrapEither, replacements, next_index::UInt64, inp
     end
     new_f, next_index = alpha_substitution(p.f, replacements, next_index, input_keys)
     new_b, next_index = alpha_substitution(p.b, replacements, next_index, input_keys)
-    return WrapEither(new_var_ids, p.var_types, new_inp_var_id, new_fixer_var_id, new_v, p.rev_v, new_f, new_b),
-    next_index
+    return WrapEither(new_var_ids, new_inp_var_id, new_fixer_var_id, new_v, p.rev_v, new_f, new_b), next_index
 end
 
 function alpha_substitution(p::FreeVar, replacements, next_index::UInt64, input_keys)

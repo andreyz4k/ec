@@ -9,7 +9,7 @@ type program =
   | Apply of program * program
   | Primitive of tp * string * unit ref
   | Invented of tp * program
-  | LetClause of string * program * program
+  | LetClause of string * tp * program * program
   | LetRevClause of string list * string * program * program
   | FreeVar of string
   | Const of tp * string
@@ -29,7 +29,7 @@ let rec recursively_get_abstraction_body = function
 let program_children = function
   | Abstraction b -> [ b ]
   | Apply (m, n) -> [ m; n ]
-  | LetClause (_var, def, body) -> [ def; body ]
+  | LetClause (_var, _vtype, def, body) -> [ def; body ]
   | LetRevClause (_vars, _inp, def, body) -> [ def; body ]
   | WrapEither (_vars, _inp, _fixer, def, _f, body) -> [ def; body ]
   | _ -> []
@@ -46,7 +46,7 @@ let rec program_size = function
   | Apply (f, x) -> program_size f + program_size x
   | Abstraction b -> program_size b
   | Index _ | Invented (_, _) | Primitive (_, _, _) | Const _ -> 1
-  | LetClause (_, d, b) -> program_size d + program_size b
+  | LetClause (_, _, d, b) -> program_size d + program_size b
   | LetRevClause (_, _, d, b) -> program_size d + program_size b
   | WrapEither (_, _, _, d, _, b) -> program_size d + program_size b
   | FreeVar _ -> 1
@@ -63,8 +63,9 @@ let rec show_program (is_function : bool) = function
   | Primitive (t, "FREE_VAR", _) -> "FREE_VAR(" ^ string_of_type t ^ ")"
   | Primitive (_, n, _) -> n
   | Invented (_, i) -> "#" ^ show_program false i
-  | LetClause (var, def, body) ->
-      "let $" ^ var ^ " = " ^ show_program false def ^ " in " ^ show_program false body
+  | LetClause (var, var_type, def, body) ->
+      "let $" ^ var ^ "::" ^ string_of_type var_type ^ " = " ^ show_program false def ^ " in "
+      ^ show_program false body
   | LetRevClause (vars, inp, def, body) ->
       "let "
       ^ String.concat ~sep:", " (List.map vars ~f:(fun var -> "$" ^ var))
@@ -90,7 +91,7 @@ let rec program_equal p1 p2 =
   | Invented (_, a), Invented (_, b) -> program_equal a b
   | Index a, Index b -> a = b
   | Apply (a, b), Apply (x, y) -> program_equal a x && program_equal b y
-  | LetClause (v1, d1, b1), LetClause (v2, d2, b2) ->
+  | LetClause (v1, _t1, d1, b1), LetClause (v2, _t2, d2, b2) ->
       String.( = ) v1 v2 && program_equal d1 d2 && program_equal b1 b2
   | LetRevClause (vns1, iv1, d1, b1), LetRevClause (vns2, iv2, d2, b2) ->
       List.equal String.( = ) vns1 vns2 && String.( = ) iv1 iv2 && program_equal d1 d2
@@ -120,10 +121,10 @@ let rec compare_program p1 p2 =
   | Primitive (_, _, _), _ -> -1
   | Invented (_, b1), Invented (_, b2) -> compare_program b1 b2
   | Invented (_, _), _ -> -1
-  | LetClause (_, b1, e1), LetClause (_, b2, e2) ->
+  | LetClause (_, _, b1, e1), LetClause (_, _, b2, e2) ->
       let c = compare_program b1 b2 in
       if c = 0 then compare_program e1 e2 else c
-  | LetClause (_, _, _), _ -> -1
+  | LetClause (_, _, _, _), _ -> -1
   | LetRevClause (_, inp1, def1, body1), LetRevClause (_, inp2, def2, body2) ->
       let c = compare_program def1 def2 in
       if c = 0 then
@@ -196,7 +197,7 @@ let[@warning "-20"] rec evaluate (environment : 'b list) (workspace : (string, '
   | Primitive (_, _, v) -> magical !v
   | Invented (_, i) -> evaluate [] workspace i
   | Const _ -> assert false (* There is no instantiation of const objects currently in OCaml *)
-  | LetClause (v, d, b) ->
+  | LetClause (v, _, d, b) ->
       let v_val = evaluate environment workspace d in
       let () = Hashtbl.add_exn workspace ~key:v ~data:v_val in
       evaluate environment workspace b
@@ -230,7 +231,7 @@ let rec analyze_evaluation (p : program) : 'b list -> (string, 'c) Hashtbl.t -> 
       let analyzed_body = analyze_evaluation i in
       fun _ workspace -> analyzed_body [] workspace
   | Const _ -> assert false (* There is no instantiation of const objects currently in OCaml *)
-  | LetClause (v, d, b) ->
+  | LetClause (v, _, d, b) ->
       let analyzed_definition = analyze_evaluation d and analyzed_body = analyze_evaluation b in
       fun environment workspace ->
         let v_val = analyzed_definition environment workspace in
@@ -269,7 +270,7 @@ let[@warning "-20"] rec lazy_evaluate (environment : 'b Lazy.t list)
   | Invented (_, i) -> lazy_evaluate [] workspace i
   | Const _ -> assert false (* There is no instantiation of const objects currently in OCaml *)
   | FreeVar v -> magical (Hashtbl.find_exn workspace v)
-  | LetClause (v, d, b) ->
+  | LetClause (v, _, d, b) ->
       let v_val = lazy_evaluate environment workspace d in
       let () = Hashtbl.add_exn workspace ~key:v ~data:v_val in
       lazy_evaluate environment workspace b
@@ -298,11 +299,7 @@ let[@warning "-20"] rec analyze_lazy_evaluation (p : program) : 'b Lazy.t list -
   | Invented (_, i) ->
       let analyzed_body = analyze_lazy_evaluation i in
       fun _ -> analyzed_body []
-  | Const _
-  | LetClause (_, _, _)
-  | FreeVar _
-  | LetRevClause (_, _, _, _)
-  | WrapEither (_, _, _, _, _, _) ->
+  | Const _ | LetClause _ | FreeVar _ | LetRevClause _ | WrapEither _ ->
       assert false (* Let clauses are not supported for lazy evaluation *)
 
 let[@warning "-20"] run_lazy_analyzed_with_arguments p arguments =
@@ -322,11 +319,7 @@ let rec variable_is_bound ?(height = 0) (p : program) =
   | Invented (_, i) -> variable_is_bound ~height i
   | Primitive (_, _, _) -> false
   | Abstraction b -> variable_is_bound ~height:(height + 1) b
-  | LetClause (_, _, _)
-  | LetRevClause (_, _, _, _)
-  | FreeVar _ | Const _
-  | WrapEither (_, _, _, _, _, _) ->
-      false
+  | LetClause _ | LetRevClause _ | FreeVar _ | Const _ | WrapEither _ -> false
 
 exception ShiftFailure
 
@@ -338,9 +331,12 @@ let rec shift_free_variables ?(height = 0) shift p =
       Apply (shift_free_variables ~height shift f, shift_free_variables ~height shift x)
   | Invented (_, _) | Primitive (_, _, _) | Const _ | FreeVar _ -> p
   | Abstraction b -> Abstraction (shift_free_variables ~height:(height + 1) shift b)
-  | LetClause (vnames, def, body) ->
+  | LetClause (vname, vtype, def, body) ->
       LetClause
-        (vnames, shift_free_variables ~height shift def, shift_free_variables ~height shift body)
+        ( vname,
+          vtype,
+          shift_free_variables ~height shift def,
+          shift_free_variables ~height shift body )
   | LetRevClause (vnames, inp_var_name, def, body) ->
       LetRevClause
         ( vnames,
@@ -387,11 +383,13 @@ let rec beta_normal_form ?(reduceInventions = false) e =
                       (shift_free_variables ~height:0 (-1)
                          (substitute 0 (shift_free_variables 1 x) body))
                 | _ -> None)))
-    | LetClause (vname, def, body) -> (
+    | LetClause (vname, vtype, def, body) -> (
         match step def with
-        | Some def' -> Some (LetClause (vname, def', body))
+        | Some def' -> Some (LetClause (vname, vtype, def', body))
         | None -> (
-            match step body with Some body' -> Some (LetClause (vname, def, body')) | None -> None))
+            match step body with
+            | Some body' -> Some (LetClause (vname, vtype, def, body'))
+            | None -> None))
     | LetRevClause (vnames, inp_var_name, def, body) -> (
         match step def with
         | Some def' -> Some (LetRevClause (vnames, inp_var_name, def', body))
@@ -418,7 +416,7 @@ let rec strip_primitives = function
   | Apply (f, x) -> Apply (strip_primitives f, strip_primitives x)
   | Abstraction b -> Abstraction (strip_primitives b)
   | Primitive (t, n, _) -> Primitive (t, n, unit_reference)
-  | LetClause (n, d, b) -> LetClause (n, strip_primitives d, strip_primitives b)
+  | LetClause (n, t, d, b) -> LetClause (n, t, strip_primitives d, strip_primitives b)
   | LetRevClause (ns, ins, d, b) -> LetRevClause (ns, ins, strip_primitives d, strip_primitives b)
   | FreeVar n -> FreeVar n
   | Const (t, n) -> Const (t, n)
@@ -629,11 +627,11 @@ let rec substitute_string_constants (alternatives : char list list) e =
   | Index _ -> [ e ]
   | Const _ -> [ e ]
   | FreeVar _ -> [ e ]
-  | LetClause (v, d, b) ->
+  | LetClause (v, t, d, b) ->
       substitute_string_constants alternatives d
       |> List.map ~f:(fun d' ->
              substitute_string_constants alternatives b
-             |> List.map ~f:(fun b' -> LetClause (v, d', b')))
+             |> List.map ~f:(fun b' -> LetClause (v, t, d', b')))
       |> List.concat
   | LetRevClause (vs, iv, d, b) ->
       substitute_string_constants alternatives d
@@ -654,7 +652,7 @@ let rec number_of_string_constants = function
   | Invented (_, b) | Abstraction b -> number_of_string_constants b
   | Apply (f, x) -> number_of_string_constants f + number_of_string_constants x
   | Index _ | FreeVar _ | Const _ -> 0
-  | LetClause (_, d, b) | LetRevClause (_, _, d, b) | WrapEither (_, _, _, d, _, b) ->
+  | LetClause (_, _, d, b) | LetRevClause (_, _, d, b) | WrapEither (_, _, _, d, _, b) ->
       number_of_string_constants d + number_of_string_constants b
 
 let rec string_constants_length = function
@@ -665,7 +663,7 @@ let rec string_constants_length = function
   | Invented (_, b) | Abstraction b -> string_constants_length b
   | Apply (f, x) -> string_constants_length f + string_constants_length x
   | Index _ | FreeVar _ | Const _ -> 0
-  | LetClause (_, d, b) | LetRevClause (_, _, d, b) | WrapEither (_, _, _, d, _, b) ->
+  | LetClause (_, _, d, b) | LetRevClause (_, _, d, b) | WrapEither (_, _, _, d, _, b) ->
       string_constants_length d + string_constants_length b
 
 let rec number_of_real_constants = function
@@ -674,7 +672,7 @@ let rec number_of_real_constants = function
   | Invented (_, b) | Abstraction b -> number_of_real_constants b
   | Apply (f, x) -> number_of_real_constants f + number_of_real_constants x
   | Index _ | FreeVar _ | Const _ -> 0
-  | LetClause (_, d, b) | LetRevClause (_, _, d, b) | WrapEither (_, _, _, d, _, b) ->
+  | LetClause (_, _, d, b) | LetRevClause (_, _, d, b) | WrapEither (_, _, _, d, _, b) ->
       number_of_real_constants d + number_of_real_constants b
 
 let rec number_of_free_parameters = function
@@ -687,7 +685,7 @@ let rec number_of_free_parameters = function
   | Invented (_, b) | Abstraction b -> number_of_free_parameters b
   | Apply (f, x) -> number_of_free_parameters f + number_of_free_parameters x
   | Index _ | FreeVar _ | Const _ -> 0
-  | LetClause (_, d, b) | LetRevClause (_, _, d, b) | WrapEither (_, _, _, d, _, b) ->
+  | LetClause (_, _, d, b) | LetRevClause (_, _, d, b) | WrapEither (_, _, _, d, _, b) ->
       number_of_free_parameters d + number_of_free_parameters b
 
 let primitive_empty = primitive "empty" (tlist t0) []
@@ -1035,7 +1033,8 @@ let program_parser : program parsing =
     let rec check consumed depth =
       let k = n + consumed in
       if k >= String.length s then []
-      else if depth = 0 && (Char.( = ) s.[k] ')' || Char.( = ) s.[k] ',') then []
+      else if depth = 0 && (Char.( = ) s.[k] ')' || Char.( = ) s.[k] ',' || Char.is_whitespace s.[k])
+      then []
       else if Char.( = ) s.[k] '(' || Char.( = ) s.[k] '[' then
         s.[k] :: check (consumed + 1) (depth + 1)
       else if Char.( = ) s.[k] ')' || Char.( = ) s.[k] ']' then
@@ -1095,6 +1094,8 @@ let program_parser : program parsing =
     constant_parser "let" %% fun _ ->
     whitespace %% fun _ ->
     var_name %% fun v ->
+    constant_parser "::" %% fun _ ->
+    obj_parser %% fun t ->
     whitespace %% fun _ ->
     constant_parser "=" %% fun _ ->
     whitespace %% fun _ ->
@@ -1102,7 +1103,7 @@ let program_parser : program parsing =
     whitespace %% fun _ ->
     constant_parser "in" %% fun _ ->
     whitespace %% fun _ ->
-    program_parser () %% fun b -> return_parse (LetClause (v, d, b))
+    program_parser () %% fun b -> return_parse (LetClause (v, get_some (type_of_string t), d, b))
   and let_rev_clause () : program parsing =
     constant_parser "let" %% fun _ ->
     whitespace %% fun _ ->
@@ -1193,31 +1194,36 @@ let%test _ = parsing_test_case "(map (+ 1) ($0 (+ 1) (- 1) (+ -)) $1)"
 let%test _ = parsing_test_case "(lambda $0)"
 let%test _ = parsing_test_case "(lambda (+ 1 #(* 8 1)))"
 let%test _ = parsing_test_case "(lambda (+ 1 #(* 8 map)))"
-let%test _ = parsing_test_case "let $v1 = 1 in $v1"
+let%test _ = parsing_test_case "let $v1::int = 1 in $v1"
 
 let%test _ =
   parsing_test_case
-    "(lambda let $v1 = (cdr $0) in let $v2 = (eq? $0 $v1) in let $v3 = (eq? $0 $0) in (eq? $v2 \
-     $v3))"
+    "(lambda let $v1::list(int) = (cdr $0) in let $v2::bool = (eq? $0 $v1) in let $v3::bool = (eq? \
+     $0 $0) in (eq? $v2 $v3))"
 
 let%test _ =
   parsing_test_case
-    "let $v1 = Const(list(int), Any[]) in let $v2 = Const(list(int), Any[0]) in let $v3 = (concat \
-     $v1 $v2) in (concat $inp0 $v3)"
+    "let $v1::list(int) = Const(list(int), Any[]) in let $v2::list(int) = Const(list(int), Any[0]) \
+     in let $v3::list(int) = (concat $v1 $v2) in (concat $inp0 $v3)"
 
 let%test _ =
   parsing_test_case
-    "let $v1 = Const(list(int), Any[5]) in let $v2 = Const(list(int), Any[]) in let $v3, $v4 = \
-     wrap(let $v3, $v4 = rev($inp0 = (concat $v3 $v4)); let $v3 = $v2) in (concat $v1 $v4)"
+    "let $v1::list(int) = Const(list(int), Any[5]) in let $v2::list(int) = Const(list(int), Any[]) \
+     in let $v3, $v4 = wrap(let $v3, $v4 = rev($inp0 = (concat $v3 $v4)); let $v3 = $v2) in \
+     (concat $v1 $v4)"
 
-let%test _ = parsing_test_case "let $v1 = Const(list(list(color)), Any[Any[0, 0, 0]]) in $v1"
+let%test _ =
+  parsing_test_case
+    "let $v1::list(list(color)) = Const(list(list(color)), Any[Any[0, 0, 0]]) in $v1"
+
 let%test _ = parsing_test_case "Const(list(list(color)), Any[Any[0, 0, 0]])"
 
 let%test _ =
   parsing_test_case
-    "let $v1 = Const(list(list(color)), Any[Any[0, 0, 0]]) in let $v2, $v3 = rev($inp0 = (cons $v2 \
-     $v3)) in let $v4 = (car $v3) in let $v5 = Const(int, 1) in let $v6 = (repeat $v4 $v5) in let \
-     $v7 = (cons $v2 $v6) in (concat $v1 $v7)"
+    "let $v1::list(list(color)) = Const(list(list(color)), Any[Any[0, 0, 0]]) in let $v2, $v3 = \
+     rev($inp0 = (cons $v2 $v3)) in let $v4::list(color) = (car $v3) in let $v5::int = Const(int, \
+     1) in let $v6::list(list(color)) = (repeat $v4 $v5) in let $v7::list(list(color)) = (cons $v2 \
+     $v6) in (concat $v1 $v7)"
 
 (* let%test _ = parsing_test_case "(cons FREE_VAR FREE_VAR)"
    let%test _ = parsing_test_case "rev((cons FREE_VAR FREE_VAR), [$0])"

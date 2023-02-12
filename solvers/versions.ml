@@ -18,7 +18,7 @@ type vs =
   | IndexSpace of int
   | TerminalSpace of program
       [@printer fun fmt p -> Format.fprintf fmt "(TerminalSpace %s)" (string_of_program p)]
-  | LetSpace of int * int
+  | LetSpace of tp * int * int
   | LetRevSpace of int * int * int * int
   | WrapEitherSpace of int * int * int * int * int * int
   | VarIndexSpace of int
@@ -64,7 +64,7 @@ let rec string_of_versions t j =
   | TerminalSpace p -> string_of_program p
   | Union u ->
       Printf.sprintf "{%s}" (u |> List.map ~f:(string_of_versions t) |> join ~separator:"; ")
-  | LetSpace (d, b) ->
+  | LetSpace (_dt, d, b) ->
       Printf.sprintf "let %s in %s" (string_of_versions t d) (string_of_versions t b)
   | LetRevSpace (_, v, d, b) ->
       Printf.sprintf "let rev(%s = %s) in %s" (string_of_versions t v) (string_of_versions t d)
@@ -112,8 +112,8 @@ let version_abstract t b = if b = t.void then t.void else incorporate_space t (A
 let version_index t i = incorporate_space t (IndexSpace i)
 let version_terminal t e = incorporate_space t (TerminalSpace e)
 
-let version_let t d b =
-  if d = t.void || b = t.void then t.void else incorporate_space t (LetSpace (d, b))
+let version_let t dt d b =
+  if d = t.void || b = t.void then t.void else incorporate_space t (LetSpace (dt, d, b))
 
 let version_let_rev t vc v d b =
   if d = t.void || b = t.void || v = t.void then t.void
@@ -146,8 +146,8 @@ let rec incorporate' t vars e =
   | Abstraction b -> version_abstract t (incorporate' t vars b)
   | Apply (f, x) -> version_apply t (incorporate' t vars f) (incorporate' t vars x)
   | Primitive (_, _, _) | Invented (_, _) | Const _ -> version_terminal t (strip_primitives e)
-  | LetClause (var_name, d, b) ->
-      version_let t (incorporate' t vars d) (incorporate' t (var_name :: vars) b)
+  | LetClause (var_name, var_type, d, b) ->
+      version_let t var_type (incorporate' t vars d) (incorporate' t (var_name :: vars) b)
   | LetRevClause (var_names, inp_var_name, d, b) ->
       version_let_rev t (List.length var_names)
         (incorporate' t vars (FreeVar inp_var_name))
@@ -174,12 +174,12 @@ let%test "test variables renaming" =
   let v1 =
     incorporate t
       (TNCon ("->", [ ("inp1", tint) ], tint, false))
-      (get_some (parse_program "let $v1 = $inp1 in $v1"))
+      (get_some (parse_program "let $v1::int = $inp1 in $v1"))
   in
   let v2 =
     incorporate t
       (TNCon ("->", [ ("inp1", tint) ], tint, false))
-      (get_some (parse_program "let $v2 = $inp1 in $v2"))
+      (get_some (parse_program "let $v2::int = $inp1 in $v2"))
   in
   v1 = v2
 
@@ -250,8 +250,7 @@ let rec shift_free ?(c = 0) t ~n ~index =
         version_apply t (shift_free ~c t ~n ~index:f) (shift_free ~c t ~n ~index:x)
     | AbstractSpace b -> version_abstract t (shift_free ~c:(c + 1) t ~n ~index:b)
     | TerminalSpace _ | Universe | Void -> index
-    | LetSpace (_, _) | LetRevSpace (_, _, _, _) | WrapEitherSpace _ | VarIndexSpace _ ->
-        assert false
+    | LetSpace _ | LetRevSpace _ | WrapEitherSpace _ | VarIndexSpace _ -> assert false
 
 let rec shift_versions ?(c = 0) t ~n ~index =
   (* shift_free_variables, lifted to vs *)
@@ -266,8 +265,7 @@ let rec shift_versions ?(c = 0) t ~n ~index =
         version_apply t (shift_versions ~c t ~n ~index:f) (shift_versions ~c t ~n ~index:x)
     | AbstractSpace b -> version_abstract t (shift_versions ~c:(c + 1) t ~n ~index:b)
     | TerminalSpace _ | Universe | Void -> index
-    | LetSpace (_, _) | LetRevSpace (_, _, _, _) | WrapEitherSpace _ | VarIndexSpace _ ->
-        assert false
+    | LetSpace _ | LetRevSpace _ | WrapEitherSpace _ | VarIndexSpace _ -> assert false
 
 let rec intersection t a b =
   match (index_table t a, index_table t b) with
@@ -315,11 +313,7 @@ let inline t j =
                 (apply_substitution ~k arguments x)
           | Abstraction b -> version_abstract t (apply_substitution ~k:(k + 1) arguments b)
           | Primitive (_, _, _) | Invented (_, _) -> incorporate' t [] expression
-          | LetClause (_, _, _)
-          | LetRevClause (_, _, _, _)
-          | WrapEither (_, _, _, _, _, _)
-          | FreeVar _ | Const _ ->
-              assert false
+          | LetClause _ | LetRevClause _ | WrapEither _ | FreeVar _ | Const _ -> assert false
         in
         match make_substitution [] arguments body with
         | None -> t.void
@@ -327,10 +321,8 @@ let inline t j =
             let f = apply_substitution ~k:0 used_arguments body in
             let remaining_arguments = List.drop arguments (List.length used_arguments) in
             remaining_arguments |> List.fold_left ~init:f ~f:(version_apply t))
-    | Void | Universe | TerminalSpace _
-    | LetSpace (_, _)
-    | LetRevSpace (_, _, _, _)
-    | WrapEitherSpace _ | VarIndexSpace _ ->
+    | Void | Universe | TerminalSpace _ | LetSpace _ | LetRevSpace _ | WrapEitherSpace _
+    | VarIndexSpace _ ->
         t.void
   in
   il [] j
@@ -355,10 +347,8 @@ let rec recursive_inlining t j =
         match index_table t j with
         | ApplySpace (f, x) -> version_apply t f (recursive_inlining t x)
         | Union u -> u |> List.map ~f:inline_arguments |> union t
-        | AbstractSpace _ | TerminalSpace _ | Universe | Void | IndexSpace _
-        | LetSpace (_, _)
-        | LetRevSpace (_, _, _, _)
-        | WrapEitherSpace _ | VarIndexSpace _ ->
+        | AbstractSpace _ | TerminalSpace _ | Universe | Void | IndexSpace _ | LetSpace _
+        | LetRevSpace _ | WrapEitherSpace _ | VarIndexSpace _ ->
             t.void
       in
       let argument_linings = inline_arguments j in
@@ -521,10 +511,10 @@ let beta_pruning t j =
         let b' = beta_pruning' ~isApplied:false ~canBeta t b in
         version_abstract t b'
     | Union u -> u |> List.map ~f:(beta_pruning' ~isApplied ~canBeta t) |> union t
-    | LetSpace (d, b) ->
+    | LetSpace (dt, d, b) ->
         let d' = beta_pruning' ~isApplied ~canBeta t d in
         let b' = beta_pruning' ~isApplied ~canBeta t b in
-        version_let t d' b'
+        version_let t dt d' b'
     | LetRevSpace (vc, v, d, b) ->
         let d' = beta_pruning' ~isApplied ~canBeta t d in
         let b' = beta_pruning' ~isApplied ~canBeta t b in
@@ -572,10 +562,10 @@ let rec beta_substitution t i d j =
       | AbstractSpace b ->
           let b' = beta_substitution t i d b in
           version_abstract t b'
-      | LetSpace (dd, b) ->
+      | LetSpace (dt, dd, b) ->
           let dd' = beta_substitution t i d dd in
           let b' = beta_substitution t (i + 1) d b in
-          version_let t dd' b'
+          version_let t dt dd' b'
       | LetRevSpace (vc, v, dd, b) ->
           let v' =
             match index_table t v with
@@ -604,11 +594,13 @@ let rec beta_substitution t i d j =
 let%expect_test _ =
   let t = new_version_table () in
   let p =
-    "let $v1 = (car $inp0) in (cons $v1 $inp0)" |> parse_program |> get_some
+    "let $v1::int = (car $inp0) in (cons $v1 $inp0)" |> parse_program |> get_some
     |> incorporate t (TNCon ("->", [ ("inp0", tint) ], tint, false))
   in
   let p' =
-    match index_table t p with LetSpace (d, b) -> beta_substitution t 0 d b | _ -> assert false
+    match index_table t p with
+    | LetSpace (_dt, d, b) -> beta_substitution t 0 d b
+    | _ -> assert false
   in
   Printf.printf "%s\n" (string_of_versions t p');
   [%expect {| @(@(cons, @(car, $v0)), $v0) |}]
@@ -616,13 +608,15 @@ let%expect_test _ =
 let%expect_test _ =
   let t = new_version_table () in
   let p =
-    "let $v3 = Const(list(int), Any[]) in let $v1, $v2 = rev($inp0 = (cons $v1 $v2)) in (cons $v1 \
-     $v3)" |> parse_program |> get_some
+    "let $v3::list(int) = Const(list(int), Any[]) in let $v1, $v2 = rev($inp0 = (cons $v1 $v2)) in \
+     (cons $v1 $v3)" |> parse_program |> get_some
     |> incorporate t (TNCon ("->", [ ("inp0", tint) ], tint, false))
   in
   Printf.printf "%s\n" (string_of_versions t p);
   let p' =
-    match index_table t p with LetSpace (d, b) -> beta_substitution t 0 d b | _ -> assert false
+    match index_table t p with
+    | LetSpace (_dt, d, b) -> beta_substitution t 0 d b
+    | _ -> assert false
   in
   Printf.printf "%s\n" (string_of_versions t p');
   [%expect
@@ -634,14 +628,16 @@ let%expect_test _ =
 let%expect_test _ =
   let t = new_version_table () in
   let p =
-    "let $v3 = (car $v2) in let $v4, $v5 = rev($v2 = (cons $v4 $v5)) in let $v6, $v7 = rev($v5 = \
-     (cons $v6 $v7)) in let $v8 = Const(list(int), Any[]) in let $v9 = (cons $v6 $v8) in (cons $v3 \
-     $v9)" |> parse_program |> get_some
+    "let $v3::int = (car $v2) in let $v4, $v5 = rev($v2 = (cons $v4 $v5)) in let $v6, $v7 = \
+     rev($v5 = (cons $v6 $v7)) in let $v8::list(int) = Const(list(int), Any[]) in let \
+     $v9::list(int) = (cons $v6 $v8) in (cons $v3 $v9)" |> parse_program |> get_some
     |> incorporate t (TNCon ("->", [ ("v2", tint) ], tint, false))
   in
   Printf.printf "%s\n" (string_of_versions t p);
   let p' =
-    match index_table t p with LetSpace (d, b) -> beta_substitution t 0 d b | _ -> assert false
+    match index_table t p with
+    | LetSpace (_dt, d, b) -> beta_substitution t 0 d b
+    | _ -> assert false
   in
   Printf.printf "%s\n" (string_of_versions t p');
   [%expect
@@ -686,14 +682,14 @@ let rec substitute_rev_var t j r_is i : (int * int * int * int * int) option =
           substitute_rev_var t f (Some (-1, r_vc)) i >>= fun (_, _, _, _, f') ->
           Some (r_vc, r_d, r_fv, r_f, version_wrap_either t vc v' fv d f' b')
       | _ -> None)
-  | Some (r_off, r_vc), LetSpace (d, b) ->
+  | Some (r_off, r_vc), LetSpace (dt, d, b) ->
       substitute_rev_var t d r_is i >>= fun (_, _, _, _, d') ->
       substitute_rev_var t b (Some (r_off + 1, r_vc)) (i + 1) >>= fun (_, _, _, _, b') ->
-      Some (0, t.void, 0, t.void, version_let t d' b')
-  | None, LetSpace (d, b) ->
+      Some (0, t.void, 0, t.void, version_let t dt d' b')
+  | None, LetSpace (dt, d, b) ->
       substitute_rev_var t b r_is (i + 1) >>= fun (r_vc, r_d, r_fv, r_f, b') ->
       substitute_rev_var t d (Some (-1, r_vc)) i >>= fun (_, _, _, _, d') ->
-      Some (r_vc, r_d, r_fv, r_f, version_let t d' b')
+      Some (r_vc, r_d, r_fv, r_f, version_let t dt d' b')
   | _, Union _u ->
       raise
         (Failure (Printf.sprintf "Got Union for replacing a variable %s" (string_of_versions t j)))
@@ -785,7 +781,7 @@ let%expect_test _ =
   let t = new_version_table () in
   let p =
     "let $v1, $v2 = rev($inp0 = (cons $v1 $v2)) in let $v3, $v4 = rev($v2 = (cons $v3 $v4)) in let \
-     $v5, $v6 = rev($v4 = (cons $v5 $v6)) in let $v7 = (cons $v3 $v6) in (cons $v1 $v7)"
+     $v5, $v6 = rev($v4 = (cons $v5 $v6)) in let $v7::list(int) = (cons $v3 $v6) in (cons $v1 $v7)"
     |> parse_program |> get_some
     |> incorporate t (TNCon ("->", [ ("inp0", tint) ], tint, false))
   in
@@ -824,9 +820,10 @@ let%expect_test _ =
 let%expect_test _ =
   let t = new_version_table () in
   let p =
-    "let $v1, $v2 = rev($inp0 = (cons $v1 $v2)) in let $v3 = (car $v2) in let $v4, $v5 = rev($v2 = \
-     (cons $v4 $v5)) in let $v6, $v7 = rev($v5 = (cons $v6 $v7)) in let $v8 = Const(list(int), \
-     Any[]) in let $v9 = (cons $v6 $v8) in (cons $v3 $v9)" |> parse_program |> get_some
+    "let $v1, $v2 = rev($inp0 = (cons $v1 $v2)) in let $v3::int = (car $v2) in let $v4, $v5 = \
+     rev($v2 = (cons $v4 $v5)) in let $v6, $v7 = rev($v5 = (cons $v6 $v7)) in let $v8::list(int) = \
+     Const(list(int), Any[]) in let $v9::list(int) = (cons $v6 $v8) in (cons $v3 $v9)"
+    |> parse_program |> get_some
     |> incorporate t (TNCon ("->", [ ("inp0", tint) ], tint, false))
   in
   Printf.printf "%s\n" (string_of_versions t p);
@@ -875,7 +872,7 @@ let rec replace_var_indices t j depth min_repl max_repl =
 let rec reorder_lets' t j depth replacements =
   let replacements' =
     match index_table t j with
-    | LetSpace (d, _b) when depth - 1 < min_var_index t d ->
+    | LetSpace (_dt, d, _b) when depth - 1 < min_var_index t d ->
         let replacement = (depth, 0) in
         replacement :: replacements
     | LetRevSpace (vc, v, _d, _b) when depth - 1 < min_var_index t v ->
@@ -888,30 +885,30 @@ let rec reorder_lets' t j depth replacements =
     | _ -> replacements
   in
   match index_table t j with
-  | LetSpace (d, b) ->
+  | LetSpace (dt, d, b) ->
       reorder_lets' t b (depth + 1) replacements'
-      |> List.map ~f:(fun (depth', vc', v', fv', f', d', b') ->
-             if depth' = depth then (depth, 1, t.void, 0, t.void, d, b')
+      |> List.map ~f:(fun (depth', vc', v', fv', f', d', dt', b') ->
+             if depth' = depth then (depth, 1, t.void, 0, t.void, d, dt, b')
              else
                let min_repl = depth - depth' - vc' - 1 in
                let max_repl = depth - depth' - 1 in
-               let j' = version_let t (replace_var_indices t d depth min_repl max_repl) b' in
-               (depth', vc', v', fv', f', d', j'))
+               let j' = version_let t dt (replace_var_indices t d depth min_repl max_repl) b' in
+               (depth', vc', v', fv', f', d', dt', j'))
   | LetRevSpace (vc, v, d, b) ->
       reorder_lets' t b (depth + vc) replacements'
-      |> List.map ~f:(fun (depth', vc', v', fv', f', d', b') ->
-             if depth' = depth then (depth, vc, v, 0, t.void, d, b')
+      |> List.map ~f:(fun (depth', vc', v', fv', f', d', dt', b') ->
+             if depth' = depth then (depth, vc, v, 0, t.void, d, t0, b')
              else
                let min_repl = depth - depth' - vc' - 1 in
                let max_repl = depth - depth' - 1 in
                let j' =
                  version_let_rev t vc (replace_var_indices t v depth min_repl max_repl) d b'
                in
-               (depth', vc', v', fv', f', d', j'))
+               (depth', vc', v', fv', f', d', dt', j'))
   | WrapEitherSpace (vc, v, fv, d, f, b) ->
       reorder_lets' t b (depth + vc) replacements'
-      |> List.map ~f:(fun (depth', vc', v', fv', f', d', b') ->
-             if depth' = depth then (depth, vc, v, fv, f, d, b')
+      |> List.map ~f:(fun (depth', vc', v', fv', f', d', dt', b') ->
+             if depth' = depth then (depth, vc, v, fv, f, d, t0, b')
              else
                let min_repl = depth - depth' - vc' - 1 in
                let max_repl = depth - depth' - 1 in
@@ -922,17 +919,17 @@ let rec reorder_lets' t j depth replacements =
                    (replace_var_indices t f depth min_repl max_repl)
                    b'
                in
-               (depth', vc', v', fv', f', d', j'))
+               (depth', vc', v', fv', f', d', dt', j'))
   | _ ->
       List.map replacements ~f:(fun (repl_d, repl_vc) ->
           let min_repl = depth - repl_d - repl_vc - 1 in
           let max_repl = depth - repl_d - 1 in
           let j' = replace_var_indices t j depth min_repl max_repl in
-          (repl_d, repl_vc, t.void, 0, t.void, t.void, j'))
+          (repl_d, repl_vc, t.void, 0, t.void, t.void, t0, j'))
 
-let reorder_lets'' t depth vc v fv f d b =
+let reorder_lets'' t depth vc v fv f d dt b =
   match (v, f) with
-  | v'', _ when v'' = t.void -> version_let t (shift_var_indices t d (-depth)) b
+  | v'', _ when v'' = t.void -> version_let t dt (shift_var_indices t d (-depth)) b
   | _, f'' when f'' = t.void -> version_let_rev t vc (shift_var_indices t v (-depth)) d b
   | _ ->
       version_wrap_either t vc (shift_var_indices t v (-depth)) fv d
@@ -940,31 +937,31 @@ let reorder_lets'' t depth vc v fv f d b =
 
 let reorder_lets t j =
   match index_table t j with
-  | LetSpace (d, b) ->
+  | LetSpace (dt, d, b) ->
       reorder_lets' t b 1 []
-      |> List.map ~f:(fun (depth, vc', v', fv', f', d', b') ->
-             let b'' = version_let t (shift_var_indices t d vc') b' in
-             reorder_lets'' t depth vc' v' fv' f' d' b'')
+      |> List.map ~f:(fun (depth, vc', v', fv', f', d', dt', b') ->
+             let b'' = version_let t dt (shift_var_indices t d vc') b' in
+             reorder_lets'' t depth vc' v' fv' f' d' dt' b'')
   | LetRevSpace (vc, v, d, b) ->
       reorder_lets' t b vc []
-      |> List.map ~f:(fun (depth, vc', v', fv', f', d', b') ->
+      |> List.map ~f:(fun (depth, vc', v', fv', f', d', dt', b') ->
              let b'' = version_let_rev t vc (shift_var_indices t v vc') d b' in
-             reorder_lets'' t depth vc' v' fv' f' d' b'')
+             reorder_lets'' t depth vc' v' fv' f' d' dt' b'')
   | WrapEitherSpace (vc, v, fv, d, f, b) ->
       reorder_lets' t b vc []
-      |> List.map ~f:(fun (depth, vc', v', fv', f', d', b') ->
+      |> List.map ~f:(fun (depth, vc', v', fv', f', d', dt', b') ->
              let b'' =
                version_wrap_either t vc (shift_var_indices t v vc') fv d (shift_var_indices t f vc')
                  b'
              in
-             reorder_lets'' t depth vc' v' fv' f' d' b'')
+             reorder_lets'' t depth vc' v' fv' f' d' dt' b'')
   | _ -> []
 
 let%expect_test _ =
   let t = new_version_table () in
   let p =
-    "let $v1 = (car $inp0) in let $v2 = Const(list(int), Any[]) in (cons $v1 $v2)" |> parse_program
-    |> get_some
+    "let $v1::int = (car $inp0) in let $v2::list(int) = Const(list(int), Any[]) in (cons $v1 $v2)"
+    |> parse_program |> get_some
     |> incorporate t (TNCon ("->", [ ("inp0", tint) ], tint, false))
   in
   Printf.printf "%s\n" (string_of_versions t p);
@@ -979,8 +976,8 @@ let%expect_test _ =
 let%expect_test _ =
   let t = new_version_table () in
   let p =
-    "let $v1 = Const(int, 4) in let $v2, $v3 = rev($inp0 = (cons $v2 $v3)) in let $v4 = (cons $v2 \
-     $v3) in (cons $v1 $v4)" |> parse_program |> get_some
+    "let $v1::int = Const(int, 4) in let $v2, $v3 = rev($inp0 = (cons $v2 $v3)) in let \
+     $v4::list(int) = (cons $v2 $v3) in (cons $v1 $v4)" |> parse_program |> get_some
     |> incorporate t (TNCon ("->", [ ("inp0", tint) ], tint, false))
   in
   Printf.printf "%s\n" (string_of_versions t p);
@@ -996,8 +993,8 @@ let%expect_test _ =
   let t = new_version_table () in
   let p =
     "let $v1, $v2 = rev($inp0 = (cons $v1 $v2)) in let $v3, $v4 = rev($v2 = (cons $v3 $v4)) in let \
-     $v5 = Const(list(int), Any[]) in let $v6 = (cons $v3 $v5) in (cons $v1 $v6)" |> parse_program
-    |> get_some
+     $v5::list(int) = Const(list(int), Any[]) in let $v6::list(int) = (cons $v3 $v5) in (cons $v1 \
+     $v6)" |> parse_program |> get_some
     |> incorporate t (TNCon ("->", [ ("inp0", tint) ], tint, false))
   in
   Printf.printf "%s\n" (string_of_versions t p);
@@ -1013,8 +1010,8 @@ let%expect_test _ =
   let t = new_version_table () in
   let p =
     "let $v1, $v2 = rev($inp0 = (cons $v1 $v2)) in let $v3, $v4 = rev($v2 = (cons $v3 $v4)) in let \
-     $v5, $v6 = rev($v4 = (cons $v5 $v6)) in let $v7, $v8 = rev($v6 = (cons $v7 $v8)) in let $v9 = \
-     (car $v8) in (cons $v9 $inp0)" |> parse_program |> get_some
+     $v5, $v6 = rev($v4 = (cons $v5 $v6)) in let $v7, $v8 = rev($v6 = (cons $v7 $v8)) in let \
+     $v9::int = (car $v8) in (cons $v9 $inp0)" |> parse_program |> get_some
     |> incorporate t (TNCon ("->", [ ("inp0", tint) ], tint, false))
   in
   Printf.printf "%s\n" (string_of_versions t p);
@@ -1027,9 +1024,9 @@ let%expect_test _ =
 let%expect_test _ =
   let t = new_version_table () in
   let p =
-    "let $v1 = (car $inp0) in let $v2, $v3 = rev($inp0 = (cons $v2 $v3)) in let $v4, $v5 = rev($v3 \
-     = (cons $v4 $v5)) in let $v6 = Const(list(int), Any[]) in let $v7 = (cons $v4 $v6) in (cons \
-     $v1 $v7)" |> parse_program |> get_some
+    "let $v1::int = (car $inp0) in let $v2, $v3 = rev($inp0 = (cons $v2 $v3)) in let $v4, $v5 = \
+     rev($v3 = (cons $v4 $v5)) in let $v6::list(int) = Const(list(int), Any[]) in let \
+     $v7::list(int) = (cons $v4 $v6) in (cons $v1 $v7)" |> parse_program |> get_some
     |> incorporate t (TNCon ("->", [ ("inp0", tint) ], tint, false))
   in
   Printf.printf "%s\n" (string_of_versions t p);
@@ -1045,9 +1042,10 @@ let%expect_test _ =
 let%expect_test _ =
   let t = new_version_table () in
   let p =
-    "let $v1, $v2 = rev($inp0 = (cons $v1 $v2)) in let $v3 = (car $v2) in let $v4, $v5 = rev($v2 = \
-     (cons $v4 $v5)) in let $v6, $v7 = rev($v5 = (cons $v6 $v7)) in let $v8 = Const(list(int), \
-     Any[]) in let $v9 = (cons $v6 $v8) in (cons $v3 $v9)" |> parse_program |> get_some
+    "let $v1, $v2 = rev($inp0 = (cons $v1 $v2)) in let $v3::int = (car $v2) in let $v4, $v5 = \
+     rev($v2 = (cons $v4 $v5)) in let $v6, $v7 = rev($v5 = (cons $v6 $v7)) in let $v8::list(int) = \
+     Const(list(int), Any[]) in let $v9::list(int) = (cons $v6 $v8) in (cons $v3 $v9)"
+    |> parse_program |> get_some
     |> incorporate t (TNCon ("->", [ ("inp0", tint) ], tint, false))
   in
   Printf.printf "%s\n" (string_of_versions t p);
@@ -1093,9 +1091,9 @@ let%expect_test _ =
   let t = new_version_table () in
   let p =
     "let $v1, $v2 = rev($inp0 = (cons $v1 $v2)) in let $v3, $v4 = rev($v2 = (cons $v3 $v4)) in let \
-     $v5 = (car $v4) in let $v6 = Const(list(int), Any[]) in let $v7 = (cons $v5 $v6) in let $v8, \
-     $v9 = wrap(let $v8, $v9 = rev($inp0 = (concat $v8 $v9)); let $v8 = $inp0) in (concat $v7 $v8)"
-    |> parse_program |> get_some
+     $v5::int = (car $v4) in let $v6::list(int) = Const(list(int), Any[]) in let $v7::list(int) = \
+     (cons $v5 $v6) in let $v8, $v9 = wrap(let $v8, $v9 = rev($inp0 = (concat $v8 $v9)); let $v8 = \
+     $inp0) in (concat $v7 $v8)" |> parse_program |> get_some
     |> incorporate t (TNCon ("->", [ ("inp0", tint) ], tint, false))
   in
   Printf.printf "%s\n" (string_of_versions t p);
@@ -1133,8 +1131,8 @@ let n_step_inversion ?inline:(il = false) t ~n j =
       let rec visit j =
         let children' j =
           match index_table t j with
-          | LetSpace (d, b) ->
-              version_let t (visit d) (visit b)
+          | LetSpace (dt, d, b) ->
+              version_let t dt (visit d) (visit b)
               ::
               (let substituted = beta_substitution t 0 d b in
                match index_table t substituted with Void -> [] | _ -> [ visit substituted ])
@@ -1151,7 +1149,7 @@ let n_step_inversion ?inline:(il = false) t ~n j =
           | ApplySpace (f, x) -> version_apply t (visit f) (visit x)
           | AbstractSpace b -> version_abstract t (visit b)
           | IndexSpace _ | TerminalSpace _ -> j
-          | LetSpace (_, _) | LetRevSpace (_, _, _, _) | WrapEitherSpace _ ->
+          | LetSpace _ | LetRevSpace _ | WrapEitherSpace _ ->
               j :: reorder_lets t j |> List.map ~f:children' |> List.concat |> union t
           | VarIndexSpace _n -> j
         in
@@ -1175,10 +1173,10 @@ let rec filter_with_subprogram t i j =
     | AbstractSpace b ->
         let c, b' = filter_with_subprogram t i b in
         (c, version_abstract t b')
-    | LetSpace (d, b) ->
+    | LetSpace (dt, d, b) ->
         let dc, d' = filter_with_subprogram t i d in
         let bc, b' = filter_with_subprogram t i b in
-        (dc + bc, version_let t d' b')
+        (dc + bc, version_let t dt d' b')
     | LetRevSpace (vc, v, d, b) ->
         let dc, d' = filter_with_subprogram t i d in
         let bc, b' = filter_with_subprogram t i b in
@@ -1227,8 +1225,8 @@ let n_step_inversion_with_invention ?inline:(il = false) t ~given ~n j =
         | None ->
             let children' j =
               match index_table t j with
-              | LetSpace (d, b) ->
-                  let normal_visited = version_let t (visit d) (visit b) in
+              | LetSpace (dt, d, b) ->
+                  let normal_visited = version_let t dt (visit d) (visit b) in
                   let normal_c, _ = filter_with_subprogram t given normal_visited in
 
                   normal_visited
@@ -1263,7 +1261,7 @@ let n_step_inversion_with_invention ?inline:(il = false) t ~given ~n j =
               | ApplySpace (f, x) -> version_apply t (visit f) (visit x)
               | AbstractSpace b -> version_abstract t (visit b)
               | IndexSpace _ | TerminalSpace _ -> j
-              | LetSpace (_, _) | LetRevSpace (_, _, _, _) | WrapEitherSpace _ ->
+              | LetSpace _ | LetRevSpace _ | WrapEitherSpace _ ->
                   j :: reorder_lets t j |> List.map ~f:children' |> List.concat |> union t
               | VarIndexSpace _n -> j
             in
@@ -1337,7 +1335,7 @@ let reachable_versions t indices : int list =
           visit f;
           visit x
       | Union u -> u |> List.iter ~f:visit
-      | LetSpace (d, b) ->
+      | LetSpace (_dt, d, b) ->
           visit d;
           visit b
       | LetRevSpace (_vc, v, d, b) ->
@@ -1355,9 +1353,7 @@ let reachable_versions t indices : int list =
 
 let rec filter_allowed_invention t j =
   match index_table t j with
-  | LetSpace (_, _)
-  | LetRevSpace (_, _, _, _)
-  | WrapEitherSpace _ | VarIndexSpace _
+  | LetSpace _ | LetRevSpace _ | WrapEitherSpace _ | VarIndexSpace _
   | TerminalSpace (Const _)
   | Universe | Void ->
       t.void
@@ -1380,7 +1376,7 @@ let garbage_collect_versions ?(verbose = false) t indices =
     | TerminalSpace p -> version_terminal nt p
     | Universe -> nt.universe
     | Void -> nt.void
-    | LetSpace (d, b) -> version_let nt (reincorporate d) (reincorporate b)
+    | LetSpace (dt, d, b) -> version_let nt dt (reincorporate d) (reincorporate b)
     | LetRevSpace (vc, v, d, b) ->
         version_let_rev nt vc (reincorporate v) (reincorporate d) (reincorporate b)
     | WrapEitherSpace (vc, iv, fv, d, f, b) ->
@@ -1446,7 +1442,7 @@ let rec minimum_cost_inhabitants ?(given = None) ?(canBeLambda = true) t j : flo
                     |> List.map ~f:(fun f' ->
                            xs |> List.map ~f:(fun x' -> version_apply t.cost_table_parent f' x'))
                     |> List.concat )
-            | LetSpace (d, b) ->
+            | LetSpace (dt, d, b) ->
                 let dc, ds = minimum_cost_inhabitants ~given ~canBeLambda:false t d in
                 let bc, bs = minimum_cost_inhabitants ~given ~canBeLambda:true t b in
                 if is_invalid dc || is_invalid bc then (Float.infinity, [])
@@ -1454,7 +1450,7 @@ let rec minimum_cost_inhabitants ?(given = None) ?(canBeLambda = true) t j : flo
                   ( dc +. bc,
                     ds
                     |> List.map ~f:(fun d' ->
-                           bs |> List.map ~f:(fun b' -> version_let t.cost_table_parent d' b'))
+                           bs |> List.map ~f:(fun b' -> version_let t.cost_table_parent dt d' b'))
                     |> List.concat )
             | LetRevSpace (vcount, v, d, b) ->
                 let vc, vs = minimum_cost_inhabitants ~given ~canBeLambda:false t v in
@@ -1538,7 +1534,7 @@ let rec minimal_inhabitant_cost ?(intersectionTable = None) ?(given = None) ?(ca
                 epsilon_cost
                 +. minimal_inhabitant_cost ~intersectionTable ~given ~canBeLambda:false t f
                 +. minimal_inhabitant_cost ~intersectionTable ~given ~canBeLambda:true t x
-            | LetSpace (d, b) ->
+            | LetSpace (_dt, d, b) ->
                 minimal_inhabitant_cost ~intersectionTable ~given ~canBeLambda:false t d
                 +. minimal_inhabitant_cost ~intersectionTable ~given ~canBeLambda:true t b
             | LetRevSpace (_vcount, _v, d, b) ->
@@ -1588,7 +1584,7 @@ let rec minimal_inhabitant ?(intersectionTable = None) ?(given = None) ?(canBeLa
                   |> get_some,
                   minimal_inhabitant ~intersectionTable ~given ~canBeLambda:true t workspace x
                   |> get_some )
-          | LetSpace (d, b) ->
+          | LetSpace (dt, d, b) ->
               let d' =
                 minimal_inhabitant ~intersectionTable ~given ~canBeLambda:false t workspace d
                 |> get_some
@@ -1598,7 +1594,7 @@ let rec minimal_inhabitant ?(intersectionTable = None) ?(given = None) ?(canBeLa
                 minimal_inhabitant ~intersectionTable ~given ~canBeLambda:false t (v :: workspace) b
                 |> get_some
               in
-              LetClause (v, d', b')
+              LetClause (v, dt, d', b')
           | LetRevSpace (vcount, v, d, b) ->
               let new_vars =
                 List.rev_map
@@ -1750,7 +1746,7 @@ let beam_costs'' ~ct ~bs (candidates : int list) (frontier_indices : int list li
                    let c = epsilon_cost +. relative_function fb i +. relative_argument xb i in
                    relax bm.relative_function i c;
                    relax bm.relative_argument i c)
-        | LetSpace (d, b) ->
+        | LetSpace (_dt, d, b) ->
             let db = calculate_costs d in
             let bb = calculate_costs b in
             let domain = Hashtbl.keys db.relative_argument @ Hashtbl.keys bb.relative_argument in
@@ -1854,11 +1850,11 @@ let batched_refactor ~ct (candidates : int list) (frontier_requests : tp list)
       | IndexSpace j -> Index j
       | TerminalSpace e -> e
       | VarIndexSpace n -> FreeVar (List.nth_exn workspace n)
-      | LetSpace (d, b) ->
+      | LetSpace (dt, d, b) ->
           let d' = refactor ~canBeLambda:false workspace i d in
           let v = "v" ^ string_of_int (List.length workspace) in
           let b' = refactor ~canBeLambda:false (v :: workspace) i b in
-          LetClause (v, d', b')
+          LetClause (v, dt, d', b')
       | LetRevSpace (vcount, v, d, b) ->
           let new_vars =
             List.rev_map
