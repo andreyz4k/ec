@@ -1,4 +1,7 @@
 
+include("type.jl")
+include("program.jl")
+include("task.jl")
 include("exceptions.jl")
 include("indexed_storage.jl")
 include("graph_storage.jl")

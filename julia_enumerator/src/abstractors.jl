@@ -95,6 +95,29 @@ function generic_reverse2(prim, rev_function)
             r_a, r_b = rev_function(value)
             return vcat(rev_a(r_a), rev_b(r_b))
         end
+        function _reverse_function(value::EitherOptions)::Vector{Any}
+            hashes = []
+            outputs = [[], []]
+            for (h, val) in value.options
+                outs = _reverse_function(val)
+                push!(hashes, h)
+                for i in 1:2
+                    push!(outputs[i], outs[i])
+                end
+            end
+            results = []
+            for values in outputs
+                if allequal(values)
+                    push!(results, values[1])
+                elseif any(out == value for out in values)
+                    push!(results, value)
+                else
+                    options = Dict(hashes[i] => values[i] for i in 1:length(hashes))
+                    push!(results, EitherOptions(options))
+                end
+            end
+            return results
+        end
         return prim, _reverse_function, [filled_b, filled_a], vcat(filled_a_types, filled_b_types)
     end
     return _generic_reverse
@@ -107,6 +130,23 @@ function generic_reverse1(prim, rev_function)
         function _reverse_function(value)::Vector{Any}
             r_a = rev_function(value)
             return rev_a(r_a[1])
+        end
+        function _reverse_function(value::EitherOptions)::Vector{Any}
+            hashes = []
+            outputs = []
+            for (h, val) in value.options
+                outs = _reverse_function(val)
+                push!(hashes, h)
+                push!(outputs, outs[1])
+            end
+            if allequal(outputs)
+                return [outputs[1]]
+            elseif any(out == value for out in outputs)
+                return [value]
+            else
+                options = Dict(hashes[i] => outputs[i] for i in 1:length(hashes))
+                return [EitherOptions(options)]
+            end
         end
         return prim, _reverse_function, [filled_a], filled_a_types
     end
@@ -198,10 +238,84 @@ function reverse_map(name, type, zip_primitive)
         fill_f = Abstraction(fill_f)
         fill_x, rev_x, _, filled_types_x = _get_reversed_filled_program(pop!(arguments), arguments)
         function __reverse_map(value)::Vector{Any}
-            results = [[] for _ in filled_types_f]
+            output_options = [[[] for _ in filled_types_f]]
             for values in map(rev_f, value)
-                for (i, v) in enumerate(values)
-                    push!(results[i], v)
+                if any(v isa EitherOptions for v in values)
+                    child_options = Dict()
+                    non_eithers = []
+                    for v in values
+                        if v isa EitherOptions
+                            if isempty(child_options)
+                                for (h, val) in v.options
+                                    child_options[h] = vcat(non_eithers, [val])
+                                end
+                            else
+                                for (h, val) in v.options
+                                    push!(child_options[h], val)
+                                end
+                            end
+                        else
+                            if isempty(child_options)
+                                push!(non_eithers, v)
+                            else
+                                for (h, option) in child_options
+                                    push!(option, v)
+                                end
+                            end
+                        end
+                    end
+
+                    new_options = []
+                    for output_option in output_options
+                        for (h, option) in child_options
+                            new_option = []
+                            for i in 1:length(filled_types_f)
+                                push!(new_option, copy(output_option[i]))
+                                push!(new_option[i], option[i])
+                            end
+                            push!(new_options, new_option)
+                        end
+                    end
+                    output_options = new_options
+                else
+                    for (i, v) in enumerate(values)
+                        for option in output_options
+                            push!(option[i], v)
+                        end
+                    end
+                end
+            end
+            if length(output_options) == 1
+                return output_options[1]
+            else
+                hashes = [hash(option) for option in output_options]
+                result = []
+                for i in 1:length(filled_types_f)
+                    push!(result, EitherOptions(Dict(hashes[j] => output_options[j][i] for j in 1:length(hashes))))
+                end
+                return result
+            end
+        end
+
+        function __reverse_map(value::EitherOptions)::Vector{Any}
+            hashes = []
+            outputs = [[] for _ in filled_types_f]
+            for (h, val) in value.options
+                outs = __reverse_map(val)
+                push!(hashes, h)
+                for i in 1:length(filled_types_f)
+                    push!(outputs[i], outs[i])
+                end
+            end
+            results = []
+            for values in outputs
+                if allequal(values)
+                    push!(results, values[1])
+                elseif any(out == value for out in values)
+                    push!(results, value)
+                else
+                    options = Dict(hashes[i] => values[i] for i in 1:length(hashes))
+                    push!(results, EitherOptions(options))
                 end
             end
             return results
@@ -370,8 +484,8 @@ function reverse_rev_select(name)
         fill_f = fill_selector(f)
         fill_base, rev_base, _, filled_types_base = _get_reversed_filled_program(pop!(arguments), arguments)
         fill_others, rev_others, _, filled_types_others = _get_reversed_filled_program(pop!(arguments), arguments)
-        __reverse_rev_select = if f == fill_f
-            function (value)
+        function __reverse_rev_select(value)::Vector{Any}
+            if f == fill_f
                 results_base = Array{Any}(undef, size(value)...)
                 results_others = Array{Any}(undef, size(value)...)
                 for i in 1:length(value)
@@ -387,13 +501,11 @@ function reverse_rev_select(name)
                     error("All elements are equal according to selector")
                 end
                 return vcat(rev_base(results_base), rev_others(results_others))
-            end
-        elseif isa(f, Abstraction) &&
-               isa(f.b, Apply) &&
-               isa(f.b.x, Hole) &&
-               isa(f.b.f, Apply) &&
-               f.b.f.f == every_primitive["eq?"]
-            function (value)
+            elseif isa(f, Abstraction) &&
+                   isa(f.b, Apply) &&
+                   isa(f.b.x, Hole) &&
+                   isa(f.b.f, Apply) &&
+                   f.b.f.f == every_primitive["eq?"]
                 options_selector = Dict()
                 options_base = Dict()
                 options_others = Dict()
@@ -432,10 +544,39 @@ function reverse_rev_select(name)
                 out_others = EitherOptions(options_others)
 
                 return vcat([out_selector], rev_base(out_base), rev_others(out_others))
+            else
+                error("Can't reverse rev_select with selector $f")
             end
-        else
-            error("Can't reverse rev_select with selector $f")
         end
+
+        function __reverse_rev_select(value::EitherOptions)::Vector{Any}
+            hashes = []
+            num_outputs = length(filled_types_base) + length(filled_types_others)
+            if f != fill_f
+                num_outputs += 1
+            end
+            outputs = [[] for _ in 1:num_outputs]
+            for (h, val) in value.options
+                outs = __reverse_rev_select(val)
+                push!(hashes, h)
+                for i in 1:num_outputs
+                    push!(outputs[i], outs[i])
+                end
+            end
+            results = []
+            for values in outputs
+                if allequal(values)
+                    push!(results, values[1])
+                elseif any(out == value for out in values)
+                    push!(results, value)
+                else
+                    options = Dict(hashes[i] => values[i] for i in 1:length(hashes))
+                    push!(results, EitherOptions(options))
+                end
+            end
+            return results
+        end
+
         return every_primitive[name],
         __reverse_rev_select,
         [fill_others, fill_base, fill_f],

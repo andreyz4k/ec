@@ -239,28 +239,6 @@ function try_run_reversed_with_value(reverse_program::Function, value, new_vars_
     try_run_function(reverse_program, [value])
 end
 
-function try_run_reversed_with_value(reverse_program::Function, value::EitherOptions, new_vars_count)
-    hashes = []
-    outputs = [[] for _ in 1:new_vars_count]
-    for (h, val) in value.options
-        outs = try_run_reversed_with_value(reverse_program, val, new_vars_count)
-        push!(hashes, h)
-        for i in 1:new_vars_count
-            push!(outputs[i], outs[i])
-        end
-    end
-    results = []
-    for values in outputs
-        if allequal(values)
-            push!(results, values[1])
-        else
-            options = Dict(hashes[i] => values[i] for i in 1:length(hashes))
-            push!(results, EitherOptions(options))
-        end
-    end
-    return results
-end
-
 function try_get_reversed_values(sc::SolutionContext, p::Program, context, output_branch_id, cost, is_known)
     p, reverse_program = get_reversed_filled_program(p)
     out_entry = sc.entries[sc.branch_entries[output_branch_id]]
@@ -337,6 +315,7 @@ function try_get_reversed_values(sc::SolutionContext, p::Program, context, outpu
 
         push!(new_branches, (var_id, branch_id, entry.type_id))
     end
+
     if length(new_branches) > 1
         for (_, branch_id, _) in new_branches
             inds = [b_id for (_, b_id, _) in new_branches if b_id != branch_id]

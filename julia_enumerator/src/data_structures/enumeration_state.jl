@@ -96,7 +96,7 @@ function get_candidates_for_unknown_var(sc, branch_id, g)::Vector{BlockPrototype
     prototypes
 end
 
-function get_candidates_for_known_var(sc, branch_id, g::ContextualGrammar)
+function get_candidates_for_known_var(sc, branch_id, g)
     prototypes = []
     var_id = sc.branch_vars[branch_id]
     if !isnothing(sc.explained_min_path_costs[branch_id])

@@ -553,6 +553,3 @@ function run_analyzed_with_arguments(@nospecialize(p::Function), arguments, work
     end
     return l
 end
-
-include("primitives.jl")
-include("abstractors.jl")

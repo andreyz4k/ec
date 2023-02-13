@@ -1,4 +1,6 @@
 
+using DataStructures: PriorityQueue
+
 "Solution context"
 mutable struct SolutionContext
     entries::IndexedStorage{Entry}

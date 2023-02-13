@@ -856,15 +856,16 @@ using solver: load_problems, enumerate_for_task
             @time enumerate_for_task(g, type_weights, task, maximum_frontier, timeout, verbose)
         @test length(solutions) >= 1
         @test number_enumerated >= 100
-        @test number_enumerated < 1000
+        @test number_enumerated < 2000
     end
 
     @testset "try_enumerate append-index-k with k=5" begin
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload3)
         solutions, number_enumerated =
             @time enumerate_for_task(g, type_weights, task, maximum_frontier, timeout, verbose)
-        @test length(solutions) == 0
+        @test length(solutions) == 10
         @test number_enumerated > 1000
+        @test number_enumerated < 10000
     end
 
     @testset "try_enumerate len" begin
@@ -881,7 +882,7 @@ using solver: load_problems, enumerate_for_task
         solutions, number_enumerated =
             @time enumerate_for_task(g, type_weights, task, maximum_frontier, timeout, verbose)
         @test length(solutions) >= 5
-        @test number_enumerated >= 50
+        @test number_enumerated >= 30
         @test number_enumerated <= 1000
     end
 

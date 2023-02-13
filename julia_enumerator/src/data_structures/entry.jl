@@ -112,6 +112,9 @@ struct EitherOptions
     options::Dict{UInt64,Any}
 end
 
+Base.:(==)(v1::EitherOptions, v2::EitherOptions) = v1.options == v2.options
+Base.hash(v::EitherOptions, h::UInt64) = hash(v.options, h)
+
 struct EitherEntry <: Entry
     type_id::UInt64
     values::Vector
