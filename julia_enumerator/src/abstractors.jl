@@ -238,7 +238,7 @@ function reverse_map(name, type, zip_primitive)
         fill_f = Abstraction(fill_f)
         fill_x, rev_x, _, filled_types_x = _get_reversed_filled_program(pop!(arguments), arguments)
         function __reverse_map(value)::Vector{Any}
-            output_options = [[[] for _ in filled_types_f]]
+            output_options = Set([[[] for _ in filled_types_f]])
             for values in map(rev_f, value)
                 if any(v isa EitherOptions for v in values)
                     child_options = Dict()
@@ -265,7 +265,7 @@ function reverse_map(name, type, zip_primitive)
                         end
                     end
 
-                    new_options = []
+                    new_options = Set()
                     for output_option in output_options
                         for (h, option) in child_options
                             new_option = []
@@ -274,6 +274,9 @@ function reverse_map(name, type, zip_primitive)
                                 push!(new_option[i], option[i])
                             end
                             push!(new_options, new_option)
+                            if length(new_options) > 100
+                                error("Too many options")
+                            end
                         end
                     end
                     output_options = new_options
@@ -286,12 +289,12 @@ function reverse_map(name, type, zip_primitive)
                 end
             end
             if length(output_options) == 1
-                return output_options[1]
+                return first(output_options)
             else
-                hashes = [hash(option) for option in output_options]
+                hashed_options = Dict(hash(option) => option for option in output_options)
                 result = []
                 for i in 1:length(filled_types_f)
-                    push!(result, EitherOptions(Dict(hashes[j] => output_options[j][i] for j in 1:length(hashes))))
+                    push!(result, EitherOptions(Dict(h => option[i] for (h, option) in hashed_options)))
                 end
                 return result
             end
