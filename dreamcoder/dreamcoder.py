@@ -1259,7 +1259,17 @@ def commandlineArguments(
     parser.add_argument(
         "--compressor",
         default=compressor,
-        choices=["pypy", "rust", "vs", "pypy_vs", "ocaml", "vs_factored", "memorize"],
+        choices=[
+            "pypy",
+            "rust",
+            "vs",
+            "pypy_vs",
+            "ocaml",
+            "python",
+            "stitch",
+            "vs_factored",
+            "memorize",
+        ],
     )
     parser.add_argument(
         "--matrixRank",
