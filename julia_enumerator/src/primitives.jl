@@ -95,8 +95,8 @@ _is_prime(n) = in(
     ),
 )
 @define_primitive("length", arrow(tlist(t0), tint), length)
-@define_primitive("height", arrow(tlist(t0), tint), (g -> size(g, 1)))
-@define_primitive("width", arrow(tlist(t0), tint), (g -> size(g, 2)))
+@define_primitive("height", arrow(tgrid(t0), tint), (g -> size(g, 1)))
+@define_primitive("width", arrow(tgrid(t0), tint), (g -> size(g, 2)))
 
 # built-ins
 @define_primitive("if", arrow(tbool, t0, t0, t0), (c -> (t -> (f -> c ? t : f))))
