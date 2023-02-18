@@ -17,7 +17,6 @@ struct EnumerationState
     path::Vector{Turn}
     cost::Float64
     free_parameters::Int64
-    abstractors_only::Bool
 end
 
 Base.:(==)(a::EnumerationState, b::EnumerationState) =
@@ -25,11 +24,10 @@ Base.:(==)(a::EnumerationState, b::EnumerationState) =
     a.context == b.context &&
     a.path == b.path &&
     a.cost == b.cost &&
-    a.free_parameters == b.free_parameters &&
-    a.abstractors_only == b.abstractors_only
+    a.free_parameters == b.free_parameters
 
 Base.hash(a::EnumerationState, h::UInt) =
-    hash(a.skeleton, hash(a.context, hash(a.path, hash(a.cost, hash(a.free_parameters, hash(a.abstractors_only, h))))))
+    hash(a.skeleton, hash(a.context, hash(a.path, hash(a.cost, hash(a.free_parameters, h)))))
 
 struct BlockPrototype
     state::EnumerationState
@@ -53,7 +51,7 @@ EPSILON = 1e-3
 
 function block_prototype(pr, inputs, output_var_id, output_branch_id, output_type)
     BlockPrototype(
-        EnumerationState(pr, empty_context, [], EPSILON, 0, false),
+        EnumerationState(pr, empty_context, [], EPSILON, 0),
         output_type,
         inputs,
         (output_var_id, output_branch_id),
@@ -84,7 +82,7 @@ function get_candidates_for_unknown_var(sc, branch_id, g)::Vector{BlockPrototype
     entry = sc.entries[sc.branch_entries[branch_id]]
     prototypes = []
     if !isa(entry, NoDataEntry)
-        push!(prototypes, block_prototype(Hole(type, g.no_context), nothing, var_id, branch_id, type))
+        push!(prototypes, block_prototype(Hole(type, g.no_context, false), nothing, var_id, branch_id, type))
     end
     for (pr, inputs, out_type) in matching_with_unknown_candidates(sc, entry, var_id)
         push!(prototypes, block_prototype(pr, inputs, var_id, branch_id, out_type))
@@ -105,7 +103,7 @@ function get_candidates_for_known_var(sc, branch_id, g)
         push!(
             prototypes,
             BlockPrototype(
-                EnumerationState(Hole(type, g.no_context), empty_context, [], EPSILON, 0, true),
+                EnumerationState(Hole(type, g.no_context, true), empty_context, [], EPSILON, 0),
                 type,
                 nothing,
                 (var_id, branch_id),

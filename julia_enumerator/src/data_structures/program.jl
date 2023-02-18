@@ -50,9 +50,10 @@ Base.:(==)(p::Invented, q::Invented) = p.b == q.b
 struct Hole <: Program
     t::Tp
     grammar::Any
+    abstractors_only::Bool
 end
 Base.hash(p::Hole, h::UInt64) = hash(p.t, hash(p.grammar, h))
-Base.:(==)(p::Hole, q::Hole) = p.t == q.t && p.grammar == q.grammar
+Base.:(==)(p::Hole, q::Hole) = p.t == q.t && p.grammar == q.grammar && p.abstractors_only == q.abstractors_only
 
 struct FreeVar <: Program
     t::Tp
@@ -377,7 +378,7 @@ function _application_parse(p::Apply, arguments)
     push!(arguments, p.x)
     _application_parse(p.f, arguments)
 end
-_application_parse(p::Program, args) = (p, args)
+_application_parse(p::Program, args) = (p, reverse(args))
 
 function analyze_evaluation(p::Abstraction)::Function
     b = analyze_evaluation(p.b)

@@ -39,7 +39,7 @@ using DataStructures
 using SuiteSparseGraphBLAS
 
 function initial_state(t, g)
-    EnumerationState(Hole(t, g.no_context), empty_context, [], 0.0, 0, false)
+    EnumerationState(Hole(t, g.no_context, false), empty_context, [], 0.0, 0)
 end
 
 function next_state(state, target_candidate, cg)
@@ -54,14 +54,14 @@ function next_state(state, target_candidate, cg)
     context, request = apply_context(context, request)
 
     environment = path_environment(state.path)
-    candidates = unifying_expressions(g, environment, request, context, state.abstractors_only)
+    candidates = unifying_expressions(g, environment, request, context, current_hole.abstractors_only)
     if !isa(state.skeleton, Hole)
-        push!(candidates, (FreeVar(request, nothing), [], context, g.log_variable))
+        push!(candidates, (FreeVar(request, nothing), [], context, g.log_variable, []))
     end
 
     states = collect(
         skipmissing(
-            map(candidates) do (candidate, argument_types, context, ll)
+            map(candidates) do (candidate, argument_types, context, ll, rev_args)
                 if candidate != target_candidate
                     return missing
                 end
@@ -73,8 +73,11 @@ function next_state(state, target_candidate, cg)
                     new_path = unwind_path(state.path, new_skeleton)
                 else
                     application_template = candidate
-                    for (a, at) in argument_requests
-                        application_template = Apply(application_template, Hole(a, at))
+                    for i in 1:length(argument_types)
+                        application_template = Apply(
+                            application_template,
+                            Hole(argument_types[i], argument_requests[i], current_hole.abstractors_only && rev_args[i]),
+                        )
                     end
                     new_skeleton = modify_skeleton(state.skeleton, application_template, state.path)
                     new_path = vcat(state.path, [LeftTurn() for _ in 2:length(argument_types)], [RightTurn()])
@@ -85,7 +88,6 @@ function next_state(state, target_candidate, cg)
                     new_path,
                     state.cost + ll,
                     state.free_parameters + new_free_parameters,
-                    state.abstractors_only,
                 )
             end,
         ),
@@ -112,30 +114,30 @@ end
         "DSL" => Dict{String,Any}(
             "logVariable" => 0.0,
             "productions" => Any[
-                Dict{String,Any}("logProbability" => 0.0, "expression" => "map"),
-                Dict{String,Any}("logProbability" => 0.0, "expression" => "unfold"),
-                Dict{String,Any}("logProbability" => 0.0, "expression" => "range"),
-                Dict{String,Any}("logProbability" => 0.0, "expression" => "index"),
-                Dict{String,Any}("logProbability" => 0.0, "expression" => "fold"),
-                Dict{String,Any}("logProbability" => 0.0, "expression" => "length"),
-                Dict{String,Any}("logProbability" => 0.0, "expression" => "if"),
-                Dict{String,Any}("logProbability" => 0.0, "expression" => "+"),
-                Dict{String,Any}("logProbability" => 0.0, "expression" => "-"),
-                Dict{String,Any}("logProbability" => 0.0, "expression" => "empty"),
-                Dict{String,Any}("logProbability" => 0.0, "expression" => "cons"),
-                Dict{String,Any}("logProbability" => 0.0, "expression" => "car"),
-                Dict{String,Any}("logProbability" => 0.0, "expression" => "cdr"),
-                Dict{String,Any}("logProbability" => 0.0, "expression" => "empty?"),
-                Dict{String,Any}("logProbability" => 0.0, "expression" => "0"),
-                Dict{String,Any}("logProbability" => 0.0, "expression" => "1"),
-                Dict{String,Any}("logProbability" => 0.0, "expression" => "*"),
-                Dict{String,Any}("logProbability" => 0.0, "expression" => "mod"),
-                Dict{String,Any}("logProbability" => 0.0, "expression" => "gt?"),
-                Dict{String,Any}("logProbability" => 0.0, "expression" => "eq?"),
-                Dict{String,Any}("logProbability" => 0.0, "expression" => "is-prime"),
-                Dict{String,Any}("logProbability" => 0.0, "expression" => "is-square"),
-                Dict{String,Any}("logProbability" => 0.0, "expression" => "repeat"),
-                Dict{String,Any}("logProbability" => 0.0, "expression" => "concat"),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "map", "is_reversible" => true),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "unfold", "is_reversible" => false),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "range", "is_reversible" => true),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "index", "is_reversible" => false),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "fold", "is_reversible" => false),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "length", "is_reversible" => false),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "if", "is_reversible" => false),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "+", "is_reversible" => false),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "-", "is_reversible" => false),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "empty", "is_reversible" => false),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "cons", "is_reversible" => true),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "car", "is_reversible" => false),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "cdr", "is_reversible" => false),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "empty?", "is_reversible" => false),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "0", "is_reversible" => false),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "1", "is_reversible" => false),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "*", "is_reversible" => false),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "mod", "is_reversible" => false),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "gt?", "is_reversible" => false),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "eq?", "is_reversible" => false),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "is-prime", "is_reversible" => false),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "is-square", "is_reversible" => false),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "repeat", "is_reversible" => true),
+                Dict{String,Any}("logProbability" => 0.0, "expression" => "concat", "is_reversible" => true),
             ],
         ),
         "type_weights" => Dict{String,Any}("list" => 1.0, "int" => 1.0, "bool" => 1.0, "float" => 1.0),

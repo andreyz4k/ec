@@ -18,14 +18,20 @@ using solver:
     is_reversible,
     parse_program,
     closed_inference,
+    any_object,
     tgrid,
-    tcolor
+    tcolor,
+    is_possible_selector,
+    arrow,
+    tbool
 using DataStructures: OrderedDict, Accumulator
 import Redis
 
 @testset "Abstractors" begin
     @testset "Check reversible simple" begin
-        @test is_reversible(Apply(Apply(every_primitive["repeat"], Hole(tint, nothing)), Hole(tint, nothing)))
+        @test is_reversible(
+            Apply(Apply(every_primitive["repeat"], Hole(tint, nothing, true)), Hole(tint, nothing, true)),
+        )
     end
 
     @testset "Check reversible map" begin
@@ -33,9 +39,11 @@ import Redis
             Apply(
                 Apply(
                     every_primitive["map"],
-                    Abstraction(Apply(Apply(every_primitive["repeat"], Hole(tint, nothing)), Hole(tint, nothing))),
+                    Abstraction(
+                        Apply(Apply(every_primitive["repeat"], Hole(tint, nothing, true)), Hole(tint, nothing, true)),
+                    ),
                 ),
-                Hole(tlist(ttuple2(tint, tint)), nothing),
+                Hole(tlist(ttuple2(tint, tint)), nothing, true),
             ),
         )
     end
@@ -50,76 +58,102 @@ import Redis
                             Apply(
                                 every_primitive["map"],
                                 Abstraction(
-                                    Apply(Apply(every_primitive["repeat"], Hole(tint, nothing)), Hole(tint, nothing)),
+                                    Apply(
+                                        Apply(every_primitive["repeat"], Hole(tint, nothing, true)),
+                                        Hole(tint, nothing, true),
+                                    ),
                                 ),
                             ),
-                            Hole(tlist(tlist(tint)), nothing),
+                            Hole(tlist(tlist(tint)), nothing, true),
                         ),
                     ),
                 ),
-                Hole(tlist(ttuple2(tlist(tint), tlist(tint))), nothing),
+                Hole(tlist(ttuple2(tlist(tint), tlist(tint))), nothing, true),
             ),
         )
     end
 
     @testset "Check reversible select" begin
+        @test is_possible_selector(Hole(arrow(tint, tbool), nothing, false))
+        @test is_possible_selector(Abstraction(Hole(tbool, nothing, false)))
+
         @test is_reversible(
             Apply(
                 Apply(
                     Apply(
                         every_primitive["rev_select"],
-                        Abstraction(Apply(Apply(every_primitive["eq?"], Index(0)), Hole(tint, nothing))),
+                        Abstraction(Apply(Apply(every_primitive["eq?"], Index(0)), Hole(tint, nothing, false))),
                     ),
-                    Hole(tlist(tint), nothing),
+                    Hole(tlist(tint), nothing, true),
                 ),
-                Hole(tlist(tint), nothing),
+                Hole(tlist(tint), nothing, true),
             ),
         )
+        @test is_possible_selector(
+            Abstraction(Apply(Apply(every_primitive["eq?"], Index(0)), Hole(tint, nothing, false))),
+        )
+
         @test !is_reversible(
             Apply(
                 Apply(
                     Apply(
                         every_primitive["rev_select"],
-                        Abstraction(Apply(Apply(every_primitive["eq?"], Hole(tint, nothing)), Hole(tint, nothing))),
+                        Abstraction(
+                            Apply(
+                                Apply(every_primitive["eq?"], Hole(tint, nothing, false)),
+                                Hole(tint, nothing, false),
+                            ),
+                        ),
                     ),
-                    Hole(tlist(tint), nothing),
+                    Hole(tlist(tint), nothing, true),
                 ),
-                Hole(tlist(tint), nothing),
+                Hole(tlist(tint), nothing, true),
             ),
         )
+        @test is_possible_selector(
+            Abstraction(Apply(Apply(every_primitive["eq?"], Hole(tint, nothing, false)), Hole(tint, nothing, false))),
+        )
+
         @test is_reversible(
             Apply(
                 Apply(
                     Apply(every_primitive["rev_select"], Abstraction(Apply(every_primitive["empty?"], Index(0)))),
-                    Hole(tlist(tint), nothing),
+                    Hole(tlist(tint), nothing, true),
                 ),
-                Hole(tlist(tint), nothing),
+                Hole(tlist(tint), nothing, true),
             ),
         )
+        @test is_possible_selector(Abstraction(Apply(every_primitive["empty?"], Index(0))))
+        @test !is_possible_selector(Abstraction(Apply(every_primitive["empty?"], Index(1))))
+
         @test !is_reversible(
             Apply(
                 Apply(
                     Apply(
                         every_primitive["rev_select"],
-                        Abstraction(Apply(every_primitive["empty?"], Hole(tint, nothing))),
+                        Abstraction(Apply(every_primitive["empty?"], Hole(tint, nothing, false))),
                     ),
-                    Hole(tlist(tint), nothing),
+                    Hole(tlist(tint), nothing, true),
                 ),
-                Hole(tlist(tint), nothing),
+                Hole(tlist(tint), nothing, true),
             ),
         )
+        @test is_possible_selector(Abstraction(Apply(every_primitive["empty?"], Hole(tint, nothing, false))))
     end
 
     @testset "Reverse repeat" begin
-        skeleton = Apply(Apply(every_primitive["repeat"], Hole(tint, nothing)), Hole(tint, nothing))
+        skeleton = Apply(Apply(every_primitive["repeat"], Hole(tint, nothing, true)), Hole(tint, nothing, true))
         filled_p, rev_p = get_reversed_filled_program(skeleton)
         @test filled_p == Apply(Apply(every_primitive["repeat"], FreeVar(tint, nothing)), FreeVar(tint, nothing))
         @test rev_p([[1, 2, 3], [1, 2, 3]]) == [[1, 2, 3], 2]
         @test rev_p([1, 1, 1]) == [1, 3]
+        @test rev_p([1, any_object, 1]) == [1, 3]
+        @test rev_p([any_object, any_object, 1]) == [1, 3]
+        @test rev_p([any_object, any_object, 1])[1] !== any_object
     end
 
     @testset "Reverse cons" begin
-        skeleton = Apply(Apply(every_primitive["cons"], Hole(tint, nothing)), Hole(tint, nothing))
+        skeleton = Apply(Apply(every_primitive["cons"], Hole(tint, nothing, true)), Hole(tint, nothing, true))
         filled_p, rev_p = get_reversed_filled_program(skeleton)
         @test filled_p == Apply(Apply(every_primitive["cons"], FreeVar(tint, nothing)), FreeVar(tint, nothing))
         @test rev_p([1, 2, 3]) == [1, [2, 3]]
@@ -127,8 +161,8 @@ import Redis
 
     @testset "Reverse combined abstractors" begin
         skeleton = Apply(
-            Apply(every_primitive["cons"], Hole(tint, nothing)),
-            Apply(Apply(every_primitive["repeat"], Hole(tint, nothing)), Hole(tint, nothing)),
+            Apply(every_primitive["cons"], Hole(tint, nothing, true)),
+            Apply(Apply(every_primitive["repeat"], Hole(tint, nothing, true)), Hole(tint, nothing, true)),
         )
         filled_p, rev_p = get_reversed_filled_program(skeleton)
         @test filled_p == Apply(
@@ -142,9 +176,11 @@ import Redis
         skeleton = Apply(
             Apply(
                 every_primitive["map"],
-                Abstraction(Apply(Apply(every_primitive["repeat"], Hole(tint, nothing)), Hole(tint, nothing))),
+                Abstraction(
+                    Apply(Apply(every_primitive["repeat"], Hole(tint, nothing, true)), Hole(tint, nothing, true)),
+                ),
             ),
-            Hole(tlist(ttuple2(tint, tint)), nothing),
+            Hole(tlist(ttuple2(tint, tint)), nothing, true),
         )
         filled_p, rev_p = get_reversed_filled_program(skeleton)
         @test filled_p == Apply(
@@ -171,14 +207,17 @@ import Redis
                         Apply(
                             every_primitive["map"],
                             Abstraction(
-                                Apply(Apply(every_primitive["repeat"], Hole(tint, nothing)), Hole(tint, nothing)),
+                                Apply(
+                                    Apply(every_primitive["repeat"], Hole(tint, nothing, true)),
+                                    Hole(tint, nothing, true),
+                                ),
                             ),
                         ),
-                        Hole(tlist(tlist(tint)), nothing),
+                        Hole(tlist(tlist(tint)), nothing, true),
                     ),
                 ),
             ),
-            Hole(tlist(ttuple2(tlist(tint), tlist(tint))), nothing),
+            Hole(tlist(ttuple2(tlist(tint), tlist(tint))), nothing, true),
         )
         filled_p, rev_p = get_reversed_filled_program(skeleton)
         @test filled_p == Apply(
@@ -212,7 +251,7 @@ import Redis
     end
 
     @testset "Reverse range" begin
-        skeleton = Apply(every_primitive["range"], Hole(tint, nothing))
+        skeleton = Apply(every_primitive["range"], Hole(tint, nothing, true))
         filled_p, rev_p = get_reversed_filled_program(skeleton)
         @test filled_p == Apply(every_primitive["range"], FreeVar(tint, nothing))
         @test rev_p([0, 1, 2]) == [2]
@@ -221,8 +260,8 @@ import Redis
 
     @testset "Reverse map with range" begin
         skeleton = Apply(
-            Apply(every_primitive["map"], Abstraction(Apply(every_primitive["range"], Hole(tint, nothing)))),
-            Hole(tlist(tint), nothing),
+            Apply(every_primitive["map"], Abstraction(Apply(every_primitive["range"], Hole(tint, nothing, true)))),
+            Hole(tlist(tint), nothing, true),
         )
         filled_p, rev_p = get_reversed_filled_program(skeleton)
         @test filled_p == Apply(
@@ -237,10 +276,13 @@ import Redis
             Apply(
                 every_primitive["map"],
                 Abstraction(
-                    Apply(Apply(every_primitive["concat"], Hole(tlist(tint), nothing)), Hole(tlist(tint), nothing)),
+                    Apply(
+                        Apply(every_primitive["concat"], Hole(tlist(tint), nothing, true)),
+                        Hole(tlist(tint), nothing, true),
+                    ),
                 ),
             ),
-            Hole(tlist(ttuple2(tlist(tint), tlist(tint))), nothing),
+            Hole(tlist(ttuple2(tlist(tint), tlist(tint))), nothing, true),
         )
         filled_p, rev_p = get_reversed_filled_program(skeleton)
         @test filled_p == Apply(
@@ -399,7 +441,7 @@ import Redis
     end
 
     @testset "Reverse rows with either" begin
-        skeleton = Apply(every_primitive["rows"], Hole(tgrid(tcolor), nothing))
+        skeleton = Apply(every_primitive["rows"], Hole(tgrid(tcolor), nothing, true))
         filled_p, rev_p = get_reversed_filled_program(skeleton)
         @test filled_p == Apply(every_primitive["rows"], FreeVar(tgrid(tcolor), nothing))
         @test_throws ArgumentError rev_p(
@@ -479,11 +521,11 @@ import Redis
             Apply(
                 Apply(
                     every_primitive["rev_select"],
-                    Abstraction(Apply(Apply(every_primitive["eq?"], Index(0)), Hole(tint, nothing))),
+                    Abstraction(Apply(Apply(every_primitive["eq?"], Index(0)), Hole(tint, nothing, false))),
                 ),
-                Hole(tlist(tint), nothing),
+                Hole(tlist(tint), nothing, true),
             ),
-            Hole(tlist(tint), nothing),
+            Hole(tlist(tint), nothing, true),
         )
         filled_p, rev_p = get_reversed_filled_program(skeleton)
         @test filled_p == Apply(
@@ -498,9 +540,9 @@ import Redis
         )
         rev_res = rev_p([1, 2, 1, 3, 2, 1])
         expected = Dict(
-            1 => [1, [1, nothing, 1, nothing, nothing, 1], [nothing, 2, nothing, 3, 2, nothing]],
-            2 => [2, [nothing, 2, nothing, nothing, 2, nothing], [1, nothing, 1, 3, nothing, 1]],
-            3 => [3, [nothing, nothing, nothing, 3, nothing, nothing], [1, 2, 1, nothing, 2, 1]],
+            1 => [1, [1, any_object, 1, any_object, any_object, 1], [nothing, 2, nothing, 3, 2, nothing]],
+            2 => [2, [any_object, 2, any_object, any_object, 2, any_object], [1, nothing, 1, 3, nothing, 1]],
+            3 => [3, [any_object, any_object, any_object, 3, any_object, any_object], [1, 2, 1, nothing, 2, 1]],
         )
         for (k, v) in rev_res[1].options
             for i in 1:3
@@ -513,9 +555,9 @@ import Redis
         skeleton = Apply(
             Apply(
                 Apply(every_primitive["rev_select"], Abstraction(Apply(every_primitive["empty?"], Index(0)))),
-                Hole(tlist(tlist(tint)), nothing),
+                Hole(tlist(tlist(tint)), nothing, true),
             ),
-            Hole(tlist(tlist(tint)), nothing),
+            Hole(tlist(tlist(tint)), nothing, true),
         )
         filled_p, rev_p = get_reversed_filled_program(skeleton)
         @test filled_p == Apply(
@@ -525,7 +567,7 @@ import Redis
             ),
             FreeVar(tlist(tlist(tint)), nothing),
         )
-        @test rev_p([[0, 1, 2], [], [0, 1, 2, 3]]) == [[nothing, [], nothing], [[0, 1, 2], nothing, [0, 1, 2, 3]]]
+        @test rev_p([[0, 1, 2], [], [0, 1, 2, 3]]) == [[any_object, [], any_object], [[0, 1, 2], nothing, [0, 1, 2, 3]]]
     end
 
     @testset "Invented abstractor" begin
@@ -533,7 +575,10 @@ import Redis
         expression = parse_program(source)
         tp = closed_inference(expression)
         @test is_reversible(expression)
-        skeleton = Apply(Apply(Apply(expression, Hole(t0, nothing)), Hole(tlist(t0), nothing)), Hole(tint, nothing))
+        skeleton = Apply(
+            Apply(Apply(expression, Hole(t0, nothing, true)), Hole(tlist(t0), nothing, true)),
+            Hole(tint, nothing, true),
+        )
         @test is_reversible(skeleton)
         filled_p, rev_p = get_reversed_filled_program(skeleton)
         @test filled_p ==
@@ -546,7 +591,7 @@ import Redis
         expression = parse_program(source)
         tp = closed_inference(expression)
         @test is_reversible(expression)
-        skeleton = Apply(Apply(expression, Hole(tint, nothing)), Hole(tint, nothing))
+        skeleton = Apply(Apply(expression, Hole(tint, nothing, true)), Hole(tint, nothing, true))
         @test is_reversible(skeleton)
         filled_p, rev_p = get_reversed_filled_program(skeleton)
         @test filled_p == Apply(Apply(expression, FreeVar(tint, nothing)), FreeVar(tint, nothing))
@@ -561,9 +606,9 @@ import Redis
         skeleton = Apply(
             Apply(
                 every_primitive["map"],
-                Abstraction(Apply(Apply(expression, Hole(tint, nothing)), Hole(tint, nothing))),
+                Abstraction(Apply(Apply(expression, Hole(tint, nothing, true)), Hole(tint, nothing, true))),
             ),
-            Hole(tlist(ttuple2(tint, tint)), nothing),
+            Hole(tlist(ttuple2(tint, tint)), nothing, true),
         )
         @test is_reversible(skeleton)
         filled_p, rev_p = get_reversed_filled_program(skeleton)

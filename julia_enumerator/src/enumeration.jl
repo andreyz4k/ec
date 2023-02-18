@@ -4,9 +4,9 @@ using DataStructures
 get_enumeration_timeout(timeout)::Float64 = time() + timeout
 enumeration_timed_out(timeout)::Bool = time() > timeout
 
-get_argument_requests(::Index, argument_types, cg) = [(at, cg.variable_context) for at in argument_types]
+get_argument_requests(::Index, argument_types, cg) = [cg.variable_context for at in argument_types]
 get_argument_requests(::FreeVar, argumet_types, cg) = []
-get_argument_requests(candidate, argument_types, cg) = zip(argument_types, cg.contextual_library[candidate])
+get_argument_requests(candidate, argument_types, cg) = cg.contextual_library[candidate]
 
 struct WrongPath <: Exception end
 
@@ -95,22 +95,22 @@ violates_symmetry(::Program, a, n) = false
 
 const illegal_combinations1 = Set([
     #  McCarthy primitives
-    (0, "car", "cons"),
-    (0, "car", "empty"),
-    (0, "cdr", "cons"),
-    (0, "cdr", "empty"),
-    (1, "-", "0"),
-    (0, "+", "+"),
-    (0, "*", "*"),
-    (0, "empty?", "cons"),
-    (0, "empty?", "empty"),
-    (0, "zero?", "0"),
-    (0, "zero?", "1"),
-    (0, "zero?", "-1"),
+    (1, "car", "cons"),
+    (1, "car", "empty"),
+    (1, "cdr", "cons"),
+    (1, "cdr", "empty"),
+    (2, "-", "0"),
+    (1, "+", "+"),
+    (1, "*", "*"),
+    (1, "empty?", "cons"),
+    (1, "empty?", "empty"),
+    (1, "zero?", "0"),
+    (1, "zero?", "1"),
+    (1, "zero?", "-1"),
     #  bootstrap target
-    (1, "map", "empty"),
-    (0, "fold", "empty"),
-    (1, "index", "empty"),
+    (2, "map", "empty"),
+    (1, "fold", "empty"),
+    (2, "index", "empty"),
 ])
 
 const illegal_combinations2 = Set([
@@ -126,6 +126,12 @@ const illegal_combinations2 = Set([
 ])
 
 function violates_symmetry(f::Primitive, a, n)
+    if haskey(all_abstractors, f)
+        checkers = all_abstractors[f][1]
+        if n <= length(checkers)
+            return !checkers[end-n+1][2](a)
+        end
+    end
     a = application_function(a)
     if !isa(a, Primitive)
         return false
@@ -167,17 +173,20 @@ function block_state_successors(
     if isarrow(request)
         return [
             EnumerationState(
-                modify_skeleton(state.skeleton, (Abstraction(Hole(request.arguments[2], g))), state.path),
+                modify_skeleton(
+                    state.skeleton,
+                    (Abstraction(Hole(request.arguments[2], g, current_hole.abstractors_only))),
+                    state.path,
+                ),
                 context,
                 vcat(state.path, [ArgTurn(request.arguments[1])]),
                 state.cost,
                 state.free_parameters,
-                state.abstractors_only,
             ),
         ]
     else
         environment = path_environment(state.path)
-        candidates = unifying_expressions(g, environment, request, context, state.abstractors_only)
+        candidates = unifying_expressions(g, environment, request, context, current_hole.abstractors_only)
         if !isa(state.skeleton, Hole)
             push!(candidates, (FreeVar(request, nothing), [], context, g.log_variable))
         end
@@ -191,8 +200,19 @@ function block_state_successors(
                 new_path = unwind_path(state.path, new_skeleton)
             else
                 application_template = candidate
-                for (a, at) in argument_requests
-                    application_template = Apply(application_template, Hole(a, at))
+                custom_checkers_args_count = 0
+                if haskey(all_abstractors, candidate)
+                    custom_checkers_args_count = length(all_abstractors[candidate][1])
+                end
+                for i in 1:length(argument_types)
+                    application_template = Apply(
+                        application_template,
+                        Hole(
+                            argument_types[i],
+                            argument_requests[i],
+                            current_hole.abstractors_only && (i > custom_checkers_args_count),
+                        ),
+                    )
                 end
                 new_skeleton = modify_skeleton(state.skeleton, application_template, state.path)
                 new_path = vcat(state.path, [LeftTurn() for _ in 2:length(argument_types)], [RightTurn()])
@@ -203,7 +223,6 @@ function block_state_successors(
                 new_path,
                 state.cost + ll,
                 state.free_parameters + new_free_parameters,
-                state.abstractors_only,
             )
         end
         return filter(

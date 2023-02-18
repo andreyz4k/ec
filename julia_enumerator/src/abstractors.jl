@@ -27,7 +27,7 @@ function _is_reversible(p::Apply)
                 return _is_reversible(p.x)
             end
         else
-            checker = rev_f[end]
+            checker = rev_f[end][1]
             if checker(p.x)
                 return view(rev_f, 1:length(rev_f)-1)
             else
@@ -451,7 +451,10 @@ function _is_reversible_selector(p::Index, is_top_index)
 end
 
 _is_reversible_selector(p::Primitive, is_top_index) = 2
+_is_reversible_selector(p::Invented, is_top_index) = 2
 _is_reversible_selector(p::Program, is_top_index) = 0
+
+# TODO: define rules for lambdas in selector
 
 function _is_reversible_selector(p::Apply, is_top_index)
     if is_top_index
@@ -475,6 +478,38 @@ end
 
 is_reversible_selector(p::Abstraction) = _is_reversible_selector(p.b, true) == 1
 is_reversible_selector(p::Program) = false
+
+function _is_possible_selector(p::Index, is_top_index)
+    if is_top_index
+        return 0
+    end
+    if p.n == 0
+        return 1
+    else
+        return 2
+    end
+end
+
+_is_possible_selector(p::Primitive, is_top_index) = 2
+_is_possible_selector(p::Invented, is_top_index) = 2
+_is_possible_selector(p::Hole, is_top_index) = 1
+_is_possible_selector(p::Program, is_top_index) = 0
+
+function _is_possible_selector(p::Apply, is_top_index)
+    if is_top_index && isa(p.f, Apply) && p.f.f == every_primitive["eq?"]
+        if isa(p.x, Hole)
+            return _is_possible_selector(p.f.x, false)
+        else
+            return 0
+        end
+    else
+        return min(_is_possible_selector(p.f, false), _is_possible_selector(p.x, false))
+    end
+end
+
+is_possible_selector(p::Abstraction) = _is_possible_selector(p.b, true) == 1
+is_possible_selector(p::Hole) = true
+is_possible_selector(p::Program) = false
 
 fill_selector(p::Hole) = FreeVar(p.t, nothing)
 fill_selector(p::Apply) = Apply(fill_selector(p.f), fill_selector(p.x))
@@ -585,7 +620,7 @@ function reverse_rev_select(name)
         [fill_others, fill_base, fill_f],
         vcat(filled_types_base, filled_types_others)
     end
-    return [is_reversible_selector], _reverse_rev_select
+    return [(is_reversible_selector, is_possible_selector)], _reverse_rev_select
 end
 
 @define_custom_reverse_primitive(
