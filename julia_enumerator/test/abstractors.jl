@@ -18,7 +18,6 @@ using solver:
     is_reversible,
     parse_program,
     closed_inference,
-    any_object,
     tgrid,
     tcolor,
     is_possible_selector,
@@ -147,9 +146,6 @@ import Redis
         @test filled_p == Apply(Apply(every_primitive["repeat"], FreeVar(tint, nothing)), FreeVar(tint, nothing))
         @test rev_p([[1, 2, 3], [1, 2, 3]]) == [[1, 2, 3], 2]
         @test rev_p([1, 1, 1]) == [1, 3]
-        @test rev_p([1, any_object, 1]) == [1, 3]
-        @test rev_p([any_object, any_object, 1]) == [1, 3]
-        @test rev_p([any_object, any_object, 1])[1] !== any_object
     end
 
     @testset "Reverse cons" begin
@@ -540,9 +536,9 @@ import Redis
         )
         rev_res = rev_p([1, 2, 1, 3, 2, 1])
         expected = Dict(
-            1 => [1, [1, any_object, 1, any_object, any_object, 1], [nothing, 2, nothing, 3, 2, nothing]],
-            2 => [2, [any_object, 2, any_object, any_object, 2, any_object], [1, nothing, 1, 3, nothing, 1]],
-            3 => [3, [any_object, any_object, any_object, 3, any_object, any_object], [1, 2, 1, nothing, 2, 1]],
+            1 => [1, [1, nothing, 1, nothing, nothing, 1], [nothing, 2, nothing, 3, 2, nothing]],
+            2 => [2, [nothing, 2, nothing, nothing, 2, nothing], [1, nothing, 1, 3, nothing, 1]],
+            3 => [3, [nothing, nothing, nothing, 3, nothing, nothing], [1, 2, 1, nothing, 2, 1]],
         )
         for (k, v) in rev_res[1].options
             for i in 1:3
@@ -567,7 +563,7 @@ import Redis
             ),
             FreeVar(tlist(tlist(tint)), nothing),
         )
-        @test rev_p([[0, 1, 2], [], [0, 1, 2, 3]]) == [[any_object, [], any_object], [[0, 1, 2], nothing, [0, 1, 2, 3]]]
+        @test rev_p([[0, 1, 2], [], [0, 1, 2, 3]]) == [[nothing, [], nothing], [[0, 1, 2], nothing, [0, 1, 2, 3]]]
     end
 
     @testset "Invented abstractor" begin
