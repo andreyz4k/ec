@@ -32,7 +32,8 @@ using solver:
     path_environment,
     apply_context,
     SetConst,
-    Path
+    Path,
+    all_abstractors
 
 import Redis
 using DataStructures
@@ -56,12 +57,12 @@ function next_state(state, target_candidate, cg)
     environment = path_environment(state.path)
     candidates = unifying_expressions(g, environment, request, context, current_hole.abstractors_only)
     if !isa(state.skeleton, Hole)
-        push!(candidates, (FreeVar(request, nothing), [], context, g.log_variable, []))
+        push!(candidates, (FreeVar(request, nothing), [], context, g.log_variable))
     end
 
     states = collect(
         skipmissing(
-            map(candidates) do (candidate, argument_types, context, ll, rev_args)
+            map(candidates) do (candidate, argument_types, context, ll)
                 if candidate != target_candidate
                     return missing
                 end
@@ -73,10 +74,18 @@ function next_state(state, target_candidate, cg)
                     new_path = unwind_path(state.path, new_skeleton)
                 else
                     application_template = candidate
+                    custom_checkers_args_count = 0
+                    if haskey(all_abstractors, candidate)
+                        custom_checkers_args_count = length(all_abstractors[candidate][1])
+                    end
                     for i in 1:length(argument_types)
                         application_template = Apply(
                             application_template,
-                            Hole(argument_types[i], argument_requests[i], current_hole.abstractors_only && rev_args[i]),
+                            Hole(
+                                argument_types[i],
+                                argument_requests[i],
+                                current_hole.abstractors_only && (i > custom_checkers_args_count),
+                            ),
                         )
                     end
                     new_skeleton = modify_skeleton(state.skeleton, application_template, state.path)
