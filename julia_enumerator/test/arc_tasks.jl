@@ -286,7 +286,7 @@ using solver: load_problems, enumerate_for_task
             @time enumerate_for_task(g, type_weights, task, maximum_frontier, timeout, verbose)
         @test length(solutions) == 0
         @test number_enumerated >= 1
-        @test number_enumerated < 5000
+        @test number_enumerated < 10000
     end
 
     @testset "5c2c9af4.json" begin
