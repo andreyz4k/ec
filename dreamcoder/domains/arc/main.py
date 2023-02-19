@@ -168,7 +168,7 @@ def main(args):
 
     import os
 
-    sort_of_arc_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sortOfArc")
+    sort_of_arc_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sortOfARC")
     tasks = retrieveARCJSONTasks(sort_of_arc_dir, None)
 
     dataDirectory = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ARC/data")
