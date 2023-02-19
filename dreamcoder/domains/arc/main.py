@@ -168,9 +168,12 @@ def main(args):
 
     import os
 
+    sort_of_arc_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sortOfArc")
+    tasks = retrieveARCJSONTasks(sort_of_arc_dir, None)
+
     dataDirectory = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ARC/data")
 
-    tasks = retrieveARCJSONTasks(dataDirectory + "/training", None)
+    tasks += retrieveARCJSONTasks(dataDirectory + "/training", None)
     holdoutTasks = retrieveARCJSONTasks(dataDirectory + "/evaluation")
 
     if args["solver"] == "julia":
