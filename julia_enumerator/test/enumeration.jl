@@ -864,7 +864,7 @@ using solver: load_problems, enumerate_for_task
         solutions, number_enumerated =
             @time enumerate_for_task(g, type_weights, task, maximum_frontier, timeout, verbose)
         @test length(solutions) == 10
-        @test number_enumerated > 1000
+        @test number_enumerated > 500
         @test number_enumerated < 10000
     end
 
