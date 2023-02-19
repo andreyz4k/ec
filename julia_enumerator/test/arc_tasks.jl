@@ -365,4 +365,18 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated >= 1
         @test number_enumerated < 10000
     end
+
+    @testset "c9e6f938.json" begin
+        payload = create_arc_task("c9e6f938.json")
+        @info payload["name"]
+        for prod in payload["DSL"]["productions"]
+            prod["logProbability"] = 0.0
+        end
+        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        solutions, number_enumerated =
+            @time enumerate_for_task(g, type_weights, task, maximum_frontier, timeout, verbose)
+        @test length(solutions) > 0
+        @test number_enumerated >= 1
+        @test number_enumerated < 10000
+    end
 end

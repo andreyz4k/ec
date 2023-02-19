@@ -1,2 +1,6 @@
 
-struct EnumerationException <: Exception end
+struct EnumerationException <: Exception
+    msg::String
+end
+
+EnumerationException() = EnumerationException("Error during enumeration")

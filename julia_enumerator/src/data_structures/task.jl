@@ -17,6 +17,8 @@ function _test_one_example(p, xs, y)
             error("Unknown primitive: $(e.name)")
         elseif isa(e, InterruptException)
             rethrow()
+        elseif isa(e, EnumerationException)
+            return false
         else
             @error e
             @error p

@@ -182,7 +182,7 @@ function _fix_option_hashes(fixed_hashes, values)
     out_values = []
     for ((found, hashes), value) in zip(fixed_hashes, values)
         if !found
-            error("Inconsistent match")
+            throw(EnumerationException("Inconsistent match"))
         end
         push!(out_values, __fix_option_hashes(hashes, value))
     end
@@ -323,7 +323,7 @@ function _tighten_constraint(
             if sc.verbose
                 @info "Fixing constraint leads to a redundant block"
             end
-            throw(EnumerationException())
+            throw(EnumerationException("Fixing constraint leads to a redundant block"))
         end
 
         _save_block_branch_connections(sc, b_id, sc.blocks[b_id], inputs, target_branches)
