@@ -10,6 +10,7 @@ using solver:
     Abstraction,
     tlist,
     t0,
+    t1,
     ttuple2,
     Index,
     SetConst,
@@ -22,7 +23,8 @@ using solver:
     tcolor,
     is_possible_selector,
     arrow,
-    tbool
+    tbool,
+    EnumerationException
 using DataStructures: OrderedDict, Accumulator
 import Redis
 
@@ -622,5 +624,29 @@ import Redis
         )
         @test rev_p([[[0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 3]], [[0, 1, 2], [0, 1, 2]]]) ==
               [[3, 2], [4, 2]]
+    end
+
+    @testset "Reversed map with rev_select" begin
+        skeleton = Apply(
+            Apply(
+                every_primitive["map"],
+                Abstraction(
+                    Apply(
+                        Apply(
+                            Apply(
+                                every_primitive["rev_select"],
+                                Abstraction(Apply(Apply(every_primitive["eq?"], Index(0)), Hole(t1, nothing, false))),
+                            ),
+                            Hole(tlist(tcolor), nothing, true),
+                        ),
+                        Hole(tlist(tcolor), nothing, true),
+                    ),
+                ),
+            ),
+            Hole(tlist(t0), nothing, true),
+        )
+
+        @test is_reversible(skeleton)
+        @test_throws EnumerationException get_reversed_filled_program(skeleton)
     end
 end

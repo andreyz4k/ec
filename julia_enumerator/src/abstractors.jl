@@ -214,6 +214,8 @@ function map_function_replacement(map_f, filled_types)
     elseif length(filled_types) == 2
         replacements =
             [Apply(every_primitive["tuple2_first"], Index(0)), Apply(every_primitive["tuple2_second"], Index(0))]
+    else
+        throw(EnumerationException("Too many arguments to map function"))
     end
     return _replace_free_vars(map_f, replacements), filled_types
 end
@@ -511,15 +513,24 @@ is_possible_selector(p::Abstraction) = _is_possible_selector(p.b, true) == 1
 is_possible_selector(p::Hole) = true
 is_possible_selector(p::Program) = false
 
-fill_selector(p::Hole) = FreeVar(p.t, nothing)
-fill_selector(p::Apply) = Apply(fill_selector(p.f), fill_selector(p.x))
-fill_selector(p::Abstraction) = Abstraction(fill_selector(p.b))
-fill_selector(p::Program) = p
+fill_selector(p::Hole) = FreeVar(p.t, nothing), [p.t]
+fill_selector(p::Program) = p, []
+
+function fill_selector(p::Apply)
+    new_f, new_f_types = fill_selector(p.f)
+    new_x, new_x_types = fill_selector(p.x)
+    Apply(new_f, new_x), vcat(new_f_types, new_x_types)
+end
+
+function fill_selector(p::Abstraction)
+    new_b, new_b_types = fill_selector(p.b)
+    Abstraction(new_b), new_b_types
+end
 
 function reverse_rev_select(name)
     function _reverse_rev_select(arguments)
         f = pop!(arguments)
-        fill_f = fill_selector(f)
+        fill_f, fill_f_types = fill_selector(f)
         fill_base, rev_base, _, filled_types_base = _get_reversed_filled_program(pop!(arguments), arguments)
         fill_others, rev_others, _, filled_types_others = _get_reversed_filled_program(pop!(arguments), arguments)
         function __reverse_rev_select(value)::Vector{Any}
@@ -589,10 +600,7 @@ function reverse_rev_select(name)
 
         function __reverse_rev_select(value::EitherOptions)::Vector{Any}
             hashes = []
-            num_outputs = length(filled_types_base) + length(filled_types_others)
-            if f != fill_f
-                num_outputs += 1
-            end
+            num_outputs = length(fill_f_types) + length(filled_types_base) + length(filled_types_others)
             outputs = [[] for _ in 1:num_outputs]
             for (h, val) in value.options
                 outs = __reverse_rev_select(val)
@@ -618,7 +626,7 @@ function reverse_rev_select(name)
         return every_primitive[name],
         __reverse_rev_select,
         [fill_others, fill_base, fill_f],
-        vcat(filled_types_base, filled_types_others)
+        vcat(fill_f_types, filled_types_base, filled_types_others)
     end
     return [(is_reversible_selector, is_possible_selector)], _reverse_rev_select
 end

@@ -379,4 +379,15 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated >= 1
         @test number_enumerated < 10000
     end
+
+    @testset "bbc9ae5d.json" begin
+        payload = create_arc_task("bbc9ae5d.json")
+        @info payload["name"]
+        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        solutions, number_enumerated =
+            @time enumerate_for_task(g, type_weights, task, maximum_frontier, timeout, verbose)
+        @test length(solutions) == 0
+        @test number_enumerated >= 1
+        @test number_enumerated < 10000
+    end
 end
