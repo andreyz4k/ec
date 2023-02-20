@@ -53,6 +53,9 @@ path_sets_var(path::Path, var_id) = haskey(path.main_path, var_id)
 
 function have_valid_paths(sc, branches)
     checked_branches = [branches[1]]
+    if isempty(sc.incoming_paths[branches[1]])
+        return false
+    end
     for br in view(branches, 2:length(branches))
         for checked_br in checked_branches
             if !any(paths_compatible(p1, p2) for p1 in sc.incoming_paths[br] for p2 in sc.incoming_paths[checked_br])

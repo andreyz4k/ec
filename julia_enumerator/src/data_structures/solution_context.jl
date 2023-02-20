@@ -694,7 +694,7 @@ function _update_complexity_factor_known(sc::SolutionContext, branch_id)
 end
 
 function update_complexity_factors_known(
-    sc,
+    sc::SolutionContext,
     bl::Union{ReverseProgramBlock,WrapEitherBlock},
     input_branches,
     output_branches,
