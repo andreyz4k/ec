@@ -392,7 +392,7 @@ end
 @define_reverse_primitive(
     "rows_to_grid",
     arrow(tlist(tlist(t0)), tgrid(t0)),
-    (rs -> vcat([r' for r in rs]...)),
+    (rs -> vcat([permutedims(r) for r in rs]...)),
     reverse_rows_to_grid
 )
 
@@ -408,7 +408,7 @@ end
 )
 
 function reverse_rows(value)::Vector{Any}
-    [vcat([r' for r in value]...)]
+    [vcat([permutedims(r) for r in value]...)]
 end
 
 function reverse_columns(value)::Vector{Any}

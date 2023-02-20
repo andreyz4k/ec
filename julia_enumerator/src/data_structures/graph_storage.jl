@@ -156,10 +156,10 @@ function SuiteSparseGraphBLAS.subassign!(
     end
     ensure_stack_depth(storage, storage.transaction_depth)
     if storage.transaction_depth == 0
-        subassign!(storage.edges, values', i, j; mask, accum, desc)
+        subassign!(storage.edges, permutedims(values), i, j; mask, accum, desc)
     else
         edges, deleted = storage.updates_stack[storage.transaction_depth]
-        subassign!(edges, values', i, j; mask, accum, desc)
+        subassign!(edges, permutedims(values), i, j; mask, accum, desc)
         subassign!(deleted, 0, i, j; mask, accum, desc)
     end
 end
