@@ -770,7 +770,7 @@ end
 function vars_in_loop(sc::SolutionContext, known_var_id, unknown_var_id)
     prev_known = sc.previous_vars[:, known_var_id]
     foll_unknown = sc.previous_vars[unknown_var_id, :]
-    !isnothing((permutedims(foll_unknown)*prev_known)[1])
+    !isnothing((transpose(foll_unknown)*prev_known)[1])
 end
 
 function is_block_loops(sc::SolutionContext, bp::BlockPrototype)
@@ -786,7 +786,7 @@ function is_block_loops(sc::SolutionContext, bp::BlockPrototype)
     end
     prev_inputs = reduce(any, sc.previous_vars[:, inp_vars], dims = 2)
     foll_outputs = reduce(any, sc.previous_vars[out_vars, :], dims = 1)
-    return !isnothing((permutedims(foll_outputs)*prev_inputs)[1])
+    return !isnothing((transpose(foll_outputs)*prev_inputs)[1])
 end
 
 function assert_context_consistency(sc::SolutionContext)
