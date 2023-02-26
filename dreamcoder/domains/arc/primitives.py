@@ -1,7 +1,7 @@
 from functools import reduce
 import math
 from dreamcoder.program import Primitive
-from dreamcoder.type import TypeConstructor, arrow, baseType, tlist, t0, t1, tint, tbool
+from dreamcoder.type import TypeConstructor, arrow, baseType, tlist, t0, t1, t2, tint, tbool
 
 
 tcolor = baseType("color")
@@ -193,6 +193,10 @@ def basePrimitives():
     return [
         Primitive("map", arrow(arrow(t0, t1), tlist(t0), tlist(t1)), _map, is_reversible=True),
         Primitive("map_grid", arrow(arrow(t0, t1), tgrid(t0), tgrid(t1)), _map_grid, is_reversible=True),
+        Primitive("map2", arrow(arrow(t0, t1, t2), tlist(t0), tlist(t1), tlist(t2)), _map, is_reversible=True),
+        Primitive(
+            "map2_grid", arrow(arrow(t0, t1, t2), tgrid(t0), tgrid(t1), tgrid(t2)), _map_grid, is_reversible=True
+        ),
         Primitive("unfold", arrow(t0, arrow(t0, tbool), arrow(t0, t1), arrow(t0, t0), tlist(t1)), _unfold),
         Primitive("range", arrow(tint, tlist(tint)), _range, is_reversible=True),
         Primitive("index", arrow(tint, tlist(t0), t0), _index),

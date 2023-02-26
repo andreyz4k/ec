@@ -387,9 +387,8 @@ end
 
 function _run_with_arguments(p::Abstraction, arguments, workspace)
     x -> begin
-        push!(arguments, x)
-        res = _run_with_arguments(p.b, arguments, workspace)
-        pop!(arguments)
+        inner_args = vcat(arguments, [x])
+        res = _run_with_arguments(p.b, inner_args, workspace)
         return res
     end
 end

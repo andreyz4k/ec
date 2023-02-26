@@ -22,6 +22,18 @@ using solver: load_problems, enumerate_for_task
                 ),
                 Dict{String,Any}(
                     "logProbability" => 0.0,
+                    "expression" => "map2",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1 -> t2) -> list(t0) -> list(t1) -> list(t2)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "map2_grid",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1 -> t2) -> grid(t0) -> grid(t1) -> grid(t2)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
                     "expression" => "unfold",
                     "is_reversible" => false,
                     "type" => "t0 -> (t0 -> bool) -> (t0 -> t1) -> (t0 -> t0) -> list(t1)",
