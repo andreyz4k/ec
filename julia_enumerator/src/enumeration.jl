@@ -128,7 +128,7 @@ const illegal_combinations2 = Set([
 function violates_symmetry(f::Primitive, a, n)
     if haskey(all_abstractors, f)
         checkers = all_abstractors[f][1]
-        if n <= length(checkers)
+        if n <= length(checkers) && !isnothing(checkers[end-n+1][2])
             return !checkers[end-n+1][2](a)
         end
     end
@@ -210,7 +210,8 @@ function block_state_successors(
                         Hole(
                             argument_types[i],
                             argument_requests[i],
-                            current_hole.abstractors_only && (i > custom_checkers_args_count),
+                            current_hole.abstractors_only &&
+                            (i > custom_checkers_args_count || isnothing(all_abstractors[candidate][1][i][2])),
                         ),
                     )
                 end
@@ -248,7 +249,7 @@ function capture_free_vars(sc::SolutionContext, p::Abstraction, context)
     Abstraction(new_b), new_vars
 end
 
-function capture_free_vars(sc::SolutionContext, p::FreeVar, context)
+function capture_free_vars(sc::SolutionContext, p::Union{Hole,FreeVar}, context)
     _, t = apply_context(context, p.t)
     var_id = create_next_var(sc)
     FreeVar(t, var_id), [(var_id, t)]
@@ -258,8 +259,8 @@ function try_run_reversed_with_value(reverse_program::Function, value, new_vars_
     try_run_function(reverse_program, [value])
 end
 
-function try_get_reversed_values(sc::SolutionContext, p::Program, context, output_branch_id, cost, is_known)
-    p, reverse_program = get_reversed_filled_program(p)
+function try_get_reversed_values(sc::SolutionContext, p::Program, context, path, output_branch_id, cost, is_known)
+    p, reverse_program, context = get_reversed_filled_program(p, context, path)
     out_entry = sc.entries[sc.branch_entries[output_branch_id]]
 
     new_p, new_vars = capture_free_vars(sc, p, context)
@@ -359,8 +360,8 @@ function try_get_reversed_values(sc::SolutionContext, p::Program, context, outpu
     return new_p, reverse_program, new_branches, either_var_ids, either_branch_ids
 end
 
-function try_get_reversed_inputs(sc, p::Program, context, output_branch_id, cost)
-    new_p, _, inputs, _, _ = try_get_reversed_values(sc, p, context, output_branch_id, cost, false)
+function try_get_reversed_inputs(sc, p::Program, context, path, output_branch_id, cost)
+    new_p, _, inputs, _, _ = try_get_reversed_values(sc, p, context, path, output_branch_id, cost, false)
     return new_p, inputs
 end
 
@@ -405,9 +406,9 @@ function create_wrapping_block(
     return wrapper_block_id, input_branches, target_outputs
 end
 
-function create_reversed_block(sc::SolutionContext, p::Program, context, input_var::Tuple{UInt64,UInt64}, cost)
+function create_reversed_block(sc::SolutionContext, p::Program, context, path, input_var::Tuple{UInt64,UInt64}, cost)
     new_p, reverse_program, output_vars, either_var_ids, either_branch_ids =
-        try_get_reversed_values(sc, p, context, input_var[2], cost, true)
+        try_get_reversed_values(sc, p, context, path, input_var[2], cost, true)
     block = ReverseProgramBlock(new_p, reverse_program, cost, [input_var[1]], [v_id for (v_id, _, _) in output_vars])
     if isempty(either_var_ids)
         block_id = push!(sc.blocks, block)
@@ -735,7 +736,8 @@ function enumeration_iteration_finished_input(sc, bp)
     state = bp.state
     if bp.reverse
         # @info "Try get reversed for $bp"
-        abstractor_results = create_reversed_block(sc, state.skeleton, state.context, bp.output_var, state.cost)
+        abstractor_results =
+            create_reversed_block(sc, state.skeleton, state.context, state.path, bp.output_var, state.cost)
         return abstractor_results
     else
         arg_types = [sc.types[reduce(any, sc.branch_types[branch_id, :])] for (_, branch_id) in bp.input_vars]
@@ -760,7 +762,8 @@ function enumeration_iteration_finished_output(sc::SolutionContext, bp::BlockPro
     is_reverse = is_reversible(state.skeleton)
     if is_reverse
         # @info "Try get reversed for $bp"
-        p, input_vars = try_get_reversed_inputs(sc, state.skeleton, state.context, bp.output_var[2], state.cost)
+        p, input_vars =
+            try_get_reversed_inputs(sc, state.skeleton, state.context, state.path, bp.output_var[2], state.cost)
     elseif isnothing(bp.input_vars)
         p, new_vars = capture_free_vars(sc, state.skeleton, state.context)
         input_vars = []
