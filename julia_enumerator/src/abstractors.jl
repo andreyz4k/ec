@@ -1,6 +1,9 @@
 
 all_abstractors = Dict{Program,Tuple{Vector,Any}}()
 
+struct AnyObject end
+any_object = AnyObject()
+
 function _is_reversible(p::Primitive, in_invented)
     if haskey(all_abstractors, p)
         all_abstractors[p][1]
@@ -78,8 +81,10 @@ function _get_reversed_filled_program(p::Apply, arguments)
 end
 
 function _get_reversed_filled_program(p::Abstraction, arguments)
+    # Only used in invented functions
     replacements_f, rev_f = _get_reversed_filled_program(p.b, arguments)
     replacements_a, rev_a = _get_reversed_filled_program(pop!(arguments), arguments)
+    # TODO: Properly use rev_a
     return vcat(replacements_f, replacements_a), rev_f
 end
 
@@ -205,10 +210,11 @@ macro define_custom_reverse_primitive(name, t, x, reverse_function)
 end
 
 function reverse_repeat(value)::Vector{Any}
-    if any(v != value[1] for v in value)
+    template_item = first(v for v in value if v !== any_object)
+    if any(v != template_item && v != any_object for v in value)
         error("Elements are not equal")
     end
-    return [value[1], length(value)]
+    return [template_item, length(value)]
 end
 
 @define_reverse_primitive "repeat" arrow(t0, tint, tlist(t0)) (x -> (n -> fill(x, n))) reverse_repeat
@@ -246,6 +252,7 @@ function reverse_map(n)
             f = f.b
         end
         replacements_f, rev_f = _get_reversed_filled_program(f, arguments)
+        rev_f = _rmapper(rev_f, n)
 
         replacements = []
         i = n - 1
@@ -366,31 +373,59 @@ function reverse_map(n)
     return [(_is_reversible_mapper(n), nothing)], _reverse_map
 end
 
+function _rmapper(f, n)
+    __mapper(x::Union{AnyObject,Nothing}) = [x for _ in 1:n]
+    __mapper(x) = f(x)
+
+    return __mapper
+end
+
+function _mapper(f)
+    __mapper(x::Union{AnyObject,Nothing}) = x
+    __mapper(x) = f(x)
+
+    return __mapper
+end
+
+function _mapper2(f)
+    __mapper(x, y) = f(x)(y)
+    __mapper(x::Nothing, y) = x
+    __mapper(x, y::Nothing) = y
+    __mapper(x::Nothing, y::Nothing) = x
+    __mapper(x::AnyObject, y) = x
+    __mapper(x, y::AnyObject) = y
+    __mapper(x::AnyObject, y::AnyObject) = x
+    __mapper(x::AnyObject, y::Nothing) = y
+    __mapper(x::Nothing, y::AnyObject) = x
+
+    return __mapper
+end
+
 @define_custom_reverse_primitive(
     "map",
     arrow(arrow(t0, t1), tlist(t0), tlist(t1)),
-    (f -> (xs -> map(f, xs))),
+    (f -> (xs -> map(_mapper(f), xs))),
     reverse_map(1)
 )
 
 @define_custom_reverse_primitive(
     "map2",
     arrow(arrow(t0, t1, t2), tlist(t0), tlist(t1), tlist(t2)),
-    (f -> (xs -> (ys -> map(((x, y),) -> f(x)(y), zip(xs, ys))))),
+    (f -> (xs -> (ys -> map(((x, y),) -> _mapper2(f)(x, y), zip(xs, ys))))),
     reverse_map(2)
 )
 
 @define_custom_reverse_primitive(
     "map_grid",
     arrow(arrow(t0, t1), tgrid(t0), tgrid(t1)),
-    (f -> (xs -> map(f, xs))),
+    (f -> (xs -> map(_mapper(f), xs))),
     reverse_map(1)
 )
 
 @define_custom_reverse_primitive(
     "map2_grid",
     arrow(arrow(t0, t1, t2), tgrid(t0), tgrid(t1), tgrid(t2)),
-    (f -> (xs -> (ys -> map(((x, y),) -> f(x)(y), zip(xs, ys))))),
+    (f -> (xs -> (ys -> map(((x, y),) -> _mapper2(f)(x, y), zip(xs, ys))))),
     reverse_map(2)
 )
 
@@ -586,11 +621,11 @@ function reverse_rev_select(name)
                         results_base[i] = value[i]
                         results_others[i] = nothing
                     else
-                        results_base[i] = nothing
+                        results_base[i] = any_object
                         results_others[i] = value[i]
                     end
                 end
-                if all(v == results_base[1] for v in results_base)
+                if all(v == results_others[1] for v in results_others)
                     error("All elements are equal according to selector")
                 end
                 return vcat(rev_base(results_base), rev_others(results_others))
@@ -618,7 +653,7 @@ function reverse_rev_select(name)
                             results_base[j] = value[j]
                             results_others[j] = nothing
                         else
-                            results_base[j] = nothing
+                            results_base[j] = any_object
                             results_others[j] = value[j]
                         end
                     end

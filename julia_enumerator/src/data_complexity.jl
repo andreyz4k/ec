@@ -20,6 +20,14 @@ function get_complexity_summary(values, t::TypeConstructor, accum)
     end
 end
 
+function get_complexity_summary(values::AnyObject, t::TypeConstructor, accum)
+    return
+end
+
+function get_complexity_summary(values::Nothing, t::TypeConstructor, accum)
+    return
+end
+
 function get_complexity_summary(values::EitherOptions, t::TypeConstructor, accum)
     result = Accumulator{String,Int64}()
     for (h, option) in values.options
