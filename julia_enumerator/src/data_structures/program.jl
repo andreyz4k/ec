@@ -433,7 +433,11 @@ function _run_with_arguments(p::Apply, arguments, workspace)
     else
         f = _run_with_arguments(p.f, arguments, workspace)
         x = _run_with_arguments(p.x, arguments, workspace)
-        return f(x)
+        if x === nothing
+            error("Parameter is nothing")
+        else
+            return f(x)
+        end
     end
 end
 
