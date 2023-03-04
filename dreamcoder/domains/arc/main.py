@@ -186,6 +186,8 @@ def main(args):
                 "bool": 1.0,
                 "float": 1.0,
                 "grid": 1.0,
+                "tuple2": 1.0,
+                "tuple3": 1.0,
             }
         )
 
