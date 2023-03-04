@@ -266,6 +266,18 @@ using solver: load_problems, enumerate_for_task
                     "is_reversible" => true,
                     "type" => "tgrid(t0) -> tgrid(t1) -> tgrid(ttuple2(t0, t1))",
                 ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "tuple2_first",
+                    "is_reversible" => false,
+                    "type" => "ttuple2(t0, t1) -> t0",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "tuple2_second",
+                    "is_reversible" => false,
+                    "type" => "ttuple2(t0, t1) -> t1",
+                ),
             ],
         ),
         "type_weights" => Dict{String,Any}(
