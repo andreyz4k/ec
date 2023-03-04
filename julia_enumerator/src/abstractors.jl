@@ -119,6 +119,35 @@ function get_reversed_filled_program(p::Program, context, path)
     return fill_p, rev_p, context
 end
 
+function _reverse_eithers(_reverse_function, value)
+    hashes = []
+    outputs = Vector{Any}[]
+    for (h, val) in value.options
+        outs = _reverse_function(val)
+        if isempty(outputs)
+            for _ in 1:length(outs)
+                push!(outputs, [])
+            end
+        end
+        push!(hashes, h)
+        for i in 1:length(outs)
+            push!(outputs[i], outs[i])
+        end
+    end
+    results = []
+    for values in outputs
+        if allequal(values)
+            push!(results, values[1])
+        elseif any(out == value for out in values)
+            push!(results, value)
+        else
+            options = Dict(hashes[i] => values[i] for i in 1:length(hashes))
+            push!(results, EitherOptions(options))
+        end
+    end
+    return results
+end
+
 function generic_reverse(rev_function, n)
     function _generic_reverse(arguments)
         replacements = []
@@ -133,27 +162,7 @@ function generic_reverse(rev_function, n)
             return vcat([rev_functions[i](rev_results[i]) for i in 1:n]...)
         end
         function _reverse_function(value::EitherOptions)::Vector{Any}
-            hashes = []
-            outputs = [[] for _ in 1:n]
-            for (h, val) in value.options
-                outs = _reverse_function(val)
-                push!(hashes, h)
-                for i in 1:n
-                    push!(outputs[i], outs[i])
-                end
-            end
-            results = []
-            for values in outputs
-                if allequal(values)
-                    push!(results, values[1])
-                elseif any(out == value for out in values)
-                    push!(results, value)
-                else
-                    options = Dict(hashes[i] => values[i] for i in 1:length(hashes))
-                    push!(results, EitherOptions(options))
-                end
-            end
-            return results
+            _reverse_eithers(_reverse_function, value)
         end
         return replacements, _reverse_function
     end
@@ -321,32 +330,7 @@ function reverse_map(n)
         end
 
         function __reverse_map(value::EitherOptions)::Vector{Any}
-            hashes = []
-            outputs = Vector{Any}[]
-            for (h, val) in value.options
-                outs = __reverse_map(val)
-                if isempty(outputs)
-                    for _ in 1:length(outs)
-                        push!(outputs, [])
-                    end
-                end
-                push!(hashes, h)
-                for i in 1:length(outs)
-                    push!(outputs[i], outs[i])
-                end
-            end
-            results = []
-            for values in outputs
-                if allequal(values)
-                    push!(results, values[1])
-                elseif any(out == value for out in values)
-                    push!(results, value)
-                else
-                    options = Dict(hashes[i] => values[i] for i in 1:length(hashes))
-                    push!(results, EitherOptions(options))
-                end
-            end
-            return results
+            _reverse_eithers(__reverse_map, value)
         end
 
         return replacements, __reverse_map
@@ -660,32 +644,7 @@ function reverse_rev_select(name)
         end
 
         function __reverse_rev_select(value::EitherOptions)::Vector{Any}
-            hashes = []
-            outputs = Vector{Any}[]
-            for (h, val) in value.options
-                outs = __reverse_rev_select(val)
-                if isempty(outputs)
-                    for _ in 1:length(outs)
-                        push!(outputs, [])
-                    end
-                end
-                push!(hashes, h)
-                for i in 1:length(outs)
-                    push!(outputs[i], outs[i])
-                end
-            end
-            results = []
-            for values in outputs
-                if allequal(values)
-                    push!(results, values[1])
-                elseif any(out == value for out in values)
-                    push!(results, value)
-                else
-                    options = Dict(hashes[i] => values[i] for i in 1:length(hashes))
-                    push!(results, EitherOptions(options))
-                end
-            end
-            return results
+            _reverse_eithers(__reverse_rev_select, value)
         end
 
         return replacements, __reverse_rev_select
