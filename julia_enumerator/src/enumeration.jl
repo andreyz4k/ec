@@ -351,10 +351,12 @@ function try_get_reversed_values(sc::SolutionContext, p::Program, context, path,
         if length(active_constraints) == 0
             new_constraint_id = increment!(sc.constraints_count)
             # @info "Added new constraint with either $new_constraint_id"
-            active_constraints = Int[new_constraint_id]
+            active_constraints = UInt64[new_constraint_id]
         end
-        sc.constrained_branches[either_branch_ids, active_constraints] = either_var_ids
-        sc.constrained_vars[either_var_ids, active_constraints] = either_branch_ids
+        for constraint_id in active_constraints
+            sc.constrained_branches[either_branch_ids, constraint_id] = either_var_ids
+            sc.constrained_vars[either_var_ids, constraint_id] = either_branch_ids
+        end
     end
 
     return new_p, reverse_program, new_branches, either_var_ids, either_branch_ids
