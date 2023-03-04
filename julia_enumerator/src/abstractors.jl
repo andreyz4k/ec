@@ -751,3 +751,5 @@ end
     (a -> (b -> zip2(a, b))),
     reverse_zip2
 )
+
+@define_reverse_primitive("reverse", arrow(tlist(t0), tlist(t0)), (a -> reverse(a)), (a -> [reverse(a)]),)

@@ -278,6 +278,12 @@ using solver: load_problems, enumerate_for_task
                     "is_reversible" => false,
                     "type" => "ttuple2(t0, t1) -> t1",
                 ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "reverse",
+                    "is_reversible" => true,
+                    "type" => "tlist(t0) -> tlist(t0)",
+                ),
             ],
         ),
         "type_weights" => Dict{String,Any}(

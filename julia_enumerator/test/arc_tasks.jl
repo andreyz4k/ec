@@ -279,6 +279,12 @@ using solver: load_problems, enumerate_for_task
                     "is_reversible" => false,
                     "type" => "ttuple2(t0, t1) -> t1",
                 ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "reverse",
+                    "is_reversible" => true,
+                    "type" => "tlist(t0) -> tlist(t0)",
+                ),
             ],
         ),
         "type_weights" => Dict{String,Any}(
@@ -397,7 +403,7 @@ using solver: load_problems, enumerate_for_task
             @time enumerate_for_task(g, type_weights, task, maximum_frontier, timeout, verbose)
         @test length(solutions) >= 5
         @test number_enumerated >= 1
-        @test number_enumerated < 2000
+        @test number_enumerated < 5000
     end
 
     @testset "7837ac64.json" begin
