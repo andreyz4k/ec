@@ -222,6 +222,7 @@ def basePrimitives():
         Primitive("is-prime", arrow(tint, tbool), _isPrime),
         Primitive("is-square", arrow(tint, tbool), _isSquare),
         Primitive("repeat", arrow(t0, tint, tlist(t0)), _repeat, is_reversible=True),
+        Primitive("repeat_grid", arrow(t0, tint, tint, tgrid(t0)), None, is_reversible=True),
         Primitive("concat", arrow(tlist(t0), tlist(t0), tlist(t0)), _concat, is_reversible=True),
         Primitive("rows", arrow(tgrid(t0), tlist(tlist(t0))), _rows, is_reversible=True),
         Primitive("columns", arrow(tgrid(t0), tlist(tlist(t0))), _columns, is_reversible=True),

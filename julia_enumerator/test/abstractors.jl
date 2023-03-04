@@ -225,6 +225,24 @@ import Redis
         @test rev_p([any_object, any_object, 1])[1] !== any_object
     end
 
+    @testset "Reverse repeat grid" begin
+        skeleton = Apply(
+            Apply(Apply(every_primitive["repeat_grid"], Hole(tint, nothing, true)), Hole(tint, nothing, true)),
+            Hole(tint, nothing, true),
+        )
+        filled_p, rev_p, _ =
+            get_reversed_filled_program(skeleton, Context(1, Dict(0 => tint)), [LeftTurn(), LeftTurn(), RightTurn()])
+        @test filled_p == Apply(
+            Apply(Apply(every_primitive["repeat_grid"], FreeVar(tint, nothing)), FreeVar(tint, nothing)),
+            FreeVar(tint, nothing),
+        )
+        @test rev_p([[[1, 2, 3], [1, 2, 3]] [[1, 2, 3], [1, 2, 3]] [[1, 2, 3], [1, 2, 3]]]) == [[1, 2, 3], 2, 3]
+        @test rev_p([[1, 1, 1] [1, 1, 1]]) == [1, 3, 2]
+        @test rev_p([[1, any_object, 1] [1, any_object, any_object]]) == [1, 3, 2]
+        @test rev_p([[any_object, any_object, 1] [any_object, any_object, any_object]]) == [1, 3, 2]
+        @test rev_p([[any_object, any_object, 1] [any_object, any_object, any_object]])[1] !== any_object
+    end
+
     @testset "Reverse cons" begin
         skeleton = Apply(Apply(every_primitive["cons"], Hole(tint, nothing, true)), Hole(tlist(tint), nothing, true))
         filled_p, rev_p, _ = get_reversed_filled_program(skeleton, (1, Dict(0 => tint)), [LeftTurn(), RightTurn()])

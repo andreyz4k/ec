@@ -119,21 +119,26 @@ function get_reversed_filled_program(p::Program, context, path)
     return fill_p, rev_p, context
 end
 
-function generic_reverse2(rev_function)
+function generic_reverse(rev_function, n)
     function _generic_reverse(arguments)
-        replacements_a, rev_a = _get_reversed_filled_program(pop!(arguments), arguments)
-        replacements_b, rev_b = _get_reversed_filled_program(pop!(arguments), arguments)
+        replacements = []
+        rev_functions = []
+        for _ in 1:n
+            replacements_a, rev_a = _get_reversed_filled_program(pop!(arguments), arguments)
+            append!(replacements, replacements_a)
+            push!(rev_functions, rev_a)
+        end
         function _reverse_function(value)::Vector{Any}
-            r_a, r_b = rev_function(value)
-            return vcat(rev_a(r_a), rev_b(r_b))
+            rev_results = rev_function(value)
+            return vcat([rev_functions[i](rev_results[i]) for i in 1:n]...)
         end
         function _reverse_function(value::EitherOptions)::Vector{Any}
             hashes = []
-            outputs = [[], []]
+            outputs = [[] for _ in 1:n]
             for (h, val) in value.options
                 outs = _reverse_function(val)
                 push!(hashes, h)
-                for i in 1:2
+                for i in 1:n
                     push!(outputs[i], outs[i])
                 end
             end
@@ -150,37 +155,7 @@ function generic_reverse2(rev_function)
             end
             return results
         end
-        return vcat(replacements_a, replacements_b), _reverse_function
-    end
-    return _generic_reverse
-end
-
-function generic_reverse1(rev_function)
-    function _generic_reverse(arguments)
-        a = pop!(arguments)
-        replacements_a, rev_a = _get_reversed_filled_program(a, arguments)
-        function _reverse_function(value)::Vector{Any}
-            r_a = rev_function(value)
-            return rev_a(r_a[1])
-        end
-        function _reverse_function(value::EitherOptions)::Vector{Any}
-            hashes = []
-            outputs = []
-            for (h, val) in value.options
-                outs = _reverse_function(val)
-                push!(hashes, h)
-                push!(outputs, outs[1])
-            end
-            if allequal(outputs)
-                return [outputs[1]]
-            elseif any(out == value for out in outputs)
-                return [value]
-            else
-                options = Dict(hashes[i] => outputs[i] for i in 1:length(hashes))
-                return [EitherOptions(options)]
-            end
-        end
-        return replacements_a, _reverse_function
+        return replacements, _reverse_function
     end
     return _generic_reverse
 end
@@ -190,11 +165,7 @@ macro define_reverse_primitive(name, t, x, reverse_function)
         local n = $(esc(name))
         @define_primitive n $t $x
         local prim = every_primitive[n]
-        if length(arguments_of_type(prim.t)) == 1
-            local out = generic_reverse1($(esc(reverse_function)))
-        elseif length(arguments_of_type(prim.t)) == 2
-            local out = generic_reverse2($(esc(reverse_function)))
-        end
+        local out = generic_reverse($(esc(reverse_function)), length(arguments_of_type(prim.t)))
         all_abstractors[prim] = [], out
     end
 end
@@ -218,6 +189,17 @@ function reverse_repeat(value)::Vector{Any}
 end
 
 @define_reverse_primitive "repeat" arrow(t0, tint, tlist(t0)) (x -> (n -> fill(x, n))) reverse_repeat
+
+function reverse_repeat_grid(value)::Vector{Any}
+    template_item = first(v for v in value if v !== any_object)
+    if any(v != template_item && v != any_object for v in value)
+        error("Elements are not equal")
+    end
+    x, y = size(value)
+    return [template_item, x, y]
+end
+
+@define_reverse_primitive "repeat_grid" arrow(t0, tint, tint, tgrid(t0)) (x -> (n -> (m -> fill(x, n, m)))) reverse_repeat_grid
 
 function reverse_cons(value)::Vector{Any}
     if isempty(value)
