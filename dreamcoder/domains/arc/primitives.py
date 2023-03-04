@@ -11,6 +11,14 @@ def tgrid(t):
     return TypeConstructor("grid", [t])
 
 
+def ttuple2(t1, t2):
+    return TypeConstructor("tuple2", [t1, t2])
+
+
+def ttuple3(t1, t2, t3):
+    return TypeConstructor("tuple3", [t1, t2, t3])
+
+
 def _map(f):
     return lambda l: list(map(f, l))
 
@@ -232,4 +240,13 @@ def basePrimitives():
         Primitive(
             "rev_select_grid", arrow(arrow(t0, tbool), tgrid(t0), tgrid(t0), tgrid(t0)), None, is_reversible=True
         ),
+        Primitive("rev_list_elements", arrow(tlist(ttuple2(tint, t0)), tint, tlist(t0)), None, is_reversible=True),
+        Primitive(
+            "rev_grid_elements",
+            arrow(tlist(ttuple2(ttuple2(tint, tint), t0)), tint, tint, tgrid(t0)),
+            None,
+            is_reversible=True,
+        ),
+        Primitive("zip2", arrow(tlist(t0), tlist(t1), tlist(ttuple2(t0, t1))), None, is_reversible=True),
+        Primitive("zip_grid2", arrow(tlist(t0), tlist(t1), tlist(ttuple2(t0, t1))), None, is_reversible=True),
     ] + [Primitive(str(j), tint, j) for j in range(2)]

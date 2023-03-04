@@ -15,8 +15,11 @@ function get_complexity_summary(values, t::TypeConstructor, accum)
         for v in values
             get_complexity_summary(v, t.arguments[1], accum)
         end
+    elseif length(t.arguments) == 2
+        get_complexity_summary(values[1], t.arguments[1], accum)
+        get_complexity_summary(values[2], t.arguments[2], accum)
     else
-        error("unsupported type constructor: " + t.name)
+        error("unsupported type constructor: $(t.name)")
     end
 end
 

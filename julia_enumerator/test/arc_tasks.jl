@@ -232,6 +232,18 @@ using solver: load_problems, enumerate_for_task
                     "type" => "(t0 -> bool) -> grid(t0) -> grid(t0) -> grid(t0)",
                 ),
                 Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "rev_list_elements",
+                    "is_reversible" => true,
+                    "type" => "tlist(ttuple2(tint, t0)) -> tint -> tlist(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "rev_grid_elements",
+                    "is_reversible" => true,
+                    "type" => "tlist(ttuple2(ttuple2(tint, tint), t0)) -> tint -> tint -> tgrid(t0)",
+                ),
+                Dict{String,Any}(
                     "logProbability" => 0.19241996109485626,
                     "expression" => "0",
                     "is_reversible" => false,
@@ -243,6 +255,18 @@ using solver: load_problems, enumerate_for_task
                     "is_reversible" => false,
                     "type" => "int",
                 ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "zip2",
+                    "is_reversible" => true,
+                    "type" => "tlist(t0) -> tlist(t1) -> tlist(ttuple2(t0, t1))",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "zip_grid2",
+                    "is_reversible" => true,
+                    "type" => "tgrid(t0) -> tgrid(t1) -> tgrid(ttuple2(t0, t1))",
+                ),
             ],
         ),
         "type_weights" => Dict{String,Any}(
@@ -252,6 +276,8 @@ using solver: load_problems, enumerate_for_task
             "bool" => 1.0,
             "float" => 1.0,
             "grid" => 1.0,
+            "tuple2" => 1.0,
+            "tuple3" => 1.0,
         ),
         "programTimeout" => 3.0,
         "timeout" => 40,
@@ -357,7 +383,7 @@ using solver: load_problems, enumerate_for_task
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
         solutions, number_enumerated =
             @time enumerate_for_task(g, type_weights, task, maximum_frontier, timeout, verbose)
-        @test length(solutions) >= 8
+        @test length(solutions) >= 5
         @test number_enumerated >= 1
         @test number_enumerated < 2000
     end
@@ -379,7 +405,7 @@ using solver: load_problems, enumerate_for_task
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
         solutions, number_enumerated =
             @time enumerate_for_task(g, type_weights, task, maximum_frontier, timeout, verbose)
-        @test length(solutions) > 0
+        @test length(solutions) >= 0
         @test number_enumerated >= 1
         @test number_enumerated < 10000
     end

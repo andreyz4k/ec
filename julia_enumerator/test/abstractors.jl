@@ -32,7 +32,9 @@ using solver:
     ArgTurn,
     Context,
     Tp,
-    TypeVariable
+    TypeVariable,
+    ttuple2,
+    ttuple3
 using DataStructures: OrderedDict, Accumulator
 import Redis
 
@@ -902,5 +904,115 @@ import Redis
             Context(3, Dict{Int64,Tp}(2 => tcolor)),
             [LeftTurn(), RightTurn(), ArgTurn(t0), LeftTurn(), LeftTurn(), RightTurn(), ArgTurn(tcolor), RightTurn()],
         )
+    end
+
+    @testset "Reverse list elements" begin
+        skeleton = Apply(
+            Apply(every_primitive["rev_list_elements"], Hole(tlist(ttuple2(tint, tint)), nothing, true)),
+            Hole(tint, nothing, true),
+        )
+        filled_p, rev_p, _ = get_reversed_filled_program(skeleton, (1, Dict(0 => tint)), [LeftTurn(), RightTurn()])
+        @test filled_p == Apply(
+            Apply(every_primitive["rev_list_elements"], FreeVar(tlist(ttuple2(tint, tint)), nothing)),
+            FreeVar(tint, nothing),
+        )
+        @test rev_p([3, 2, 1]) == [[(1, 3), (2, 2), (3, 1)], 3]
+        @test rev_p([3, nothing, 1]) == [[(1, 3), (3, 1)], 3]
+        @test rev_p([3, 2, nothing]) == [[(1, 3), (2, 2)], 3]
+        p = Apply(
+            Apply(every_primitive["rev_list_elements"], FreeVar(tlist(ttuple2(tint, tint)), UInt64(1))),
+            FreeVar(tint, UInt64(2)),
+        )
+        @test run_with_arguments(p, [], Dict(UInt64(1) => [(1, 3), (2, 2), (3, 1)], UInt64(2) => 3)) == [3, 2, 1]
+        @test run_with_arguments(p, [], Dict(UInt64(1) => [(1, 3), (3, 1)], UInt64(2) => 3)) == [3, nothing, 1]
+        @test run_with_arguments(p, [], Dict(UInt64(1) => [(1, 3), (2, 2)], UInt64(2) => 3)) == [3, 2, nothing]
+    end
+
+    @testset "Reverse grid elements" begin
+        skeleton = Apply(
+            Apply(
+                Apply(
+                    every_primitive["rev_grid_elements"],
+                    Hole(tlist(ttuple2(ttuple2(tint, tint), tint)), nothing, true),
+                ),
+                Hole(tint, nothing, true),
+            ),
+            Hole(tint, nothing, true),
+        )
+        filled_p, rev_p, _ =
+            get_reversed_filled_program(skeleton, (1, Dict(0 => tint)), [LeftTurn(), LeftTurn(), RightTurn()])
+        @test filled_p == Apply(
+            Apply(
+                Apply(
+                    every_primitive["rev_grid_elements"],
+                    FreeVar(tlist(ttuple2(ttuple2(tint, tint), tint)), nothing),
+                ),
+                FreeVar(tint, nothing),
+            ),
+            FreeVar(tint, nothing),
+        )
+        @test rev_p([[3, 2, 1] [4, 5, 6]]) ==
+              [[((1, 1), 3), ((1, 2), 4), ((2, 1), 2), ((2, 2), 5), ((3, 1), 1), ((3, 2), 6)], 3, 2]
+        @test rev_p([[3, nothing, 1] [4, 5, 6]]) ==
+              [[((1, 1), 3), ((1, 2), 4), ((2, 2), 5), ((3, 1), 1), ((3, 2), 6)], 3, 2]
+        @test rev_p([[3, 2, 1] [nothing, nothing, nothing]]) == [[((1, 1), 3), ((2, 1), 2), ((3, 1), 1)], 3, 2]
+        p = Apply(
+            Apply(
+                Apply(
+                    every_primitive["rev_grid_elements"],
+                    FreeVar(tlist(ttuple2(ttuple2(tint, tint), tint)), UInt64(1)),
+                ),
+                FreeVar(tint, UInt64(2)),
+            ),
+            FreeVar(tint, UInt64(3)),
+        )
+        @test run_with_arguments(
+            p,
+            [],
+            Dict(
+                UInt64(1) => [((1, 1), 3), ((1, 2), 4), ((2, 1), 2), ((2, 2), 5), ((3, 1), 1), ((3, 2), 6)],
+                UInt64(2) => 3,
+                UInt64(3) => 2,
+            ),
+        ) == [[3, 2, 1] [4, 5, 6]]
+        @test run_with_arguments(
+            p,
+            [],
+            Dict(
+                UInt64(1) => [((1, 1), 3), ((1, 2), 4), ((2, 2), 5), ((3, 1), 1), ((3, 2), 6)],
+                UInt64(2) => 3,
+                UInt64(3) => 2,
+            ),
+        ) == [[3, nothing, 1] [4, 5, 6]]
+        @test run_with_arguments(
+            p,
+            [],
+            Dict(UInt64(1) => [((1, 1), 3), ((2, 1), 2), ((3, 1), 1)], UInt64(2) => 3, UInt64(3) => 2),
+        ) == [[3, 2, 1] [nothing, nothing, nothing]]
+    end
+
+    @testset "Reverse zip2" begin
+        skeleton =
+            Apply(Apply(every_primitive["zip2"], Hole(tlist(tint), nothing, true)), Hole(tlist(tcolor), nothing, true))
+        filled_p, rev_p, _ = get_reversed_filled_program(skeleton, (1, Dict(0 => tint)), [LeftTurn(), RightTurn()])
+        @test filled_p ==
+              Apply(Apply(every_primitive["zip2"], FreeVar(tlist(tint), nothing)), FreeVar(tlist(tcolor), nothing))
+        @test rev_p([(1, 3), (2, 2), (3, 1)]) == [[1, 2, 3], [3, 2, 1]]
+        p = Apply(Apply(every_primitive["zip2"], FreeVar(tlist(tint), UInt64(1))), FreeVar(tlist(tcolor), UInt64(2)))
+        @test run_with_arguments(p, [], Dict(UInt64(1) => [1, 2, 3], UInt64(2) => [3, 2, 1])) ==
+              [(1, 3), (2, 2), (3, 1)]
+    end
+
+    @testset "Reverse zip_grid2" begin
+        skeleton =
+            Apply(Apply(every_primitive["zip2"], Hole(tgrid(tint), nothing, true)), Hole(tgrid(tcolor), nothing, true))
+        filled_p, rev_p, _ = get_reversed_filled_program(skeleton, (1, Dict(0 => tint)), [LeftTurn(), RightTurn()])
+        @test filled_p ==
+              Apply(Apply(every_primitive["zip2"], FreeVar(tgrid(tint), nothing)), FreeVar(tgrid(tcolor), nothing))
+        @test rev_p([[(1, 3), (2, 2), (3, 1)] [(4, 5), (9, 2), (2, 5)]]) ==
+              [[[1, 2, 3] [4, 9, 2]], [[3, 2, 1] [5, 2, 5]]]
+        p = Apply(Apply(every_primitive["zip2"], FreeVar(tgrid(tint), UInt64(1))), FreeVar(tgrid(tcolor), UInt64(2)))
+        @test run_with_arguments(p, [], Dict(UInt64(1) => [[1, 2, 3] [4, 9, 2]], UInt64(2) => [[3, 2, 1] [5, 2, 5]])) ==
+              [[(1, 3), (2, 2), (3, 1)] [(4, 5), (9, 2), (2, 5)]]
     end
 end

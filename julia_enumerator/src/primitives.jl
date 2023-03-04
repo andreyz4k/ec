@@ -115,6 +115,3 @@ _is_prime(n) = in(
 @define_primitive("eq?", arrow(t0, t0, tbool), (a -> (b -> a == b)))
 @define_primitive("is-prime", arrow(tint, tbool), _is_prime)
 @define_primitive("is-square", arrow(tint, tbool), (n -> floor(sqrt(n))^2 == n))
-
-@define_primitive("zip2", arrow(tlist(t0), tlist(t1), tlist(ttuple2(t0, t1))), (a -> (b -> zip(a, b))))
-@define_primitive("zip_grid2", arrow(tgrid(t0), tgrid(t1), tgrid(ttuple2(t0, t1))), (a -> (b -> zip(a, b))))

@@ -101,6 +101,7 @@ t2 = TypeVariable(2)
 
 tlist(t) = TypeConstructor("list", [t])
 ttuple2(t0, t1) = TypeConstructor("tuple2", [t0, t1])
+ttuple3(t0, t1, t2) = TypeConstructor("tuple3", [t0, t1, t2])
 
 tgrid(t) = TypeConstructor("grid", [t])
 
