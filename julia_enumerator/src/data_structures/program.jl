@@ -380,11 +380,6 @@ function _application_parse(p::Apply, arguments)
 end
 _application_parse(p::Program, args) = (p, reverse(args))
 
-function analyze_evaluation(p::Abstraction)::Function
-    b = analyze_evaluation(p.b)
-    (environment, workspace) -> (x -> (b(vcat([x], environment), workspace)))
-end
-
 function _run_with_arguments(p::Abstraction, arguments, workspace)
     x -> begin
         inner_args = vcat(arguments, [x])
@@ -393,34 +388,13 @@ function _run_with_arguments(p::Abstraction, arguments, workspace)
     end
 end
 
-analyze_evaluation(p::Index)::Function = (environment, workspace) -> environment[p.n+1]
 _run_with_arguments(p::Index, environment, workspace) = environment[end-p.n]
 
-analyze_evaluation(p::FreeVar)::Function = (environment, workspace) -> workspace[p.var_id]
 _run_with_arguments(p::FreeVar, environment, workspace) = workspace[p.var_id]
 
-analyze_evaluation(p::Primitive)::Function = (_, _) -> p.code
 _run_with_arguments(p::Primitive, environment, workspace) = p.code
 
-function analyze_evaluation(p::Invented)::Function
-    b = analyze_evaluation(p.b)
-    (_, _) -> b([], Dict())
-end
 _run_with_arguments(p::Invented, environment, workspace) = _run_with_arguments(p.b, environment, workspace)
-
-function analyze_evaluation(p::Apply)::Function
-    if isa(p.f, Apply) && isa(p.f.f, Apply) && isa(p.f.f.f, Primitive) && p.f.f.f.name == "if"
-        branch = analyze_evaluation(p.f.f.x)
-        yes = analyze_evaluation(p.f.x)
-        no = analyze_evaluation(p.x)
-        return (environment, workspace) ->
-            (branch(environment, workspace) ? yes(environment, workspace) : no(environment, workspace))
-    else
-        f = analyze_evaluation(p.f)
-        x = analyze_evaluation(p.x)
-        (environment, workspace) -> (f(environment, workspace)(x(environment, workspace)))
-    end
-end
 
 function _run_with_arguments(p::Apply, arguments, workspace)
     if isa(p.f, Apply) && isa(p.f.f, Apply) && isa(p.f.f.f, Primitive) && p.f.f.f.name == "if"
@@ -441,14 +415,7 @@ function _run_with_arguments(p::Apply, arguments, workspace)
     end
 end
 
-analyze_evaluation(p::SetConst)::Function = (_, _) -> p.value
 _run_with_arguments(p::SetConst, environment, workspace) = p.value
-
-function analyze_evaluation(p::LetClause)::Function
-    v = analyze_evaluation(p.v)
-    b = analyze_evaluation(p.b)
-    (environment, workspace) -> b(environment, merge(workspace, Dict(p.var_id => v(environment, workspace))))
-end
 
 function _run_with_arguments(p::LetClause, arguments, workspace)
     v = _run_with_arguments(p.v, arguments, workspace)
@@ -456,21 +423,6 @@ function _run_with_arguments(p::LetClause, arguments, workspace)
     b = _run_with_arguments(p.b, arguments, workspace)
     delete!(workspace, p.var_id)
     return b
-end
-
-function analyze_evaluation(p::LetRevClause)::Function
-    b = analyze_evaluation(p.b)
-    (environment, workspace) -> begin
-        vals = p.rev_v(workspace[p.inp_var_id])
-        for i in 1:length(p.var_ids)
-            workspace[p.var_ids[i]] = vals[i]
-        end
-        res = b(environment, workspace)
-        for var_id in p.var_ids
-            delete!(workspace, var_id)
-        end
-        return res
-    end
 end
 
 function _run_with_arguments(p::LetRevClause, arguments, workspace)
@@ -483,32 +435,6 @@ function _run_with_arguments(p::LetRevClause, arguments, workspace)
         delete!(workspace, var_id)
     end
     return b
-end
-
-function analyze_evaluation(p::WrapEither)::Function
-    b = analyze_evaluation(p.b)
-    f = analyze_evaluation(p.f)
-    (environment, workspace) -> begin
-        vals = p.rev_v(workspace[p.inp_var_id])
-        unfixed_vals = Dict()
-        for i in 1:length(p.var_ids)
-            unfixed_vals[p.var_ids[i]] = vals[i]
-        end
-        fixed_val = f(environment, workspace)
-
-        fixed_hashes = [_get_fixed_hashes(unfixed_vals[p.fixer_var_id], fixed_val)]
-
-        fixed_values = Dict()
-        for (var_id, target_value) in unfixed_vals
-            if var_id == p.fixer_var_id
-                fixed_values[var_id] = fixed_val
-            else
-                fixed_values[var_id] = _fix_option_hashes(fixed_hashes, [target_value])[1]
-            end
-        end
-
-        b(environment, merge(workspace, fixed_values))
-    end
 end
 
 function _run_with_arguments(p::WrapEither, arguments, workspace)
@@ -538,20 +464,8 @@ function _run_with_arguments(p::WrapEither, arguments, workspace)
     return b
 end
 
-function analyze_evaluation(p::ExceptionProgram)::Function
-    (environment, workspace) -> error("Inapplicable program")
-end
-
 function run_with_arguments(p::Program, arguments, workspace)
     l = _run_with_arguments(p, [], workspace)
-    for x in arguments
-        l = l(x)
-    end
-    return l
-end
-
-function run_analyzed_with_arguments(@nospecialize(p::Function), arguments, workspace)
-    l = p([], workspace)
     for x in arguments
         l = l(x)
     end
