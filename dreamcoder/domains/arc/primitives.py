@@ -27,16 +27,16 @@ def _map_grid(f):
     return lambda g: [list(map(f, l)) for l in g]
 
 
-def _fold(l):
-    return lambda x0: lambda f: reduce(lambda a, x: f(x)(a), l[::-1], x0)
+def _fold(f):
+    return lambda l: lambda x0: reduce(lambda a, x: f(x)(a), l[::-1], x0)
 
 
-def _fold_h(g):
-    return lambda xs0: lambda f: [reduce(lambda a, x: f(x)(a), l[::-1], x0) for (l, x0) in zip(g, xs0)]
+def _fold_h(f):
+    return lambda g: lambda xs0: [reduce(lambda a, x: f(x)(a), l[::-1], x0) for (l, x0) in zip(g, xs0)]
 
 
-def _fold_v(g):
-    return lambda xs0: lambda f: [reduce(lambda a, x: f(x)(a), l[::-1], x0) for (l, x0) in zip(zip(*g), xs0)]
+def _fold_v(f):
+    return lambda g: lambda xs0: [reduce(lambda a, x: f(x)(a), l[::-1], x0) for (l, x0) in zip(zip(*g), xs0)]
 
 
 def _range(n):
@@ -156,8 +156,8 @@ def _isSquare(n):
     return int(math.sqrt(n)) ** 2 == n
 
 
-def _unfold(x):
-    return lambda p: lambda h: lambda n: __unfold(p, h, n, x)
+def _unfold(p):
+    return lambda h: lambda n: lambda x: __unfold(p, h, n, x)
 
 
 class RecursionDepthExceeded(Exception):
@@ -205,13 +205,13 @@ def basePrimitives():
         Primitive(
             "map2_grid", arrow(arrow(t0, t1, t2), tgrid(t0), tgrid(t1), tgrid(t2)), _map_grid, is_reversible=True
         ),
-        Primitive("unfold", arrow(t0, arrow(t0, tbool), arrow(t0, t1), arrow(t0, t0), tlist(t1)), _unfold),
+        Primitive("unfold", arrow(arrow(t0, tbool), arrow(t0, t1), arrow(t0, t0), t0, tlist(t1)), _unfold),
         Primitive("range", arrow(tint, tlist(tint)), _range, is_reversible=True),
         Primitive("index", arrow(tint, tlist(t0), t0), _index),
         Primitive("index2", arrow(tint, tint, tgrid(t0), t0), _index2),
-        Primitive("fold", arrow(tlist(t0), t1, arrow(t0, t1, t1), t1), _fold),
-        Primitive("fold_h", arrow(tgrid(t0), tlist(t1), arrow(t0, t1, t1), tlist(t1)), _fold_h),
-        Primitive("fold_v", arrow(tgrid(t0), tlist(t1), arrow(t0, t1, t1), tlist(t1)), _fold_v),
+        Primitive("fold", arrow(arrow(t0, t1, t1), tlist(t0), t1, t1), _fold),
+        Primitive("fold_h", arrow(arrow(t0, t1, t1), tgrid(t0), tlist(t1), tlist(t1)), _fold_h),
+        Primitive("fold_v", arrow(arrow(t0, t1, t1), tgrid(t0), tlist(t1), tlist(t1)), _fold_v),
         Primitive("length", arrow(tlist(t0), tint), len),
         Primitive("height", arrow(tgrid(t0), tint), len),
         Primitive("width", arrow(tgrid(t0), tint), _width),

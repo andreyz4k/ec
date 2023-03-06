@@ -36,7 +36,7 @@ using solver: load_problems, enumerate_for_task
                     "logProbability" => 0.0,
                     "expression" => "unfold",
                     "is_reversible" => false,
-                    "type" => "t0 -> (t0 -> bool) -> (t0 -> t1) -> (t0 -> t0) -> list(t1)",
+                    "type" => "(t0 -> bool) -> (t0 -> t1) -> (t0 -> t0) -> t0 -> list(t1)",
                 ),
                 Dict{String,Any}(
                     "logProbability" => 0.0,
@@ -60,19 +60,19 @@ using solver: load_problems, enumerate_for_task
                     "logProbability" => 0.0,
                     "expression" => "fold",
                     "is_reversible" => false,
-                    "type" => "list(t0) -> t1 -> (t0 -> t1 -> t1) -> t1",
+                    "type" => "(t0 -> t1 -> t1) -> list(t0) -> t1 -> t1",
                 ),
                 Dict{String,Any}(
                     "logProbability" => 0.0,
                     "expression" => "fold_h",
                     "is_reversible" => false,
-                    "type" => "grid(t0) -> list(t1) -> (t0 -> t1 -> t1) -> list(t1)",
+                    "type" => "(t0 -> t1 -> t1) -> grid(t0) -> list(t1) -> list(t1)",
                 ),
                 Dict{String,Any}(
                     "logProbability" => 0.0,
                     "expression" => "fold_v",
                     "is_reversible" => false,
-                    "type" => "grid(t0) -> list(t1) -> (t0 -> t1 -> t1) -> list(t1)",
+                    "type" => "(t0 -> t1 -> t1) -> grid(t0) -> list(t1) -> list(t1)",
                 ),
                 Dict{String,Any}(
                     "logProbability" => 0.0,

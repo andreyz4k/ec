@@ -1,9 +1,9 @@
 
-function _unfold(x, p, h, n)
+function _unfold(is_end, ext_item, next_state, state)
     acc = []
-    while !p(x)
-        push!(acc, h(x))
-        x = n(x)
+    while !is_end(state)
+        push!(acc, ext_item(state))
+        state = next_state(state)
     end
     acc
 end
@@ -62,8 +62,8 @@ _is_prime(n) = in(
 
 @define_primitive(
     "unfold",
-    arrow(t0, arrow(t0, tbool), arrow(t0, t1), arrow(t0, t0), tlist(t1)),
-    (x -> (p -> (h -> (n -> _unfold(x, p, h, n))))),
+    arrow(arrow(t0, tbool), arrow(t0, t1), arrow(t0, t0), t0, tlist(t1)),
+    (is_end -> (ext_item -> (next_state -> (state -> _unfold(is_end, ext_item, next_state, state))))),
 )
 @define_primitive("index", arrow(tint, tlist(t0), t0), (j -> (l -> l[j])))
 @define_primitive("index2", arrow(tint, tint, tgrid(t0), t0), (i -> (j -> (l -> l[i, j]))))
@@ -71,26 +71,28 @@ _is_prime(n) = in(
 @define_primitive("tuple2_second", arrow(ttuple2(t0, t1), t1), (t -> t[2]))
 @define_primitive(
     "fold",
-    arrow(tlist(t0), t1, arrow(t0, t1, t1), t1),
-    (itr -> (init -> (op -> foldr((v, acc) -> op(v)(acc), itr, init = init)))),
+    arrow(arrow(t0, t1, t1), tlist(t0), t1, t1),
+    (op -> (itr -> (init -> foldr((v, acc) -> op(v)(acc), itr, init = init)))),
 )
 @define_primitive(
     "fold_h",
-    arrow(tgrid(t0), tlist(t1), arrow(t0, t1, t1), tlist(t1)),
+    arrow(arrow(t0, t1, t1), tgrid(t0), tlist(t1), tlist(t1)),
     (
-        grid -> (
-            inits ->
-                (op -> [foldr((v, acc) -> op(v)(acc), view(grid, i, :), init = inits[i]) for i in size(grid, 1)])
+        op -> (
+            grid -> (
+                inits -> [foldr((v, acc) -> op(v)(acc), view(grid, i, :), init = inits[i]) for i in size(grid, 1)]
+            )
         )
     ),
 )
 @define_primitive(
     "fold_v",
-    arrow(tgrid(t0), tlist(t1), arrow(t0, t1, t1), tlist(t1)),
+    arrow(arrow(t0, t1, t1), tgrid(t0), tlist(t1), tlist(t1)),
     (
-        grid -> (
-            inits ->
-                (op -> [foldr((v, acc) -> op(v)(acc), view(grid, :, i), init = inits[i]) for i in size(grid, 2)])
+        op -> (
+            grid -> (
+                inits -> [foldr((v, acc) -> op(v)(acc), view(grid, :, i), init = inits[i]) for i in size(grid, 2)]
+            )
         )
     ),
 )

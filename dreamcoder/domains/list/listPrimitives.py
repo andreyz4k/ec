@@ -97,8 +97,8 @@ def _reducei(f):
     return lambda x0: lambda l: reduce(lambda a, t: f(t[0])(a)(t[1]), enumerate(l), x0)
 
 
-def _fold(l):
-    return lambda x0: lambda f: reduce(lambda a, x: f(x)(a), l[::-1], x0)
+def _fold(f):
+    return lambda l: lambda x0: reduce(lambda a, x: f(x)(a), l[::-1], x0)
 
 
 def _eq(x):
@@ -218,8 +218,8 @@ def _find(x):
     return _inner
 
 
-def _unfold(x):
-    return lambda p: lambda h: lambda n: __unfold(p, h, n, x)
+def _unfold(p):
+    return lambda h: lambda n: lambda x: __unfold(p, h, n, x)
 
 
 def __unfold(p, f, n, x, recursion_limit=50):
@@ -351,10 +351,10 @@ def bootstrapTarget():
     return [
         # learned primitives
         Primitive("map", arrow(arrow(t0, t1), tlist(t0), tlist(t1)), _map, is_reversible=True),
-        Primitive("unfold", arrow(t0, arrow(t0, tbool), arrow(t0, t1), arrow(t0, t0), tlist(t1)), _unfold),
+        Primitive("unfold", arrow(arrow(t0, tbool), arrow(t0, t1), arrow(t0, t0), t0, tlist(t1)), _unfold),
         Primitive("range", arrow(tint, tlist(tint)), _range, is_reversible=True),
         Primitive("index", arrow(tint, tlist(t0), t0), _index),
-        Primitive("fold", arrow(tlist(t0), t1, arrow(t0, t1, t1), t1), _fold),
+        Primitive("fold", arrow(arrow(t0, t1, t1), tlist(t0), t1, t1), _fold),
         Primitive("length", arrow(tlist(t0), tint), len),
         # built-ins
         Primitive("if", arrow(tbool, t0, t0, t0), _if),

@@ -916,10 +916,10 @@ let (_ : program) =
 
 (* let default_recursion_limit = 20;; *)
 
-let rec unfold x p h n = if p x then [] else h x :: unfold (n x) p h n
+let rec unfold p h n x = if p x then [] else h x :: unfold p h n (n x)
 
 let primitive_unfold =
-  primitive "unfold" (t0 @> (t0 @> tboolean) @> (t0 @> t1) @> (t0 @> t0) @> tlist t1) unfold
+  primitive "unfold" ((t0 @> tboolean) @> (t0 @> t1) @> (t0 @> t0) @> t0 @> tlist t1) unfold
 
 let primitive_index = primitive "index" (tint @> tlist t0 @> t0) (fun j l -> List.nth_exn l j)
 
@@ -930,8 +930,8 @@ let primitive_zip =
 
 let primitive_fold =
   primitive "fold"
-    (tlist t0 @> t1 @> (t0 @> t1 @> t1) @> t1)
-    (fun l x0 f -> List.fold_right ~f ~init:x0 l)
+    ((t0 @> t1 @> t1) @> tlist t0 @> t1 @> t1)
+    (fun f l x0 -> List.fold_right ~f ~init:x0 l)
 
 let default_recursion_limit = ref 50
 let set_recursion_limit l = default_recursion_limit := l
