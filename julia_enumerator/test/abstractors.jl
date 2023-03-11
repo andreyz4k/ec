@@ -911,7 +911,8 @@ import Redis
             Apply(every_primitive["rev_list_elements"], Hole(tlist(ttuple2(tint, tint)), nothing, true)),
             Hole(tint, nothing, true),
         )
-        filled_p, rev_p, _ = get_reversed_filled_program(skeleton, (1, Dict(0 => tint)), [LeftTurn(), RightTurn()])
+        filled_p, rev_p, _ =
+            get_reversed_filled_program(skeleton, Context(1, Dict(0 => tint)), [LeftTurn(), RightTurn()])
         @test filled_p == Apply(
             Apply(every_primitive["rev_list_elements"], FreeVar(tlist(ttuple2(tint, tint)), nothing)),
             FreeVar(tint, nothing),
@@ -940,7 +941,7 @@ import Redis
             Hole(tint, nothing, true),
         )
         filled_p, rev_p, _ =
-            get_reversed_filled_program(skeleton, (1, Dict(0 => tint)), [LeftTurn(), LeftTurn(), RightTurn()])
+            get_reversed_filled_program(skeleton, Context(1, Dict(0 => tint)), [LeftTurn(), LeftTurn(), RightTurn()])
         @test filled_p == Apply(
             Apply(
                 Apply(
@@ -994,7 +995,8 @@ import Redis
     @testset "Reverse zip2" begin
         skeleton =
             Apply(Apply(every_primitive["zip2"], Hole(tlist(tint), nothing, true)), Hole(tlist(tcolor), nothing, true))
-        filled_p, rev_p, _ = get_reversed_filled_program(skeleton, (1, Dict(0 => tint)), [LeftTurn(), RightTurn()])
+        filled_p, rev_p, _ =
+            get_reversed_filled_program(skeleton, Context(1, Dict(0 => tint)), [LeftTurn(), RightTurn()])
         @test filled_p ==
               Apply(Apply(every_primitive["zip2"], FreeVar(tlist(tint), nothing)), FreeVar(tlist(tcolor), nothing))
         @test rev_p([(1, 3), (2, 2), (3, 1)]) == [[1, 2, 3], [3, 2, 1]]
@@ -1006,7 +1008,8 @@ import Redis
     @testset "Reverse zip_grid2" begin
         skeleton =
             Apply(Apply(every_primitive["zip2"], Hole(tgrid(tint), nothing, true)), Hole(tgrid(tcolor), nothing, true))
-        filled_p, rev_p, _ = get_reversed_filled_program(skeleton, (1, Dict(0 => tint)), [LeftTurn(), RightTurn()])
+        filled_p, rev_p, _ =
+            get_reversed_filled_program(skeleton, Context(1, Dict(0 => tint)), [LeftTurn(), RightTurn()])
         @test filled_p ==
               Apply(Apply(every_primitive["zip2"], FreeVar(tgrid(tint), nothing)), FreeVar(tgrid(tcolor), nothing))
         @test rev_p([[(1, 3), (2, 2), (3, 1)] [(4, 5), (9, 2), (2, 5)]]) ==
@@ -1014,5 +1017,56 @@ import Redis
         p = Apply(Apply(every_primitive["zip2"], FreeVar(tgrid(tint), UInt64(1))), FreeVar(tgrid(tcolor), UInt64(2)))
         @test run_with_arguments(p, [], Dict(UInt64(1) => [[1, 2, 3] [4, 9, 2]], UInt64(2) => [[3, 2, 1] [5, 2, 5]])) ==
               [[(1, 3), (2, 2), (3, 1)] [(4, 5), (9, 2), (2, 5)]]
+    end
+
+    @testset "Reverse rev_fold" begin
+        skeleton = Apply(
+            Apply(
+                Apply(
+                    every_primitive["rev_fold"],
+                    Abstraction(
+                        Abstraction(
+                            Apply(
+                                Apply(every_primitive["cons"], Hole(tint, nothing, true)),
+                                Hole(tlist(tint), nothing, true),
+                            ),
+                        ),
+                    ),
+                ),
+                every_primitive["empty"],
+            ),
+            Hole(tlist(tint), nothing, true),
+        )
+        @test is_reversible(skeleton)
+
+        filled_p, rev_p, _ = get_reversed_filled_program(
+            skeleton,
+            Context(2, Dict(0 => tint, 1 => tlist(tint))),
+            [LeftTurn(), LeftTurn(), RightTurn(), ArgTurn(t0), ArgTurn(t1), LeftTurn(), RightTurn()],
+        )
+        @test filled_p == Apply(
+            Apply(
+                Apply(
+                    every_primitive["rev_fold"],
+                    Abstraction(Abstraction(Apply(Apply(every_primitive["cons"], Index(1)), Index(0)))),
+                ),
+                every_primitive["empty"],
+            ),
+            FreeVar(tlist(tint), nothing),
+        )
+
+        @test rev_p([2, 4, 1, 4, 1]) == [[1, 4, 1, 4, 2]]
+
+        p = Apply(
+            Apply(
+                Apply(
+                    every_primitive["rev_fold"],
+                    Abstraction(Abstraction(Apply(Apply(every_primitive["cons"], Index(1)), Index(0)))),
+                ),
+                every_primitive["empty"],
+            ),
+            FreeVar(tlist(tint), UInt64(1)),
+        )
+        @test run_with_arguments(p, [], Dict(UInt64(1) => [1, 4, 1, 4, 2])) == [2, 4, 1, 4, 1]
     end
 end

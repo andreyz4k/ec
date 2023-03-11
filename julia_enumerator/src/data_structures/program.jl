@@ -1,5 +1,5 @@
 
-abstract type Program end
+abstract type Program <: Function end
 
 struct Index <: Program
     n::Int64
@@ -380,33 +380,36 @@ function _application_parse(p::Apply, arguments)
 end
 _application_parse(p::Program, args) = (p, reverse(args))
 
-function _run_with_arguments(p::Abstraction, arguments, workspace)
-    x -> begin
-        inner_args = vcat(arguments, [x])
-        res = _run_with_arguments(p.b, inner_args, workspace)
-        return res
-    end
+struct BoundAbstraction <: Function
+    p::Abstraction
+    arguments::Vector{Any}
+    workspace::Dict{Any,Any}
 end
 
-_run_with_arguments(p::Index, environment, workspace) = environment[end-p.n]
+function (p::Abstraction)(environment, workspace)
+    return BoundAbstraction(p, environment, workspace)
+end
+(p::BoundAbstraction)(x) = p.p.b(vcat(p.arguments, [x]), p.workspace)
 
-_run_with_arguments(p::FreeVar, environment, workspace) = workspace[p.var_id]
+(p::Index)(environment, workspace) = environment[end-p.n]
 
-_run_with_arguments(p::Primitive, environment, workspace) = p.code
+(p::FreeVar)(environment, workspace) = workspace[p.var_id]
 
-_run_with_arguments(p::Invented, environment, workspace) = _run_with_arguments(p.b, environment, workspace)
+(p::Primitive)(environment, workspace) = p.code
 
-function _run_with_arguments(p::Apply, arguments, workspace)
+(p::Invented)(environment, workspace) = p.b(environment, workspace)
+
+function (p::Apply)(environment, workspace)
     if isa(p.f, Apply) && isa(p.f.f, Apply) && isa(p.f.f.f, Primitive) && p.f.f.f.name == "if"
-        branch = _run_with_arguments(p.f.f.x, arguments, workspace)
+        branch = p.f.f.x(environment, workspace)
         if branch
-            _run_with_arguments(p.f.x, arguments, workspace)
+            p.f.x(environment, workspace)
         else
-            _run_with_arguments(p.x, arguments, workspace)
+            p.x(environment, workspace)
         end
     else
-        f = _run_with_arguments(p.f, arguments, workspace)
-        x = _run_with_arguments(p.x, arguments, workspace)
+        f = p.f(environment, workspace)
+        x = p.x(environment, workspace)
         if x === nothing
             error("Parameter is nothing")
         else
@@ -415,35 +418,35 @@ function _run_with_arguments(p::Apply, arguments, workspace)
     end
 end
 
-_run_with_arguments(p::SetConst, environment, workspace) = p.value
+(p::SetConst)(environment, workspace) = p.value
 
-function _run_with_arguments(p::LetClause, arguments, workspace)
-    v = _run_with_arguments(p.v, arguments, workspace)
+function (p::LetClause)(environment, workspace)
+    v = p.v(environment, workspace)
     workspace[p.var_id] = v
-    b = _run_with_arguments(p.b, arguments, workspace)
+    b = p.b(environment, workspace)
     delete!(workspace, p.var_id)
     return b
 end
 
-function _run_with_arguments(p::LetRevClause, arguments, workspace)
+function (p::LetRevClause)(environment, workspace)
     vals = p.rev_v(workspace[p.inp_var_id])
     for i in 1:length(p.var_ids)
         workspace[p.var_ids[i]] = vals[i]
     end
-    b = _run_with_arguments(p.b, arguments, workspace)
+    b = p.b(environment, workspace)
     for var_id in p.var_ids
         delete!(workspace, var_id)
     end
     return b
 end
 
-function _run_with_arguments(p::WrapEither, arguments, workspace)
+function (p::WrapEither)(environment, workspace)
     vals = p.rev_v(workspace[p.inp_var_id])
     unfixed_vals = Dict()
     for i in 1:length(p.var_ids)
         unfixed_vals[p.var_ids[i]] = vals[i]
     end
-    fixed_val = _run_with_arguments(p.f, arguments, workspace)
+    fixed_val = p.f(environment, workspace)
 
     fixed_hashes = [_get_fixed_hashes(unfixed_vals[p.fixer_var_id], fixed_val)]
 
@@ -457,7 +460,7 @@ function _run_with_arguments(p::WrapEither, arguments, workspace)
     end
 
     merge!(workspace, fixed_values)
-    b = _run_with_arguments(p.b, arguments, workspace)
+    b = p.b(environment, workspace)
     for var_id in p.var_ids
         delete!(workspace, var_id)
     end
@@ -465,7 +468,7 @@ function _run_with_arguments(p::WrapEither, arguments, workspace)
 end
 
 function run_with_arguments(p::Program, arguments, workspace)
-    l = _run_with_arguments(p, [], workspace)
+    l = p([], workspace)
     for x in arguments
         l = l(x)
     end

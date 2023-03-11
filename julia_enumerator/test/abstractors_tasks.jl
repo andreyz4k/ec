@@ -284,6 +284,12 @@ using solver: load_problems, enumerate_for_task
                     "is_reversible" => true,
                     "type" => "tlist(t0) -> tlist(t0)",
                 ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "rev_fold",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1 -> t1) -> t1 -> t1 -> tlist(t0)",
+                ),
             ],
         ),
         "type_weights" => Dict{String,Any}(
@@ -383,7 +389,7 @@ using solver: load_problems, enumerate_for_task
             @time enumerate_for_task(g, type_weights, task, maximum_frontier, timeout, verbose)
         @test length(solutions) >= 1
         @test number_enumerated >= 10
-        @test number_enumerated <= 1000
+        @test number_enumerated <= 2000
     end
 
     @testset "Use eithers" begin
