@@ -37,7 +37,7 @@ using solver: load_problems, enumerate_for_task
                     Dict{String,Any}(
                         "logProbability" => -1.289518413628755,
                         "expression" => "fold",
-                        "is_reversible" => false,
+                        "is_reversible" => true,
                     ),
                     Dict{String,Any}(
                         "logProbability" => -0.15480969927313604,

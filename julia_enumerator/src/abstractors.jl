@@ -1,10 +1,10 @@
 
-all_abstractors = Dict{Program,Tuple{Vector,Any,Any}}()
+all_abstractors = Dict{Program,Tuple{Vector,Any}}()
 
 struct AnyObject end
 any_object = AnyObject()
 
-function _is_reversible(p::Primitive, in_invented)
+function _is_reversible(p::Primitive)
     if haskey(all_abstractors, p)
         all_abstractors[p][1]
     else
@@ -12,8 +12,8 @@ function _is_reversible(p::Primitive, in_invented)
     end
 end
 
-function _is_reversible(p::Apply, in_invented)
-    rev_f = _is_reversible(p.f, in_invented)
+function _is_reversible(p::Apply)
+    rev_f = _is_reversible(p.f)
     if !isnothing(rev_f)
         if isempty(rev_f)
             if isa(p.x, Hole)
@@ -24,14 +24,10 @@ function _is_reversible(p::Apply, in_invented)
                 end
             end
             if isa(p.x, Index)
-                if in_invented
-                    return rev_f
-                else
-                    return nothing
-                end
+                return rev_f
             end
             if isa(p.x, Abstraction) || isa(p.x, Apply)
-                return _is_reversible(p.x, in_invented)
+                return _is_reversible(p.x)
             end
         else
             checker = rev_f[end][1]
@@ -45,23 +41,15 @@ function _is_reversible(p::Apply, in_invented)
     nothing
 end
 
-_is_reversible(p::Invented, in_invented) = _is_reversible(p.b, true)
-_is_reversible(p::Abstraction, in_invented) = _is_reversible(p.b, in_invented)
+_is_reversible(p::Invented) = _is_reversible(p.b)
+_is_reversible(p::Abstraction) = _is_reversible(p.b)
 
-_is_reversible(p::Program, in_invented) = nothing
+_is_reversible(p::Program) = nothing
 
-is_reversible(p::Program)::Bool = !isnothing(_is_reversible(p, false))
-
-function _get_fill_replacements(p::Primitive, arguments)
-    return all_abstractors[p][2](arguments)
-end
+is_reversible(p::Program)::Bool = !isnothing(_is_reversible(p))
 
 function _get_reversed_program(p::Primitive, arguments)
-    return all_abstractors[p][3](arguments)
-end
-
-function _get_fill_replacements(p::Invented, arguments)
-    _get_fill_replacements(p.b, arguments)
+    return all_abstractors[p][2](arguments)
 end
 
 function _get_reversed_program(p::Invented, arguments)
@@ -70,37 +58,20 @@ end
 
 noop(a)::Vector{Any} = [a]
 
-function _get_fill_replacements(p::Hole, arguments)
-    return [FreeVar(p.t, nothing)]
-end
-function _get_reversed_program(p::FreeVar, arguments)
+function _get_reversed_program(p::Hole, arguments)
     return noop
 end
 
-function _get_fill_replacements(p::Index, arguments)
-    return []
-end
 function _get_reversed_program(p::Index, arguments)
     return noop
 end
 
-function _get_fill_replacements(p::Apply, arguments)
-    push!(arguments, p.x)
-    replacements = _get_fill_replacements(p.f, arguments)
-    return replacements
-end
 function _get_reversed_program(p::Apply, arguments)
     push!(arguments, p.x)
     reversed_f = _get_reversed_program(p.f, arguments)
     return reversed_f
 end
 
-function _get_fill_replacements(p::Abstraction, arguments)
-    # Only used in invented functions
-    replacements_f = _get_fill_replacements(p.b, arguments)
-    replacements_a = _get_fill_replacements(pop!(arguments), arguments)
-    return vcat(replacements_f, replacements_a)
-end
 function _get_reversed_program(p::Abstraction, arguments)
     # Only used in invented functions
     rev_f = _get_reversed_program(p.b, arguments)
@@ -109,37 +80,8 @@ function _get_reversed_program(p::Abstraction, arguments)
     return rev_f
 end
 
-function get_reversed_filled_program(p::Program, context, path)
-    replacements = _get_fill_replacements(p, [])
-    fill_p = p
-
-    for repl in replacements
-        current_hole = follow_path(fill_p, path)
-        request = current_hole.t
-        environment = path_environment(path)
-        if repl isa Index
-            t = environment[repl.n+1]
-        elseif repl isa FreeVar
-            t = repl.t
-        else
-            error("Incorrect replacement")
-        end
-        (context, t) = apply_context(context, t)
-        return_type = return_of_type(t)
-
-        context = unify(context, return_type, request)
-        (context, t) = apply_context(context, t)
-
-        fill_p = modify_skeleton(fill_p, repl, path)
-        path = unwind_path(path, fill_p)
-    end
-    if !isempty(path)
-        error("Incorrect filling")
-    end
-
-    rev_p = _get_reversed_program(fill_p, [])
-
-    return fill_p, rev_p, context
+function get_reversed_program(p::Program)
+    return _get_reversed_program(p, [])
 end
 
 function _reverse_eithers(_reverse_function, value)
@@ -172,14 +114,6 @@ function _reverse_eithers(_reverse_function, value)
 end
 
 function generic_reverse(rev_function, n)
-    function _generic_filler(arguments)
-        replacements = []
-        for _ in 1:n
-            replacements_a = _get_fill_replacements(pop!(arguments), arguments)
-            append!(replacements, replacements_a)
-        end
-        return replacements
-    end
     function _generic_reverse(arguments)
         rev_functions = []
         for _ in 1:n
@@ -195,7 +129,7 @@ function generic_reverse(rev_function, n)
         end
         return _reverse_function
     end
-    return _generic_filler, _generic_reverse
+    return _generic_reverse
 end
 
 macro define_reverse_primitive(name, t, x, reverse_function)
@@ -203,8 +137,8 @@ macro define_reverse_primitive(name, t, x, reverse_function)
         local n = $(esc(name))
         @define_primitive n $t $x
         local prim = every_primitive[n]
-        local filler, rev = generic_reverse($(esc(reverse_function)), length(arguments_of_type(prim.t)))
-        all_abstractors[prim] = [], filler, rev
+        local rev = generic_reverse($(esc(reverse_function)), length(arguments_of_type(prim.t)))
+        all_abstractors[prim] = [], rev
     end
 end
 
@@ -253,46 +187,20 @@ _count_holes(p::Apply) = _count_holes(p.f) + _count_holes(p.x)
 _count_holes(p::Abstraction) = _count_holes(p.b)
 _count_holes(p::Program) = 0
 
-function _count_holes(p::Primitive)
-    if p.name == "map"
-        return -1
-    elseif p.name == "map2"
-        return -2
-    else
-        return 0
-    end
-end
+_is_reversible_mapper(p) = is_reversible(p) && _count_holes(p) == 0
 
-_is_reversible_mapper(n) = p -> is_reversible(p) && _count_holes(p) == n
+_is_possible_mapper(p::Index, from_input, skeleton, path) = p.n != 0 || !isa(path[end], ArgTurn)
+_is_possible_mapper(p::Primitive, from_input, skeleton, path) = !from_input || haskey(all_abstractors, p)
+_is_possible_mapper(p::Invented, from_input, skeleton, path) = !from_input || is_reversible(p)
+_is_possible_mapper(p::FreeVar, from_input, skeleton, path) = !from_input
+
+_walk_mapper(p::Index) = [p.n]
+_walk_mapper(p::Primitive) = []
+_walk_mapper(p::Invented) = []
+_walk_mapper(p::Apply) = vcat(_walk_mapper(p.f), _walk_mapper(p.x))
+_walk_mapper(p::Abstraction) = [i - 1 for i in _walk_mapper(p.b) if i > 0]
 
 function reverse_map(n)
-    function _reverse_filler(arguments)
-        f = pop!(arguments)
-        for _ in 1:n
-            f = f.b
-        end
-        replacements_f = _get_fill_replacements(f, arguments)
-
-        replacements = []
-        i = n - 1
-        for repl in replacements_f
-            if repl isa FreeVar
-                push!(replacements, Index(i))
-                i -= 1
-                if i < -1
-                    error("Too many free variables")
-                end
-            else
-                push!(replacements, repl)
-            end
-        end
-
-        for _ in 1:n
-            repls_x = _get_fill_replacements(pop!(arguments), arguments)
-            append!(replacements, repls_x)
-        end
-        return replacements
-    end
     function _reverse_map(arguments)
         f = pop!(arguments)
         for _ in 1:n
@@ -301,7 +209,7 @@ function reverse_map(n)
         rev_f = _get_reversed_program(f, arguments)
         rev_f = _rmapper(rev_f, n)
 
-        i = n - 1
+        indices_mapping = _walk_mapper(f)
 
         rev_xs = []
         for _ in 1:n
@@ -341,9 +249,18 @@ function reverse_map(n)
                     for output_option in output_options
                         for (h, option) in child_options
                             new_option = []
+                            filled_indices = Dict{Int,Any}()
                             for i in 1:n
-                                push!(new_option, copy(output_option[i]))
-                                push!(new_option[i], option[i])
+                                mapped_i = n - indices_mapping[i]
+                                if haskey(filled_indices, mapped_i)
+                                    if filled_indices[mapped_i] != option[i]
+                                        error("Filling the same index with different values")
+                                    end
+                                else
+                                    filled_indices[mapped_i] = option[i]
+                                    push!(new_option, copy(output_option[mapped_i]))
+                                    push!(new_option[mapped_i], option[i])
+                                end
                             end
                             push!(new_options, new_option)
                             if length(new_options) > 100
@@ -353,9 +270,18 @@ function reverse_map(n)
                     end
                     output_options = new_options
                 else
+                    filled_indices = Dict{Int,Any}()
                     for (i, v) in enumerate(values)
-                        for option in output_options
-                            push!(option[i], v)
+                        mapped_i = n - indices_mapping[i]
+                        if haskey(filled_indices, mapped_i)
+                            if filled_indices[mapped_i] != v
+                                error("Filling the same index with different values")
+                            end
+                        else
+                            filled_indices[mapped_i] = v
+                            for option in output_options
+                                push!(option[mapped_i], v)
+                            end
                         end
                     end
                 end
@@ -379,7 +305,7 @@ function reverse_map(n)
         return __reverse_map
     end
 
-    return [(_is_reversible_mapper(n), nothing)], _reverse_filler, _reverse_map
+    return [(_is_reversible_mapper, _is_possible_mapper)], _reverse_map
 end
 
 function _rmapper(f, n)
@@ -571,56 +497,23 @@ end
 is_reversible_selector(p::Abstraction) = _is_reversible_selector(p.b, true) == 1
 is_reversible_selector(p::Program) = false
 
-function _is_possible_selector(p::Index, is_top_index)
-    if is_top_index
-        return 0
+_is_possible_selector(p::Primitive, from_input, skeleton, path) = true
+_is_possible_selector(p::Invented, from_input, skeleton, path) = true
+_is_possible_selector(p::Index, from_input, skeleton, path) = p.n != 0 || !isa(path[end], ArgTurn)
+
+function _is_possible_selector(p::FreeVar, from_input, skeleton, path)
+    if skeleton isa Abstraction &&
+       skeleton.b isa Apply &&
+       skeleton.b.f isa Apply &&
+       skeleton.b.f.f == every_primitive["eq?"] &&
+       length(path) == 2 &&
+       path[2] == RightTurn()
+        return true
     end
-    if p.n == 0
-        return 1
-    else
-        return 2
-    end
+    return false
 end
 
-_is_possible_selector(p::Primitive, is_top_index) = 2
-_is_possible_selector(p::Invented, is_top_index) = 2
-_is_possible_selector(p::Hole, is_top_index) = 1
-_is_possible_selector(p::Program, is_top_index) = 0
-
-function _is_possible_selector(p::Apply, is_top_index)
-    if is_top_index && isa(p.f, Apply) && p.f.f == every_primitive["eq?"]
-        if isa(p.x, Hole)
-            return _is_possible_selector(p.f.x, false)
-        else
-            return 0
-        end
-    else
-        return min(_is_possible_selector(p.f, false), _is_possible_selector(p.x, false))
-    end
-end
-
-is_possible_selector(p::Abstraction) = _is_possible_selector(p.b, true) == 1
-is_possible_selector(p::Hole) = true
-is_possible_selector(p::Program) = false
-
-fill_selector(p::Hole) = [FreeVar(p.t, nothing)]
-fill_selector(p::Program) = []
-fill_selector(p::Apply) = vcat(fill_selector(p.f), fill_selector(p.x))
-fill_selector(p::Abstraction) = fill_selector(p.b)
-
-function reverse_rev_select(name)
-    function _reverse_filler(arguments)
-        f = pop!(arguments)
-        replacements = fill_selector(f)
-        if length(replacements) > 1
-            error("Selector has multiple holes")
-        end
-
-        repls_base = _get_fill_replacements(pop!(arguments), arguments)
-        repls_others = _get_fill_replacements(pop!(arguments), arguments)
-        append!(replacements, repls_base, repls_others)
-        return replacements
-    end
+function reverse_rev_select()
     function _reverse_rev_select(arguments)
         f = pop!(arguments)
         rev_base = _get_reversed_program(pop!(arguments), arguments)
@@ -629,7 +522,7 @@ function reverse_rev_select(name)
         function __reverse_rev_select(value)::Vector{Any}
             if isa(f, Abstraction) &&
                isa(f.b, Apply) &&
-               isa(f.b.x, FreeVar) &&
+               isa(f.b.x, Hole) &&
                isa(f.b.f, Apply) &&
                f.b.f.f == every_primitive["eq?"]
                 options_selector = Dict()
@@ -695,21 +588,21 @@ function reverse_rev_select(name)
 
         return __reverse_rev_select
     end
-    return [(is_reversible_selector, is_possible_selector)], _reverse_filler, _reverse_rev_select
+    return [(is_reversible_selector, _is_possible_selector)], _reverse_rev_select
 end
 
 @define_custom_reverse_primitive(
     "rev_select",
     arrow(arrow(t0, tbool), tlist(t0), tlist(t0), tlist(t0)),
     (f -> (base -> (others -> rev_select(base, others)))),
-    reverse_rev_select("rev_select")
+    reverse_rev_select()
 )
 
 @define_custom_reverse_primitive(
     "rev_select_grid",
     arrow(arrow(t0, tbool), tgrid(t0), tgrid(t0), tgrid(t0)),
     (f -> (base -> (others -> rev_select(base, others)))),
-    reverse_rev_select("rev_select_grid")
+    reverse_rev_select()
 )
 
 function list_elements(value)
@@ -810,26 +703,19 @@ function rev_fold(f, init, acc)
     return reverse(outs)
 end
 
-_is_possible_init(p::Hole) = true
-_is_possible_init(p::Primitive) = true
-_is_possible_init(p::FreeVar) = false
-_is_possible_init(p::Index) = true
-_is_possible_init(p::Abstraction) = _is_possible_init(p.b)
-_is_possible_init(p::Apply) = _is_possible_init(p.f) && _is_possible_init(p.x)
-_is_possible_init(p::Invented) = true
+_is_possible_init(p::Primitive, from_input, skeleton, path) = true
+_is_possible_init(p::FreeVar, from_input, skeleton, path) = false
+_is_possible_init(p::Index, from_input, skeleton, path) = true
+_is_possible_init(p::Invented, from_input, skeleton, path) = true
 
-_is_filled_init(p) = _is_possible_init(p) && _count_holes(p) == 0
+_is_filled_init(p) = _count_holes(p) == 0
+
+_is_possible_folder(p::Index, from_input, skeleton, path) = true
+_is_possible_folder(p::Primitive, from_input, skeleton, path) = haskey(all_abstractors, p)
+_is_possible_folder(p::Invented, from_input, skeleton, path) = is_reversible(p)
+_is_possible_folder(p::FreeVar, from_input, skeleton, path) = false
 
 function reverse_rev_fold()
-    function _reverse_filler(arguments)
-        f = pop!(arguments)
-        replacements = Any[Index(1), Index(0)]
-
-        init = pop!(arguments)
-        replacements_x = _get_fill_replacements(pop!(arguments), arguments)
-        append!(replacements, replacements_x)
-        return replacements
-    end
     function _reverse_rev_fold(arguments)
         f = pop!(arguments)
 
@@ -850,9 +736,7 @@ function reverse_rev_fold()
 
         return __reverse_rev_fold
     end
-    return [(_is_filled_init, _is_possible_init), (_is_reversible_mapper(2), nothing)],
-    _reverse_filler,
-    _reverse_rev_fold
+    return [(_is_filled_init, _is_possible_init), (_is_reversible_mapper, _is_possible_folder)], _reverse_rev_fold
 end
 
 @define_custom_reverse_primitive(
@@ -860,4 +744,198 @@ end
     arrow(arrow(t0, t1, t1), t1, t1, tlist(t0)),
     (f -> (init -> (acc -> rev_fold(f, init, acc)))),
     reverse_rev_fold()
+)
+
+function reverse_fold()
+    function _reverse_fold(arguments)
+        f = pop!(arguments)
+        rev_f = _get_reversed_program(f.b.b, [])
+
+        indices_mapping = _walk_mapper(f.b.b)
+
+        rev_itr = _get_reversed_program(pop!(arguments), arguments)
+        rev_init = _get_reversed_program(pop!(arguments), arguments)
+
+        function __reverse_fold(value)::Vector{Any}
+            options_itr = Dict()
+            options_init = Dict()
+            itr = []
+            acc = value
+
+            h = hash((itr, acc))
+            options_itr[h] = itr
+            options_init[h] = acc
+
+            while length(options_itr) < 100
+                try
+                    rev_values = rev_f(acc)
+
+                    filled_indices = Dict{Int,Any}()
+                    for (i, v) in enumerate(rev_values)
+                        mapped_i = 2 - indices_mapping[i]
+                        if haskey(filled_indices, mapped_i)
+                            if filled_indices[mapped_i] != v
+                                error("Filling the same index with different values")
+                            end
+                        else
+                            filled_indices[mapped_i] = v
+                        end
+                    end
+
+                    new_acc = filled_indices[2]
+                    if new_acc == acc
+                        break
+                    end
+                    itr = vcat(itr, [filled_indices[1]])
+                    acc = new_acc
+
+                    h = hash((itr, acc))
+                    options_itr[h] = itr
+                    options_init[h] = acc
+                catch
+                    break
+                end
+            end
+
+            out_itr = if length(options_itr) == 1
+                first(options_itr)[2]
+            else
+                EitherOptions(options_itr)
+            end
+            out_init = if length(options_init) == 1
+                first(options_init)[2]
+            else
+                EitherOptions(options_init)
+            end
+            return vcat(rev_itr(out_itr), rev_init(out_init))
+        end
+
+        function __reverse_fold(value::EitherOptions)::Vector{Any}
+            _reverse_eithers(__reverse_fold, value)
+        end
+
+        return __reverse_fold
+    end
+
+    return [(_is_reversible_mapper, _is_possible_mapper)], _reverse_fold
+end
+
+@define_custom_reverse_primitive(
+    "fold",
+    arrow(arrow(t0, t1, t1), tlist(t0), t1, t1),
+    (op -> (itr -> (init -> foldr((v, acc) -> op(v)(acc), itr, init = init)))),
+    reverse_fold()
+)
+
+function reverse_fold_grid(dim)
+    function _reverse_fold(arguments)
+        f = pop!(arguments)
+        rev_f = _get_reversed_program(f.b.b, [])
+        indices_mapping = _walk_mapper(f.b.b)
+
+        rev_grid = _get_reversed_program(pop!(arguments), arguments)
+        rev_inits = _get_reversed_program(pop!(arguments), arguments)
+
+        function __reverse_fold(value)::Vector{Any}
+            options_grid = Dict()
+            options_inits = Dict()
+            if dim == 1
+                grid = Array{Any}(undef, length(value), 0)
+            else
+                grid = Array{Any}(undef, 0, length(value))
+            end
+            acc = value
+
+            h = hash((grid, acc))
+            options_grid[h] = grid
+            options_inits[h] = acc
+
+            while length(options_grid) < 100
+                try
+                    new_line = []
+                    new_acc = []
+                    for item in acc
+                        rev_values = rev_f(item)
+
+                        filled_indices = Dict{Int,Any}()
+                        for (i, v) in enumerate(rev_values)
+                            mapped_i = 2 - indices_mapping[i]
+                            if haskey(filled_indices, mapped_i)
+                                if filled_indices[mapped_i] != v
+                                    error("Filling the same index with different values")
+                                end
+                            else
+                                filled_indices[mapped_i] = v
+                            end
+                        end
+
+                        push!(new_line, filled_indices[1])
+                        push!(new_acc, filled_indices[2])
+                    end
+                    if new_acc == acc
+                        break
+                    end
+                    if dim == 1
+                        grid = hcat(grid, new_line)
+                    else
+                        grid = vcat(grid, new_line')
+                    end
+                    acc = new_acc
+
+                    h = hash((grid, acc))
+                    options_grid[h] = grid
+                    options_inits[h] = acc
+                catch
+                    break
+                end
+            end
+
+            out_grid = if length(options_grid) == 1
+                first(options_grid)[2]
+            else
+                EitherOptions(options_grid)
+            end
+            out_inits = if length(options_inits) == 1
+                first(options_inits)[2]
+            else
+                EitherOptions(options_inits)
+            end
+            return vcat(rev_grid(out_grid), rev_inits(out_inits))
+        end
+
+        function __reverse_fold(value::EitherOptions)::Vector{Any}
+            _reverse_eithers(__reverse_fold, value)
+        end
+
+        return __reverse_fold
+    end
+
+    return [(_is_reversible_mapper, _is_possible_mapper)], _reverse_fold
+end
+
+@define_custom_reverse_primitive(
+    "fold_h",
+    arrow(arrow(t0, t1, t1), tgrid(t0), tlist(t1), tlist(t1)),
+    (
+        op -> (
+            grid -> (
+                inits ->
+                    [foldr((v, acc) -> op(v)(acc), view(grid, i, :), init = inits[i]) for i in 1:size(grid, 1)]
+            )
+        )
+    ),
+    reverse_fold_grid(1)
+)
+@define_custom_reverse_primitive(
+    "fold_v",
+    arrow(arrow(t0, t1, t1), tgrid(t0), tlist(t1), tlist(t1)),
+    (
+        op -> (
+            grid -> (
+                inits ->
+                    [foldr((v, acc) -> op(v)(acc), view(grid, :, i), init = inits[i]) for i in 1:size(grid, 2)]
+            )
+        )
+    ),
+    reverse_fold_grid(2)
 )

@@ -82,7 +82,7 @@ function get_candidates_for_unknown_var(sc, branch_id, g)::Vector{BlockPrototype
     entry = sc.entries[sc.branch_entries[branch_id]]
     prototypes = []
     if !isa(entry, NoDataEntry)
-        push!(prototypes, block_prototype(Hole(type, g.no_context, false), nothing, var_id, branch_id, type))
+        push!(prototypes, block_prototype(Hole(type, g.no_context, false, nothing), nothing, var_id, branch_id, type))
     end
     for (pr, inputs, out_type) in matching_with_unknown_candidates(sc, entry, var_id)
         push!(prototypes, block_prototype(pr, inputs, var_id, branch_id, out_type))
@@ -103,7 +103,7 @@ function get_candidates_for_known_var(sc, branch_id, g)
         push!(
             prototypes,
             BlockPrototype(
-                EnumerationState(Hole(type, g.no_context, true), empty_context, [], EPSILON, 0),
+                EnumerationState(Hole(type, g.no_context, true, nothing), empty_context, [], EPSILON, 0),
                 type,
                 nothing,
                 (var_id, branch_id),

@@ -40,7 +40,7 @@ using DataStructures
 using SuiteSparseGraphBLAS
 
 function initial_state(t, g)
-    EnumerationState(Hole(t, g.no_context, false), empty_context, [], 0.0, 0)
+    EnumerationState(Hole(t, g.no_context, false, nothing), empty_context, [], 0.0, 0)
 end
 
 function next_state(state, target_candidate, cg)
@@ -55,9 +55,22 @@ function next_state(state, target_candidate, cg)
     context, request = apply_context(context, request)
 
     environment = path_environment(state.path)
-    candidates = unifying_expressions(g, environment, request, context, current_hole.abstractors_only)
+    candidates = unifying_expressions(
+        g,
+        environment,
+        request,
+        context,
+        current_hole.from_input,
+        current_hole.candidates_filter,
+        state.skeleton,
+        state.path,
+    )
     if !isa(state.skeleton, Hole)
-        push!(candidates, (FreeVar(request, nothing), [], context, g.log_variable))
+        p = FreeVar(request, nothing)
+        if isnothing(current_hole.candidates_filter) ||
+           current_hole.candidates_filter(p, current_hole.from_input, state.skeleton, state.path)
+            push!(candidates, (p, [], context, g.log_variable))
+        end
     end
 
     states = collect(
@@ -84,7 +97,12 @@ function next_state(state, target_candidate, cg)
                             Hole(
                                 argument_types[i],
                                 argument_requests[i],
-                                current_hole.abstractors_only && (i > custom_checkers_args_count),
+                                current_hole.from_input,
+                                if i > custom_checkers_args_count || isnothing(all_abstractors[candidate][1][i][2])
+                                    current_hole.candidates_filter
+                                else
+                                    all_abstractors[candidate][1][i][2]
+                                end,
                             ),
                         )
                     end

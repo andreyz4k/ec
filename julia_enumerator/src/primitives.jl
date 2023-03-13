@@ -69,33 +69,6 @@ _is_prime(n) = in(
 @define_primitive("index2", arrow(tint, tint, tgrid(t0), t0), (i -> (j -> (l -> l[i, j]))))
 @define_primitive("tuple2_first", arrow(ttuple2(t0, t1), t0), (t -> t[1]))
 @define_primitive("tuple2_second", arrow(ttuple2(t0, t1), t1), (t -> t[2]))
-@define_primitive(
-    "fold",
-    arrow(arrow(t0, t1, t1), tlist(t0), t1, t1),
-    (op -> (itr -> (init -> foldr((v, acc) -> op(v)(acc), itr, init = init)))),
-)
-@define_primitive(
-    "fold_h",
-    arrow(arrow(t0, t1, t1), tgrid(t0), tlist(t1), tlist(t1)),
-    (
-        op -> (
-            grid -> (
-                inits -> [foldr((v, acc) -> op(v)(acc), view(grid, i, :), init = inits[i]) for i in size(grid, 1)]
-            )
-        )
-    ),
-)
-@define_primitive(
-    "fold_v",
-    arrow(arrow(t0, t1, t1), tgrid(t0), tlist(t1), tlist(t1)),
-    (
-        op -> (
-            grid -> (
-                inits -> [foldr((v, acc) -> op(v)(acc), view(grid, :, i), init = inits[i]) for i in size(grid, 2)]
-            )
-        )
-    ),
-)
 @define_primitive("length", arrow(tlist(t0), tint), length)
 @define_primitive("height", arrow(tgrid(t0), tint), (g -> size(g, 1)))
 @define_primitive("width", arrow(tgrid(t0), tint), (g -> size(g, 2)))

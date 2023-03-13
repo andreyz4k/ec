@@ -126,12 +126,6 @@ const illegal_combinations2 = Set([
 ])
 
 function violates_symmetry(f::Primitive, a, n)
-    if haskey(all_abstractors, f)
-        checkers = all_abstractors[f][1]
-        if n <= length(checkers) && !isnothing(checkers[end-n+1][2])
-            return !checkers[end-n+1][2](a)
-        end
-    end
     a = application_function(a)
     if !isa(a, Primitive)
         return false
@@ -175,7 +169,9 @@ function block_state_successors(
             EnumerationState(
                 modify_skeleton(
                     state.skeleton,
-                    (Abstraction(Hole(request.arguments[2], g, current_hole.abstractors_only))),
+                    (Abstraction(
+                        Hole(request.arguments[2], g, current_hole.from_input, current_hole.candidates_filter),
+                    )),
                     state.path,
                 ),
                 context,
@@ -186,9 +182,22 @@ function block_state_successors(
         ]
     else
         environment = path_environment(state.path)
-        candidates = unifying_expressions(g, environment, request, context, current_hole.abstractors_only)
+        candidates = unifying_expressions(
+            g,
+            environment,
+            request,
+            context,
+            current_hole.from_input,
+            current_hole.candidates_filter,
+            state.skeleton,
+            state.path,
+        )
         if !isa(state.skeleton, Hole)
-            push!(candidates, (FreeVar(request, nothing), [], context, g.log_variable))
+            p = FreeVar(request, nothing)
+            if isnothing(current_hole.candidates_filter) ||
+               current_hole.candidates_filter(p, current_hole.from_input, state.skeleton, state.path)
+                push!(candidates, (p, [], context, g.log_variable))
+            end
         end
 
         states = map(candidates) do (candidate, argument_types, context, ll)
@@ -210,8 +219,12 @@ function block_state_successors(
                         Hole(
                             argument_types[i],
                             argument_requests[i],
-                            current_hole.abstractors_only &&
-                            (i > custom_checkers_args_count || isnothing(all_abstractors[candidate][1][i][2])),
+                            current_hole.from_input,
+                            if i > custom_checkers_args_count || isnothing(all_abstractors[candidate][1][i][2])
+                                current_hole.candidates_filter
+                            else
+                                all_abstractors[candidate][1][i][2]
+                            end,
                         ),
                     )
                 end
@@ -260,7 +273,7 @@ function try_run_reversed_with_value(reverse_program::Function, value, new_vars_
 end
 
 function try_get_reversed_values(sc::SolutionContext, p::Program, context, path, output_branch_id, cost, is_known)
-    p, reverse_program, context = get_reversed_filled_program(p, context, path)
+    reverse_program = get_reversed_program(p)
     out_entry = sc.entries[sc.branch_entries[output_branch_id]]
 
     new_p, new_vars = capture_free_vars(sc, p, context)
@@ -445,6 +458,7 @@ function try_run_function(f::Function, xs)
         elseif isa(e, UnknownPrimitive)
             error("Unknown primitive: $(e.name)")
         elseif isa(e, MethodError)
+            @error f
             @error(xs)
             rethrow()
         else

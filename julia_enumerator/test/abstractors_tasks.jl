@@ -59,19 +59,19 @@ using solver: load_problems, enumerate_for_task
                 Dict{String,Any}(
                     "logProbability" => 0.0,
                     "expression" => "fold",
-                    "is_reversible" => false,
+                    "is_reversible" => true,
                     "type" => "(t0 -> t1 -> t1) -> list(t0) -> t1 -> t1",
                 ),
                 Dict{String,Any}(
                     "logProbability" => 0.0,
                     "expression" => "fold_h",
-                    "is_reversible" => false,
+                    "is_reversible" => true,
                     "type" => "(t0 -> t1 -> t1) -> grid(t0) -> list(t1) -> list(t1)",
                 ),
                 Dict{String,Any}(
                     "logProbability" => 0.0,
                     "expression" => "fold_v",
-                    "is_reversible" => false,
+                    "is_reversible" => true,
                     "type" => "(t0 -> t1 -> t1) -> grid(t0) -> list(t1) -> list(t1)",
                 ),
                 Dict{String,Any}(

@@ -103,7 +103,10 @@ function unifying_expressions(
     environment::Vector{Tp},
     request::Tp,
     context,
-    abstractors_only,
+    from_input::Bool,
+    candidates_filter,
+    skeleton,
+    path,
 )::Vector{Tuple{Program,Vector{Tp},Context,Float64}}
     #  given a grammar environment requested type and typing context,
     #    what are all of the possible leaves that we might use?
@@ -111,30 +114,35 @@ function unifying_expressions(
     #    Yields a sequence of:
     #    (leaf, argument types, context with leaf return type unified with requested type, normalized log likelihood)
 
-    if abstractors_only
+    if from_input && isnothing(candidates_filter)
         variable_candidates = Tuple{Program,Vector{Tp},Context,Float64}[]
     else
-        variable_candidates = collect(skipmissing(map(enumerate(environment)) do (j, t)
-            p = Index(j - 1)
-            ll = g.log_variable
-            (new_context, t) = apply_context(context, t)
-            return_type = return_of_type(t)
-            if might_unify(return_type, request)
-                try
-                    new_context = unify(new_context, return_type, request)
-                    (new_context, t) = apply_context(new_context, t)
-                    return (p, arguments_of_type(t), new_context, ll)
-                catch e
-                    if isa(e, UnificationFailure)
-                        return missing
-                    else
-                        rethrow()
-                    end
+        variable_candidates = collect(
+            skipmissing(map(enumerate(environment)) do (j, t)
+                p = Index(j - 1)
+                if !isnothing(candidates_filter) && !candidates_filter(p, from_input, skeleton, path)
+                    return missing
                 end
-            else
-                return missing
-            end
-        end))
+                ll = g.log_variable
+                (new_context, t) = apply_context(context, t)
+                return_type = return_of_type(t)
+                if might_unify(return_type, request)
+                    try
+                        new_context = unify(new_context, return_type, request)
+                        (new_context, t) = apply_context(new_context, t)
+                        return (p, arguments_of_type(t), new_context, ll)
+                    catch e
+                        if isa(e, UnificationFailure)
+                            return missing
+                        else
+                            rethrow()
+                        end
+                    end
+                else
+                    return missing
+                end
+            end),
+        )
 
         if !isnothing(g.continuation_type) && !isempty(variable_candidates)
             terminal_indices = [get_index_value(p) for (p, t, _, _) in variable_candidates if isempty(t)]
@@ -156,9 +164,16 @@ function unifying_expressions(
         Tuple{Program,Vector{Tp},Context,Float64},
         skipmissing(map(g.library) do (p, t, ll)
             try
-                if abstractors_only && !haskey(all_abstractors, p)
-                    return missing
+                if !isnothing(candidates_filter)
+                    if !candidates_filter(p, from_input, skeleton, path)
+                        return missing
+                    end
+                else
+                    if from_input && !haskey(all_abstractors, p)
+                        return missing
+                    end
                 end
+
                 if !might_unify(return_of_type(t), request)
                     return missing
                 else

@@ -50,10 +50,12 @@ Base.:(==)(p::Invented, q::Invented) = p.b == q.b
 struct Hole <: Program
     t::Tp
     grammar::Any
-    abstractors_only::Bool
+    from_input::Bool
+    candidates_filter::Any
 end
 Base.hash(p::Hole, h::UInt64) = hash(p.t, hash(p.grammar, h))
-Base.:(==)(p::Hole, q::Hole) = p.t == q.t && p.grammar == q.grammar && p.abstractors_only == q.abstractors_only
+Base.:(==)(p::Hole, q::Hole) =
+    p.t == q.t && p.grammar == q.grammar && p.from_input == q.from_input && p.candidates_filter == q.candidates_filter
 
 struct FreeVar <: Program
     t::Tp
