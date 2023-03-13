@@ -182,12 +182,12 @@ end
 
 @define_reverse_primitive "cons" arrow(t0, tlist(t0), tlist(t0)) (x -> (y -> vcat([x], y))) reverse_cons
 
-_count_holes(p::Hole) = 1
-_count_holes(p::Apply) = _count_holes(p.f) + _count_holes(p.x)
-_count_holes(p::Abstraction) = _count_holes(p.b)
-_count_holes(p::Program) = 0
+_has_no_holes(p::Hole) = false
+_has_no_holes(p::Apply) = _has_no_holes(p.f) && _has_no_holes(p.x)
+_has_no_holes(p::Abstraction) = _has_no_holes(p.b)
+_has_no_holes(p::Program) = true
 
-_is_reversible_mapper(p) = is_reversible(p) && _count_holes(p) == 0
+_is_reversible_mapper(p) = is_reversible(p) && _has_no_holes(p)
 
 _is_possible_mapper(p::Index, from_input, skeleton, path) = p.n != 0 || !isa(path[end], ArgTurn)
 _is_possible_mapper(p::Primitive, from_input, skeleton, path) = !from_input || haskey(all_abstractors, p)
@@ -708,8 +708,6 @@ _is_possible_init(p::FreeVar, from_input, skeleton, path) = false
 _is_possible_init(p::Index, from_input, skeleton, path) = true
 _is_possible_init(p::Invented, from_input, skeleton, path) = true
 
-_is_filled_init(p) = _count_holes(p) == 0
-
 _is_possible_folder(p::Index, from_input, skeleton, path) = true
 _is_possible_folder(p::Primitive, from_input, skeleton, path) = haskey(all_abstractors, p)
 _is_possible_folder(p::Invented, from_input, skeleton, path) = is_reversible(p)
@@ -736,7 +734,7 @@ function reverse_rev_fold()
 
         return __reverse_rev_fold
     end
-    return [(_is_filled_init, _is_possible_init), (_is_reversible_mapper, _is_possible_folder)], _reverse_rev_fold
+    return [(_has_no_holes, _is_possible_init), (_is_reversible_mapper, _is_possible_folder)], _reverse_rev_fold
 end
 
 @define_custom_reverse_primitive(
