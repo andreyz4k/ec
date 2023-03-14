@@ -105,7 +105,7 @@ def sample_programs():
                     "int": 43,
                 },
             },
-            -7.901007051992421,
+            -8.188689124444203,
         ),
         (
             "let $v1, $v2 = rev($inp0 = (cons $v1 $v2)) in $v2",
@@ -126,7 +126,7 @@ def sample_programs():
                     "int": 43,
                 },
             },
-            -1.0986122886681098,
+            -1.3862943611198906,
         ),
         (
             "let $v1::int = Const(int, 0) in let $v2::list(int) = (map (lambda $0) $inp0) in (cons $v1 $v2)",
@@ -169,25 +169,25 @@ def sample_wrapper_programs():
             "program": "let $v1::list(int) = Const(list(int), Any[]) in let $v2, $v3 = wrap(let $v2, $v3 = rev($inp0 = (concat $v2 $v3)); let $v2 = $v1) in let $v4::list(int) = Const(list(int), Any[]) in let $v5::list(int) = Const(list(int), Any[1]) in let $v6::list(int) = (concat $v4 $v5) in (concat $v3 $v6)",
             "time": 14.128462791442871,
             "logLikelihood": 0.0,
-            "logPrior": -6.579251212010101,
+            "logPrior": -6.761572768804056,
         },
         {
             "program": "let $v1, $v2 = wrap(let $v1, $v2 = rev($inp0 = (concat $v1 $v2)); let $v2 = $inp0) in let $v3::list(int) = Const(list(int), Any[]) in let $v4::list(int) = Const(list(int), Any[1]) in let $v5::list(int) = (concat $v3 $v4) in (concat $v2 $v5)",
             "time": 14.270664930343628,
             "logLikelihood": 0.0,
-            "logPrior": -6.579251212010101,
+            "logPrior": -6.761572768804056,
         },
         {
             "program": "let $v1::list(int) = Const(list(int), Any[]) in let $v2, $v3 = wrap(let $v2, $v3 = rev($inp0 = (concat $v2 $v3)); let $v3 = $v1) in let $v4::list(int) = Const(list(int), Any[]) in let $v5::list(int) = Const(list(int), Any[1]) in let $v6::list(int) = (concat $v4 $v5) in (concat $v2 $v6)",
             "time": 14.286531925201416,
             "logLikelihood": 0.0,
-            "logPrior": -6.579251212010101,
+            "logPrior": -6.761572768804056,
         },
         {
             "program": "let $v1, $v2 = wrap(let $v1, $v2 = rev($inp0 = (concat $v1 $v2)); let $v1 = $inp0) in let $v3::list(int) = Const(list(int), Any[]) in let $v4::list(int) = Const(list(int), Any[1]) in let $v5::list(int) = (concat $v3 $v4) in (concat $v1 $v5)",
             "time": 14.27908992767334,
             "logLikelihood": 0.0,
-            "logPrior": -6.579251212010101,
+            "logPrior": -6.761572768804056,
         },
         {
             "program": "let $v1::list(int) = Const(list(int), Any[]) in let $v2::list(int) = Const(list(int), Any[1]) in let $v3::list(int) = (concat $v1 $v2) in (concat $inp0 $v3)",
@@ -199,25 +199,25 @@ def sample_wrapper_programs():
             "program": "let $v1, $v2 = wrap(let $v1, $v2 = rev($inp0 = (concat $v1 $v2)); let $v2 = $inp0) in let $v3::list(int) = Const(list(int), Any[1]) in (concat $v2 $v3)",
             "time": 13.207619905471802,
             "logLikelihood": 0.0,
-            "logPrior": -4.0943445622221,
+            "logPrior": -4.276666119016055,
         },
         {
             "program": "let $v1::list(int) = Const(list(int), Any[]) in let $v2, $v3 = wrap(let $v2, $v3 = rev($inp0 = (concat $v2 $v3)); let $v2 = $v1) in let $v4::list(int) = Const(list(int), Any[1]) in (concat $v3 $v4)",
             "time": 12.554029941558838,
             "logLikelihood": 0.0,
-            "logPrior": -4.0943445622221,
+            "logPrior": -4.276666119016055,
         },
         {
             "program": "let $v1, $v2 = wrap(let $v1, $v2 = rev($inp0 = (concat $v1 $v2)); let $v1 = $inp0) in let $v3::list(int) = Const(list(int), Any[1]) in (concat $v1 $v3)",
             "time": 13.738729000091553,
             "logLikelihood": 0.0,
-            "logPrior": -4.0943445622221,
+            "logPrior": -4.276666119016055,
         },
         {
             "program": "let $v1::list(int) = Const(list(int), Any[]) in let $v2, $v3 = wrap(let $v2, $v3 = rev($inp0 = (concat $v2 $v3)); let $v3 = $v1) in let $v4::list(int) = Const(list(int), Any[1]) in (concat $v2 $v4)",
             "time": 13.747699975967407,
             "logLikelihood": 0.0,
-            "logPrior": -4.0943445622221,
+            "logPrior": -4.276666119016055,
         },
         {
             "program": "let $v1::list(int) = Const(list(int), Any[1]) in (concat $inp0 $v1)",
@@ -229,7 +229,7 @@ def sample_wrapper_programs():
             "program": "let $v1, $v2 = rev($inp0 = (cons $v1 $v2)) in let $v3::list(int) = Const(list(int), Any[]) in let $v4, $v5 = rev($v3 = (concat $v4 $v5)) in let $v6::int = (+ $v1 (length $v4)) in let $v7::list(int) = (cdr $v2) in (cons $v6 $v7)",
             "time": 9.622529983520508,
             "logLikelihood": 0.0,
-            "logPrior": -12.984479670040942,
+            "logPrior": -13.349122783628852,
         },
     ]
     return programs
