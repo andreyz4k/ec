@@ -764,8 +764,13 @@ function reverse_fold()
             options_itr[h] = itr
             options_init[h] = acc
 
-            while length(options_itr) < 100
+            options_queue = Set([h])
+
+            while length(options_itr) < 100 && length(options_queue) > 0
                 try
+                    h = pop!(options_queue)
+                    acc = options_init[h]
+
                     rev_values = rev_f(acc)
 
                     filled_indices = Dict{Int,Any}()
@@ -781,17 +786,38 @@ function reverse_fold()
                     end
 
                     new_acc = filled_indices[2]
-                    if new_acc == acc
-                        break
-                    end
-                    itr = vcat(itr, [filled_indices[1]])
-                    acc = new_acc
+                    itr = options_itr[h]
 
-                    h = hash((itr, acc))
-                    options_itr[h] = itr
-                    options_init[h] = acc
+                    if isa(new_acc, EitherOptions)
+                        for (h_op, new_acc_op) in new_acc.options
+                            if new_acc_op == acc
+                                continue
+                            end
+                            new_itr = vcat(itr, [filled_indices[1].options[h_op]])
+
+                            new_h = hash((new_itr, new_acc_op))
+                            if !haskey(options_itr, new_h)
+                                options_itr[new_h] = new_itr
+                                options_init[new_h] = new_acc_op
+                                push!(options_queue, new_h)
+                            end
+                        end
+                    else
+                        if new_acc == acc
+                            continue
+                        end
+                        new_itr = vcat(itr, [filled_indices[1]])
+
+                        new_h = hash((new_itr, new_acc))
+                        if !haskey(options_itr, new_h)
+                            options_itr[new_h] = new_itr
+                            options_init[new_h] = new_acc
+                            push!(options_queue, new_h)
+                        end
+                    end
+
                 catch
-                    break
+                    continue
                 end
             end
 

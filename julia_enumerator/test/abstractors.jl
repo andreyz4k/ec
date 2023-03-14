@@ -1214,6 +1214,110 @@ using DataStructures: OrderedDict, Accumulator
         @test run_with_arguments(p, [], Dict(UInt64(1) => [1, 4, 1, 4, 2], UInt64(2) => [])) == [1, 4, 1, 4, 2]
     end
 
+    @testset "Reverse fold with concat" begin
+        skeleton = Apply(
+            Apply(
+                Apply(
+                    every_primitive["fold"],
+                    Abstraction(Abstraction(Apply(Apply(every_primitive["concat"], Index(1)), Index(0)))),
+                ),
+                Hole(tlist(tlist(tint)), nothing, true, nothing),
+            ),
+            Hole(tlist(tint), nothing, true, nothing),
+        )
+        @test is_reversible(skeleton)
+
+        rev_p = get_reversed_program(skeleton)
+
+        @test rev_p([2, 4, 1, 4, 1]) == [
+            EitherOptions(
+                Dict{UInt64,Any}(
+                    0xe3b772ed30bd1603 => Any[[2], [4, 1], [4], [1]],
+                    0xefad2bee99d827e1 => Any[[2], [4], [1, 4, 1]],
+                    0x92d3a49196b6ec26 => Any[[2], [4], [1]],
+                    0x78a4b116b771ebb4 => Any[[2, 4]],
+                    0x2422ddddbbb4f32f => Any[[2, 4], [1, 4, 1]],
+                    0x9453a87fcd5f6f00 => Any[],
+                    0x1e841f32224786b7 => Any[[2], [4], [1], [4], [1]],
+                    0xe3371c313212dd43 => Any[[2, 4, 1, 4, 1]],
+                    0x4c8cf1adf1af769e => Any[[2], [4], [1, 4]],
+                    0x88791d1e62714523 => Any[[2], [4]],
+                    0xb2f92e306794ff1e => Any[[2], [4, 1], [4, 1]],
+                    0xc0a0171f4fa5372c => Any[[2, 4], [1]],
+                    0xf93f16a9dbd5aa89 => Any[[2, 4, 1], [4], [1]],
+                    0x340528480ae7d245 => Any[[2, 4, 1, 4], [1]],
+                    0x25fb53c9ad54723f => Any[[2, 4], [1], [4], [1]],
+                    0x039f8b34c81db882 => Any[[2], [4, 1], [4]],
+                    0x8172801003a5d07a => Any[[2, 4], [1], [4, 1]],
+                    0x32ada425ce5e090f => Any[[2], [4], [1, 4], [1]],
+                    0x8022d7c0c9234f15 => Any[[2], [4, 1, 4, 1]],
+                    0xda854f001b269690 => Any[[2], [4, 1]],
+                    0x03e9070d5f1e33fb => Any[[2, 4, 1], [4]],
+                    0xb1782afb61a42e8c => Any[[2, 4, 1]],
+                    0x678d482f38247116 => Any[[2, 4], [1, 4], [1]],
+                    0x903de0f197a422bb => Any[[2], [4], [1], [4]],
+                    0x55ba6e4fe60924b3 => Any[[2, 4, 1], [4, 1]],
+                    0xc6ef9cebfce26584 => Any[[2, 4], [1, 4]],
+                    0x1efac6ea27e12c4d => Any[[2], [4, 1, 4], [1]],
+                    0xbecc6fea3ec2c80e => Any[[2, 4], [1], [4]],
+                    0x90bc26734956aa6f => Any[[2], [4, 1, 4]],
+                    0xc5b4b785e06feb5a => Any[[2, 4, 1, 4]],
+                    0x156c6acf03db047e => Any[[2]],
+                    0x4c92dc0699df6873 => Any[[2], [4], [1], [4, 1]],
+                ),
+            ),
+            EitherOptions(
+                Dict{UInt64,Any}(
+                    0xe3b772ed30bd1603 => Int64[],
+                    0xefad2bee99d827e1 => Int64[],
+                    0x92d3a49196b6ec26 => [4, 1],
+                    0x78a4b116b771ebb4 => [1, 4, 1],
+                    0x2422ddddbbb4f32f => Int64[],
+                    0x9453a87fcd5f6f00 => [2, 4, 1, 4, 1],
+                    0x1e841f32224786b7 => Int64[],
+                    0xe3371c313212dd43 => Int64[],
+                    0x4c8cf1adf1af769e => [1],
+                    0x88791d1e62714523 => [1, 4, 1],
+                    0xb2f92e306794ff1e => Int64[],
+                    0xc0a0171f4fa5372c => [4, 1],
+                    0xf93f16a9dbd5aa89 => Int64[],
+                    0x340528480ae7d245 => Int64[],
+                    0x25fb53c9ad54723f => Int64[],
+                    0x039f8b34c81db882 => [1],
+                    0x8172801003a5d07a => Int64[],
+                    0x32ada425ce5e090f => Int64[],
+                    0x8022d7c0c9234f15 => Int64[],
+                    0xda854f001b269690 => [4, 1],
+                    0x03e9070d5f1e33fb => [1],
+                    0xb1782afb61a42e8c => [4, 1],
+                    0x678d482f38247116 => Int64[],
+                    0x903de0f197a422bb => [1],
+                    0x55ba6e4fe60924b3 => Int64[],
+                    0xc6ef9cebfce26584 => [1],
+                    0x1efac6ea27e12c4d => Int64[],
+                    0xbecc6fea3ec2c80e => [1],
+                    0x90bc26734956aa6f => [1],
+                    0xc5b4b785e06feb5a => [1],
+                    0x156c6acf03db047e => [4, 1, 4, 1],
+                    0x4c92dc0699df6873 => Int64[],
+                ),
+            ),
+        ]
+
+        p = Apply(
+            Apply(
+                Apply(
+                    every_primitive["fold"],
+                    Abstraction(Abstraction(Apply(Apply(every_primitive["concat"], Index(1)), Index(0)))),
+                ),
+                FreeVar(tlist(tlist(tint)), UInt64(1)),
+            ),
+            FreeVar(tlist(tint), UInt64(2)),
+        )
+        @test run_with_arguments(p, [], Dict(UInt64(1) => [[1, 4, 1, 4, 2], [3, 5, 2, 5]], UInt64(2) => [])) ==
+              [1, 4, 1, 4, 2, 3, 5, 2, 5]
+    end
+
     @testset "Reverse fold_h" begin
         skeleton = Apply(
             Apply(
