@@ -874,10 +874,16 @@ function reverse_fold_grid(dim)
             options_grid[h] = grid
             options_inits[h] = acc
 
-            while length(options_grid) < 100
+            options_queue = Set([h])
+
+            while length(options_grid) < 100 && length(options_queue) > 0
                 try
-                    new_line = []
-                    new_acc = []
+                    h = pop!(options_queue)
+                    acc = options_inits[h]
+                    grid = options_grid[h]
+
+                    new_line_options = [[]]
+                    new_acc_options = [[]]
                     for item in acc
                         rev_values = rev_f(item)
 
@@ -893,24 +899,56 @@ function reverse_fold_grid(dim)
                             end
                         end
 
-                        push!(new_line, filled_indices[1])
-                        push!(new_acc, filled_indices[2])
-                    end
-                    if new_acc == acc
-                        break
-                    end
-                    if dim == 1
-                        grid = hcat(grid, new_line)
-                    else
-                        grid = vcat(grid, new_line')
-                    end
-                    acc = new_acc
+                        new_acc_item = filled_indices[2]
 
-                    h = hash((grid, acc))
-                    options_grid[h] = grid
-                    options_inits[h] = acc
+                        if isa(new_acc_item, EitherOptions)
+                            next_acc_options = []
+                            next_line_options = []
+                            for (h_op, new_acc_op) in new_acc_item.options
+                                for i in 1:length(new_acc_options)
+                                    acc_option = new_acc_options[i]
+                                    line_option = new_line_options[i]
+                                    push!(next_acc_options, vcat(acc_option, [new_acc_op]))
+                                    push!(next_line_options, vcat(line_option, [filled_indices[1].options[h_op]]))
+                                    if length(next_acc_options) > 100
+                                        break
+                                    end
+                                end
+                                if length(next_acc_options) > 100
+                                    break
+                                end
+                            end
+                            new_acc_options = next_acc_options
+                            new_line_options = next_line_options
+                        else
+                            for line_option in new_line_options
+                                push!(line_option, filled_indices[1])
+                            end
+                            for acc_option in new_acc_options
+                                push!(acc_option, new_acc_item)
+                            end
+                        end
+                    end
+                    for i in 1:length(new_acc_options)
+                        new_acc = new_acc_options[i]
+                        if new_acc == acc
+                            continue
+                        end
+                        new_line = new_line_options[i]
+                        if dim == 1
+                            new_grid = hcat(grid, new_line)
+                        else
+                            new_grid = vcat(grid, new_line')
+                        end
+                        new_h = hash((new_grid, new_acc))
+                        if !haskey(options_grid, new_h)
+                            options_grid[new_h] = new_grid
+                            options_inits[new_h] = new_acc
+                            push!(options_queue, new_h)
+                        end
+                    end
                 catch
-                    break
+                    continue
                 end
             end
 
