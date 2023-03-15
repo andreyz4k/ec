@@ -1051,7 +1051,9 @@ class LetRevClause(Program):
 
     def __hash__(self):
         if self.hashCode is None:
-            self.hashCode = hash((hash(self.var_names), hash(self.inp_var_name), hash(self.vars_def), hash(self.body)))
+            self.hashCode = hash(
+                (hash(tuple(self.var_names)), hash(self.inp_var_name), hash(self.vars_def), hash(self.body))
+            )
         return self.hashCode
 
     """Because Python3 randomizes the hash function, we need to never pickle the hash"""
@@ -1100,7 +1102,7 @@ class WrapEither(Program):
         if self.hashCode is None:
             self.hashCode = hash(
                 (
-                    hash(self.var_names),
+                    hash(tuple(self.var_names)),
                     hash(self.inp_var_name),
                     hash(self.fixer_var_name),
                     hash(self.vars_def),
