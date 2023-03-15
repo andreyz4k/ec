@@ -986,6 +986,7 @@ class LetClause(Program):
         self.var_type = var_type
         self.var_def = var_def
         self.body = body
+        self.hashCode = None
 
     def show(self, isFunction):
         return "let $%s::%s = %s in %s" % (
@@ -1004,6 +1005,20 @@ class LetClause(Program):
             and self.body == __o.body
         )
 
+    def __hash__(self):
+        if self.hashCode is None:
+            self.hashCode = hash((hash(self.var_name), hash(self.var_type), hash(self.var_def), hash(self.body)))
+        return self.hashCode
+
+    """Because Python3 randomizes the hash function, we need to never pickle the hash"""
+
+    def __getstate__(self):
+        return self.var_name, self.var_type, self.var_def, self.body
+
+    def __setstate__(self, state):
+        self.var_name, self.var_type, self.var_def, self.body = state
+        self.hashCode = None
+
     @property
     def isLetClause(self):
         return True
@@ -1015,6 +1030,7 @@ class LetRevClause(Program):
         self.inp_var_name = inp_var_name
         self.vars_def = vars_def
         self.body = body
+        self.hashCode = None
 
     def show(self, isFunction):
         return "let %s = rev($%s = %s) in %s" % (
@@ -1033,6 +1049,20 @@ class LetRevClause(Program):
             and self.body == __o.body
         )
 
+    def __hash__(self):
+        if self.hashCode is None:
+            self.hashCode = hash((hash(self.var_names), hash(self.inp_var_name), hash(self.vars_def), hash(self.body)))
+        return self.hashCode
+
+    """Because Python3 randomizes the hash function, we need to never pickle the hash"""
+
+    def __getstate__(self):
+        return self.var_names, self.inp_var_name, self.vars_def, self.body
+
+    def __setstate__(self, state):
+        self.var_names, self.inp_var_name, self.vars_def, self.body = state
+        self.hashCode = None
+
     @property
     def isLetRevClause(self):
         return True
@@ -1046,6 +1076,7 @@ class WrapEither(Program):
         self.vars_def = vars_def
         self.fixer_var = fixer_var
         self.body = body
+        self.hashCode = None
 
     def show(self, isFunction):
         vars_list = ", ".join(f"${v}" for v in self.var_names)
@@ -1065,6 +1096,29 @@ class WrapEither(Program):
             and self.body == __o.body
         )
 
+    def __hash__(self):
+        if self.hashCode is None:
+            self.hashCode = hash(
+                (
+                    hash(self.var_names),
+                    hash(self.inp_var_name),
+                    hash(self.fixer_var_name),
+                    hash(self.vars_def),
+                    hash(self.fixer_var),
+                    hash(self.body),
+                )
+            )
+        return self.hashCode
+
+    """Because Python3 randomizes the hash function, we need to never pickle the hash"""
+
+    def __getstate__(self):
+        return self.var_names, self.inp_var_name, self.fixer_var_name, self.vars_def, self.fixer_var, self.body
+
+    def __setstate__(self, state):
+        self.var_names, self.inp_var_name, self.fixer_var_name, self.vars_def, self.fixer_var, self.body = state
+        self.hashCode = None
+
     @property
     def isWrapEither(self):
         return True
@@ -1083,6 +1137,9 @@ class FreeVariable(Program):
     def __eq__(self, __o) -> bool:
         return isinstance(__o, FreeVariable) and self.name == __o.name
 
+    def __hash__(self) -> int:
+        return hash(self.name)
+
     @property
     def isFreeVariable(self):
         return True
@@ -1092,12 +1149,28 @@ class Constant(Program):
     def __init__(self, tp, value):
         self.tp = tp
         self.value = value
+        self.hashCode = None
 
     def show(self, isFunction):
         return f"Const({self.tp.show(False)}, {self.value})"
 
     def __eq__(self, __o) -> bool:
         return isinstance(__o, Constant) and self.tp == __o.tp and self.value == __o.value
+
+    def __hash__(self):
+        if self.hashCode is None:
+            self.hashCode = hash(self.value)
+
+        return self.hashCode
+
+    """Because Python3 randomizes the hash function, we need to never pickle the hash"""
+
+    def __getstate__(self):
+        return self.tp, self.value
+
+    def __setstate__(self, state):
+        self.tp, self.value = state
+        self.hashCode = None
 
     @property
     def isConst(self):
