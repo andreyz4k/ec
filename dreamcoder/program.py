@@ -995,6 +995,15 @@ class LetClause(Program):
             self.body.show(False),
         )
 
+    def __eq__(self, __o) -> bool:
+        return (
+            isinstance(__o, LetClause)
+            and self.var_name == __o.var_name
+            and self.var_type == __o.var_type
+            and self.var_def == __o.var_def
+            and self.body == __o.body
+        )
+
     @property
     def isLetClause(self):
         return True
@@ -1013,6 +1022,15 @@ class LetRevClause(Program):
             self.inp_var_name,
             self.vars_def.show(False),
             self.body.show(False),
+        )
+
+    def __eq__(self, __o) -> bool:
+        return (
+            isinstance(__o, LetRevClause)
+            and self.var_names == __o.var_names
+            and self.inp_var_name == __o.inp_var_name
+            and self.vars_def == __o.vars_def
+            and self.body == __o.body
         )
 
     @property
@@ -1036,6 +1054,17 @@ class WrapEither(Program):
             + f" let ${self.fixer_var_name} = {self.fixer_var.show(False)}) in {self.body.show(False)}"
         )
 
+    def __eq__(self, __o) -> bool:
+        return (
+            isinstance(__o, WrapEither)
+            and self.var_names == __o.var_names
+            and self.inp_var_name == __o.inp_var_name
+            and self.fixer_var_name == __o.fixer_var_name
+            and self.vars_def == __o.vars_def
+            and self.fixer_var == __o.fixer_var
+            and self.body == __o.body
+        )
+
     @property
     def isWrapEither(self):
         return True
@@ -1051,6 +1080,9 @@ class FreeVariable(Program):
         else:
             return "FREE_VAR"
 
+    def __eq__(self, __o) -> bool:
+        return isinstance(__o, FreeVariable) and self.name == __o.name
+
     @property
     def isFreeVariable(self):
         return True
@@ -1063,6 +1095,9 @@ class Constant(Program):
 
     def show(self, isFunction):
         return f"Const({self.tp.show(False)}, {self.value})"
+
+    def __eq__(self, __o) -> bool:
+        return isinstance(__o, Constant) and self.tp == __o.tp and self.value == __o.value
 
     @property
     def isConst(self):
