@@ -172,7 +172,7 @@ jobs:
           redis version: '5'
 
       - name: run test
-        run: python bin/list.py -t 20 -RS 5 -i 1 --solver=julia -g --primitives=julia
+        run: python bin/list.py -t 20 -RS 5 -i 2 --solver=julia -g --primitives=julia
 
   test-arc:
     needs: [ocaml-build, create-virtualenv]
@@ -276,7 +276,7 @@ jobs:
           redis version: '5'
 
       - name: run test
-        run: python bin/list.py -t 20 -RS 5 -i 1 --solver=julia -r 0.0 --primitives=julia
+        run: python bin/list.py -t 20 -RS 5 -i 2 --solver=julia -r 0.0 --primitives=julia
 
   test-list:
     needs: [ocaml-build, create-virtualenv]
