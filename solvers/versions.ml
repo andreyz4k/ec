@@ -249,8 +249,8 @@ let rec shift_free ?(c = 0) t ~n ~index =
     | ApplySpace (f, x) ->
         version_apply t (shift_free ~c t ~n ~index:f) (shift_free ~c t ~n ~index:x)
     | AbstractSpace b -> version_abstract t (shift_free ~c:(c + 1) t ~n ~index:b)
-    | TerminalSpace _ | Universe | Void -> index
-    | LetSpace _ | LetRevSpace _ | WrapEitherSpace _ | VarIndexSpace _ -> assert false
+    | TerminalSpace _ | Universe | Void | VarIndexSpace _ -> index
+    | LetSpace _ | LetRevSpace _ | WrapEitherSpace _ -> assert false
 
 let rec shift_versions ?(c = 0) t ~n ~index =
   (* shift_free_variables, lifted to vs *)
