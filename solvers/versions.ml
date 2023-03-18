@@ -264,8 +264,8 @@ let rec shift_versions ?(c = 0) t ~n ~index =
     | ApplySpace (f, x) ->
         version_apply t (shift_versions ~c t ~n ~index:f) (shift_versions ~c t ~n ~index:x)
     | AbstractSpace b -> version_abstract t (shift_versions ~c:(c + 1) t ~n ~index:b)
-    | TerminalSpace _ | Universe | Void -> index
-    | LetSpace _ | LetRevSpace _ | WrapEitherSpace _ | VarIndexSpace _ -> assert false
+    | TerminalSpace _ | Universe | Void | VarIndexSpace _ -> index
+    | LetSpace _ | LetRevSpace _ | WrapEitherSpace _ -> assert false
 
 let rec intersection t a b =
   match (index_table t a, index_table t b) with
