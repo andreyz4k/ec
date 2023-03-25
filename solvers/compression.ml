@@ -387,7 +387,8 @@ let compression_worker connection ~inline ~arity ~bs ~topK g frontiers =
   let candidates : int list = candidates |> List.map ~f:(incorporate' v []) in
 
   let frontier_indices : int list list list =
-    time_it ~verbose:!verbose_compression "(worker) calculated version spaces" (fun () ->
+    time_it ~verbose:!verbose_compression "(worker) calculated version spaces with inventions"
+      (fun () ->
         candidates
         |> List.map ~f:(fun i ->
                !frontiers

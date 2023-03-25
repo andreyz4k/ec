@@ -1129,28 +1129,24 @@ let n_step_inversion ?inline:(il = false) t ~n j =
       in
 
       let rec visit j =
-        let children' j =
-          match index_table t j with
-          | LetSpace (dt, d, b) ->
-              version_let t dt (visit d) (visit b)
-              ::
-              (let substituted = beta_substitution t 0 d b in
-               match index_table t substituted with Void -> [] | _ -> [ visit substituted ])
-          | LetRevSpace (vc, v, d, b) ->
-              version_let_rev t vc v (visit d) (visit b)
-              :: List.map ~f:visit (beta_rev_substitution t j)
-          | WrapEitherSpace (vc, iv, fv, d, f, b) ->
-              [ version_wrap_either t vc iv fv (visit d) (visit f) (visit b) ]
-          | _ -> assert false
-        in
         let children =
           match index_table t j with
           | Union _ | Void | Universe -> assert false
           | ApplySpace (f, x) -> version_apply t (visit f) (visit x)
           | AbstractSpace b -> version_abstract t (visit b)
           | IndexSpace _ | TerminalSpace _ -> j
-          | LetSpace _ | LetRevSpace _ | WrapEitherSpace _ ->
-              j :: reorder_lets t j |> List.map ~f:children' |> List.concat |> union t
+          | LetSpace (dt, d, b) ->
+              union t
+                (version_let t dt (visit d) (visit b)
+                ::
+                (let substituted = beta_substitution t 0 d b in
+                 match index_table t substituted with Void -> [] | _ -> [ visit substituted ]))
+          | LetRevSpace (vc, v, d, b) ->
+              union t
+                (version_let_rev t vc v (visit d) (visit b)
+                :: List.map ~f:visit (beta_rev_substitution t j))
+          | WrapEitherSpace (vc, iv, fv, d, f, b) ->
+              version_wrap_either t vc iv fv (visit d) (visit f) (visit b)
           | VarIndexSpace _n -> j
         in
         union t (children :: n_step j)
@@ -1223,46 +1219,43 @@ let n_step_inversion_with_invention ?inline:(il = false) t ~given ~n j =
         match Hashtbl.find t.n_step_visited_given_table visited_key with
         | Some ns -> ns
         | None ->
-            let children' j =
-              match index_table t j with
-              | LetSpace (dt, d, b) ->
-                  let normal_visited = version_let t dt (visit d) (visit b) in
-                  let normal_c, _ = filter_with_subprogram t given normal_visited in
-
-                  normal_visited
-                  ::
-                  (let substituted = beta_substitution t 0 d b in
-                   match index_table t substituted with
-                   | Void -> []
-                   | _ ->
-                       let substituted_visited = visit substituted in
-                       let substituted_c, substituted_filtered =
-                         filter_with_subprogram t given substituted_visited
-                       in
-                       if substituted_c > normal_c then [ substituted_filtered ] else [])
-              | LetRevSpace (vc, v, d, b) ->
-                  let normal_visited = version_let_rev t vc v (visit d) (visit b) in
-                  let normal_c, _ = filter_with_subprogram t given normal_visited in
-
-                  normal_visited
-                  :: (List.map ~f:visit (beta_rev_substitution t j)
-                     |> List.filter_map ~f:(fun substituted_visited ->
-                            let substituted_c, substituted_filtered =
-                              filter_with_subprogram t given substituted_visited
-                            in
-                            if substituted_c > normal_c then Some substituted_filtered else None))
-              | WrapEitherSpace (vc, iv, fv, d, f, b) ->
-                  [ version_wrap_either t vc iv fv (visit d) (visit f) (visit b) ]
-              | _ -> assert false
-            in
             let children =
               match index_table t j with
               | Union _ | Void | Universe -> assert false
               | ApplySpace (f, x) -> version_apply t (visit f) (visit x)
               | AbstractSpace b -> version_abstract t (visit b)
               | IndexSpace _ | TerminalSpace _ -> j
-              | LetSpace _ | LetRevSpace _ | WrapEitherSpace _ ->
-                  j :: reorder_lets t j |> List.map ~f:children' |> List.concat |> union t
+              | LetSpace (dt, d, b) ->
+                  let normal_visited = version_let t dt (visit d) (visit b) in
+                  let normal_c, _ = filter_with_subprogram t given normal_visited in
+
+                  union t
+                    (normal_visited
+                    ::
+                    (let substituted = beta_substitution t 0 d b in
+                     match index_table t substituted with
+                     | Void -> []
+                     | _ ->
+                         let substituted_visited = visit substituted in
+                         let substituted_c, substituted_filtered =
+                           filter_with_subprogram t given substituted_visited
+                         in
+                         if substituted_c > normal_c then [ substituted_filtered ] else []))
+              | LetRevSpace (vc, v, d, b) ->
+                  let normal_visited = version_let_rev t vc v (visit d) (visit b) in
+                  let normal_c, _ = filter_with_subprogram t given normal_visited in
+
+                  union t
+                    (normal_visited
+                    :: (List.map ~f:visit (beta_rev_substitution t j)
+                       |> List.filter_map ~f:(fun substituted_visited ->
+                              let substituted_c, substituted_filtered =
+                                filter_with_subprogram t given substituted_visited
+                              in
+                              if substituted_c > normal_c then Some substituted_filtered else None)
+                       ))
+              | WrapEitherSpace (vc, iv, fv, d, f, b) ->
+                  version_wrap_either t vc iv fv (visit d) (visit f) (visit b)
               | VarIndexSpace _n -> j
             in
             let res = union t (children :: n_step j) in
