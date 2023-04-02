@@ -188,6 +188,8 @@ def main(args):
                 "grid": 1.0,
                 "tuple2": 1.0,
                 "tuple3": 1.0,
+                "coord": 1.0,
+                "set": 1.0,
             }
         )
 

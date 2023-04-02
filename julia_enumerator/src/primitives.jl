@@ -90,3 +90,5 @@ _is_prime(n) = in(
 @define_primitive("eq?", arrow(t0, t0, tbool), (a -> (b -> a == b)))
 @define_primitive("is-prime", arrow(tint, tbool), _is_prime)
 @define_primitive("is-square", arrow(tint, tbool), (n -> floor(sqrt(n))^2 == n))
+
+@define_primitive("list_to_set", arrow(tlist(t0), tset(t0)), Set)

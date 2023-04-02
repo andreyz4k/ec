@@ -677,7 +677,8 @@ function update_complexity_factors_known(sc::SolutionContext, bl::ProgramBlock, 
         end
     end
 
-    if !any(isnothing, sc.complexities[parents])
+    if !any(isnothing, sc.complexities[parents]) &&
+       (sc.branch_unknown_from_output[out_branch_id] || any(sc.branch_unknown_from_output[parents]))
         _push_unmatched_complexity_to_output(sc, out_branch_id, input_branches, 0.0)
         _push_unused_complexity_to_input(sc, out_branch_id, input_branches, 0.0)
         # for inp_branch_var in bl.input_vars

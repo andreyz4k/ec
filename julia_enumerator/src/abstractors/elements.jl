@@ -1,6 +1,6 @@
 
 function list_elements(value)
-    elements = []
+    elements = Set()
     n = length(value)
     for i in 1:n
         val = value[i]
@@ -20,7 +20,7 @@ function collect_elements(elements, len)
 end
 
 function grid_elements(value)
-    elements = []
+    elements = Set()
     n, m = size(value)
     for i in 1:n
         for j in 1:m
@@ -43,13 +43,13 @@ end
 
 @define_reverse_primitive(
     "rev_list_elements",
-    arrow(tlist(ttuple2(tint, t0)), tint, tlist(t0)),
+    arrow(tset(ttuple2(tint, t0)), tint, tlist(t0)),
     (elements -> (len -> collect_elements(elements, len))),
     list_elements
 )
 @define_reverse_primitive(
     "rev_grid_elements",
-    arrow(tlist(ttuple2(ttuple2(tint, tint), t0)), tint, tint, tgrid(t0)),
+    arrow(tset(ttuple2(ttuple2(tint, tint), t0)), tint, tint, tgrid(t0)),
     (elements -> (height -> (width -> collect_grid_elements(elements, height, width)))),
     grid_elements
 )

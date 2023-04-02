@@ -32,7 +32,8 @@ using solver:
     run_with_arguments,
     Tp,
     ttuple2,
-    ttuple3
+    ttuple3,
+    tset
 using DataStructures: OrderedDict, Accumulator
 
 @testset "Abstractors" begin
@@ -669,6 +670,26 @@ using DataStructures: OrderedDict, Accumulator
         @test rev_p([[0, 1, 2], [0, 1], [0, 1, 2, 3]]) == [[2, 1, 3]]
     end
 
+    @testset "Reverse map set with range" begin
+        skeleton = Apply(
+            Apply(
+                every_primitive["map_set"],
+                Abstraction(Apply(every_primitive["range"], Hole(tint, nothing, true, _is_possible_subfunction))),
+            ),
+            Hole(tset(t0), nothing, true, nothing),
+        )
+        @test !is_reversible(skeleton)
+
+        skeleton = Apply(
+            Apply(every_primitive["map_set"], Abstraction(Apply(every_primitive["range"], Index(0)))),
+            Hole(tset(t0), nothing, true, nothing),
+        )
+        @test is_reversible(skeleton)
+        rev_p = get_reversed_program(skeleton)
+
+        @test rev_p(Set([[0, 1, 2], [0, 1], [0, 1, 2, 3]])) == [Set([2, 1, 3])]
+    end
+
     @testset "Reverse map with repeat" begin
         skeleton = Apply(
             Apply(every_primitive["map"], Abstraction(Apply(Apply(every_primitive["repeat"], Index(0)), Index(0)))),
@@ -1045,9 +1066,9 @@ using DataStructures: OrderedDict, Accumulator
         @test is_reversible(skeleton)
         rev_p = get_reversed_program(skeleton)
 
-        @test rev_p([3, 2, 1]) == [[(1, 3), (2, 2), (3, 1)], 3]
-        @test rev_p([3, nothing, 1]) == [[(1, 3), (3, 1)], 3]
-        @test rev_p([3, 2, nothing]) == [[(1, 3), (2, 2)], 3]
+        @test rev_p([3, 2, 1]) == [Set([(1, 3), (2, 2), (3, 1)]), 3]
+        @test rev_p([3, nothing, 1]) == [Set([(1, 3), (3, 1)]), 3]
+        @test rev_p([3, 2, nothing]) == [Set([(1, 3), (2, 2)]), 3]
 
         p = Apply(
             Apply(every_primitive["rev_list_elements"], FreeVar(tlist(ttuple2(tint, tint)), UInt64(1))),
@@ -1073,10 +1094,10 @@ using DataStructures: OrderedDict, Accumulator
         rev_p = get_reversed_program(skeleton)
 
         @test rev_p([[3, 2, 1] [4, 5, 6]]) ==
-              [[((1, 1), 3), ((1, 2), 4), ((2, 1), 2), ((2, 2), 5), ((3, 1), 1), ((3, 2), 6)], 3, 2]
+              [Set([((1, 1), 3), ((1, 2), 4), ((2, 1), 2), ((2, 2), 5), ((3, 1), 1), ((3, 2), 6)]), 3, 2]
         @test rev_p([[3, nothing, 1] [4, 5, 6]]) ==
-              [[((1, 1), 3), ((1, 2), 4), ((2, 2), 5), ((3, 1), 1), ((3, 2), 6)], 3, 2]
-        @test rev_p([[3, 2, 1] [nothing, nothing, nothing]]) == [[((1, 1), 3), ((2, 1), 2), ((3, 1), 1)], 3, 2]
+              [Set([((1, 1), 3), ((1, 2), 4), ((2, 2), 5), ((3, 1), 1), ((3, 2), 6)]), 3, 2]
+        @test rev_p([[3, 2, 1] [nothing, nothing, nothing]]) == [Set([((1, 1), 3), ((2, 1), 2), ((3, 1), 1)]), 3, 2]
 
         p = Apply(
             Apply(

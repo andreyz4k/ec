@@ -1,5 +1,5 @@
 
-function reverse_map(n)
+function reverse_map(n, is_set = false)
     function _reverse_map(arguments)
         f = pop!(arguments)
         for _ in 1:n
@@ -17,8 +17,13 @@ function reverse_map(n)
         end
 
         function __reverse_map(value)::Vector{Any}
-            output_options = Set([[[] for _ in 1:n]])
-            for values in map(rev_f, value)
+            if is_set
+                output_options = Set([[Set() for _ in 1:n]])
+            else
+                output_options = Set([[[] for _ in 1:n]])
+            end
+            for v in value
+                values = rev_f(v)
                 if any(v isa EitherOptions for v in values)
                     child_options = Dict()
                     non_eithers = []
@@ -161,4 +166,11 @@ end
     arrow(arrow(t0, t1, t2), tgrid(t0), tgrid(t1), tgrid(t2)),
     (f -> (xs -> (ys -> map(((x, y),) -> _mapper2(f)(x, y), zip(xs, ys))))),
     reverse_map(2)
+)
+
+@define_custom_reverse_primitive(
+    "map_set",
+    arrow(arrow(t0, t1), tset(t0), tset(t1)),
+    (f -> (xs -> Set([_mapper(f)(x) for x in xs]))),
+    reverse_map(1, true)
 )

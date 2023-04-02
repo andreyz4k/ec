@@ -102,6 +102,7 @@ t2 = TypeVariable(2)
 tlist(t) = TypeConstructor("list", [t])
 ttuple2(t0, t1) = TypeConstructor("tuple2", [t0, t1])
 ttuple3(t0, t1, t2) = TypeConstructor("tuple3", [t0, t1, t2])
+tset(t) = TypeConstructor("set", [t])
 
 tgrid(t) = TypeConstructor("grid", [t])
 
@@ -113,6 +114,7 @@ tbool = baseType("bool")
 tboolean = tbool  # alias
 tcharacter = baseType("char")
 tcolor = baseType("color")
+tcoord = baseType("coord")
 
 function instantiate(t::TypeVariable, context, bindings = nothing)
     if isnothing(bindings)

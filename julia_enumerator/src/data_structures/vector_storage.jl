@@ -55,14 +55,14 @@ end
 function Base.getindex(storage::VectorStorage, inds)
     vals = storage.base_values[inds, 1]
     for i in 1:min(length(storage.updates_stack), (storage.transaction_depth))
-        if nnz(vals) == 0
-            vals = storage.updates_stack[i][inds, 1]
-        else
-            new_vals = storage.updates_stack[i][inds, 1]
-            if nnz(new_vals) > 0
-                subassign!(vals, new_vals, :, :; desc = Descriptor(structural_mask = true), mask = new_vals)
-            end
+        # if nnz(vals) == 0
+        #     vals = storage.updates_stack[i][inds, 1]
+        # else
+        new_vals = storage.updates_stack[i][inds, 1]
+        if nnz(new_vals) > 0
+            subassign!(vals, new_vals, :, :; desc = Descriptor(structural_mask = true), mask = new_vals)
         end
+        # end
     end
     return vals
 end

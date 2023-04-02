@@ -5,6 +5,7 @@ from dreamcoder.type import TypeConstructor, arrow, baseType, tlist, t0, t1, t2,
 
 
 tcolor = baseType("color")
+tcoord = baseType("coord")
 
 
 def tgrid(t):
@@ -17,6 +18,10 @@ def ttuple2(t1, t2):
 
 def ttuple3(t1, t2, t3):
     return TypeConstructor("tuple3", [t1, t2, t3])
+
+
+def tset(t):
+    return TypeConstructor("set", [t])
 
 
 def _map(f):
@@ -200,6 +205,7 @@ def basePrimitives():
     """These are the primitives that we hope to learn from the bootstrapping procedure"""
     return [
         Primitive("map", arrow(arrow(t0, t1), tlist(t0), tlist(t1)), _map, is_reversible=True),
+        Primitive("map_set", arrow(arrow(t0, t1), tset(t0), tset(t1)), _map, is_reversible=True),
         Primitive("map_grid", arrow(arrow(t0, t1), tgrid(t0), tgrid(t1)), _map_grid, is_reversible=True),
         Primitive("map2", arrow(arrow(t0, t1, t2), tlist(t0), tlist(t1), tlist(t2)), _map, is_reversible=True),
         Primitive(
@@ -210,6 +216,7 @@ def basePrimitives():
         Primitive("index", arrow(tint, tlist(t0), t0), _index),
         Primitive("index2", arrow(tint, tint, tgrid(t0), t0), _index2),
         Primitive("fold", arrow(arrow(t0, t1, t1), tlist(t0), t1, t1), _fold, is_reversible=True),
+        Primitive("fold_set", arrow(arrow(t0, t1, t1), tset(t0), t1, t1), _fold, is_reversible=True),
         Primitive("fold_h", arrow(arrow(t0, t1, t1), tgrid(t0), tlist(t1), tlist(t1)), _fold_h, is_reversible=True),
         Primitive("fold_v", arrow(arrow(t0, t1, t1), tgrid(t0), tlist(t1), tlist(t1)), _fold_v, is_reversible=True),
         Primitive("length", arrow(tlist(t0), tint), len),
@@ -240,10 +247,10 @@ def basePrimitives():
         Primitive(
             "rev_select_grid", arrow(arrow(t0, tbool), tgrid(t0), tgrid(t0), tgrid(t0)), None, is_reversible=True
         ),
-        Primitive("rev_list_elements", arrow(tlist(ttuple2(tint, t0)), tint, tlist(t0)), None, is_reversible=True),
+        Primitive("rev_list_elements", arrow(tset(ttuple2(tint, t0)), tint, tlist(t0)), None, is_reversible=True),
         Primitive(
             "rev_grid_elements",
-            arrow(tlist(ttuple2(ttuple2(tint, tint), t0)), tint, tint, tgrid(t0)),
+            arrow(tset(ttuple2(ttuple2(tint, tint), t0)), tint, tint, tgrid(t0)),
             None,
             is_reversible=True,
         ),
@@ -258,4 +265,11 @@ def basePrimitives():
             None,
             is_reversible=True,
         ),
+        Primitive(
+            "rev_fold_set",
+            arrow(arrow(t0, t1, t1), t1, t1, tset(t0)),
+            None,
+            is_reversible=True,
+        ),
+        Primitive("list_to_set", arrow(tlist(t0), tset(t0)), None),
     ] + [Primitive(str(j), tint, j) for j in range(2)]

@@ -50,7 +50,14 @@ end
     reverse_rev_fold()
 )
 
-function reverse_fold()
+@define_custom_reverse_primitive(
+    "rev_fold_set",
+    arrow(arrow(t0, t1, t1), t1, t1, tset(t0)),
+    (f -> (init -> (acc -> Set(rev_fold(f, init, acc))))),
+    reverse_rev_fold()
+)
+
+function reverse_fold(is_set = false)
     function _reverse_fold(arguments)
         f = pop!(arguments)
         rev_f = _get_reversed_program(f.b.b, [])
@@ -63,7 +70,11 @@ function reverse_fold()
         function __reverse_fold(value)::Vector{Any}
             options_itr = Dict()
             options_init = Dict()
-            itr = []
+            if is_set
+                itr = Set()
+            else
+                itr = []
+            end
             acc = value
 
             h = hash((itr, acc))
@@ -99,7 +110,11 @@ function reverse_fold()
                             if new_acc_op == acc
                                 continue
                             end
-                            new_itr = vcat(itr, [filled_indices[1].options[h_op]])
+                            if is_set
+                                new_itr = union(itr, [filled_indices[1].options[h_op]])
+                            else
+                                new_itr = vcat(itr, [filled_indices[1].options[h_op]])
+                            end
 
                             new_h = hash((new_itr, new_acc_op))
                             if !haskey(options_itr, new_h)
@@ -112,7 +127,11 @@ function reverse_fold()
                         if new_acc == acc
                             continue
                         end
-                        new_itr = vcat(itr, [filled_indices[1]])
+                        if is_set
+                            new_itr = union(itr, [filled_indices[1]])
+                        else
+                            new_itr = vcat(itr, [filled_indices[1]])
+                        end
 
                         new_h = hash((new_itr, new_acc))
                         if !haskey(options_itr, new_h)
@@ -155,6 +174,12 @@ end
     arrow(arrow(t0, t1, t1), tlist(t0), t1, t1),
     (op -> (itr -> (init -> foldr((v, acc) -> op(v)(acc), itr, init = init)))),
     reverse_fold()
+)
+@define_custom_reverse_primitive(
+    "fold_set",
+    arrow(arrow(t0, t1, t1), tset(t0), t1, t1),
+    (op -> (itr -> (init -> foldr((v, acc) -> op(v)(acc), itr, init = init)))),
+    reverse_fold(true)
 )
 
 function reverse_fold_grid(dim)

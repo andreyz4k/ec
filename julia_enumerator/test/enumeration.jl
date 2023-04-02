@@ -163,6 +163,8 @@ using solver: load_problems, enumerate_for_task
             "grid" => 1.0,
             "tuple2" => 1.0,
             "tuple3" => 1.0,
+            "coord" => 1.0,
+            "set" => 1.0,
         ),
         "programTimeout" => 3.0,
         "timeout" => 30,

@@ -16,6 +16,12 @@ using solver: load_problems, enumerate_for_task
                 ),
                 Dict{String,Any}(
                     "logProbability" => 0.0,
+                    "expression" => "map_set",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1) -> set(t0) -> set(t1)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
                     "expression" => "map_grid",
                     "is_reversible" => true,
                     "type" => "(t0 -> t1) -> grid(t0) -> grid(t1)",
@@ -61,6 +67,12 @@ using solver: load_problems, enumerate_for_task
                     "expression" => "fold",
                     "is_reversible" => true,
                     "type" => "(t0 -> t1 -> t1) -> list(t0) -> t1 -> t1",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "fold_set",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1 -> t1) -> set(t0) -> t1 -> t1",
                 ),
                 Dict{String,Any}(
                     "logProbability" => 0.0,
@@ -246,49 +258,61 @@ using solver: load_problems, enumerate_for_task
                     "logProbability" => 0.0,
                     "expression" => "rev_list_elements",
                     "is_reversible" => true,
-                    "type" => "tlist(ttuple2(tint, t0)) -> tint -> tlist(t0)",
+                    "type" => "set(tuple2(int, t0)) -> int -> list(t0)",
                 ),
                 Dict{String,Any}(
                     "logProbability" => 0.0,
                     "expression" => "rev_grid_elements",
                     "is_reversible" => true,
-                    "type" => "tlist(ttuple2(ttuple2(tint, tint), t0)) -> tint -> tint -> tgrid(t0)",
+                    "type" => "set(tuple2(tuple2(int, int), t0)) -> int -> int -> grid(t0)",
                 ),
                 Dict{String,Any}(
                     "logProbability" => 0.0,
                     "expression" => "zip2",
                     "is_reversible" => true,
-                    "type" => "tlist(t0) -> tlist(t1) -> tlist(ttuple2(t0, t1))",
+                    "type" => "list(t0) -> list(t1) -> list(tuple2(t0, t1))",
                 ),
                 Dict{String,Any}(
                     "logProbability" => 0.0,
                     "expression" => "zip_grid2",
                     "is_reversible" => true,
-                    "type" => "tgrid(t0) -> tgrid(t1) -> tgrid(ttuple2(t0, t1))",
+                    "type" => "grid(t0) -> grid(t1) -> grid(tuple2(t0, t1))",
                 ),
                 Dict{String,Any}(
                     "logProbability" => 0.0,
                     "expression" => "tuple2_first",
                     "is_reversible" => false,
-                    "type" => "ttuple2(t0, t1) -> t0",
+                    "type" => "tuple2(t0, t1) -> t0",
                 ),
                 Dict{String,Any}(
                     "logProbability" => 0.0,
                     "expression" => "tuple2_second",
                     "is_reversible" => false,
-                    "type" => "ttuple2(t0, t1) -> t1",
+                    "type" => "tuple2(t0, t1) -> t1",
                 ),
                 Dict{String,Any}(
                     "logProbability" => 0.0,
                     "expression" => "reverse",
                     "is_reversible" => true,
-                    "type" => "tlist(t0) -> tlist(t0)",
+                    "type" => "list(t0) -> list(t0)",
                 ),
                 Dict{String,Any}(
                     "logProbability" => 0.0,
                     "expression" => "rev_fold",
                     "is_reversible" => true,
-                    "type" => "(t0 -> t1 -> t1) -> t1 -> t1 -> tlist(t0)",
+                    "type" => "(t0 -> t1 -> t1) -> t1 -> t1 -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "rev_fold_set",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1 -> t1) -> t1 -> t1 -> set(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "list_to_set",
+                    "is_reversible" => false,
+                    "type" => "list(t0) -> set(t0)",
                 ),
             ],
         ),
@@ -301,6 +325,8 @@ using solver: load_problems, enumerate_for_task
             "grid" => 1.0,
             "tuple2" => 1.0,
             "tuple3" => 1.0,
+            "coord" => 1.0,
+            "set" => 1.0,
         ),
         "programTimeout" => 3.0,
         "timeout" => 40,
@@ -475,7 +501,7 @@ using solver: load_problems, enumerate_for_task
             @time enumerate_for_task(g, type_weights, task, maximum_frontier, timeout, verbose)
         @test length(solutions) >= 1
         @test number_enumerated >= 10
-        @test number_enumerated <= 1000
+        @test number_enumerated <= 5000
     end
 
     @testset "Use eithers from input" begin
