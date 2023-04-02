@@ -24,8 +24,8 @@ using solver:
     tcolor,
     _is_possible_selector,
     is_reversible_selector,
-    _is_possible_mapper,
-    _is_reversible_mapper,
+    _is_possible_subfunction,
+    _is_reversible_subfunction,
     arrow,
     tbool,
     EnumerationException,
@@ -52,8 +52,8 @@ using DataStructures: OrderedDict, Accumulator
                     every_primitive["map"],
                     Abstraction(
                         Apply(
-                            Apply(every_primitive["repeat"], Hole(tint, nothing, true, _is_possible_mapper)),
-                            Hole(tint, nothing, true, _is_possible_mapper),
+                            Apply(every_primitive["repeat"], Hole(tint, nothing, true, _is_possible_subfunction)),
+                            Hole(tint, nothing, true, _is_possible_subfunction),
                         ),
                     ),
                 ),
@@ -74,8 +74,11 @@ using DataStructures: OrderedDict, Accumulator
                         Abstraction(
                             Abstraction(
                                 Apply(
-                                    Apply(every_primitive["repeat"], Hole(tint, nothing, true, _is_possible_mapper)),
-                                    Hole(tint, nothing, true, _is_possible_mapper),
+                                    Apply(
+                                        every_primitive["repeat"],
+                                        Hole(tint, nothing, true, _is_possible_subfunction),
+                                    ),
+                                    Hole(tint, nothing, true, _is_possible_subfunction),
                                 ),
                             ),
                         ),
@@ -116,16 +119,19 @@ using DataStructures: OrderedDict, Accumulator
                     Abstraction(
                         Apply(
                             Apply(every_primitive["cons"], Index(0)),
-                            Hole(tlist(tbool), nothing, true, _is_possible_mapper),
+                            Hole(tlist(tbool), nothing, true, _is_possible_subfunction),
                         ),
                     ),
                 ),
                 Hole(tlist(t0), nothing, true, nothing),
             ),
         )
-        @test !_is_reversible_mapper(
+        @test !_is_reversible_subfunction(
             Abstraction(
-                Apply(Apply(every_primitive["cons"], Index(0)), Hole(tlist(tbool), nothing, true, _is_possible_mapper)),
+                Apply(
+                    Apply(every_primitive["cons"], Index(0)),
+                    Hole(tlist(tbool), nothing, true, _is_possible_subfunction),
+                ),
             ),
         )
     end
@@ -147,16 +153,16 @@ using DataStructures: OrderedDict, Accumulator
                                                     Apply(
                                                         Apply(
                                                             every_primitive["repeat"],
-                                                            Hole(tint, nothing, true, _is_possible_mapper),
+                                                            Hole(tint, nothing, true, _is_possible_subfunction),
                                                         ),
-                                                        Hole(tint, nothing, true, _is_possible_mapper),
+                                                        Hole(tint, nothing, true, _is_possible_subfunction),
                                                     ),
                                                 ),
                                             ),
                                         ),
-                                        Hole(tlist(tint), nothing, true, _is_possible_mapper),
+                                        Hole(tlist(tint), nothing, true, _is_possible_subfunction),
                                     ),
-                                    Hole(tlist(tint), nothing, true, _is_possible_mapper),
+                                    Hole(tlist(tint), nothing, true, _is_possible_subfunction),
                                 ),
                             ),
                         ),
@@ -183,9 +189,9 @@ using DataStructures: OrderedDict, Accumulator
                                                 ),
                                             ),
                                         ),
-                                        Hole(tlist(tint), nothing, true, _is_possible_mapper),
+                                        Hole(tlist(tint), nothing, true, _is_possible_subfunction),
                                     ),
-                                    Hole(tlist(tint), nothing, true, _is_possible_mapper),
+                                    Hole(tlist(tint), nothing, true, _is_possible_subfunction),
                                 ),
                             ),
                         ),
@@ -236,13 +242,13 @@ using DataStructures: OrderedDict, Accumulator
                                     Apply(
                                         Apply(
                                             every_primitive["repeat"],
-                                            Hole(tint, nothing, true, _is_possible_mapper),
+                                            Hole(tint, nothing, true, _is_possible_subfunction),
                                         ),
-                                        Hole(tint, nothing, true, _is_possible_mapper),
+                                        Hole(tint, nothing, true, _is_possible_subfunction),
                                     ),
                                 ),
                             ),
-                            Hole(tlist(tlist(tint)), nothing, true, _is_possible_mapper),
+                            Hole(tlist(tlist(tint)), nothing, true, _is_possible_subfunction),
                         ),
                     ),
                 ),
@@ -259,7 +265,7 @@ using DataStructures: OrderedDict, Accumulator
                                 every_primitive["map"],
                                 Abstraction(Apply(Apply(every_primitive["repeat"], Index(0)), Index(0))),
                             ),
-                            Hole(tlist(tint), nothing, true, _is_possible_mapper),
+                            Hole(tlist(tint), nothing, true, _is_possible_subfunction),
                         ),
                     ),
                 ),
@@ -431,8 +437,11 @@ using DataStructures: OrderedDict, Accumulator
                         Abstraction(
                             Abstraction(
                                 Apply(
-                                    Apply(every_primitive["repeat"], Hole(tint, nothing, true, _is_possible_mapper)),
-                                    Hole(tint, nothing, true, _is_possible_mapper),
+                                    Apply(
+                                        every_primitive["repeat"],
+                                        Hole(tint, nothing, true, _is_possible_subfunction),
+                                    ),
+                                    Hole(tint, nothing, true, _is_possible_subfunction),
                                 ),
                             ),
                         ),
@@ -644,7 +653,7 @@ using DataStructures: OrderedDict, Accumulator
         skeleton = Apply(
             Apply(
                 every_primitive["map"],
-                Abstraction(Apply(every_primitive["range"], Hole(tint, nothing, true, _is_possible_mapper))),
+                Abstraction(Apply(every_primitive["range"], Hole(tint, nothing, true, _is_possible_subfunction))),
             ),
             Hole(tlist(t0), nothing, true, nothing),
         )
@@ -1015,9 +1024,9 @@ using DataStructures: OrderedDict, Accumulator
                                     ),
                                 ),
                             ),
-                            Hole(tlist(tcolor), nothing, true, _is_possible_mapper),
+                            Hole(tlist(tcolor), nothing, true, _is_possible_subfunction),
                         ),
-                        Hole(tlist(tcolor), nothing, true, _is_possible_mapper),
+                        Hole(tlist(tcolor), nothing, true, _is_possible_subfunction),
                     ),
                 ),
             ),
