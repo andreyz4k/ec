@@ -286,6 +286,12 @@ using solver: load_problems, enumerate_for_task
                 ),
                 Dict{String,Any}(
                     "logProbability" => 0.0,
+                    "expression" => "tuple2",
+                    "is_reversible" => true,
+                    "type" => "t0 -> t1 -> tuple2(t0, t1)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
                     "expression" => "tuple2_first",
                     "is_reversible" => false,
                     "type" => "tuple2(t0, t1) -> t0",

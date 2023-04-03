@@ -257,6 +257,7 @@ def basePrimitives():
         ),
         Primitive("zip2", arrow(tlist(t0), tlist(t1), tlist(ttuple2(t0, t1))), None, is_reversible=True),
         Primitive("zip_grid2", arrow(tlist(t0), tlist(t1), tlist(ttuple2(t0, t1))), None, is_reversible=True),
+        Primitive("tuple2", arrow(t0, t1, ttuple2(t0, t1)), None, is_reversible=True),
         Primitive("tuple2_first", arrow(ttuple2(t0, t1), t0), None),
         Primitive("tuple2_second", arrow(ttuple2(t0, t1), t1), None),
         Primitive("reverse", arrow(tlist(t0), tlist(t0)), None, is_reversible=True),

@@ -412,6 +412,16 @@ using DataStructures: OrderedDict, Accumulator
         @test rev_p([1, 2, 3]) == [1, [2, 3]]
     end
 
+    @testset "Reverse tuple2" begin
+        skeleton = Apply(
+            Apply(every_primitive["tuple2"], Hole(tcolor, nothing, true, nothing)),
+            Hole(tlist(tint), nothing, true, nothing),
+        )
+        @test is_reversible(skeleton)
+        rev_p = get_reversed_program(skeleton)
+        @test rev_p((1, [2, 3])) == [1, [2, 3]]
+    end
+
     @testset "Reverse combined abstractors" begin
         skeleton = Apply(
             Apply(
