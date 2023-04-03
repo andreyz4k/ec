@@ -244,6 +244,7 @@ def basePrimitives():
         Primitive("rows_to_grid", arrow(tlist(tlist(t0)), tgrid(t0)), _rows_to_grid, is_reversible=True),
         Primitive("columns_to_grid", arrow(tlist(tlist(t0)), tgrid(t0)), _columns_to_grid, is_reversible=True),
         Primitive("rev_select", arrow(arrow(t0, tbool), tlist(t0), tlist(t0), tlist(t0)), None, is_reversible=True),
+        Primitive("rev_select_set", arrow(arrow(t0, tbool), tset(t0), tset(t0), tset(t0)), None, is_reversible=True),
         Primitive(
             "rev_select_grid", arrow(arrow(t0, tbool), tgrid(t0), tgrid(t0), tgrid(t0)), None, is_reversible=True
         ),

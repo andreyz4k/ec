@@ -156,3 +156,93 @@ end
     (f -> (base -> (others -> rev_select(base, others)))),
     reverse_rev_select()
 )
+
+function rev_select_set(base, others)
+    result = union(base, others)
+    if length(result) != length(base) + length(others)
+        error("Losing data on union")
+    end
+    return result
+end
+
+function reverse_rev_select_set()
+    function _reverse_rev_select(arguments)
+        f = pop!(arguments)
+        rev_base = _get_reversed_program(pop!(arguments), arguments)
+        rev_others = _get_reversed_program(pop!(arguments), arguments)
+
+        function __reverse_rev_select(value)::Vector{Any}
+            if isa(f, Abstraction) &&
+               isa(f.b, Apply) &&
+               isa(f.b.x, Hole) &&
+               isa(f.b.f, Apply) &&
+               f.b.f.f == every_primitive["eq?"]
+                options_selector = Dict()
+                options_base = Dict()
+                options_others = Dict()
+                checked_options = Set()
+
+                selector = Abstraction(f.b.f.x)
+
+                for val in value
+                    selector_option = try_evaluate_program(selector, [val], Dict())
+                    if in(selector_option, checked_options)
+                        continue
+                    end
+                    results_base = Set()
+                    results_others = Set()
+                    for v in value
+                        if try_evaluate_program(selector, [v], Dict()) == selector_option
+                            push!(results_base, v)
+                        else
+                            push!(results_others, v)
+                        end
+                    end
+
+                    option_hash = hash((selector_option, results_base, results_others))
+                    options_selector[option_hash] = selector_option
+                    options_base[option_hash] = results_base
+                    options_others[option_hash] = results_others
+                end
+
+                if length(options_selector) < 2
+                    error("All elements are equal according to selector")
+                end
+
+                out_selector = EitherOptions(options_selector)
+                out_base = EitherOptions(options_base)
+                out_others = EitherOptions(options_others)
+
+                return vcat([out_selector], rev_base(out_base), rev_others(out_others))
+            else
+                results_base = Set()
+                results_others = Set()
+                for v in value
+                    if try_evaluate_program(f, [v], Dict())
+                        push!(results_base, v)
+                    else
+                        push!(results_others, v)
+                    end
+                end
+                if isempty(results_base) || isempty(results_others)
+                    error("All elements are equal according to selector")
+                end
+                return vcat(rev_base(results_base), rev_others(results_others))
+            end
+        end
+
+        function __reverse_rev_select(value::EitherOptions)::Vector{Any}
+            _reverse_eithers(__reverse_rev_select, value)
+        end
+
+        return __reverse_rev_select
+    end
+    return [(is_reversible_selector, _is_possible_selector)], _reverse_rev_select
+end
+
+@define_custom_reverse_primitive(
+    "rev_select_set",
+    arrow(arrow(t0, tbool), tset(t0), tset(t0), tset(t0)),
+    (f -> (base -> (others -> rev_select_set(base, others)))),
+    reverse_rev_select_set()
+)

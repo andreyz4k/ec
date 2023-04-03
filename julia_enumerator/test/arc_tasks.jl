@@ -238,6 +238,12 @@ using solver: load_problems, enumerate_for_task
                     "type" => "(t0 -> bool) -> list(t0) -> list(t0) -> list(t0)",
                 ),
                 Dict{String,Any}(
+                    "logProbability" => -0.0025863386690616608,
+                    "expression" => "rev_select_set",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> bool) -> set(t0) -> set(t0) -> set(t0)",
+                ),
+                Dict{String,Any}(
                     "logProbability" => -0.3118687868118286,
                     "expression" => "rev_select_grid",
                     "is_reversible" => true,

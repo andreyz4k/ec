@@ -90,6 +90,15 @@ function reverse_map(n, is_set = false)
                     end
                 end
             end
+            if is_set
+                for option in output_options
+                    for val in option
+                        if length(val) != length(value)
+                            error("Losing data on map")
+                        end
+                    end
+                end
+            end
             if length(output_options) == 1
                 result = first(output_options)
             else
@@ -168,9 +177,17 @@ end
     reverse_map(2)
 )
 
+function map_set(f, xs)
+    result = Set([_mapper(f)(x) for x in xs])
+    if length(result) != length(xs)
+        error("Losing data on map")
+    end
+    return result
+end
+
 @define_custom_reverse_primitive(
     "map_set",
     arrow(arrow(t0, t1), tset(t0), tset(t1)),
-    (f -> (xs -> Set([_mapper(f)(x) for x in xs]))),
+    (f -> (xs -> map_set(f, xs))),
     reverse_map(1, true)
 )

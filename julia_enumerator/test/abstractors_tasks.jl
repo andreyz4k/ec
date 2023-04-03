@@ -250,6 +250,12 @@ using solver: load_problems, enumerate_for_task
                 ),
                 Dict{String,Any}(
                     "logProbability" => 0.0,
+                    "expression" => "rev_select_set",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> bool) -> set(t0) -> set(t0) -> set(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
                     "expression" => "rev_select_grid",
                     "is_reversible" => true,
                     "type" => "(t0 -> bool) -> grid(t0) -> grid(t0) -> grid(t0)",

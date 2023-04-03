@@ -969,6 +969,33 @@ using DataStructures: OrderedDict, Accumulator
         end
     end
 
+    @testset "Reverse rev select set" begin
+        skeleton = Apply(
+            Apply(
+                Apply(
+                    every_primitive["rev_select_set"],
+                    Abstraction(
+                        Apply(Apply(every_primitive["eq?"], Index(0)), Hole(t0, nothing, false, _is_possible_selector)),
+                    ),
+                ),
+                Hole(tset(tcolor), nothing, true, nothing),
+            ),
+            Hole(tset(tcolor), nothing, true, nothing),
+        )
+        @test is_reversible(skeleton)
+
+        rev_p = get_reversed_program(skeleton)
+
+        rev_res = rev_p(Set([1, 2, 3]))
+        expected =
+            Dict(1 => [1, Set([1]), Set([2, 3])], 2 => [2, Set([2]), Set([1, 3])], 3 => [3, Set([3]), Set([1, 2])])
+        for (k, v) in rev_res[1].options
+            for i in 1:3
+                @test rev_res[i].options[k] == expected[v][i]
+            end
+        end
+    end
+
     @testset "Reverse rev select with empty" begin
         skeleton = Apply(
             Apply(
