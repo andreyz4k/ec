@@ -19,56 +19,79 @@ end
 function value_updates(
     sc,
     block::ProgramBlock,
+    block_id,
     target_output::Dict{UInt64,UInt64},
     new_values,
     fixed_branches::Dict{UInt64,UInt64},
+    is_new_block,
+    created_paths,
 )
     branch_id = target_output[block.output_var]
     entry = sc.entries[sc.branch_entries[branch_id]]
     t_id = push!(sc.types, return_of_type(block.type))
-    out_branch_id, is_new_next_block, allow_fails, next_blocks, set_explained = updated_branches(
+    out_branch_id, is_new_next_block, allow_fails, next_blocks, set_explained, bl_created_paths = updated_branches(
         sc,
         entry,
         new_values,
+        block_id,
+        is_new_block,
         block.output_var,
         branch_id,
         t_id,
         !isa(block.p, FreeVar),
         fixed_branches,
+        created_paths,
     )
 
     out_branches = Dict{UInt64,UInt64}(block.output_var => out_branch_id)
+    block_created_paths = Dict{UInt64,Vector{Any}}(out_branch_id => bl_created_paths)
     if set_explained && !sc.branch_known_from_input[out_branch_id]
         sc.branch_known_from_input[out_branch_id] =
             any(sc.branch_known_from_input[fixed_branches[in_var]] for in_var in block.input_vars)
     end
-    return out_branches, is_new_next_block, allow_fails, next_blocks, set_explained
+    return out_branches, is_new_next_block, allow_fails, next_blocks, set_explained, block_created_paths
 end
 
 function value_updates(
     sc,
     block::Union{ReverseProgramBlock,WrapEitherBlock},
+    block_id,
     target_output::Dict{UInt64,UInt64},
     new_values,
     fixed_branches::Dict{UInt64,UInt64},
+    is_new_block,
+    created_paths,
 )
     out_branches = Dict{UInt64,UInt64}()
     is_new_next_block = false
     allow_fails = false
     set_explained = false
     next_blocks = Set()
+    block_created_paths = Dict{UInt64,Vector{Any}}()
     for i in 1:length(block.output_vars)
         out_var = block.output_vars[i]
         values = new_values[i]
         br_id = target_output[out_var]
         entry = sc.entries[sc.branch_entries[br_id]]
-        out_branch_id, is_new_nxt_block, all_fails, n_blocks, set_expl =
-            updated_branches(sc, entry, values, out_var, br_id, entry.type_id, true, fixed_branches)
+        out_branch_id, is_new_nxt_block, all_fails, n_blocks, set_expl, bl_created_paths = updated_branches(
+            sc,
+            entry,
+            values,
+            block_id,
+            is_new_block,
+            out_var,
+            br_id,
+            entry.type_id,
+            true,
+            fixed_branches,
+            created_paths,
+        )
         is_new_next_block |= is_new_nxt_block
         out_branches[out_var] = out_branch_id
         allow_fails |= all_fails
         set_explained |= set_expl
         union!(next_blocks, n_blocks)
+        block_created_paths[out_branch_id] = bl_created_paths
     end
     if set_explained
         known_from_input = any(sc.branch_known_from_input[fixed_branches[in_var]] for in_var in block.input_vars)
@@ -82,18 +105,21 @@ function value_updates(
             end
         end
     end
-    return out_branches, is_new_next_block, allow_fails, next_blocks, set_explained
+    return out_branches, is_new_next_block, allow_fails, next_blocks, set_explained, block_created_paths
 end
 
 function updated_branches(
     sc,
     entry::ValueEntry,
     @nospecialize(new_values),
+    block_id,
+    is_new_block,
     var_id::UInt64,
     branch_id::UInt64,
     t_id::UInt64,
     is_meaningful::Bool,
     fixed_branches::Dict{UInt64,UInt64},
+    created_paths,
 )
     if is_meaningful && sc.branch_is_not_copy[branch_id] != true
         sc.branch_is_not_copy[branch_id] = true
@@ -104,8 +130,15 @@ function updated_branches(
         sc.unused_explained_complexities[branch_id] = entry.complexity
         set_explained = true
     end
-    allow_fails, next_blocks = _downstream_blocks_existing_branch(sc, var_id, branch_id, fixed_branches)
-    return branch_id, false, allow_fails, next_blocks, set_explained
+    block_created_paths =
+        get_new_paths_for_block(sc, block_id, is_new_block, created_paths, var_id, branch_id, fixed_branches)
+    if isempty(block_created_paths)
+        allow_fails = false
+        next_blocks = Set()
+    else
+        allow_fails, next_blocks = _downstream_blocks_existing_branch(sc, var_id, branch_id, fixed_branches)
+    end
+    return branch_id, false, allow_fails, next_blocks, set_explained, block_created_paths
 end
 
 function find_related_branches(sc, branch_id, new_entry, new_entry_index)::Tuple{Vector{UInt64},Union{UInt64,Nothing}}
@@ -136,11 +169,14 @@ function updated_branches(
     sc,
     entry::NoDataEntry,
     @nospecialize(new_values),
+    block_id,
+    is_new_block,
     var_id::UInt64,
     branch_id::UInt64,
     t_id::UInt64,
     is_meaningful::Bool,
     fixed_branches::Dict{UInt64,UInt64},
+    created_paths,
 )
     complexity_summary = get_complexity_summary(new_values, sc.types[t_id])
     new_entry = ValueEntry(t_id, new_values, complexity_summary, get_complexity(sc, complexity_summary))
@@ -153,8 +189,15 @@ function updated_branches(
             sc.branch_is_explained[possible_result] = true
             set_explained = true
         end
-        allow_fails, next_blocks = _downstream_blocks_existing_branch(sc, var_id, possible_result, fixed_branches)
-        return possible_result, false, allow_fails, next_blocks, set_explained
+        block_created_paths =
+            get_new_paths_for_block(sc, block_id, is_new_block, created_paths, var_id, possible_result, fixed_branches)
+        if isempty(block_created_paths)
+            allow_fails = false
+            next_blocks = Set()
+        else
+            allow_fails, next_blocks = _downstream_blocks_existing_branch(sc, var_id, possible_result, fixed_branches)
+        end
+        return possible_result, false, allow_fails, next_blocks, set_explained, block_created_paths
     end
 
     new_branch_id = increment!(sc.branches_count)
@@ -170,26 +213,36 @@ function updated_branches(
     sc.complexities[new_branch_id] = new_entry.complexity
     sc.unused_explained_complexities[new_branch_id] = new_entry.complexity
 
+    block_created_paths =
+        get_new_paths_for_block(sc, block_id, is_new_block, created_paths, var_id, new_branch_id, fixed_branches)
     if !isempty(parent_constraints)
         for constraint_id in parent_constraints
             tighten_constraint(sc, constraint_id, new_branch_id, branch_id)
         end
-        allow_fails, next_blocks = _downstream_blocks_existing_branch(sc, var_id, new_branch_id, fixed_branches)
+        if isempty(block_created_paths)
+            allow_fails = false
+            next_blocks = Set()
+        else
+            allow_fails, next_blocks = _downstream_blocks_existing_branch(sc, var_id, new_branch_id, fixed_branches)
+        end
     else
         allow_fails, next_blocks = _downstream_blocks_new_branch(sc, var_id, branch_id, new_branch_id, fixed_branches)
     end
-    return new_branch_id, true, allow_fails, next_blocks, true
+    return new_branch_id, true, allow_fails, next_blocks, true, block_created_paths
 end
 
 function updated_branches(
     sc,
     entry::EitherEntry,
     @nospecialize(new_values),
+    block_id,
+    is_new_block,
     var_id::UInt64,
     branch_id::UInt64,
     t_id::UInt64,
     is_meaningful::Bool,
     fixed_branches::Dict{UInt64,UInt64},
+    created_paths,
 )
     complexity_summary = get_complexity_summary(new_values, sc.types[t_id])
     new_entry = ValueEntry(t_id, new_values, complexity_summary, get_complexity(sc, complexity_summary))
@@ -205,8 +258,15 @@ function updated_branches(
         if is_meaningful && sc.branch_is_not_copy[possible_result] != true
             sc.branch_is_not_copy[possible_result] = true
         end
-        allow_fails, next_blocks = _downstream_blocks_existing_branch(sc, var_id, possible_result, fixed_branches)
-        return possible_result, false, allow_fails, next_blocks, set_explained
+        block_created_paths =
+            get_new_paths_for_block(sc, block_id, is_new_block, created_paths, var_id, possible_result, fixed_branches)
+        if isempty(block_created_paths)
+            allow_fails = false
+            next_blocks = Set()
+        else
+            allow_fails, next_blocks = _downstream_blocks_existing_branch(sc, var_id, possible_result, fixed_branches)
+        end
+        return possible_result, false, allow_fails, next_blocks, set_explained, block_created_paths
     end
 
     new_branch_id = increment!(sc.branches_count)
@@ -229,9 +289,15 @@ function updated_branches(
     for constraint_id in parent_constraints
         tighten_constraint(sc, constraint_id, new_branch_id, branch_id)
     end
-
-    allow_fails, next_blocks = _downstream_blocks_existing_branch(sc, var_id, new_branch_id, fixed_branches)
-    return new_branch_id, false, allow_fails, next_blocks, true
+    block_created_paths =
+        get_new_paths_for_block(sc, block_id, is_new_block, created_paths, var_id, new_branch_id, fixed_branches)
+    if isempty(block_created_paths)
+        allow_fails = false
+        next_blocks = Set()
+    else
+        allow_fails, next_blocks = _downstream_blocks_existing_branch(sc, var_id, new_branch_id, fixed_branches)
+    end
+    return new_branch_id, false, allow_fails, next_blocks, true, block_created_paths
 end
 
 function _downstream_branch_options_known(sc, block_id, block_copy_id, fixed_branches, unfixed_vars)

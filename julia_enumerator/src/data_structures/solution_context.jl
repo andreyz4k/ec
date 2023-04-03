@@ -391,7 +391,15 @@ function get_input_paths_for_existing_block(sc::SolutionContext, bl, input_branc
     return new_block_paths
 end
 
-function get_new_paths_for_block(sc::SolutionContext, bl_id, is_new_block, new_paths, output_branches, input_branches)
+function get_new_paths_for_block(
+    sc::SolutionContext,
+    bl_id,
+    is_new_block,
+    new_paths,
+    out_var_id,
+    output_branch_id,
+    input_branches,
+)
     # @info "Getting paths for new block $bl"
     bl = sc.blocks[bl_id]
     if is_new_block
@@ -409,7 +417,7 @@ function get_new_paths_for_block(sc::SolutionContext, bl_id, is_new_block, new_p
             end
         end
     end
-    return set_new_paths_for_block(sc, bl_id, bl, input_paths, output_branches, check_path_cost, best_cost)
+    return set_new_paths_for_block(sc, bl_id, bl, input_paths, out_var_id, output_branch_id, check_path_cost, best_cost)
 end
 
 function set_new_paths_for_block(
@@ -417,7 +425,8 @@ function set_new_paths_for_block(
     bl_id,
     bl::ProgramBlock,
     input_paths,
-    output_branches,
+    out_var_id,
+    output_branch_id,
     check_path_cost,
     best_cost,
 )
@@ -430,19 +439,17 @@ function set_new_paths_for_block(
             return !isa(prev_block, ProgramBlock) || !isa(prev_block.p, FreeVar)
         end
     end
-    return Dict([
-        set_new_paths_for_var(
-            sc,
-            bl_id,
-            bl.output_var,
-            [],
-            input_paths,
-            output_branches,
-            check_path_cost,
-            best_cost,
-            !isa(bl.p, FreeVar),
-        ),
-    ])
+    return set_new_paths_for_var(
+        sc,
+        bl_id,
+        out_var_id,
+        [],
+        input_paths,
+        output_branch_id,
+        check_path_cost,
+        best_cost,
+        !isa(bl.p, FreeVar),
+    )
 end
 
 function set_new_paths_for_block(
@@ -450,23 +457,22 @@ function set_new_paths_for_block(
     bl_id,
     bl::Union{ReverseProgramBlock,WrapEitherBlock},
     input_paths,
-    output_branches,
+    out_var_id,
+    output_branch_id,
     check_path_cost,
     best_cost,
 )
-    return Dict([
-        set_new_paths_for_var(
-            sc,
-            bl_id,
-            out_var_id,
-            [v for v in bl.output_vars if v != out_var_id],
-            input_paths,
-            output_branches,
-            check_path_cost,
-            best_cost,
-            true,
-        ) for out_var_id in bl.output_vars
-    ])
+    return set_new_paths_for_var(
+        sc,
+        bl_id,
+        out_var_id,
+        [v for v in bl.output_vars if v != out_var_id],
+        input_paths,
+        output_branch_id,
+        check_path_cost,
+        best_cost,
+        true,
+    )
 end
 
 function set_new_paths_for_var(
@@ -475,12 +481,11 @@ function set_new_paths_for_var(
     var_id,
     side_vars,
     input_paths,
-    output_branches,
+    out_branch_id,
     check_path_cost,
     best_cost,
     is_not_copy,
 )
-    out_branch_id = output_branches[var_id]
     new_block_paths = []
     for path in input_paths
         p = merge_path(sc, path, var_id, bl_id, side_vars)
@@ -499,7 +504,7 @@ function set_new_paths_for_var(
     if is_not_copy && !sc.branch_is_not_copy[out_branch_id]
         sc.branch_is_not_copy[out_branch_id] = true
     end
-    return (out_branch_id, new_block_paths)
+    return new_block_paths
 end
 
 function branch_complexity_factor_unknown(sc::SolutionContext, branch_id)

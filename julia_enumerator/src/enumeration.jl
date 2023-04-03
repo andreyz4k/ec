@@ -472,7 +472,15 @@ function try_evaluate_program(p, xs, workspace)
     try_run_function(run_with_arguments, [p, xs, workspace])
 end
 
-function try_run_block(sc::SolutionContext, block::ProgramBlock, fixed_branches, target_output)
+function try_run_block(
+    sc::SolutionContext,
+    block::ProgramBlock,
+    block_id,
+    fixed_branches,
+    target_output,
+    is_new_block,
+    created_paths,
+)
     inputs = []
     for _ in 1:sc.example_count
         push!(inputs, Dict())
@@ -505,10 +513,18 @@ function try_run_block(sc::SolutionContext, block::ProgramBlock, fixed_branches,
         end
         push!(outs, out_value)
     end
-    return value_updates(sc, block, target_output, outs, fixed_branches)
+    return value_updates(sc, block, block_id, target_output, outs, fixed_branches, is_new_block, created_paths)
 end
 
-function try_run_block(sc::SolutionContext, block::ReverseProgramBlock, fixed_branches, target_output)
+function try_run_block(
+    sc::SolutionContext,
+    block::ReverseProgramBlock,
+    block_id,
+    fixed_branches,
+    target_output,
+    is_new_block,
+    created_paths,
+)
     inputs = []
 
     for _ in 1:sc.example_count
@@ -553,10 +569,18 @@ function try_run_block(sc::SolutionContext, block::ReverseProgramBlock, fixed_br
             push!(outs[j], v)
         end
     end
-    return value_updates(sc, block, target_output, outs, fixed_branches)
+    return value_updates(sc, block, block_id, target_output, outs, fixed_branches, is_new_block, created_paths)
 end
 
-function try_run_block(sc::SolutionContext, block::WrapEitherBlock, fixed_branches, target_output)
+function try_run_block(
+    sc::SolutionContext,
+    block::WrapEitherBlock,
+    block_id,
+    fixed_branches,
+    target_output,
+    is_new_block,
+    created_paths,
+)
     inputs = []
     main_block = block.main_block
 
@@ -617,7 +641,7 @@ function try_run_block(sc::SolutionContext, block::WrapEitherBlock, fixed_branch
         end
         push!(outputs, fixed_values)
     end
-    return value_updates(sc, block, target_output, outputs, fixed_branches)
+    return value_updates(sc, block, block_id, target_output, outputs, fixed_branches, is_new_block, created_paths)
 end
 
 function try_run_block_with_downstream(
@@ -634,15 +658,17 @@ function try_run_block_with_downstream(
     # @info fixed_branches
     block = sc.blocks[block_id]
 
-    out_branches, is_new_next_block, allow_fails, next_blocks, set_explained =
-        try_run_block(sc, block, fixed_branches, target_output)
+    out_branches, is_new_next_block, allow_fails, next_blocks, set_explained, block_created_paths =
+        try_run_block(sc, block, block_id, fixed_branches, target_output, is_new_block, created_paths)
     # @info target_output
     # @info out_branches
 
     # @info "Is new block $is_new_block is new next block $is_new_next_block set explained $set_explained"
 
-    block_created_paths =
-        get_new_paths_for_block(sc, block_id, is_new_block, created_paths, out_branches, fixed_branches)
+    if sc.verbose
+        @info "Created paths for $block_id: $block_created_paths"
+        @info "Next blocks: $next_blocks"
+    end
     new_paths = merge(created_paths, block_created_paths)
 
     if is_new_block
