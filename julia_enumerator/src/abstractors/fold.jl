@@ -62,14 +62,13 @@ function reverse_fold(is_set = false)
         f = pop!(arguments)
         rev_f = _get_reversed_program(f.b.b, [])
 
-        indices_mapping = _get_var_indices(f.b.b)
+        indices_mapping, external_vars = _get_var_indices(f.b.b, 2)
 
         rev_itr = _get_reversed_program(pop!(arguments), arguments)
         rev_init = _get_reversed_program(pop!(arguments), arguments)
 
         function __reverse_fold(value)::Vector{Any}
-            options_itr = Dict()
-            options_init = Dict()
+            options = Dict()
             if is_set
                 itr = Set()
             else
@@ -77,22 +76,35 @@ function reverse_fold(is_set = false)
             end
             acc = value
 
-            h = hash((itr, acc))
-            options_itr[h] = itr
-            options_init[h] = acc
+            h = hash([itr, acc])
+            options[h] = [itr, acc]
 
             options_queue = Set([h])
 
-            while length(options_itr) < 100 && length(options_queue) > 0
+            while length(options) < 100 && length(options_queue) > 0
                 try
                     h = pop!(options_queue)
-                    acc = options_init[h]
+                    option = options[h]
+                    if external_vars > 0
+                        if length(option) == 2
+                            itr, acc = option
+                            delete!(options, h)
+                            first_call = true
+                        else
+                            itr = option[end-1]
+                            acc = option[end]
+                            first_call = false
+                        end
+                    else
+                        itr, acc = option
+                        first_call = false
+                    end
 
                     rev_values = rev_f(acc)
 
                     filled_indices = Dict{Int,Any}()
                     for (i, v) in enumerate(rev_values)
-                        mapped_i = 2 - indices_mapping[i]
+                        mapped_i = indices_mapping[i]
                         if haskey(filled_indices, mapped_i)
                             if filled_indices[mapped_i] != v
                                 error("Filling the same index with different values")
@@ -102,24 +114,40 @@ function reverse_fold(is_set = false)
                         end
                     end
 
-                    new_acc = filled_indices[2]
-                    itr = options_itr[h]
+                    new_acc = filled_indices[external_vars+2]
 
                     if isa(new_acc, EitherOptions)
                         for (h_op, new_acc_op) in new_acc.options
                             if new_acc_op == acc
                                 continue
                             end
-                            if is_set
-                                new_itr = union(itr, [filled_indices[1].options[h_op]])
+
+                            if first_call
+                                ext_vals = [filled_indices[i].options[h_op] for i in 1:external_vars]
                             else
-                                new_itr = vcat(itr, [filled_indices[1].options[h_op]])
+                                good_option = true
+                                for i in 1:external_vars
+                                    if filled_indices[i].options[h_op] != option[i]
+                                        good_option = false
+                                        break
+                                    end
+                                end
+                                if !good_option
+                                    continue
+                                end
+                                ext_vals = option[1:external_vars]
                             end
 
-                            new_h = hash((new_itr, new_acc_op))
-                            if !haskey(options_itr, new_h)
-                                options_itr[new_h] = new_itr
-                                options_init[new_h] = new_acc_op
+                            if is_set
+                                new_itr = union(itr, [filled_indices[external_vars+1].options[h_op]])
+                            else
+                                new_itr = vcat(itr, [filled_indices[external_vars+1].options[h_op]])
+                            end
+                            new_option = vcat(ext_vals, [new_itr, new_acc_op])
+
+                            new_h = hash(new_option)
+                            if !haskey(options, new_h)
+                                options[new_h] = new_option
                                 push!(options_queue, new_h)
                             end
                         end
@@ -127,16 +155,28 @@ function reverse_fold(is_set = false)
                         if new_acc == acc
                             continue
                         end
-                        if is_set
-                            new_itr = union(itr, [filled_indices[1]])
+
+                        if first_call
+                            ext_vals = [filled_indices[i] for i in 1:external_vars]
                         else
-                            new_itr = vcat(itr, [filled_indices[1]])
+                            for i in 1:external_vars
+                                if filled_indices[i] != option[i]
+                                    error("External value changed")
+                                end
+                            end
+                            ext_vals = option[1:external_vars]
                         end
 
-                        new_h = hash((new_itr, new_acc))
-                        if !haskey(options_itr, new_h)
-                            options_itr[new_h] = new_itr
-                            options_init[new_h] = new_acc
+                        if is_set
+                            new_itr = union(itr, [filled_indices[external_vars+1]])
+                        else
+                            new_itr = vcat(itr, [filled_indices[external_vars+1]])
+                        end
+                        new_option = vcat(ext_vals, [new_itr, new_acc])
+
+                        new_h = hash(new_option)
+                        if !haskey(options, new_h)
+                            options[new_h] = new_option
                             push!(options_queue, new_h)
                         end
                     end
@@ -146,17 +186,18 @@ function reverse_fold(is_set = false)
                 end
             end
 
-            out_itr = if length(options_itr) == 1
-                first(options_itr)[2]
+            if length(options) == 0
+                error("No valid options found")
+            elseif length(options) == 1
+                result = first(options)[2]
             else
-                EitherOptions(options_itr)
+                result = []
+                for i in 1:(external_vars+2)
+                    push!(result, EitherOptions(Dict(h => option[i] for (h, option) in options)))
+                end
             end
-            out_init = if length(options_init) == 1
-                first(options_init)[2]
-            else
-                EitherOptions(options_init)
-            end
-            return vcat(rev_itr(out_itr), rev_init(out_init))
+
+            return vcat(result[1:external_vars], rev_itr(result[end-1]), rev_init(result[end]))
         end
 
         function __reverse_fold(value::EitherOptions)::Vector{Any}
@@ -186,14 +227,13 @@ function reverse_fold_grid(dim)
     function _reverse_fold(arguments)
         f = pop!(arguments)
         rev_f = _get_reversed_program(f.b.b, [])
-        indices_mapping = _get_var_indices(f.b.b)
+        indices_mapping, external_vars = _get_var_indices(f.b.b, 2)
 
         rev_grid = _get_reversed_program(pop!(arguments), arguments)
         rev_inits = _get_reversed_program(pop!(arguments), arguments)
 
         function __reverse_fold(value)::Vector{Any}
-            options_grid = Dict()
-            options_inits = Dict()
+            options = Dict()
             if dim == 1
                 grid = Array{Any}(undef, length(value), 0)
             else
@@ -201,26 +241,40 @@ function reverse_fold_grid(dim)
             end
             acc = value
 
-            h = hash((grid, acc))
-            options_grid[h] = grid
-            options_inits[h] = acc
+            h = hash([grid, acc])
+            options[h] = [grid, acc]
 
             options_queue = Set([h])
 
-            while length(options_grid) < 100 && length(options_queue) > 0
+            while length(options) < 100 && length(options_queue) > 0
                 try
                     h = pop!(options_queue)
-                    acc = options_inits[h]
-                    grid = options_grid[h]
+                    option = options[h]
+                    ext_vals = []
+                    if external_vars > 0
+                        if length(option) == 2
+                            grid, acc = option
+                            delete!(options, h)
+                            first_call = true
+                        else
+                            grid = option[end-1]
+                            acc = option[end]
+                            ext_vals = option[1:external_vars]
+                            first_call = false
+                        end
+                    else
+                        grid, acc = option
+                        first_call = false
+                    end
 
-                    new_line_options = [[]]
-                    new_acc_options = [[]]
+                    new_options = [vcat(ext_vals, [[], []])]
+
                     for item in acc
                         rev_values = rev_f(item)
 
                         filled_indices = Dict{Int,Any}()
                         for (i, v) in enumerate(rev_values)
-                            mapped_i = 2 - indices_mapping[i]
+                            mapped_i = indices_mapping[i]
                             if haskey(filled_indices, mapped_i)
                                 if filled_indices[mapped_i] != v
                                     error("Filling the same index with different values")
@@ -230,51 +284,84 @@ function reverse_fold_grid(dim)
                             end
                         end
 
-                        new_acc_item = filled_indices[2]
+                        new_acc_item = filled_indices[external_vars+2]
 
+                        next_options = []
                         if isa(new_acc_item, EitherOptions)
-                            next_acc_options = []
-                            next_line_options = []
                             for (h_op, new_acc_op) in new_acc_item.options
-                                for i in 1:length(new_acc_options)
-                                    acc_option = new_acc_options[i]
-                                    line_option = new_line_options[i]
-                                    push!(next_acc_options, vcat(acc_option, [new_acc_op]))
-                                    push!(next_line_options, vcat(line_option, [filled_indices[1].options[h_op]]))
-                                    if length(next_acc_options) > 100
+                                for new_option in new_options
+                                    if first_call
+                                        ext_vals = [filled_indices[i].options[h_op] for i in 1:external_vars]
+                                    else
+                                        good_option = true
+                                        for i in 1:external_vars
+                                            if filled_indices[i].options[h_op] != new_option[i]
+                                                good_option = false
+                                                break
+                                            end
+                                        end
+                                        if !good_option
+                                            continue
+                                        end
+                                        ext_vals = new_option[1:external_vars]
+                                    end
+
+                                    acc_option = vcat(new_option[end], [new_acc_op])
+                                    line_option =
+                                        vcat(new_option[end-1], [filled_indices[external_vars+1].options[h_op]])
+                                    push!(next_options, vcat(ext_vals, [line_option, acc_option]))
+
+                                    if length(next_options) > 100
                                         break
                                     end
                                 end
-                                if length(next_acc_options) > 100
+                                if length(next_options) > 100
                                     break
                                 end
                             end
-                            new_acc_options = next_acc_options
-                            new_line_options = next_line_options
                         else
-                            for line_option in new_line_options
-                                push!(line_option, filled_indices[1])
-                            end
-                            for acc_option in new_acc_options
+                            for new_option in new_options
+                                if first_call
+                                    ext_vals = [filled_indices[i] for i in 1:external_vars]
+                                else
+                                    good_option = true
+                                    for i in 1:external_vars
+                                        if filled_indices[i] != new_option[i]
+                                            good_option = false
+                                            break
+                                        end
+                                    end
+                                    if !good_option
+                                        continue
+                                    end
+                                    ext_vals = new_option[1:external_vars]
+                                end
+                                line_option = new_option[end-1]
+                                acc_option = new_option[end]
+                                push!(line_option, filled_indices[external_vars+1])
                                 push!(acc_option, new_acc_item)
+                                push!(next_options, vcat(ext_vals, [line_option, acc_option]))
                             end
                         end
+                        new_options = next_options
                     end
-                    for i in 1:length(new_acc_options)
-                        new_acc = new_acc_options[i]
+                    for i in 1:length(new_options)
+                        new_option = new_options[i]
+                        new_acc = new_option[end]
                         if new_acc == acc
                             continue
                         end
-                        new_line = new_line_options[i]
+                        new_line = new_option[end-1]
                         if dim == 1
                             new_grid = hcat(grid, new_line)
                         else
                             new_grid = vcat(grid, new_line')
                         end
-                        new_h = hash((new_grid, new_acc))
-                        if !haskey(options_grid, new_h)
-                            options_grid[new_h] = new_grid
-                            options_inits[new_h] = new_acc
+
+                        op = vcat(new_option[1:external_vars], [new_grid, new_acc])
+                        new_h = hash(op)
+                        if !haskey(options, new_h)
+                            options[new_h] = op
                             push!(options_queue, new_h)
                         end
                     end
@@ -282,18 +369,18 @@ function reverse_fold_grid(dim)
                     continue
                 end
             end
+            if length(options) == 0
+                error("No valid options found")
+            elseif length(options) == 1
+                result = first(options)[2]
+            else
+                result = []
+                for i in 1:(external_vars+2)
+                    push!(result, EitherOptions(Dict(h => option[i] for (h, option) in options)))
+                end
+            end
 
-            out_grid = if length(options_grid) == 1
-                first(options_grid)[2]
-            else
-                EitherOptions(options_grid)
-            end
-            out_inits = if length(options_inits) == 1
-                first(options_inits)[2]
-            else
-                EitherOptions(options_inits)
-            end
-            return vcat(rev_grid(out_grid), rev_inits(out_inits))
+            return vcat(result[1:external_vars], rev_grid(result[end-1]), rev_inits(result[end]))
         end
 
         function __reverse_fold(value::EitherOptions)::Vector{Any}

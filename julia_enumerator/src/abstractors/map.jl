@@ -8,7 +8,7 @@ function reverse_map(n, is_set = false)
         rev_f = _get_reversed_program(f, arguments)
         rev_f = _rmapper(rev_f, n)
 
-        indices_mapping = _get_var_indices(f)
+        indices_mapping, external_vars = _get_var_indices(f, n)
 
         rev_xs = []
         for _ in 1:n
@@ -18,10 +18,13 @@ function reverse_map(n, is_set = false)
 
         function __reverse_map(value)::Vector{Any}
             if is_set
-                output_options = Set([[Set() for _ in 1:n]])
+                output_options =
+                    Set{Vector{Any}}([vcat(Any[nothing for _ in 1:external_vars], Any[Set() for _ in 1:n])])
             else
-                output_options = Set([[[] for _ in 1:n]])
+                output_options = Set{Vector{Any}}([vcat(Any[nothing for _ in 1:external_vars], Any[[] for _ in 1:n])])
             end
+
+            first_item = true
             for v in value
                 values = rev_f(v)
                 if any(v isa EitherOptions for v in values)
@@ -52,31 +55,45 @@ function reverse_map(n, is_set = false)
                     new_options = Set()
                     for output_option in output_options
                         for (h, option) in child_options
-                            new_option = []
+                            new_option = copy(output_option)
                             filled_indices = Dict{Int,Any}()
-                            for i in 1:n
-                                mapped_i = n - indices_mapping[i]
+                            good_option = true
+                            for i in 1:length(option)
+                                mapped_i = indices_mapping[i]
                                 if haskey(filled_indices, mapped_i)
                                     if filled_indices[mapped_i] != option[i]
-                                        error("Filling the same index with different values")
+                                        good_option = false
+                                        break
                                     end
                                 else
                                     filled_indices[mapped_i] = option[i]
-                                    push!(new_option, copy(output_option[mapped_i]))
-                                    push!(new_option[mapped_i], option[i])
+                                    if mapped_i > external_vars
+                                        new_option[mapped_i] = copy(new_option[mapped_i])
+                                        push!(new_option[mapped_i], option[i])
+                                    elseif first_item
+                                        new_option[mapped_i] = option[i]
+                                    elseif new_option[mapped_i] != option[i]
+                                        good_option = false
+                                        break
+                                    end
                                 end
                             end
-                            push!(new_options, new_option)
-                            if length(new_options) > 100
-                                error("Too many options")
+                            if good_option
+                                push!(new_options, new_option)
+                                if length(new_options) > 100
+                                    error("Too many options")
+                                end
                             end
                         end
+                    end
+                    if isempty(new_options)
+                        error("No valid options found")
                     end
                     output_options = new_options
                 else
                     filled_indices = Dict{Int,Any}()
                     for (i, v) in enumerate(values)
-                        mapped_i = n - indices_mapping[i]
+                        mapped_i = indices_mapping[i]
                         if haskey(filled_indices, mapped_i)
                             if filled_indices[mapped_i] != v
                                 error("Filling the same index with different values")
@@ -84,15 +101,22 @@ function reverse_map(n, is_set = false)
                         else
                             filled_indices[mapped_i] = v
                             for option in output_options
-                                push!(option[mapped_i], v)
+                                if mapped_i > external_vars
+                                    push!(option[mapped_i], v)
+                                elseif first_item
+                                    option[mapped_i] = v
+                                elseif option[mapped_i] != v
+                                    error("Filling the same external index with different values")
+                                end
                             end
                         end
                     end
                 end
+                first_item = false
             end
             if is_set
                 for option in output_options
-                    for val in option
+                    for val in option[external_vars+1:end]
                         if length(val) != length(value)
                             error("Losing data on map")
                         end
@@ -104,11 +128,11 @@ function reverse_map(n, is_set = false)
             else
                 hashed_options = Dict(hash(option) => option for option in output_options)
                 result = []
-                for i in 1:n
+                for i in 1:(external_vars+n)
                     push!(result, EitherOptions(Dict(h => option[i] for (h, option) in hashed_options)))
                 end
             end
-            return vcat([rev_xs[i](result[i]) for i in 1:n]...)
+            return vcat(result[1:external_vars], [rev_xs[i](result[i+external_vars]) for i in 1:n]...)
         end
 
         function __reverse_map(value::EitherOptions)::Vector{Any}

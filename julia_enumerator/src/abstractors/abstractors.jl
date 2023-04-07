@@ -23,7 +23,7 @@ function _is_reversible(p::Apply)
                     return nothing
                 end
             end
-            if isa(p.x, Index)
+            if isa(p.x, Index) || isa(p.x, FreeVar)
                 return rev_f
             end
             if isa(p.x, Abstraction) || isa(p.x, Apply)
@@ -59,6 +59,10 @@ end
 noop(a)::Vector{Any} = [a]
 
 function _get_reversed_program(p::Hole, arguments)
+    return noop
+end
+
+function _get_reversed_program(p::FreeVar, arguments)
     return noop
 end
 
@@ -162,13 +166,35 @@ _is_reversible_subfunction(p) = is_reversible(p) && _has_no_holes(p)
 _is_possible_subfunction(p::Index, from_input, skeleton, path) = p.n != 0 || !isa(path[end], ArgTurn)
 _is_possible_subfunction(p::Primitive, from_input, skeleton, path) = !from_input || haskey(all_abstractors, p)
 _is_possible_subfunction(p::Invented, from_input, skeleton, path) = !from_input || is_reversible(p)
-_is_possible_subfunction(p::FreeVar, from_input, skeleton, path) = !from_input
+_is_possible_subfunction(p::FreeVar, from_input, skeleton, path) = true
 
-_get_var_indices(p::Index) = [p.n]
-_get_var_indices(p::Primitive) = []
-_get_var_indices(p::Invented) = []
-_get_var_indices(p::Apply) = vcat(_get_var_indices(p.f), _get_var_indices(p.x))
-_get_var_indices(p::Abstraction) = [i - 1 for i in _get_var_indices(p.b) if i > 0]
+__get_var_indices(p::Index) = [p.n]
+__get_var_indices(p::FreeVar) = [-1]
+__get_var_indices(p::Primitive) = []
+__get_var_indices(p::Invented) = []
+__get_var_indices(p::Apply) = vcat(__get_var_indices(p.f), __get_var_indices(p.x))
+__get_var_indices(p::Abstraction) = [((i > 0) ? (i - 1) : i) for i in __get_var_indices(p.b) if (i > 0 || i == -1)]
+
+function _get_var_indices(f, n)
+    raw_indices_mapping = __get_var_indices(f)
+    external_vars = 0
+    for i in raw_indices_mapping
+        if i == -1 || i > n - 1
+            external_vars += 1
+        end
+    end
+    indices_mapping = []
+    marked_external = 0
+    for i in raw_indices_mapping
+        if i == -1 || i > n - 1
+            marked_external += 1
+            push!(indices_mapping, marked_external)
+        else
+            push!(indices_mapping, external_vars + n - i)
+        end
+    end
+    return indices_mapping, external_vars
+end
 
 include("repeat.jl")
 include("cons.jl")

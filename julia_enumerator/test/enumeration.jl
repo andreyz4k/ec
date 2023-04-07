@@ -806,7 +806,7 @@ using solver: load_problems, enumerate_for_task
             @time enumerate_for_task(g, type_weights, task, maximum_frontier, timeout, verbose)
         @test length(solutions) >= 1
         @test number_enumerated >= 200
-        @test number_enumerated <= 2000
+        @test number_enumerated <= 5000
     end
 
     @testset "try_enumerate is-mod-k with k=1" begin

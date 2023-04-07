@@ -718,6 +718,31 @@ using DataStructures: OrderedDict, Accumulator
         @test run_with_arguments(p, [], Dict(UInt64(1) => [1, 2, 4])) == [[1], [2, 2], [4, 4, 4, 4]]
     end
 
+    @testset "Reverse map set with tuple" begin
+        skeleton = Apply(
+            Apply(
+                every_primitive["map_set"],
+                Abstraction(Apply(Apply(every_primitive["tuple2"], Index(0)), FreeVar(tint, nothing))),
+            ),
+            Hole(tset(t0), nothing, true, nothing),
+        )
+        @test is_reversible(skeleton)
+        rev_p = get_reversed_program(skeleton)
+
+        @test rev_p(Set([(3, 2), (1, 2), (6, 2)])) == [2, Set([3, 1, 6])]
+        @test_throws ErrorException rev_p(Set([(3, 2), (1, 2), (6, 3)]))
+
+        p = Apply(
+            Apply(
+                every_primitive["map_set"],
+                Abstraction(Apply(Apply(every_primitive["tuple2"], Index(0)), FreeVar(tint, UInt64(1)))),
+            ),
+            FreeVar(tset(tint), UInt64(2)),
+        )
+        @test run_with_arguments(p, [], Dict(UInt64(1) => 2, UInt64(2) => Set([3, 1, 6]))) ==
+              Set([(3, 2), (1, 2), (6, 2)])
+    end
+
     @testset "Reverse map2 with either options" begin
         skeleton = Apply(
             Apply(
@@ -867,6 +892,46 @@ using DataStructures: OrderedDict, Accumulator
                     0x8dbe9b502cdd76d0 => Any[Any[1], Any[0, 0], Any[0]],
                     0xeccdc5b37d74b46b => Any[Any[1], Any[0], Any[]],
                     0xa3fd43ac20d453b3 => Any[Any[], Any[0], Any[0, 0]],
+                ),
+            ),
+        ]
+    end
+
+    @testset "Reverse map with either options" begin
+        skeleton = Apply(
+            Apply(every_primitive["map"], Abstraction(Apply(Apply(every_primitive["concat"], Index(0)), Index(0)))),
+            Hole(tlist(t0), nothing, true, nothing),
+        )
+        @test is_reversible(skeleton)
+        rev_p = get_reversed_program(skeleton)
+
+        @test rev_p(Vector{Any}[[1, 2, 1, 2], [0, 0, 0, 0], [3, 0, 1, 3, 0, 1]]) == [[[1, 2], [0, 0], [3, 0, 1]]]
+    end
+
+    @testset "Reverse map with either options with free var" begin
+        skeleton = Apply(
+            Apply(
+                every_primitive["map"],
+                Abstraction(Apply(Apply(every_primitive["concat"], Index(0)), FreeVar(tlist(tint), nothing))),
+            ),
+            Hole(tlist(t0), nothing, true, nothing),
+        )
+        @test is_reversible(skeleton)
+        rev_p = get_reversed_program(skeleton)
+
+        @test rev_p(Vector{Any}[[1, 1, 1, 0, 0], [0, 0, 0], [3, 0, 0]]) == [
+            EitherOptions(
+                Dict{UInt64,Any}(
+                    0xdab1e199b1c94074 => Any[],
+                    0x0c3b2c341e5c3951 => Any[0],
+                    0x75e9840090e65b2f => Any[0, 0],
+                ),
+            ),
+            EitherOptions(
+                Dict{UInt64,Any}(
+                    0xdab1e199b1c94074 => Any[Any[1, 1, 1, 0, 0], Any[0, 0, 0], Any[3, 0, 0]],
+                    0x0c3b2c341e5c3951 => Any[Any[1, 1, 1, 0], Any[0, 0], Any[3, 0]],
+                    0x75e9840090e65b2f => Any[Any[1, 1, 1], Any[0], Any[3]],
                 ),
             ),
         ]
@@ -1248,22 +1313,22 @@ using DataStructures: OrderedDict, Accumulator
         @test rev_p([2, 4, 1, 4, 1]) == [
             EitherOptions(
                 Dict{UInt64,Any}(
-                    0x9453a87fcd5f6f00 => Any[],
-                    0xee18ccb3f3dadb77 => Any[2, 4, 1, 4],
-                    0x60bf4ed0b3277eff => Any[2],
-                    0xa5394d30d3d286b9 => Any[2, 4],
-                    0x8baad56386e024ec => Any[2, 4, 1, 4, 1],
-                    0x02d60cc1c7e6b755 => Any[2, 4, 1],
+                    0x5a93e9ec4bc05a56 => Any[2, 4],
+                    0x6a7634569af3396c => Any[2, 4, 1, 4],
+                    0x51aaed7b1c6bb305 => Any[2, 4, 1, 4, 1],
+                    0xb693e3cf592eb63c => Any[2],
+                    0x49021a5ed5ec68f1 => Any[],
+                    0x8c2b7a5e76148bda => Any[2, 4, 1],
                 ),
             ),
             EitherOptions(
                 Dict{UInt64,Any}(
-                    0x9453a87fcd5f6f00 => [2, 4, 1, 4, 1],
-                    0xee18ccb3f3dadb77 => [1],
-                    0x60bf4ed0b3277eff => [4, 1, 4, 1],
-                    0xa5394d30d3d286b9 => [1, 4, 1],
-                    0x8baad56386e024ec => Int64[],
-                    0x02d60cc1c7e6b755 => [4, 1],
+                    0x5a93e9ec4bc05a56 => Any[1, 4, 1],
+                    0x6a7634569af3396c => Any[1],
+                    0x51aaed7b1c6bb305 => Any[],
+                    0xb693e3cf592eb63c => Any[4, 1, 4, 1],
+                    0x49021a5ed5ec68f1 => Any[2, 4, 1, 4, 1],
+                    0x8c2b7a5e76148bda => Any[4, 1],
                 ),
             ),
         ]
@@ -1299,74 +1364,74 @@ using DataStructures: OrderedDict, Accumulator
         @test rev_p([2, 4, 1, 4, 1]) == [
             EitherOptions(
                 Dict{UInt64,Any}(
-                    0xe3b772ed30bd1603 => Any[[2], [4, 1], [4], [1]],
-                    0xefad2bee99d827e1 => Any[[2], [4], [1, 4, 1]],
-                    0x92d3a49196b6ec26 => Any[[2], [4], [1]],
-                    0x78a4b116b771ebb4 => Any[[2, 4]],
-                    0x2422ddddbbb4f32f => Any[[2, 4], [1, 4, 1]],
-                    0x9453a87fcd5f6f00 => Any[],
-                    0x1e841f32224786b7 => Any[[2], [4], [1], [4], [1]],
-                    0xe3371c313212dd43 => Any[[2, 4, 1, 4, 1]],
-                    0x4c8cf1adf1af769e => Any[[2], [4], [1, 4]],
-                    0x88791d1e62714523 => Any[[2], [4]],
-                    0xb2f92e306794ff1e => Any[[2], [4, 1], [4, 1]],
-                    0xc0a0171f4fa5372c => Any[[2, 4], [1]],
-                    0xf93f16a9dbd5aa89 => Any[[2, 4, 1], [4], [1]],
-                    0x340528480ae7d245 => Any[[2, 4, 1, 4], [1]],
-                    0x25fb53c9ad54723f => Any[[2, 4], [1], [4], [1]],
-                    0x039f8b34c81db882 => Any[[2], [4, 1], [4]],
-                    0x8172801003a5d07a => Any[[2, 4], [1], [4, 1]],
-                    0x32ada425ce5e090f => Any[[2], [4], [1, 4], [1]],
-                    0x8022d7c0c9234f15 => Any[[2], [4, 1, 4, 1]],
-                    0xda854f001b269690 => Any[[2], [4, 1]],
-                    0x03e9070d5f1e33fb => Any[[2, 4, 1], [4]],
-                    0xb1782afb61a42e8c => Any[[2, 4, 1]],
-                    0x678d482f38247116 => Any[[2, 4], [1, 4], [1]],
-                    0x903de0f197a422bb => Any[[2], [4], [1], [4]],
-                    0x55ba6e4fe60924b3 => Any[[2, 4, 1], [4, 1]],
-                    0xc6ef9cebfce26584 => Any[[2, 4], [1, 4]],
-                    0x1efac6ea27e12c4d => Any[[2], [4, 1, 4], [1]],
-                    0xbecc6fea3ec2c80e => Any[[2, 4], [1], [4]],
-                    0x90bc26734956aa6f => Any[[2], [4, 1, 4]],
-                    0xc5b4b785e06feb5a => Any[[2, 4, 1, 4]],
-                    0x156c6acf03db047e => Any[[2]],
-                    0x4c92dc0699df6873 => Any[[2], [4], [1], [4, 1]],
+                    0x6dd1aa195a066bdf => Any[Any[2, 4], Any[1, 4], Any[1]],
+                    0xb6ad491e11602fb6 => Any[Any[2], Any[4, 1, 4, 1]],
+                    0x36f0abd3c957d902 => Any[Any[2], Any[4], Any[1, 4, 1]],
+                    0x3dc89139ec87f684 => Any[Any[2], Any[4, 1, 4]],
+                    0x09a21ddf6148cc66 => Any[Any[2, 4, 1, 4], Any[1]],
+                    0x429e3e302da41faf => Any[Any[2], Any[4], Any[1, 4]],
+                    0xf3a80cf790032ca3 => Any[Any[2], Any[4, 1], Any[4]],
+                    0xf8969b46bad3316b => Any[Any[2]],
+                    0x91a8ff63c31d3bc0 => Any[Any[2], Any[4], Any[1], Any[4]],
+                    0x5749e86be732d170 => Any[Any[2, 4], Any[1], Any[4], Any[1]],
+                    0x0e7af63e5e7ef218 => Any[Any[2], Any[4]],
+                    0x02e700ab85e09354 => Any[Any[2], Any[4, 1], Any[4], Any[1]],
+                    0xce2e31d5d7b90709 => Any[Any[2, 4, 1]],
+                    0x8d11ec691b4170ea => Any[Any[2, 4, 1], Any[4], Any[1]],
+                    0x49021a5ed5ec68f1 => Any[],
+                    0x5c837610f9257f13 => Any[Any[2], Any[4], Any[1]],
+                    0x180ce0f9a07c74c0 => Any[Any[2, 4, 1], Any[4]],
+                    0x149cc02404fb6a27 => Any[Any[2], Any[4, 1], Any[4, 1]],
+                    0x9c96a163ad64d585 => Any[Any[2, 4]],
+                    0x56e0a1008192c663 => Any[Any[2, 4], Any[1], Any[4, 1]],
+                    0xe0ab1eabc7a900ce => Any[Any[2], Any[4, 1, 4], Any[1]],
+                    0x390194261574b244 => Any[Any[2, 4, 1], Any[4, 1]],
+                    0xb29db29038157944 => Any[Any[2], Any[4], Any[1], Any[4, 1]],
+                    0xc98ebba910891ec0 => Any[Any[2], Any[4], Any[1, 4], Any[1]],
+                    0x93ada4f27e102e34 => Any[Any[2, 4, 1, 4, 1]],
+                    0xa0404a5fc84c9ab1 => Any[Any[2, 4], Any[1]],
+                    0x7aad8022987ef4a0 => Any[Any[2, 4], Any[1, 4, 1]],
+                    0x0881941fe61dbdc8 => Any[Any[2], Any[4], Any[1], Any[4], Any[1]],
+                    0xac78ebcdfc97b49b => Any[Any[2, 4, 1, 4]],
+                    0x865b127efccb3b4d => Any[Any[2, 4], Any[1, 4]],
+                    0xd1c6f8802c3bc955 => Any[Any[2], Any[4, 1]],
+                    0x35ebedd40c9a88df => Any[Any[2, 4], Any[1], Any[4]],
                 ),
             ),
             EitherOptions(
                 Dict{UInt64,Any}(
-                    0xe3b772ed30bd1603 => Int64[],
-                    0xefad2bee99d827e1 => Int64[],
-                    0x92d3a49196b6ec26 => [4, 1],
-                    0x78a4b116b771ebb4 => [1, 4, 1],
-                    0x2422ddddbbb4f32f => Int64[],
-                    0x9453a87fcd5f6f00 => [2, 4, 1, 4, 1],
-                    0x1e841f32224786b7 => Int64[],
-                    0xe3371c313212dd43 => Int64[],
-                    0x4c8cf1adf1af769e => [1],
-                    0x88791d1e62714523 => [1, 4, 1],
-                    0xb2f92e306794ff1e => Int64[],
-                    0xc0a0171f4fa5372c => [4, 1],
-                    0xf93f16a9dbd5aa89 => Int64[],
-                    0x340528480ae7d245 => Int64[],
-                    0x25fb53c9ad54723f => Int64[],
-                    0x039f8b34c81db882 => [1],
-                    0x8172801003a5d07a => Int64[],
-                    0x32ada425ce5e090f => Int64[],
-                    0x8022d7c0c9234f15 => Int64[],
-                    0xda854f001b269690 => [4, 1],
-                    0x03e9070d5f1e33fb => [1],
-                    0xb1782afb61a42e8c => [4, 1],
-                    0x678d482f38247116 => Int64[],
-                    0x903de0f197a422bb => [1],
-                    0x55ba6e4fe60924b3 => Int64[],
-                    0xc6ef9cebfce26584 => [1],
-                    0x1efac6ea27e12c4d => Int64[],
-                    0xbecc6fea3ec2c80e => [1],
-                    0x90bc26734956aa6f => [1],
-                    0xc5b4b785e06feb5a => [1],
-                    0x156c6acf03db047e => [4, 1, 4, 1],
-                    0x4c92dc0699df6873 => Int64[],
+                    0x6dd1aa195a066bdf => Any[],
+                    0xb6ad491e11602fb6 => Any[],
+                    0x36f0abd3c957d902 => Any[],
+                    0x3dc89139ec87f684 => Any[1],
+                    0x09a21ddf6148cc66 => Any[],
+                    0x429e3e302da41faf => Any[1],
+                    0xf3a80cf790032ca3 => Any[1],
+                    0xf8969b46bad3316b => Any[4, 1, 4, 1],
+                    0x91a8ff63c31d3bc0 => Any[1],
+                    0x5749e86be732d170 => Any[],
+                    0x0e7af63e5e7ef218 => Any[1, 4, 1],
+                    0x02e700ab85e09354 => Any[],
+                    0xce2e31d5d7b90709 => Any[4, 1],
+                    0x8d11ec691b4170ea => Any[],
+                    0x49021a5ed5ec68f1 => Any[2, 4, 1, 4, 1],
+                    0x5c837610f9257f13 => Any[4, 1],
+                    0x180ce0f9a07c74c0 => Any[1],
+                    0x149cc02404fb6a27 => Any[],
+                    0x9c96a163ad64d585 => Any[1, 4, 1],
+                    0x56e0a1008192c663 => Any[],
+                    0xe0ab1eabc7a900ce => Any[],
+                    0x390194261574b244 => Any[],
+                    0xb29db29038157944 => Any[],
+                    0xc98ebba910891ec0 => Any[],
+                    0x93ada4f27e102e34 => Any[],
+                    0xa0404a5fc84c9ab1 => Any[4, 1],
+                    0x7aad8022987ef4a0 => Any[],
+                    0x0881941fe61dbdc8 => Any[],
+                    0xac78ebcdfc97b49b => Any[1],
+                    0x865b127efccb3b4d => Any[1],
+                    0xd1c6f8802c3bc955 => Any[4, 1],
+                    0x35ebedd40c9a88df => Any[1],
                 ),
             ),
         ]
@@ -1403,18 +1468,18 @@ using DataStructures: OrderedDict, Accumulator
         @test rev_p([[1, 3, 9], [4, 6, 1], [1, 1, 4], [4, 5, 0], [2, 2, 4]]) == [
             EitherOptions(
                 Dict{UInt64,Any}(
-                    0x434f074fb5907810 => Any[1 3 9; 4 6 1; 1 1 4; 4 5 0; 2 2 4],
-                    0x6ca162fa7613d2c5 => Any[1; 4; 1; 4; 2;;],
-                    0xc72d85f67d60437d => Any[1 3; 4 6; 1 1; 4 5; 2 2],
-                    0x09a140b0b4d7393c => Matrix{Any}(undef, 5, 0),
+                    0x412daf04220dbd95 => Any[1 3 9; 4 6 1; 1 1 4; 4 5 0; 2 2 4],
+                    0x1676212d88803b6a => Any[1 3; 4 6; 1 1; 4 5; 2 2],
+                    0x05b532410082e162 => Any[1; 4; 1; 4; 2;;],
+                    0x48834f8b9af8b495 => Matrix{Any}(undef, 5, 0),
                 ),
             ),
             EitherOptions(
                 Dict{UInt64,Any}(
-                    0x434f074fb5907810 => Any[[], [], [], [], []],
-                    0x6ca162fa7613d2c5 => Any[[3, 9], [6, 1], [1, 4], [5, 0], [2, 4]],
-                    0xc72d85f67d60437d => Any[[9], [1], [4], [0], [4]],
-                    0x09a140b0b4d7393c => [[1, 3, 9], [4, 6, 1], [1, 1, 4], [4, 5, 0], [2, 2, 4]],
+                    0x412daf04220dbd95 => Any[Int64[], Int64[], Int64[], Int64[], Int64[]],
+                    0x1676212d88803b6a => Any[[9], [1], [4], [0], [4]],
+                    0x05b532410082e162 => Any[[3, 9], [6, 1], [1, 4], [5, 0], [2, 4]],
+                    0x48834f8b9af8b495 => [[1, 3, 9], [4, 6, 1], [1, 1, 4], [4, 5, 0], [2, 2, 4]],
                 ),
             ),
         ]
@@ -1454,22 +1519,22 @@ using DataStructures: OrderedDict, Accumulator
         @test rev_p([[1, 4, 1, 4, 2], [3, 6, 1, 5, 2], [9, 1, 4, 0, 4]]) == [
             EitherOptions(
                 Dict{UInt64,Any}(
-                    0x1e98f7d47e1e4c0e => Any[1 3 9; 4 6 1; 1 1 4; 4 5 0],
-                    0xceee4e28778b81a4 => Any[1 3 9; 4 6 1; 1 1 4],
-                    0x5c942edb34b81d2c => Any[1 3 9],
-                    0xe76c4bfb8403877f => Any[1 3 9; 4 6 1; 1 1 4; 4 5 0; 2 2 4],
-                    0x129c2e0da08316d3 => Matrix{Any}(undef, 0, 3),
-                    0xdb16df8f58606a0e => Any[1 3 9; 4 6 1],
+                    0x1052d159da118660 => Matrix{Any}(undef, 0, 3),
+                    0x458556b23e850c49 => Any[1 3 9],
+                    0x795b80cb1f1a8203 => Any[1 3 9; 4 6 1; 1 1 4; 4 5 0],
+                    0x8b8a8aa5dbbc1b17 => Any[1 3 9; 4 6 1],
+                    0x79cba76627e90a05 => Any[1 3 9; 4 6 1; 1 1 4],
+                    0x0b8058b5a72803e8 => Any[1 3 9; 4 6 1; 1 1 4; 4 5 0; 2 2 4],
                 ),
             ),
             EitherOptions(
                 Dict{UInt64,Any}(
-                    0x1e98f7d47e1e4c0e => Any[[2], [2], [4]],
-                    0xceee4e28778b81a4 => Any[[4, 2], [5, 2], [0, 4]],
-                    0x5c942edb34b81d2c => Any[[4, 1, 4, 2], [6, 1, 5, 2], [1, 4, 0, 4]],
-                    0xe76c4bfb8403877f => Any[Int64[], Int64[], Int64[]],
-                    0x129c2e0da08316d3 => [[1, 4, 1, 4, 2], [3, 6, 1, 5, 2], [9, 1, 4, 0, 4]],
-                    0xdb16df8f58606a0e => Any[[1, 4, 2], [1, 5, 2], [4, 0, 4]],
+                    0x1052d159da118660 => [[1, 4, 1, 4, 2], [3, 6, 1, 5, 2], [9, 1, 4, 0, 4]],
+                    0x458556b23e850c49 => Any[[4, 1, 4, 2], [6, 1, 5, 2], [1, 4, 0, 4]],
+                    0x795b80cb1f1a8203 => Any[[2], [2], [4]],
+                    0x8b8a8aa5dbbc1b17 => Any[[1, 4, 2], [1, 5, 2], [4, 0, 4]],
+                    0x79cba76627e90a05 => Any[[4, 2], [5, 2], [0, 4]],
+                    0x0b8058b5a72803e8 => Any[Int64[], Int64[], Int64[]],
                 ),
             ),
         ]
