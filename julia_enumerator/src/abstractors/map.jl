@@ -114,6 +114,9 @@ function reverse_map(n, is_set = false)
                 end
                 first_item = false
             end
+            if first_item && external_vars > 0
+                error("Couldn't fill external variables")
+            end
             if is_set
                 for option in output_options
                     for val in option[external_vars+1:end]
