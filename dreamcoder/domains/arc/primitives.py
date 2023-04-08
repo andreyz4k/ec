@@ -274,4 +274,6 @@ def basePrimitives():
             is_reversible=True,
         ),
         Primitive("list_to_set", arrow(tlist(t0), tset(t0)), None),
+        Primitive("adjoin", arrow(t0, tset(t0), tset(t0)), None, is_reversible=True),
+        Primitive("empty_set", tset(t0), None),
     ] + [Primitive(str(j), tint, j) for j in range(2)]

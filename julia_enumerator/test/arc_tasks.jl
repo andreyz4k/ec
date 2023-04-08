@@ -130,10 +130,22 @@ using solver: load_problems, enumerate_for_task
                     "type" => "list(t0)",
                 ),
                 Dict{String,Any}(
+                    "logProbability" => -0.05018486827611923,
+                    "expression" => "empty_set",
+                    "is_reversible" => false,
+                    "type" => "set(t0)",
+                ),
+                Dict{String,Any}(
                     "logProbability" => 0.26301681995391846,
                     "expression" => "cons",
                     "is_reversible" => true,
                     "type" => "t0 -> list(t0) -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.26301681995391846,
+                    "expression" => "adjoin",
+                    "is_reversible" => true,
+                    "type" => "t0 -> set(t0) -> set(t0)",
                 ),
                 Dict{String,Any}(
                     "logProbability" => 0.11566320061683655,

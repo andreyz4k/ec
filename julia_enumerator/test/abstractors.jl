@@ -412,6 +412,29 @@ using DataStructures: OrderedDict, Accumulator
         @test rev_p([1, 2, 3]) == [1, [2, 3]]
     end
 
+    @testset "Reverse adjoin" begin
+        skeleton = Apply(
+            Apply(every_primitive["adjoin"], Hole(tint, nothing, true, nothing)),
+            Hole(tset(tint), nothing, true, nothing),
+        )
+        @test is_reversible(skeleton)
+        rev_p = get_reversed_program(skeleton)
+
+        @test rev_p(Set([1, 2, 3])) == [
+            EitherOptions(Dict{UInt64,Any}(0xdab8105ae838a43f => 1, 0x369f7593fdd6aa68 => 3, 0xa546dd1af6daadbb => 2)),
+            EitherOptions(
+                Dict{UInt64,Any}(
+                    0xdab8105ae838a43f => Set([2, 3]),
+                    0x369f7593fdd6aa68 => Set([2, 1]),
+                    0xa546dd1af6daadbb => Set([3, 1]),
+                ),
+            ),
+        ]
+
+        p = Apply(Apply(every_primitive["adjoin"], FreeVar(tint, UInt64(1))), FreeVar(tset(tint), UInt64(2)))
+        @test run_with_arguments(p, [], Dict(UInt64(1) => 1, UInt64(2) => Set([3, 2]))) == Set([1, 2, 3])
+    end
+
     @testset "Reverse tuple2" begin
         skeleton = Apply(
             Apply(every_primitive["tuple2"], Hole(tcolor, nothing, true, nothing)),
