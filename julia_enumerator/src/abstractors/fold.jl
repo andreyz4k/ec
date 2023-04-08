@@ -4,9 +4,52 @@ function rev_fold(f, init, acc)
     outs = []
     while acc != init
         out, acc = rev_f(acc)
+        if out isa EitherOptions
+            error("Can't have eithers in rev_fold")
+        end
         push!(outs, out)
     end
     return reverse(outs)
+end
+
+function rev_fold_set(f, init, acc)
+    rev_f = _get_reversed_program(f.p.b.b, [])
+    output_options = Set()
+    queue = Set([(acc, Set())])
+    visited = Set()
+
+    while !isempty(queue)
+        acc, outs = pop!(queue)
+        out, new_acc = rev_f(acc)
+        push!(visited, (acc, outs))
+        if out isa EitherOptions
+            for (h, val) in out.options
+                new_outs = union(outs, [val])
+                new_acc_op = new_acc.options[h]
+                if new_acc_op == init
+                    push!(output_options, new_outs)
+                else
+                    if (new_acc_op, new_outs) ∉ visited
+                        push!(queue, (new_acc_op, new_outs))
+                    end
+                end
+            end
+        else
+            new_outs = union(outs, [out])
+            if new_acc == init
+                push!(output_options, new_outs)
+            else
+                if (new_acc, new_outs) ∉ visited
+                    push!(queue, (new_acc, new_outs))
+                end
+            end
+        end
+    end
+    if length(output_options) != 1
+        error("Incorrect number of return options")
+    end
+
+    return first(output_options)
 end
 
 _is_possible_init(p::Primitive, from_input, skeleton, path) = true
@@ -53,7 +96,7 @@ end
 @define_custom_reverse_primitive(
     "rev_fold_set",
     arrow(arrow(t0, t1, t1), t1, t1, tset(t0)),
-    (f -> (init -> (acc -> Set(rev_fold(f, init, acc))))),
+    (f -> (init -> (acc -> rev_fold_set(f, init, acc)))),
     reverse_rev_fold()
 )
 

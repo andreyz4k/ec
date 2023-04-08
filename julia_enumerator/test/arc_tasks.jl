@@ -328,6 +328,12 @@ using solver: load_problems, enumerate_for_task
                     "type" => "list(t0) -> set(t0)",
                 ),
                 Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "rev_groupby",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1) -> t0 -> set(tuple2(t1, set(t0))) -> set(tuple2(t1, set(t0)))",
+                ),
+                Dict{String,Any}(
                     "logProbability" => 0.15116432309150696,
                     "expression" => "0",
                     "is_reversible" => false,
