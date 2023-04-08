@@ -981,11 +981,11 @@ end
 
 function log_results(sc, hits)
     @info(collect(keys(hits)))
-    @info "Branches with incoming paths $(length(sc.incoming_paths.values[1]))"
-    @info "Total incoming paths $(sum(length(v) for v in values(sc.incoming_paths.values[1])))"
-    @info "Incoming paths counts $([length(v) for v in values(sc.incoming_paths.values[1])])"
 
     if sc.verbose
+        @info "Branches with incoming paths $(length(sc.incoming_paths.values[1]))"
+        @info "Total incoming paths $(sum(length(v) for v in values(sc.incoming_paths.values[1])))"
+        @info "Incoming paths counts $([length(v) for v in values(sc.incoming_paths.values[1])])"
         @info "Entries for incoming paths "
         for (br_id, v) in sc.incoming_paths.values[1]
             @info (
@@ -1002,8 +1002,8 @@ function log_results(sc, hits)
                 @warn v
             end
         end
+        @info "Total incoming paths length $(sum(sum(length(path.main_path) + length(path.side_vars) for path in paths; init=0) for paths in values(sc.incoming_paths.values[1]); init=0))"
     end
 
-    @info "Total incoming paths length $(sum(sum(length(path.main_path) + length(path.side_vars) for path in paths; init=0) for paths in values(sc.incoming_paths.values[1]); init=0))"
     @info "Total number of enumerated programs $(sc.total_number_of_enumerated_programs)"
 end
