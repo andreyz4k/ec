@@ -93,3 +93,10 @@ _is_prime(n) = in(
 
 @define_primitive("list_to_set", arrow(tlist(t0), tset(t0)), Set)
 @define_primitive("empty_set", tset(t0), Set())
+
+@define_primitive("and", arrow(tbool, tbool, tbool), (a -> (b -> a && b)))
+@define_primitive("or", arrow(tbool, tbool, tbool), (a -> (b -> a || b)))
+@define_primitive("all", arrow(arrow(t0, tbool), tlist(t0), tbool), (f -> (l -> all(f, l))))
+@define_primitive("any", arrow(arrow(t0, tbool), tlist(t0), tbool), (f -> (l -> any(f, l))))
+@define_primitive("all_set", arrow(arrow(t0, tbool), tset(t0), tbool), (f -> (l -> all(f, l))))
+@define_primitive("any_set", arrow(arrow(t0, tbool), tset(t0), tbool), (f -> (l -> any(f, l))))

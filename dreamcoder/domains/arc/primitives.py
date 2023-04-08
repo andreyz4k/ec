@@ -201,6 +201,26 @@ def _columns(cs):
     return [list(l) for l in zip(*cs)]
 
 
+def _not(x):
+    return not x
+
+
+def _and(x):
+    return lambda y: x and y
+
+
+def _or(x):
+    return lambda y: x or y
+
+
+def _any(f):
+    return lambda l: any(f(x) for x in l)
+
+
+def _all(f):
+    return lambda l: all(f(x) for x in l)
+
+
 def basePrimitives():
     """These are the primitives that we hope to learn from the bootstrapping procedure"""
     return [
@@ -282,4 +302,18 @@ def basePrimitives():
             None,
             is_reversible=True,
         ),
+        Primitive(
+            "rev_greedy_cluster",
+            arrow(arrow(t0, tset(t0), tbool), t0, tset(tset(t0)), tset(tset(t0))),
+            None,
+            is_reversible=True,
+        ),
+        Primitive("not", arrow(tbool, tbool), _not, is_reversible=True),
+        Primitive("and", arrow(tbool, tbool, tbool), _and),
+        Primitive("or", arrow(tbool, tbool, tbool), _or),
+        Primitive("all", arrow(arrow(t0, tbool), tlist(t0), tbool), _all),
+        Primitive("any", arrow(arrow(t0, tbool), tlist(t0), tbool), _any),
+        Primitive("all_set", arrow(arrow(t0, tbool), tset(t0), tbool), _all),
+        Primitive("any_set", arrow(arrow(t0, tbool), tset(t0), tbool), _any),
+        Primitive("abs", arrow(tint, tint), abs, is_reversible=True),
     ] + [Primitive(str(j), tint, j) for j in range(2)]

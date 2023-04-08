@@ -1682,4 +1682,337 @@ using DataStructures: OrderedDict, Accumulator
         @test run_with_arguments(p, [], Dict(UInt64(1) => Set([(1, Set([[1, 2, 3], [1, 4, 2]])), (2, Set([[2]]))]))) ==
               Set([[1, 2, 3], [1, 4, 2], [2]])
     end
+
+    @testset "Reverse rev_greedy_cluster" begin
+        skeleton = Apply(
+            Apply(
+                Apply(
+                    every_primitive["rev_greedy_cluster"],
+                    Abstraction(
+                        Abstraction(
+                            Apply(
+                                Apply(
+                                    every_primitive["all_set"],
+                                    Abstraction(
+                                        Apply(
+                                            Apply(every_primitive["eq?"], Apply(every_primitive["car"], Index(0))),
+                                            Apply(every_primitive["car"], Index(2)),
+                                        ),
+                                    ),
+                                ),
+                                Index(0),
+                            ),
+                        ),
+                    ),
+                ),
+                Hole(tlist(tint), nothing, true, nothing),
+            ),
+            Hole(tset(tset(tlist(tint))), nothing, true, nothing),
+        )
+        @test is_reversible(skeleton)
+
+        rev_p = get_reversed_program(skeleton)
+
+        @test rev_p(Set([Set([[1, 2, 3], [1, 4, 2]]), Set([[2]])])) == [
+            EitherOptions(
+                Dict{UInt64,Any}(
+                    0x0cd30b3b35947074 => [2],
+                    0xb77bceb05f49bb13 => [1, 4, 2],
+                    0x507b93ad884f9c7a => [1, 2, 3],
+                ),
+            ),
+            EitherOptions(
+                Dict{UInt64,Any}(
+                    0x0cd30b3b35947074 => Set([Set([[1, 2, 3], [1, 4, 2]])]),
+                    0xb77bceb05f49bb13 => Set([Set([[1, 2, 3]]), Set([[2]])]),
+                    0x507b93ad884f9c7a => Set([Set([[1, 4, 2]]), Set([[2]])]),
+                ),
+            ),
+        ]
+
+        p = Apply(
+            Apply(
+                Apply(
+                    every_primitive["rev_greedy_cluster"],
+                    Abstraction(
+                        Abstraction(
+                            Apply(
+                                Apply(
+                                    every_primitive["all_set"],
+                                    Abstraction(
+                                        Apply(
+                                            Apply(every_primitive["eq?"], Apply(every_primitive["car"], Index(0))),
+                                            Apply(every_primitive["car"], Index(2)),
+                                        ),
+                                    ),
+                                ),
+                                Index(0),
+                            ),
+                        ),
+                    ),
+                ),
+                FreeVar(tlist(tint), UInt64(1)),
+            ),
+            FreeVar(tset(tset(tlist(tint))), UInt64(2)),
+        )
+        @test run_with_arguments(
+            p,
+            [],
+            Dict(UInt64(1) => [1, 2, 3], UInt64(2) => Set([Set([[1, 4, 2]]), Set([[2]])])),
+        ) == Set([Set([[1, 2, 3], [1, 4, 2]]), Set([[2]])])
+
+        @test run_with_arguments(p, [], Dict(UInt64(1) => [2], UInt64(2) => Set([Set([[1, 2, 3], [1, 4, 2]])]))) ==
+              Set([Set([[1, 2, 3], [1, 4, 2]]), Set([[2]])])
+    end
+
+    @testset "Reverse rev_greedy_cluster by length" begin
+        skeleton = Apply(
+            Apply(
+                Apply(
+                    every_primitive["rev_greedy_cluster"],
+                    Abstraction(
+                        Abstraction(
+                            Apply(
+                                Apply(
+                                    every_primitive["any_set"],
+                                    Abstraction(
+                                        Apply(
+                                            every_primitive["not"],
+                                            Apply(
+                                                Apply(
+                                                    every_primitive["gt?"],
+                                                    Apply(
+                                                        every_primitive["abs"],
+                                                        Apply(
+                                                            Apply(
+                                                                every_primitive["-"],
+                                                                Apply(every_primitive["length"], Index(0)),
+                                                            ),
+                                                            Apply(every_primitive["length"], Index(2)),
+                                                        ),
+                                                    ),
+                                                ),
+                                                every_primitive["1"],
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                                Index(0),
+                            ),
+                        ),
+                    ),
+                ),
+                Hole(tlist(tint), nothing, true, nothing),
+            ),
+            Hole(tset(tset(tlist(tint))), nothing, true, nothing),
+        )
+        @test is_reversible(skeleton)
+
+        rev_p = get_reversed_program(skeleton)
+
+        @test rev_p(Set([Set([[1, 2, 3], [1, 4, 2, 2], [3, 5, 2, 5, 2]]), Set([[2]])])) == [
+            EitherOptions(
+                Dict{UInt64,Any}(
+                    0x6bc2689b3f9c3031 => [1, 4, 2, 2],
+                    0x8f23b130f21cfac2 => [3, 5, 2, 5, 2],
+                    0x3153e6863760efd0 => [1, 2, 3],
+                    0x50c67e216811b75a => [2],
+                ),
+            ),
+            EitherOptions(
+                Dict{UInt64,Any}(
+                    0x6bc2689b3f9c3031 => Set(Set{Vector{Int64}}[Set([[1, 2, 3]]), Set([[3, 5, 2, 5, 2]]), Set([[2]])]),
+                    0x8f23b130f21cfac2 => Set(Set{Vector{Int64}}[Set([[2]]), Set([[1, 2, 3], [1, 4, 2, 2]])]),
+                    0x3153e6863760efd0 => Set(Set{Vector{Int64}}[Set([[3, 5, 2, 5, 2], [1, 4, 2, 2]]), Set([[2]])]),
+                    0x50c67e216811b75a => Set(Set{Vector{Int64}}[Set([[3, 5, 2, 5, 2], [1, 2, 3], [1, 4, 2, 2]])]),
+                ),
+            ),
+        ]
+
+        p = Apply(
+            Apply(
+                Apply(
+                    every_primitive["rev_greedy_cluster"],
+                    Abstraction(
+                        Abstraction(
+                            Apply(
+                                Apply(
+                                    every_primitive["any_set"],
+                                    Abstraction(
+                                        Apply(
+                                            every_primitive["not"],
+                                            Apply(
+                                                Apply(
+                                                    every_primitive["gt?"],
+                                                    Apply(
+                                                        every_primitive["abs"],
+                                                        Apply(
+                                                            Apply(
+                                                                every_primitive["-"],
+                                                                Apply(every_primitive["length"], Index(0)),
+                                                            ),
+                                                            Apply(every_primitive["length"], Index(2)),
+                                                        ),
+                                                    ),
+                                                ),
+                                                every_primitive["1"],
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                                Index(0),
+                            ),
+                        ),
+                    ),
+                ),
+                FreeVar(tlist(tint), UInt64(1)),
+            ),
+            FreeVar(tset(tset(tlist(tint))), UInt64(2)),
+        )
+        @test run_with_arguments(
+            p,
+            [],
+            Dict(UInt64(1) => [1, 2, 3], UInt64(2) => Set([Set([[1, 4, 2, 2], [3, 5, 2, 5, 2]]), Set([[2]])])),
+        ) == Set([Set([[1, 2, 3], [1, 4, 2, 2], [3, 5, 2, 5, 2]]), Set([[2]])])
+
+        @test run_with_arguments(
+            p,
+            [],
+            Dict(UInt64(1) => [1, 4, 2, 2], UInt64(2) => Set([Set([[1, 2, 3]]), Set([[3, 5, 2, 5, 2]]), Set([[2]])])),
+        ) == Set([Set([[1, 2, 3], [1, 4, 2, 2], [3, 5, 2, 5, 2]]), Set([[2]])])
+    end
+
+    @testset "Reverse rev_fold with rev_greedy_cluster" begin
+        skeleton = Apply(
+            Apply(
+                Apply(
+                    every_primitive["rev_fold_set"],
+                    Abstraction(
+                        Abstraction(
+                            Apply(
+                                Apply(
+                                    Apply(
+                                        every_primitive["rev_greedy_cluster"],
+                                        Abstraction(
+                                            Abstraction(
+                                                Apply(
+                                                    Apply(
+                                                        every_primitive["any_set"],
+                                                        Abstraction(
+                                                            Apply(
+                                                                every_primitive["not"],
+                                                                Apply(
+                                                                    Apply(
+                                                                        every_primitive["gt?"],
+                                                                        Apply(
+                                                                            every_primitive["abs"],
+                                                                            Apply(
+                                                                                Apply(
+                                                                                    every_primitive["-"],
+                                                                                    Apply(
+                                                                                        every_primitive["length"],
+                                                                                        Index(0),
+                                                                                    ),
+                                                                                ),
+                                                                                Apply(
+                                                                                    every_primitive["length"],
+                                                                                    Index(2),
+                                                                                ),
+                                                                            ),
+                                                                        ),
+                                                                    ),
+                                                                    every_primitive["1"],
+                                                                ),
+                                                            ),
+                                                        ),
+                                                    ),
+                                                    Index(0),
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                    Index(1),
+                                ),
+                                Index(0),
+                            ),
+                        ),
+                    ),
+                ),
+                every_primitive["empty_set"],
+            ),
+            Hole(tset(tlist(tint)), nothing, true, nothing),
+        )
+        @test is_reversible(skeleton)
+
+        rev_p = get_reversed_program(skeleton)
+
+        @test rev_p(Set([[1, 2, 3], [1, 4, 2, 2], [3, 5, 2, 5, 2], [2]])) ==
+              [Set([Set([[1, 2, 3], [1, 4, 2, 2], [3, 5, 2, 5, 2]]), Set([[2]])])]
+
+        p = Apply(
+            Apply(
+                Apply(
+                    every_primitive["rev_fold_set"],
+                    Abstraction(
+                        Abstraction(
+                            Apply(
+                                Apply(
+                                    Apply(
+                                        every_primitive["rev_greedy_cluster"],
+                                        Abstraction(
+                                            Abstraction(
+                                                Apply(
+                                                    Apply(
+                                                        every_primitive["any_set"],
+                                                        Abstraction(
+                                                            Apply(
+                                                                every_primitive["not"],
+                                                                Apply(
+                                                                    Apply(
+                                                                        every_primitive["gt?"],
+                                                                        Apply(
+                                                                            every_primitive["abs"],
+                                                                            Apply(
+                                                                                Apply(
+                                                                                    every_primitive["-"],
+                                                                                    Apply(
+                                                                                        every_primitive["length"],
+                                                                                        Index(0),
+                                                                                    ),
+                                                                                ),
+                                                                                Apply(
+                                                                                    every_primitive["length"],
+                                                                                    Index(2),
+                                                                                ),
+                                                                            ),
+                                                                        ),
+                                                                    ),
+                                                                    every_primitive["1"],
+                                                                ),
+                                                            ),
+                                                        ),
+                                                    ),
+                                                    Index(0),
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                    Index(1),
+                                ),
+                                Index(0),
+                            ),
+                        ),
+                    ),
+                ),
+                every_primitive["empty_set"],
+            ),
+            FreeVar(tset(tlist(tint)), UInt64(1)),
+        )
+
+        @test run_with_arguments(
+            p,
+            [],
+            Dict(UInt64(1) => Set([Set([[1, 2, 3], [1, 4, 2, 2], [3, 5, 2, 5, 2]]), Set([[2]])])),
+        ) == Set([[1, 2, 3], [1, 4, 2, 2], [3, 5, 2, 5, 2], [2]])
+    end
 end
