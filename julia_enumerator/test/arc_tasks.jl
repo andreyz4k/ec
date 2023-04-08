@@ -348,13 +348,13 @@ using solver: load_problems, enumerate_for_task
                 Dict{String,Any}(
                     "logProbability" => 0.0,
                     "expression" => "and",
-                    "is_reversible" => false,
+                    "is_reversible" => true,
                     "type" => "bool -> bool -> bool",
                 ),
                 Dict{String,Any}(
                     "logProbability" => 0.0,
                     "expression" => "or",
-                    "is_reversible" => false,
+                    "is_reversible" => true,
                     "type" => "bool -> bool -> bool",
                 ),
                 Dict{String,Any}(
