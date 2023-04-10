@@ -236,7 +236,12 @@ def basePrimitives():
         Primitive("index", arrow(tint, tlist(t0), t0), _index),
         Primitive("index2", arrow(tint, tint, tgrid(t0), t0), _index2),
         Primitive("fold", arrow(arrow(t0, t1, t1), tlist(t0), t1, t1), _fold, is_reversible=True),
-        Primitive("fold_set", arrow(arrow(t0, t1, t1), tset(t0), t1, t1), _fold, is_reversible=True),
+        # Primitive("fold_set", arrow(arrow(t0, t1, t1), tset(t0), t1, t1), _fold, is_reversible=True),
+        # TODO: this is temporary type fix to preserve reversibility of fold_set because we don't know how to
+        # detect which folder function won't depend on the insertion order of the set
+        Primitive(
+            "fold_set", arrow(arrow(t0, tset(t1), tset(t1)), tset(t0), tset(t1), tset(t1)), _fold, is_reversible=True
+        ),
         Primitive("fold_h", arrow(arrow(t0, t1, t1), tgrid(t0), tlist(t1), tlist(t1)), _fold_h, is_reversible=True),
         Primitive("fold_v", arrow(arrow(t0, t1, t1), tgrid(t0), tlist(t1), tlist(t1)), _fold_v, is_reversible=True),
         Primitive("length", arrow(tlist(t0), tint), len),

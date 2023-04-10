@@ -212,6 +212,9 @@ function reverse_fold(is_set = false)
 
                         if is_set
                             new_itr = union(itr, [filled_indices[external_vars+1]])
+                            if new_itr == itr
+                                continue
+                            end
                         else
                             new_itr = vcat(itr, [filled_indices[external_vars+1]])
                         end
@@ -262,7 +265,7 @@ end
 @define_custom_reverse_primitive(
     "fold_set",
     arrow(arrow(t0, t1, t1), tset(t0), t1, t1),
-    (op -> (itr -> (init -> foldr((v, acc) -> op(v)(acc), itr, init = init)))),
+    (op -> (itr -> (init -> reduce((acc, v) -> op(v)(acc), itr, init = init)))),
     reverse_fold(true)
 )
 

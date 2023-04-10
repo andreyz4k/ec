@@ -1369,6 +1369,109 @@ using DataStructures: OrderedDict, Accumulator
         @test run_with_arguments(p, [], Dict(UInt64(1) => [1, 4, 1, 4, 2], UInt64(2) => [])) == [1, 4, 1, 4, 2]
     end
 
+    @testset "Reverse fold_set" begin
+        skeleton = Apply(
+            Apply(
+                Apply(
+                    every_primitive["fold_set"],
+                    Abstraction(Abstraction(Apply(Apply(every_primitive["adjoin"], Index(1)), Index(0)))),
+                ),
+                Hole(tset(tint), nothing, true, nothing),
+            ),
+            Hole(tset(tint), nothing, true, nothing),
+        )
+        @test is_reversible(skeleton)
+
+        rev_p = get_reversed_program(skeleton)
+
+        @test rev_p(Set([2, 4, 1, 6, 9])) == [
+            EitherOptions(
+                Dict{UInt64,Any}(
+                    0x165848f11efe26a6 => Set(Any[9, 1]),
+                    0x1dca63b72383214d => Set(Any[6, 2]),
+                    0xb2cc5dada6d38f57 => Set(Any[2, 9]),
+                    0x2f8f2c859ba29884 => Set(Any[6, 2, 9]),
+                    0x70daccc919ec02b9 => Set(Any[6]),
+                    0xa0c9970916da706f => Set(Any[4]),
+                    0xda1fe319623f9e8b => Set(Any[6, 9]),
+                    0x79a5ddd70bf57483 => Set(Any[4, 2, 9]),
+                    0x8291d0c2f5ec5ef1 => Set(Any[6, 2, 1]),
+                    0x60b465716eb269cf => Set(Any[4, 6, 9]),
+                    0xf16d99ce639f68b1 => Set(Any[4, 2, 9, 1]),
+                    0x4d65a4180c8d755d => Set(Any[4, 9, 1]),
+                    0xc2d298e2cb49c5a2 => Set{Any}(),
+                    0x1c4e8b21d43377c7 => Set(Any[9]),
+                    0xdd298a36240a51f8 => Set(Any[2, 9, 1]),
+                    0xbc14c737e8828a8b => Set(Any[4, 2, 1]),
+                    0x7a9d92bd9032a544 => Set(Any[4, 6]),
+                    0x9c20a4a86f1ba4fd => Set(Any[1]),
+                    0x01c6d489e5283818 => Set(Any[4, 1]),
+                    0xff3bd5808f308284 => Set(Any[4, 6, 9, 1]),
+                    0x0bf9fae00f4b9d5f => Set(Any[4, 6, 2, 1]),
+                    0x5479ec353ac344d7 => Set(Any[4, 6, 1]),
+                    0x7079dbcfe172684f => Set(Any[4, 2]),
+                    0x3dcf2bed10f8152b => Set(Any[6, 1]),
+                    0xe8ab06e087cdbf97 => Set(Any[2, 1]),
+                    0x76db2010010b88bf => Set(Any[6, 2, 9, 1]),
+                    0x6879a2389d5ffded => Set(Any[4, 6, 2, 9]),
+                    0xcc7e478ec7e4dd4e => Set(Any[4, 6, 2, 9, 1]),
+                    0x4241266a96d58d62 => Set(Any[4, 6, 2]),
+                    0x9d47aa483f7d6c70 => Set(Any[2]),
+                    0xf377591f0f71ea3f => Set(Any[6, 9, 1]),
+                    0x705e4c787e636ea1 => Set(Any[4, 9]),
+                ),
+            ),
+            EitherOptions(
+                Dict{UInt64,Any}(
+                    0x165848f11efe26a6 => Set([4, 6, 2]),
+                    0x1dca63b72383214d => Set([4, 9, 1]),
+                    0xb2cc5dada6d38f57 => Set([4, 6, 1]),
+                    0x2f8f2c859ba29884 => Set([4, 1]),
+                    0x70daccc919ec02b9 => Set([4, 2, 9, 1]),
+                    0xa0c9970916da706f => Set([6, 2, 9, 1]),
+                    0xda1fe319623f9e8b => Set([4, 2, 1]),
+                    0x79a5ddd70bf57483 => Set([6, 1]),
+                    0x8291d0c2f5ec5ef1 => Set([4, 9]),
+                    0x60b465716eb269cf => Set([2, 1]),
+                    0xf16d99ce639f68b1 => Set([6]),
+                    0x4d65a4180c8d755d => Set([6, 2]),
+                    0xc2d298e2cb49c5a2 => Set([4, 6, 2, 9, 1]),
+                    0x1c4e8b21d43377c7 => Set([4, 6, 2, 1]),
+                    0xdd298a36240a51f8 => Set([4, 6]),
+                    0xbc14c737e8828a8b => Set([6, 9]),
+                    0x7a9d92bd9032a544 => Set([2, 9, 1]),
+                    0x9c20a4a86f1ba4fd => Set([4, 6, 2, 9]),
+                    0x01c6d489e5283818 => Set([6, 2, 9]),
+                    0xff3bd5808f308284 => Set([2]),
+                    0x0bf9fae00f4b9d5f => Set([9]),
+                    0x5479ec353ac344d7 => Set([2, 9]),
+                    0x7079dbcfe172684f => Set([6, 9, 1]),
+                    0x3dcf2bed10f8152b => Set([4, 2, 9]),
+                    0xe8ab06e087cdbf97 => Set([4, 6, 9]),
+                    0x76db2010010b88bf => Set([4]),
+                    0x6879a2389d5ffded => Set([1]),
+                    0xcc7e478ec7e4dd4e => Set{Int64}(),
+                    0x4241266a96d58d62 => Set([9, 1]),
+                    0x9d47aa483f7d6c70 => Set([4, 6, 9, 1]),
+                    0xf377591f0f71ea3f => Set([4, 2]),
+                    0x705e4c787e636ea1 => Set([6, 2, 1]),
+                ),
+            ),
+        ]
+        p = Apply(
+            Apply(
+                Apply(
+                    every_primitive["fold_set"],
+                    Abstraction(Abstraction(Apply(Apply(every_primitive["adjoin"], Index(1)), Index(0)))),
+                ),
+                FreeVar(tset(tint), UInt64(1)),
+            ),
+            FreeVar(tlist(tint), UInt64(2)),
+        )
+        @test run_with_arguments(p, [], Dict(UInt64(1) => Set([1, 4]), UInt64(2) => Set([2, 6, 9]))) ==
+              Set([2, 4, 1, 6, 9])
+    end
+
     @testset "Reverse fold with concat" begin
         skeleton = Apply(
             Apply(
@@ -1882,7 +1985,7 @@ using DataStructures: OrderedDict, Accumulator
         ) == Set([Set([[1, 2, 3], [1, 4, 2, 2], [3, 5, 2, 5, 2]]), Set([[2]])])
     end
 
-    @testset "Reverse rev_fold with rev_greedy_cluster" begin
+    @testset "Reverse rev_fold_set with rev_greedy_cluster" begin
         skeleton = Apply(
             Apply(
                 Apply(
