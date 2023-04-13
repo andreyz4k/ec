@@ -75,7 +75,6 @@ _is_prime(n) = in(
 
 # built-ins
 @define_primitive("if", arrow(tbool, t0, t0, t0), (c -> (t -> (f -> c ? t : f))))
-@define_primitive("+", arrow(tint, tint, tint), (a -> (b -> a + b)))
 @define_primitive("-", arrow(tint, tint, tint), (a -> (b -> a - b)))
 @define_primitive("empty", tlist(t0), [])
 @define_primitive("car", arrow(tlist(t0), t0), (l -> l[1]))
@@ -84,7 +83,6 @@ _is_prime(n) = in(
 
 [@define_primitive(string(j), tint, j) for j in 0:1]
 
-@define_primitive("*", arrow(tint, tint, tint), (a -> (b -> a * b)))
 @define_primitive("mod", arrow(tint, tint, tint), (a -> (b -> a % b)))
 @define_primitive("gt?", arrow(tint, tint, tbool), (a -> (b -> a > b)))
 @define_primitive("eq?", arrow(t0, t0, tbool), (a -> (b -> a == b)))

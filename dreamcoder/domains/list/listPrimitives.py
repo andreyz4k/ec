@@ -358,7 +358,7 @@ def bootstrapTarget():
         Primitive("length", arrow(tlist(t0), tint), len),
         # built-ins
         Primitive("if", arrow(tbool, t0, t0, t0), _if),
-        Primitive("+", arrow(tint, tint, tint), _addition),
+        Primitive("+", arrow(tint, tint, tint), _addition, is_reversible=True),
         Primitive("-", arrow(tint, tint, tint), _subtraction),
         Primitive("empty", tlist(t0), []),
         Primitive("cons", arrow(t0, tlist(t0), tlist(t0)), _cons, is_reversible=True),
@@ -371,7 +371,7 @@ def bootstrapTarget():
 def bootstrapTarget_extra():
     """This is the bootstrap target plus list domain specific stuff"""
     return bootstrapTarget() + [
-        Primitive("*", arrow(tint, tint, tint), _multiplication),
+        Primitive("*", arrow(tint, tint, tint), _multiplication, is_reversible=True),
         Primitive("mod", arrow(tint, tint, tint), _mod),
         Primitive("gt?", arrow(tint, tint, tbool), _gt),
         Primitive("eq?", arrow(t0, t0, tbool), _eq),

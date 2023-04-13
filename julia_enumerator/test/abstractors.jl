@@ -445,6 +445,56 @@ using DataStructures: OrderedDict, Accumulator
         @test rev_p((1, [2, 3])) == [1, [2, 3]]
     end
 
+    @testset "Reverse plus" begin
+        skeleton =
+            Apply(Apply(every_primitive["+"], Hole(tint, nothing, true, nothing)), Hole(tint, nothing, true, nothing))
+        @test is_reversible(skeleton)
+        rev_p = get_reversed_program(skeleton)
+        @test rev_p(3) == [
+            EitherOptions(
+                Dict{UInt64,Any}(
+                    0xa3ff7750b852938e => 0,
+                    0x2d19f1d24bfd1cd3 => 2,
+                    0x35be8731ddc2ce5a => 3,
+                    0x9c440d292a51536b => 1,
+                ),
+            ),
+            EitherOptions(
+                Dict{UInt64,Any}(
+                    0xa3ff7750b852938e => 3,
+                    0x2d19f1d24bfd1cd3 => 1,
+                    0x35be8731ddc2ce5a => 0,
+                    0x9c440d292a51536b => 2,
+                ),
+            ),
+        ]
+    end
+
+    @testset "Reverse mult" begin
+        skeleton =
+            Apply(Apply(every_primitive["*"], Hole(tint, nothing, true, nothing)), Hole(tint, nothing, true, nothing))
+        @test is_reversible(skeleton)
+        rev_p = get_reversed_program(skeleton)
+        @test rev_p(6) == [
+            EitherOptions(
+                Dict{UInt64,Any}(
+                    0x0b6e510308a5db09 => 1,
+                    0xe4af535f3b27dfe2 => 2,
+                    0xdf9b2644b0ff85f9 => 6,
+                    0x7583e8825cd10a3e => 3,
+                ),
+            ),
+            EitherOptions(
+                Dict{UInt64,Any}(
+                    0x0b6e510308a5db09 => 6,
+                    0xe4af535f3b27dfe2 => 3,
+                    0xdf9b2644b0ff85f9 => 1,
+                    0x7583e8825cd10a3e => 2,
+                ),
+            ),
+        ]
+    end
+
     @testset "Reverse combined abstractors" begin
         skeleton = Apply(
             Apply(

@@ -114,7 +114,7 @@ using solver: load_problems, enumerate_for_task
                 Dict{String,Any}(
                     "logProbability" => -0.0700928121805191,
                     "expression" => "+",
-                    "is_reversible" => false,
+                    "is_reversible" => true,
                     "type" => "int -> int -> int",
                 ),
                 Dict{String,Any}(
@@ -168,7 +168,7 @@ using solver: load_problems, enumerate_for_task
                 Dict{String,Any}(
                     "logProbability" => -0.21377874910831451,
                     "expression" => "*",
-                    "is_reversible" => false,
+                    "is_reversible" => true,
                     "type" => "int -> int -> int",
                 ),
                 Dict{String,Any}(
