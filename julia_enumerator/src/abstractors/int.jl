@@ -15,7 +15,10 @@ function reverse_plus(value)
     for i in 0:value
         push!(options, [i, value - i])
     end
-    if length(options) == 1
+    if length(options) == 0
+        # @info "No options for rev plus for value $value"
+        error("No factors")
+    elseif length(options) == 1
         return options[1]
     else
         hashed_options = Dict(hash(option) => option for option in options)
@@ -37,7 +40,10 @@ function reverse_mult(value)
             push!(options, [i, value ÷ i])
         end
     end
-    if length(options) == 1
+    if length(options) == 0
+        # @info "No options for rev mult for value $value"
+        error("No factors")
+    elseif length(options) == 1
         return options[1]
     else
         hashed_options = Dict(hash(option) => option for option in options)
