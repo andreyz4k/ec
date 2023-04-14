@@ -73,7 +73,7 @@ using solver: load_problems, enumerate_for_task
                     "logProbability" => -0.043374061584472656,
                     "expression" => "fold_set",
                     "is_reversible" => true,
-                    "type" => "(t0 -> t1 -> t1) -> set(t0) -> t1 -> t1",
+                    "type" => "(t0 -> set(t1) -> set(t1)) -> set(t0) -> set(t1) -> set(t1)",
                 ),
                 Dict{String,Any}(
                     "logProbability" => -0.05344507470726967,
@@ -571,6 +571,19 @@ using solver: load_problems, enumerate_for_task
 
     @testset "63613498.json" begin
         payload = create_arc_task("63613498.json")
+        @info payload["name"]
+        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        # verbose = true
+        # timeout = 600
+        solutions, number_enumerated =
+            @time enumerate_for_task(g, type_weights, task, maximum_frontier, timeout, verbose)
+        @test length(solutions) == 0
+        @test number_enumerated >= 1
+        @test number_enumerated < 10000
+    end
+
+    @testset "d8c310e9.json" begin
+        payload = create_arc_task("d8c310e9.json")
         @info payload["name"]
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
         # verbose = true

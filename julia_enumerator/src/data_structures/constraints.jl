@@ -166,6 +166,8 @@ function __fix_option_hashes(fixed_hashes, value::EitherOptions)
         out_options[h] = __fix_option_hashes(fixed_hashes, option)
     end
     if isempty(out_options)
+        @info value
+        @info fixed_hashes
         error("No options left after filtering")
     elseif length(out_options) == 1
         return first(out_options)[2]
@@ -251,7 +253,7 @@ function _tighten_constraint(
             old_br_entry = sc.entries[sc.branch_entries[branch_id]]
             # @info old_br_entry
             if !isa(old_br_entry, EitherEntry)
-                error("Non-either branch in either constraint")
+                error("Non-either branch $branch_id $(sc.branch_entries[branch_id]) $old_br_entry in either constraint")
             end
             new_br_entry = _fix_option_hashes(sc, fixed_hashes, old_br_entry)
             # @info new_br_entry

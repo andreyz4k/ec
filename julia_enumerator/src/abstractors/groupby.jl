@@ -47,7 +47,7 @@ function reverse_rev_groupby()
             elseif length(output_options) == 1
                 result = first(output_options)
             else
-                hashed_options = Dict(hash(option) => option for option in output_options)
+                hashed_options = Dict(rand(UInt64) => option for option in output_options)
                 result = []
                 for i in 1:2
                     push!(result, EitherOptions(Dict(h => option[i] for (h, option) in hashed_options)))

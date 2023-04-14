@@ -282,6 +282,13 @@ function try_get_reversed_values(sc::SolutionContext, p::Program, context, path,
     calculated_values = [[] for _ in 1:new_vars_count]
     for value in out_entry.values
         calculated_value = try_run_reversed_with_value(reverse_program, value, new_vars_count)
+        if length(calculated_value) != new_vars_count
+            @warn p
+            @warn new_p
+            @warn new_vars
+            @warn value
+            @warn calculated_value
+        end
         for i in 1:new_vars_count
             push!(calculated_values[i], calculated_value[i])
         end
@@ -653,7 +660,18 @@ function try_run_block_with_downstream(
     created_paths,
 )
     if sc.verbose
-        @info "Running $block_id $(sc.blocks[block_id]) with inputs $fixed_branches and output $target_output"
+        inputs = Dict(
+            var_id => (
+                fixed_branches[var_id],
+                sc.branch_entries[fixed_branches[var_id]],
+                sc.entries[sc.branch_entries[fixed_branches[var_id]]],
+            ) for var_id in sc.blocks[block_id].input_vars
+        )
+        outputs = Dict(
+            var_id => (br_id, sc.branch_entries[br_id], sc.entries[sc.branch_entries[br_id]]) for
+            (var_id, br_id) in target_output
+        )
+        @info "Running $block_id $(sc.blocks[block_id]) with inputs $inputs and output $outputs"
     end
     # @info fixed_branches
     block = sc.blocks[block_id]

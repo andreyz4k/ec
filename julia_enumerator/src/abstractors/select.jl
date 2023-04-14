@@ -89,6 +89,7 @@ function reverse_rev_select()
                     if in(selector_option, checked_options)
                         continue
                     end
+                    push!(checked_options, selector_option)
                     results_base = Array{Any}(undef, size(value)...)
                     results_others = Array{Any}(undef, size(value)...)
                     for j in 1:length(value)
@@ -100,7 +101,7 @@ function reverse_rev_select()
                             results_others[j] = value[j]
                         end
                     end
-                    option_hash = hash((selector_option, results_base, results_others))
+                    option_hash = rand(UInt64)
                     options_selector[option_hash] = selector_option
                     options_base[option_hash] = results_base
                     options_others[option_hash] = results_others
@@ -189,6 +190,7 @@ function reverse_rev_select_set()
                     if in(selector_option, checked_options)
                         continue
                     end
+                    push!(checked_options, selector_option)
                     results_base = Set()
                     results_others = Set()
                     for v in value
@@ -199,7 +201,7 @@ function reverse_rev_select_set()
                         end
                     end
 
-                    option_hash = hash((selector_option, results_base, results_others))
+                    option_hash = rand(UInt64)
                     options_selector[option_hash] = selector_option
                     options_base[option_hash] = results_base
                     options_others[option_hash] = results_others

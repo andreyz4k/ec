@@ -129,7 +129,7 @@ function reverse_map(n, is_set = false)
             if length(output_options) == 1
                 result = first(output_options)
             else
-                hashed_options = Dict(hash(option) => option for option in output_options)
+                hashed_options = Dict(rand(UInt64) => option for option in output_options)
                 result = []
                 for i in 1:(external_vars+n)
                     push!(result, EitherOptions(Dict(h => option[i] for (h, option) in hashed_options)))

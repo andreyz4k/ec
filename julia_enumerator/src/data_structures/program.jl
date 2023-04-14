@@ -112,6 +112,7 @@ Base.:(==)(p::WrapEither, q::WrapEither) =
 struct ExceptionProgram <: Program end
 
 Base.show(io::IO, p::Program) = print(io, show_program(p, false)...)
+Base.print(io::IO, p::Program) = print(io, show_program(p, false)...)
 
 show_program(p::Index, is_function::Bool) = ["\$", p.n]
 show_program(p::Abstraction, is_function::Bool) = vcat(["(lambda "], show_program(p.b, false), [")"])

@@ -6,7 +6,7 @@ function reverse_and(value)
         return [true, true]
     else
         output_options = [[false, true], [true, false], [false, false]]
-        hashed_options = Dict(hash(option) => option for option in output_options)
+        hashed_options = Dict(rand(UInt64) => option for option in output_options)
         result = []
         for i in 1:2
             push!(result, EitherOptions(Dict(h => option[i] for (h, option) in hashed_options)))
@@ -20,7 +20,7 @@ end
 function reverse_or(value)
     if value
         output_options = [[false, true], [true, false], [true, true]]
-        hashed_options = Dict(hash(option) => option for option in output_options)
+        hashed_options = Dict(rand(UInt64) => option for option in output_options)
         result = []
         for i in 1:2
             push!(result, EitherOptions(Dict(h => option[i] for (h, option) in hashed_options)))

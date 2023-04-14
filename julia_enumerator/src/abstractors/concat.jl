@@ -4,7 +4,7 @@ function reverse_concat(value)::Vector{Any}
     options_t = Dict()
     for i in range(0, length(value))
         h, t = value[1:i], value[i+1:end]
-        option_hash = hash((h, t))
+        option_hash = rand(UInt64)
         options_h[option_hash] = h
         options_t[option_hash] = t
     end

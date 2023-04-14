@@ -4,7 +4,7 @@ function reverse_abs(value)
     elseif value < 0
         error("Negative absolute value")
     else
-        return [EitherOptions(Dict(hash(value) => value, hash(-value) => -value))]
+        return [EitherOptions(Dict(rand(UInt64) => value, rand(UInt64) => -value))]
     end
 end
 
@@ -21,7 +21,7 @@ function reverse_plus(value)
     elseif length(options) == 1
         return options[1]
     else
-        hashed_options = Dict(hash(option) => option for option in options)
+        hashed_options = Dict(rand(UInt64) => option for option in options)
         result = []
         for i in 1:2
             push!(result, EitherOptions(Dict(h => option[i] for (h, option) in hashed_options)))
@@ -46,7 +46,7 @@ function reverse_mult(value)
     elseif length(options) == 1
         return options[1]
     else
-        hashed_options = Dict(hash(option) => option for option in options)
+        hashed_options = Dict(rand(UInt64) => option for option in options)
         result = []
         for i in 1:2
             push!(result, EitherOptions(Dict(h => option[i] for (h, option) in hashed_options)))

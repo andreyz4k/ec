@@ -6,7 +6,7 @@ function reverse_adjoin(value)::Vector{Any}
     options = Dict()
     for v in value
         option = [v, setdiff(value, [v])]
-        options[hash(option)] = option
+        options[rand(UInt64)] = option
     end
     if length(options) == 1
         result = first(options)[2]
