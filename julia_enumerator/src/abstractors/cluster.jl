@@ -13,12 +13,7 @@ function rev_greedy_cluster(f, item, groups)
     return result
 end
 
-_is_possible_key_extractor(p::Primitive, from_input, skeleton, path) = true
-_is_possible_key_extractor(p::Invented, from_input, skeleton, path) = true
-_is_possible_key_extractor(p::Index, from_input, skeleton, path) = true
-_is_possible_key_extractor(p::FreeVar, from_input, skeleton, path) = false
-
-function reverse_rev_greedy_clusterr()
+function reverse_rev_greedy_cluster()
     function _reverse_rev_greedy_cluster(arguments)
         f = pop!(arguments)
         grouper = f([], Dict())
@@ -71,5 +66,5 @@ end
     "rev_greedy_cluster",
     arrow(arrow(t0, tset(t0), tbool), t0, tset(tset(t0)), tset(tset(t0))),
     (f -> (item -> (grs -> rev_greedy_cluster(f, item, grs)))),
-    reverse_rev_greedy_clusterr()
+    reverse_rev_greedy_cluster()
 )

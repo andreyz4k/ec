@@ -1656,7 +1656,6 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse fold with plus" begin
-        # (fold (lambda (lambda (+ $0 (+ FREE_VAR(int) $1)))) ??(list(t0)) ??(int))
         skeleton = Apply(
             Apply(
                 Apply(
@@ -1683,7 +1682,7 @@ using DataStructures: OrderedDict, Accumulator
             [
                 EitherOptions(Dict{UInt64,Any}(0x773c1e4c28bdfafa => 1, 0xb27bc4ce59cd56e0 => 0)),
                 EitherOptions(Dict{UInt64,Any}(0x773c1e4c28bdfafa => Any[0], 0xb27bc4ce59cd56e0 => Any[1])),
-                EitherOptions(Dict{UInt64,Any}(0x773c1e4c28bdfafa => 0, 0xb27bc4ce59cd56e0 => 0)),
+                0,
             ],
         )
 

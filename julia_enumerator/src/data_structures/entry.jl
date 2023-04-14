@@ -110,6 +110,13 @@ end
 
 struct EitherOptions
     options::Dict{UInt64,Any}
+    function EitherOptions(options)
+        first_value = first(values(options))
+        if all(v -> v == first_value, values(options))
+            return first_value
+        end
+        return new(options)
+    end
 end
 
 Base.:(==)(v1::EitherOptions, v2::EitherOptions) = v1.options == v2.options

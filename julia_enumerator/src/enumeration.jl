@@ -396,6 +396,8 @@ function create_wrapping_block(
     output_vars,
     var_id::UInt64,
     branch_id::UInt64,
+    either_var_ids,
+    either_branch_ids,
 )
     unknown_type_id = [t_id for (v_id, _, t_id) in output_vars if v_id == var_id][1]
     new_var = create_next_var(sc)
@@ -411,10 +413,8 @@ function create_wrapping_block(
     new_constraint_id = increment!(sc.constraints_count)
     sc.constrained_branches[new_branch_id, new_constraint_id] = new_var
     sc.constrained_vars[new_var, new_constraint_id] = new_branch_id
-    out_var_ids = [v_id for (v_id, _, _) in output_vars]
-    out_branch_ids = [b_id for (_, b_id, _) in output_vars]
-    sc.constrained_branches[out_branch_ids, new_constraint_id] = out_var_ids
-    sc.constrained_vars[out_var_ids, new_constraint_id] = out_branch_ids
+    sc.constrained_branches[either_branch_ids, new_constraint_id] = either_var_ids
+    sc.constrained_vars[either_var_ids, new_constraint_id] = either_branch_ids
 
     sc.unknown_min_path_costs[new_branch_id] = sc.explained_min_path_costs[branch_id]
     sc.unknown_complexity_factors[new_branch_id] = sc.explained_complexity_factors[branch_id]
@@ -444,7 +444,18 @@ function create_reversed_block(sc::SolutionContext, p::Program, context, path, i
         for (var_id, branch_id) in zip(either_var_ids, either_branch_ids)
             push!(
                 results,
-                create_wrapping_block(sc, block, cost, input_var[1], input_var[2], output_vars, var_id, branch_id),
+                create_wrapping_block(
+                    sc,
+                    block,
+                    cost,
+                    input_var[1],
+                    input_var[2],
+                    output_vars,
+                    var_id,
+                    branch_id,
+                    either_var_ids,
+                    either_branch_ids,
+                ),
             )
         end
         return results
