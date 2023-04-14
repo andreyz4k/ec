@@ -100,7 +100,7 @@ end
     reverse_rev_fold()
 )
 
-function unfold_options(options)
+function unfold_options(options::Dict)
     if all(x -> !isa(x, EitherOptions), values(options))
         return [options]
     end

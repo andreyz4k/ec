@@ -294,8 +294,8 @@ def primitives():
         Primitive("or", arrow(tbool, tbool, tbool), _or),
         # Primitive("if", arrow(tbool, t0, t0, t0), _if),
         Primitive("sort", arrow(tlist(tint), tlist(tint)), sorted),
-        Primitive("+", arrow(tint, tint, tint), _addition),
-        Primitive("*", arrow(tint, tint, tint), _multiplication),
+        Primitive("+", arrow(tint, tint, tint), _addition, is_reversible=True),
+        Primitive("*", arrow(tint, tint, tint), _multiplication, is_reversible=True),
         Primitive("negate", arrow(tint, tint), _negate),
         Primitive("mod", arrow(tint, tint, tint), _mod),
         Primitive("eq?", arrow(t0, t0, tbool), _eq),
@@ -307,7 +307,7 @@ def primitives():
         # (lambda (reduce (lambda (lambda (++ $1 $0))) empty $0))
         Primitive("sum", arrow(tlist(tint), tint), sum),
         # (lambda (lambda (reduce (lambda (lambda (+ $0 $1))) 0 $0)))
-        Primitive("reverse", arrow(tlist(t0), tlist(t0)), _reverse),
+        Primitive("reverse", arrow(tlist(t0), tlist(t0)), _reverse, is_reversible=True),
         # (lambda (reduce (lambda (lambda (++ (singleton $0) $1))) empty $0))
         Primitive("all", arrow(arrow(t0, tbool), tlist(t0), tbool), _all),
         # (lambda (lambda (reduce (lambda (lambda (and $0 $1))) true (map $1 $0))))
@@ -326,7 +326,7 @@ def primitives():
 
 def basePrimitives():
     return [Primitive(str(j), tint, j) for j in range(6)] + [
-        Primitive("*", arrow(tint, tint, tint), _multiplication),
+        Primitive("*", arrow(tint, tint, tint), _multiplication, is_reversible=True),
         Primitive("gt?", arrow(tint, tint, tbool), _gt),
         Primitive("is-prime", arrow(tint, tbool), _isPrime),
         Primitive("is-square", arrow(tint, tbool), _isSquare),
@@ -338,7 +338,7 @@ def basePrimitives():
         Primitive("empty?", arrow(tlist(t0), tbool), _isEmpty),
         Primitive("if", arrow(tbool, t0, t0, t0), _if),
         Primitive("eq?", arrow(t0, t0, tbool), _eq),
-        Primitive("+", arrow(tint, tint, tint), _addition),
+        Primitive("+", arrow(tint, tint, tint), _addition, is_reversible=True),
         Primitive("-", arrow(tint, tint, tint), _subtraction),
     ]
 
@@ -390,7 +390,7 @@ def julia():
 def no_length():
     """this is the primitives without length because one of the reviewers wanted this"""
     return [p for p in bootstrapTarget() if p.name != "length"] + [
-        Primitive("*", arrow(tint, tint, tint), _multiplication),
+        Primitive("*", arrow(tint, tint, tint), _multiplication, is_reversible=True),
         Primitive("mod", arrow(tint, tint, tint), _mod),
         Primitive("gt?", arrow(tint, tint, tbool), _gt),
         Primitive("eq?", arrow(t0, t0, tbool), _eq),
@@ -418,7 +418,7 @@ def McCarthyPrimitives():
         Primitive("gt?", arrow(tint, tint, tbool), _gt),
         Primitive("if", arrow(tbool, t0, t0, t0), _if),
         Primitive("eq?", arrow(t0, t0, tbool), _eq),
-        Primitive("+", arrow(tint, tint, tint), _addition),
+        Primitive("+", arrow(tint, tint, tint), _addition, is_reversible=True),
         Primitive("-", arrow(tint, tint, tint), _subtraction),
     ] + [Primitive(str(j), tint, j) for j in range(2)]
 

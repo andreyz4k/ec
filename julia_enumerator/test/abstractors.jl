@@ -33,60 +33,16 @@ using solver:
     Tp,
     ttuple2,
     ttuple3,
-    tset
+    tset,
+    unfold_options
 using DataStructures: OrderedDict, Accumulator
 
 @testset "Abstractors" begin
-    function compare_option(option::EitherOptions, expected::EitherOptions, hash_mapping)
-        if length(option.options) != length(expected.options)
-            return false
-        end
-        for (h, op) in option.options
-            if haskey(hash_mapping, h)
-                if !compare_option(op, expected.options[hash_mapping[h]], hash_mapping)
-                    return false
-                end
-            else
-                found = false
-                fixed_hashes = Set(keys(hash_mapping))
-                for (h2, op2) in expected.options
-                    if compare_option(op, op2, hash_mapping)
-                        hash_mapping[h] = h2
-                        found = true
-                        break
-                    else
-                        for h3 in keys(hash_mapping)
-                            if !in(h3, fixed_hashes)
-                                delete!(hash_mapping, h3)
-                            end
-                        end
-                    end
-                end
-                if !found
-                    return false
-                end
-            end
-        end
-        return true
-    end
-
-    function compare_option(option, expected, hash_mapping)
-        return option == expected
-    end
-
     function compare_options(options, expected)
-        if length(options) != length(expected)
+        if Set(unfold_options(options)) != Set(unfold_options(expected))
             @error options
             @error expected
             return false
-        end
-        hash_mapping = Dict()
-        for (i, option) in enumerate(options)
-            if !compare_option(option, expected[i], hash_mapping)
-                @error options
-                @error expected
-                return false
-            end
         end
         return true
     end
@@ -494,11 +450,7 @@ using DataStructures: OrderedDict, Accumulator
         )
 
         p = Apply(Apply(every_primitive["adjoin"], FreeVar(tint, UInt64(1))), FreeVar(tset(tint), UInt64(2)))
-        @test compare_option(
-            run_with_arguments(p, [], Dict(UInt64(1) => 1, UInt64(2) => Set([3, 2]))),
-            Set([1, 2, 3]),
-            Dict(),
-        )
+        @test run_with_arguments(p, [], Dict(UInt64(1) => 1, UInt64(2) => Set([3, 2]))) == Set([1, 2, 3])
     end
 
     @testset "Reverse tuple2" begin
@@ -698,11 +650,8 @@ using DataStructures: OrderedDict, Accumulator
                 ),
                 FreeVar(tlist(tint), UInt64(2)),
             )
-            @test compare_option(
-                run_with_arguments(p, [], Dict(UInt64(1) => [1, 2, 4], UInt64(2) => [3, 2, 1])),
-                [[1, 1, 1], [2, 2], [4]],
-                Dict(),
-            )
+            @test run_with_arguments(p, [], Dict(UInt64(1) => [1, 2, 4], UInt64(2) => [3, 2, 1])) ==
+                  [[1, 1, 1], [2, 2], [4]]
         end
 
         @testset "repeat indices 0 1" begin
@@ -732,11 +681,8 @@ using DataStructures: OrderedDict, Accumulator
                 ),
                 FreeVar(tlist(tint), UInt64(2)),
             )
-            @test compare_option(
-                run_with_arguments(p, [], Dict(UInt64(2) => [1, 2, 4], UInt64(1) => [3, 2, 1])),
-                [[1, 1, 1], [2, 2], [4]],
-                Dict(),
-            )
+            @test run_with_arguments(p, [], Dict(UInt64(2) => [1, 2, 4], UInt64(1) => [3, 2, 1])) ==
+                  [[1, 1, 1], [2, 2], [4]]
         end
 
         @testset "cons indices 1 0" begin
@@ -765,11 +711,8 @@ using DataStructures: OrderedDict, Accumulator
                 ),
                 FreeVar(tlist(tlist(tint)), UInt64(2)),
             )
-            @test compare_option(
-                run_with_arguments(p, [], Dict(UInt64(2) => [[1, 1], [2], []], UInt64(1) => [1, 2, 4])),
-                [[1, 1, 1], [2, 2], [4]],
-                Dict(),
-            )
+            @test run_with_arguments(p, [], Dict(UInt64(2) => [[1, 1], [2], []], UInt64(1) => [1, 2, 4])) ==
+                  [[1, 1, 1], [2, 2], [4]]
         end
 
         @testset "cons indices 0 1" begin
@@ -798,11 +741,8 @@ using DataStructures: OrderedDict, Accumulator
                 ),
                 FreeVar(tlist(tint), UInt64(2)),
             )
-            @test compare_option(
-                run_with_arguments(p, [], Dict(UInt64(1) => [[1, 1], [2], []], UInt64(2) => [1, 2, 4])),
-                [[1, 1, 1], [2, 2], [4]],
-                Dict(),
-            )
+            @test run_with_arguments(p, [], Dict(UInt64(1) => [[1, 1], [2], []], UInt64(2) => [1, 2, 4])) ==
+                  [[1, 1, 1], [2, 2], [4]]
         end
     end
 
@@ -865,11 +805,11 @@ using DataStructures: OrderedDict, Accumulator
             ),
             FreeVar(tlist(tlist(tint)), UInt64(2)),
         )
-        @test compare_option(
-            run_with_arguments(p, [], Dict(UInt64(1) => [[1, 2, 4], [3, 2, 8]], UInt64(2) => [[3, 2, 1], [4, 3, 3]])),
-            [[[1, 1, 1], [2, 2], [4]], [[3, 3, 3, 3], [2, 2, 2], [8, 8, 8]]],
-            Dict(),
-        )
+        @test run_with_arguments(
+            p,
+            [],
+            Dict(UInt64(1) => [[1, 2, 4], [3, 2, 8]], UInt64(2) => [[3, 2, 1], [4, 3, 3]]),
+        ) == [[[1, 1, 1], [2, 2], [4]], [[3, 3, 3, 3], [2, 2, 2], [8, 8, 8]]]
     end
 
     @testset "Reverse range" begin
@@ -936,11 +876,7 @@ using DataStructures: OrderedDict, Accumulator
             Apply(every_primitive["map"], Abstraction(Apply(Apply(every_primitive["repeat"], Index(0)), Index(0)))),
             FreeVar(tlist(tint), UInt64(1)),
         )
-        @test compare_option(
-            run_with_arguments(p, [], Dict(UInt64(1) => [1, 2, 4])),
-            [[1], [2, 2], [4, 4, 4, 4]],
-            Dict(),
-        )
+        @test run_with_arguments(p, [], Dict(UInt64(1) => [1, 2, 4])) == [[1], [2, 2], [4, 4, 4, 4]]
     end
 
     @testset "Reverse map set with tuple" begin
@@ -964,11 +900,8 @@ using DataStructures: OrderedDict, Accumulator
             ),
             FreeVar(tset(tint), UInt64(2)),
         )
-        @test compare_option(
-            run_with_arguments(p, [], Dict(UInt64(1) => 2, UInt64(2) => Set([3, 1, 6]))),
-            Set([(3, 2), (1, 2), (6, 2)]),
-            Dict(),
-        )
+        @test run_with_arguments(p, [], Dict(UInt64(1) => 2, UInt64(2) => Set([3, 1, 6]))) ==
+              Set([(3, 2), (1, 2), (6, 2)])
     end
 
     @testset "Reverse map2 with either options" begin
@@ -1172,6 +1105,126 @@ using DataStructures: OrderedDict, Accumulator
                 ),
             ],
         )
+    end
+
+    @testset "Reverse map2 with plus plus" begin
+        skeleton = Apply(
+            Apply(
+                Apply(
+                    every_primitive["map2"],
+                    Abstraction(
+                        Abstraction(
+                            Apply(
+                                Apply(every_primitive["+"], Index(0)),
+                                Apply(Apply(every_primitive["+"], FreeVar(tint, nothing)), Index(1)),
+                            ),
+                        ),
+                    ),
+                ),
+                Hole(tlist(t0), nothing, true, nothing),
+            ),
+            Hole(tlist(tint), nothing, true, nothing),
+        )
+        @test is_reversible(skeleton)
+
+        rev_p = get_reversed_program(skeleton)
+
+        @test compare_options(
+            rev_p([3, 2]),
+            [
+                EitherOptions(
+                    Dict{UInt64,Any}(
+                        0x334aa007923b403c => 1,
+                        0x9f9efa82d33dd1f7 => 2,
+                        0x08c401c9ecd35596 => 1,
+                        0x7c456bbaab0063d6 => 0,
+                        0x6ad63e4e17218a1f => 0,
+                        0x1c84a3ebf325293b => 0,
+                        0xe4b9f59b366988c7 => 0,
+                        0x1ca5821634d6f4a6 => 0,
+                        0xd35f1ba5ec5803da => 0,
+                        0xefc7e919197ed1f8 => 0,
+                        0x634c26c404f30bc5 => 1,
+                        0xf6ab6a0e55e016b7 => 1,
+                        0x84ea1493f9094e6f => 0,
+                        0x40dcd176e2b5aa61 => 0,
+                        0x118dad1c0a066dde => 0,
+                        0x888f444f22846dcc => 0,
+                        0x7531ab368e8c2c5e => 1,
+                        0x58f954c61f5c8cfb => 1,
+                        0x91e35de03a993c6c => 0,
+                        0x5c256c5d2d2f3407 => 2,
+                    ),
+                ),
+                EitherOptions(
+                    Dict{UInt64,Any}(
+                        0x334aa007923b403c => Any[2, 1],
+                        0x9f9efa82d33dd1f7 => Any[1, 0],
+                        0x08c401c9ecd35596 => Any[1, 0],
+                        0x7c456bbaab0063d6 => Any[0, 2],
+                        0x6ad63e4e17218a1f => Any[2, 2],
+                        0x1c84a3ebf325293b => Any[1, 0],
+                        0xe4b9f59b366988c7 => Any[1, 1],
+                        0x1ca5821634d6f4a6 => Any[0, 1],
+                        0xd35f1ba5ec5803da => Any[3, 1],
+                        0xefc7e919197ed1f8 => Any[3, 2],
+                        0x634c26c404f30bc5 => Any[2, 0],
+                        0xf6ab6a0e55e016b7 => Any[1, 1],
+                        0x84ea1493f9094e6f => Any[1, 2],
+                        0x40dcd176e2b5aa61 => Any[2, 0],
+                        0x118dad1c0a066dde => Any[0, 0],
+                        0x888f444f22846dcc => Any[3, 0],
+                        0x7531ab368e8c2c5e => Any[0, 1],
+                        0x58f954c61f5c8cfb => Any[0, 0],
+                        0x91e35de03a993c6c => Any[2, 1],
+                        0x5c256c5d2d2f3407 => Any[0, 0],
+                    ),
+                ),
+                EitherOptions(
+                    Dict{UInt64,Any}(
+                        0x334aa007923b403c => Any[0, 0],
+                        0x9f9efa82d33dd1f7 => Any[0, 0],
+                        0x08c401c9ecd35596 => Any[1, 1],
+                        0x7c456bbaab0063d6 => Any[3, 0],
+                        0x6ad63e4e17218a1f => Any[1, 0],
+                        0x1c84a3ebf325293b => Any[2, 2],
+                        0xe4b9f59b366988c7 => Any[2, 1],
+                        0x1ca5821634d6f4a6 => Any[3, 1],
+                        0xd35f1ba5ec5803da => Any[0, 1],
+                        0xefc7e919197ed1f8 => Any[0, 0],
+                        0x634c26c404f30bc5 => Any[0, 1],
+                        0xf6ab6a0e55e016b7 => Any[1, 0],
+                        0x84ea1493f9094e6f => Any[2, 0],
+                        0x40dcd176e2b5aa61 => Any[1, 2],
+                        0x118dad1c0a066dde => Any[3, 2],
+                        0x888f444f22846dcc => Any[0, 2],
+                        0x7531ab368e8c2c5e => Any[2, 0],
+                        0x58f954c61f5c8cfb => Any[2, 1],
+                        0x91e35de03a993c6c => Any[1, 1],
+                        0x5c256c5d2d2f3407 => Any[1, 0],
+                    ),
+                ),
+            ],
+        )
+
+        p = Apply(
+            Apply(
+                Apply(
+                    every_primitive["map2"],
+                    Abstraction(
+                        Abstraction(
+                            Apply(
+                                Apply(every_primitive["+"], Index(0)),
+                                Apply(Apply(every_primitive["+"], FreeVar(tint, UInt64(3))), Index(1)),
+                            ),
+                        ),
+                    ),
+                ),
+                FreeVar(tlist(tint), UInt64(1)),
+            ),
+            FreeVar(tlist(tint), UInt64(2)),
+        )
+        @test run_with_arguments(p, [], Dict(UInt64(1) => [2, 0], UInt64(2) => [0, 1], UInt64(3) => 1)) == [3, 2]
     end
 
     @testset "Reverse rows with either" begin
@@ -1439,21 +1492,9 @@ using DataStructures: OrderedDict, Accumulator
             Apply(every_primitive["rev_list_elements"], FreeVar(tlist(ttuple2(tint, tint)), UInt64(1))),
             FreeVar(tint, UInt64(2)),
         )
-        @test compare_option(
-            run_with_arguments(p, [], Dict(UInt64(1) => [(1, 3), (2, 2), (3, 1)], UInt64(2) => 3)),
-            [3, 2, 1],
-            Dict(),
-        )
-        @test compare_option(
-            run_with_arguments(p, [], Dict(UInt64(1) => [(1, 3), (3, 1)], UInt64(2) => 3)),
-            [3, nothing, 1],
-            Dict(),
-        )
-        @test compare_option(
-            run_with_arguments(p, [], Dict(UInt64(1) => [(1, 3), (2, 2)], UInt64(2) => 3)),
-            [3, 2, nothing],
-            Dict(),
-        )
+        @test run_with_arguments(p, [], Dict(UInt64(1) => [(1, 3), (2, 2), (3, 1)], UInt64(2) => 3)) == [3, 2, 1]
+        @test run_with_arguments(p, [], Dict(UInt64(1) => [(1, 3), (3, 1)], UInt64(2) => 3)) == [3, nothing, 1]
+        @test run_with_arguments(p, [], Dict(UInt64(1) => [(1, 3), (2, 2)], UInt64(2) => 3)) == [3, 2, nothing]
     end
 
     @testset "Reverse grid elements" begin
@@ -1493,41 +1534,29 @@ using DataStructures: OrderedDict, Accumulator
             ),
             FreeVar(tint, UInt64(3)),
         )
-        @test compare_option(
-            run_with_arguments(
-                p,
-                [],
-                Dict(
-                    UInt64(1) => [((1, 1), 3), ((1, 2), 4), ((2, 1), 2), ((2, 2), 5), ((3, 1), 1), ((3, 2), 6)],
-                    UInt64(2) => 3,
-                    UInt64(3) => 2,
-                ),
+        @test run_with_arguments(
+            p,
+            [],
+            Dict(
+                UInt64(1) => [((1, 1), 3), ((1, 2), 4), ((2, 1), 2), ((2, 2), 5), ((3, 1), 1), ((3, 2), 6)],
+                UInt64(2) => 3,
+                UInt64(3) => 2,
             ),
-            [[3, 2, 1] [4, 5, 6]],
-            Dict(),
-        )
-        @test compare_option(
-            run_with_arguments(
-                p,
-                [],
-                Dict(
-                    UInt64(1) => [((1, 1), 3), ((1, 2), 4), ((2, 2), 5), ((3, 1), 1), ((3, 2), 6)],
-                    UInt64(2) => 3,
-                    UInt64(3) => 2,
-                ),
+        ) == [[3, 2, 1] [4, 5, 6]]
+        @test run_with_arguments(
+            p,
+            [],
+            Dict(
+                UInt64(1) => [((1, 1), 3), ((1, 2), 4), ((2, 2), 5), ((3, 1), 1), ((3, 2), 6)],
+                UInt64(2) => 3,
+                UInt64(3) => 2,
             ),
-            [[3, nothing, 1] [4, 5, 6]],
-            Dict(),
-        )
-        @test compare_option(
-            run_with_arguments(
-                p,
-                [],
-                Dict(UInt64(1) => [((1, 1), 3), ((2, 1), 2), ((3, 1), 1)], UInt64(2) => 3, UInt64(3) => 2),
-            ),
-            [[3, 2, 1] [nothing, nothing, nothing]],
-            Dict(),
-        )
+        ) == [[3, nothing, 1] [4, 5, 6]]
+        @test run_with_arguments(
+            p,
+            [],
+            Dict(UInt64(1) => [((1, 1), 3), ((2, 1), 2), ((3, 1), 1)], UInt64(2) => 3, UInt64(3) => 2),
+        ) == [[3, 2, 1] [nothing, nothing, nothing]]
     end
 
     @testset "Reverse zip2" begin
@@ -1540,11 +1569,8 @@ using DataStructures: OrderedDict, Accumulator
 
         @test compare_options(rev_p([(1, 3), (2, 2), (3, 1)]), [[1, 2, 3], [3, 2, 1]])
         p = Apply(Apply(every_primitive["zip2"], FreeVar(tlist(tint), UInt64(1))), FreeVar(tlist(tcolor), UInt64(2)))
-        @test compare_option(
-            run_with_arguments(p, [], Dict(UInt64(1) => [1, 2, 3], UInt64(2) => [3, 2, 1])),
-            [(1, 3), (2, 2), (3, 1)],
-            Dict(),
-        )
+        @test run_with_arguments(p, [], Dict(UInt64(1) => [1, 2, 3], UInt64(2) => [3, 2, 1])) ==
+              [(1, 3), (2, 2), (3, 1)]
     end
 
     @testset "Reverse zip_grid2" begin
@@ -1560,11 +1586,8 @@ using DataStructures: OrderedDict, Accumulator
             [[[1, 2, 3] [4, 9, 2]], [[3, 2, 1] [5, 2, 5]]],
         )
         p = Apply(Apply(every_primitive["zip2"], FreeVar(tgrid(tint), UInt64(1))), FreeVar(tgrid(tcolor), UInt64(2)))
-        @test compare_option(
-            run_with_arguments(p, [], Dict(UInt64(1) => [[1, 2, 3] [4, 9, 2]], UInt64(2) => [[3, 2, 1] [5, 2, 5]])),
-            [[(1, 3), (2, 2), (3, 1)] [(4, 5), (9, 2), (2, 5)]],
-            Dict(),
-        )
+        @test run_with_arguments(p, [], Dict(UInt64(1) => [[1, 2, 3] [4, 9, 2]], UInt64(2) => [[3, 2, 1] [5, 2, 5]])) ==
+              [[(1, 3), (2, 2), (3, 1)] [(4, 5), (9, 2), (2, 5)]]
     end
 
     @testset "Reverse rev_fold" begin
@@ -1594,7 +1617,7 @@ using DataStructures: OrderedDict, Accumulator
             ),
             FreeVar(tlist(tint), UInt64(1)),
         )
-        @test compare_option(run_with_arguments(p, [], Dict(UInt64(1) => [1, 4, 1, 4, 2])), [2, 4, 1, 4, 1], Dict())
+        @test run_with_arguments(p, [], Dict(UInt64(1) => [1, 4, 1, 4, 2])) == [2, 4, 1, 4, 1]
     end
 
     @testset "Reverse fold" begin
@@ -1648,11 +1671,7 @@ using DataStructures: OrderedDict, Accumulator
             ),
             FreeVar(tlist(tint), UInt64(2)),
         )
-        @test compare_option(
-            run_with_arguments(p, [], Dict(UInt64(1) => [1, 4, 1, 4, 2], UInt64(2) => [])),
-            [1, 4, 1, 4, 2],
-            Dict(),
-        )
+        @test run_with_arguments(p, [], Dict(UInt64(1) => [1, 4, 1, 4, 2], UInt64(2) => [])) == [1, 4, 1, 4, 2]
     end
 
     @testset "Reverse fold with plus" begin
@@ -1703,11 +1722,7 @@ using DataStructures: OrderedDict, Accumulator
             ),
             FreeVar(tint, UInt64(2)),
         )
-        @test compare_option(
-            run_with_arguments(p, [], Dict(UInt64(1) => [1], UInt64(2) => 0, UInt64(3) => 0)),
-            1,
-            Dict(),
-        )
+        @test run_with_arguments(p, [], Dict(UInt64(1) => [1], UInt64(2) => 0, UInt64(3) => 0)) == 1
     end
 
     @testset "Reverse fold_set" begin
@@ -1812,11 +1827,8 @@ using DataStructures: OrderedDict, Accumulator
             ),
             FreeVar(tlist(tint), UInt64(2)),
         )
-        @test compare_option(
-            run_with_arguments(p, [], Dict(UInt64(1) => Set([1, 4]), UInt64(2) => Set([2, 6, 9]))),
-            Set([2, 4, 1, 6, 9]),
-            Dict(),
-        )
+        @test run_with_arguments(p, [], Dict(UInt64(1) => Set([1, 4]), UInt64(2) => Set([2, 6, 9]))) ==
+              Set([2, 4, 1, 6, 9])
     end
 
     @testset "Reverse fold with concat" begin
@@ -1922,11 +1934,8 @@ using DataStructures: OrderedDict, Accumulator
             ),
             FreeVar(tlist(tint), UInt64(2)),
         )
-        @test compare_option(
-            run_with_arguments(p, [], Dict(UInt64(1) => [[1, 4, 1, 4, 2], [3, 5, 2, 5]], UInt64(2) => [])),
-            [1, 4, 1, 4, 2, 3, 5, 2, 5],
-            Dict(),
-        )
+        @test run_with_arguments(p, [], Dict(UInt64(1) => [[1, 4, 1, 4, 2], [3, 5, 2, 5]], UInt64(2) => [])) ==
+              [1, 4, 1, 4, 2, 3, 5, 2, 5]
     end
 
     @testset "Reverse fold_h" begin
@@ -1976,15 +1985,11 @@ using DataStructures: OrderedDict, Accumulator
             ),
             FreeVar(tlist(tlist(tint)), UInt64(2)),
         )
-        @test compare_option(
-            run_with_arguments(
-                p,
-                [],
-                Dict(UInt64(1) => [[1, 4, 1, 4, 2] [3, 6, 1, 5, 2] [9, 1, 4, 0, 4]], UInt64(2) => [[], [], [], [], []]),
-            ),
-            [[1, 3, 9], [4, 6, 1], [1, 1, 4], [4, 5, 0], [2, 2, 4]],
-            Dict(),
-        )
+        @test run_with_arguments(
+            p,
+            [],
+            Dict(UInt64(1) => [[1, 4, 1, 4, 2] [3, 6, 1, 5, 2] [9, 1, 4, 0, 4]], UInt64(2) => [[], [], [], [], []]),
+        ) == [[1, 3, 9], [4, 6, 1], [1, 1, 4], [4, 5, 0], [2, 2, 4]]
     end
 
     @testset "Reverse fold_v" begin
@@ -2039,15 +2044,11 @@ using DataStructures: OrderedDict, Accumulator
             FreeVar(tlist(tlist(tint)), UInt64(2)),
         )
 
-        @test compare_option(
-            run_with_arguments(
-                p,
-                [],
-                Dict(UInt64(1) => [[1, 4, 1, 4, 2] [3, 6, 1, 5, 2] [9, 1, 4, 0, 4]], UInt64(2) => [[], [], []]),
-            ),
-            [[1, 4, 1, 4, 2], [3, 6, 1, 5, 2], [9, 1, 4, 0, 4]],
-            Dict(),
-        )
+        @test run_with_arguments(
+            p,
+            [],
+            Dict(UInt64(1) => [[1, 4, 1, 4, 2] [3, 6, 1, 5, 2] [9, 1, 4, 0, 4]], UInt64(2) => [[], [], []]),
+        ) == [[1, 4, 1, 4, 2], [3, 6, 1, 5, 2], [9, 1, 4, 0, 4]]
     end
 
     @testset "Reverse rev_groupby" begin
@@ -2089,20 +2090,13 @@ using DataStructures: OrderedDict, Accumulator
             ),
             FreeVar(tset(ttuple2(tint, tset(tlist(tint)))), UInt64(2)),
         )
-        @test compare_option(
-            run_with_arguments(
-                p,
-                [],
-                Dict(UInt64(1) => [1, 2, 3], UInt64(2) => Set([(1, Set([[1, 4, 2]])), (2, Set([[2]]))])),
-            ),
-            Set([(1, Set([[1, 2, 3], [1, 4, 2]])), (2, Set([[2]]))]),
-            Dict(),
-        )
-        @test compare_option(
-            run_with_arguments(p, [], Dict(UInt64(1) => [2], UInt64(2) => Set([(1, Set([[1, 2, 3], [1, 4, 2]]))]))),
-            Set([(1, Set([[1, 2, 3], [1, 4, 2]])), (2, Set([[2]]))]),
-            Dict(),
-        )
+        @test run_with_arguments(
+            p,
+            [],
+            Dict(UInt64(1) => [1, 2, 3], UInt64(2) => Set([(1, Set([[1, 4, 2]])), (2, Set([[2]]))])),
+        ) == Set([(1, Set([[1, 2, 3], [1, 4, 2]])), (2, Set([[2]]))])
+        @test run_with_arguments(p, [], Dict(UInt64(1) => [2], UInt64(2) => Set([(1, Set([[1, 2, 3], [1, 4, 2]]))]))) ==
+              Set([(1, Set([[1, 2, 3], [1, 4, 2]])), (2, Set([[2]]))])
     end
 
     @testset "Reverse rev_fold with rev_groupby" begin
@@ -2162,11 +2156,8 @@ using DataStructures: OrderedDict, Accumulator
             FreeVar(tset(tlist(tint)), UInt64(1)),
         )
 
-        @test compare_option(
-            run_with_arguments(p, [], Dict(UInt64(1) => Set([(1, Set([[1, 2, 3], [1, 4, 2]])), (2, Set([[2]]))]))),
-            Set([[1, 2, 3], [1, 4, 2], [2]]),
-            Dict(),
-        )
+        @test run_with_arguments(p, [], Dict(UInt64(1) => Set([(1, Set([[1, 2, 3], [1, 4, 2]])), (2, Set([[2]]))]))) ==
+              Set([[1, 2, 3], [1, 4, 2], [2]])
     end
 
     @testset "Reverse rev_greedy_cluster" begin
@@ -2244,17 +2235,14 @@ using DataStructures: OrderedDict, Accumulator
             ),
             FreeVar(tset(tset(tlist(tint))), UInt64(2)),
         )
-        @test compare_option(
-            run_with_arguments(p, [], Dict(UInt64(1) => [1, 2, 3], UInt64(2) => Set([Set([[1, 4, 2]]), Set([[2]])]))),
-            Set([Set([[1, 2, 3], [1, 4, 2]]), Set([[2]])]),
-            Dict(),
-        )
+        @test run_with_arguments(
+            p,
+            [],
+            Dict(UInt64(1) => [1, 2, 3], UInt64(2) => Set([Set([[1, 4, 2]]), Set([[2]])])),
+        ) == Set([Set([[1, 2, 3], [1, 4, 2]]), Set([[2]])])
 
-        @test compare_option(
-            run_with_arguments(p, [], Dict(UInt64(1) => [2], UInt64(2) => Set([Set([[1, 2, 3], [1, 4, 2]])]))),
-            Set([Set([[1, 2, 3], [1, 4, 2]]), Set([[2]])]),
-            Dict(),
-        )
+        @test run_with_arguments(p, [], Dict(UInt64(1) => [2], UInt64(2) => Set([Set([[1, 2, 3], [1, 4, 2]])]))) ==
+              Set([Set([[1, 2, 3], [1, 4, 2]]), Set([[2]])])
     end
 
     @testset "Reverse rev_greedy_cluster by length" begin
@@ -2365,28 +2353,17 @@ using DataStructures: OrderedDict, Accumulator
             ),
             FreeVar(tset(tset(tlist(tint))), UInt64(2)),
         )
-        @test compare_option(
-            run_with_arguments(
-                p,
-                [],
-                Dict(UInt64(1) => [1, 2, 3], UInt64(2) => Set([Set([[1, 4, 2, 2], [3, 5, 2, 5, 2]]), Set([[2]])])),
-            ),
-            Set([Set([[1, 2, 3], [1, 4, 2, 2], [3, 5, 2, 5, 2]]), Set([[2]])]),
-            Dict(),
-        )
+        @test run_with_arguments(
+            p,
+            [],
+            Dict(UInt64(1) => [1, 2, 3], UInt64(2) => Set([Set([[1, 4, 2, 2], [3, 5, 2, 5, 2]]), Set([[2]])])),
+        ) == Set([Set([[1, 2, 3], [1, 4, 2, 2], [3, 5, 2, 5, 2]]), Set([[2]])])
 
-        @test compare_option(
-            run_with_arguments(
-                p,
-                [],
-                Dict(
-                    UInt64(1) => [1, 4, 2, 2],
-                    UInt64(2) => Set([Set([[1, 2, 3]]), Set([[3, 5, 2, 5, 2]]), Set([[2]])]),
-                ),
-            ),
-            Set([Set([[1, 2, 3], [1, 4, 2, 2], [3, 5, 2, 5, 2]]), Set([[2]])]),
-            Dict(),
-        )
+        @test run_with_arguments(
+            p,
+            [],
+            Dict(UInt64(1) => [1, 4, 2, 2], UInt64(2) => Set([Set([[1, 2, 3]]), Set([[3, 5, 2, 5, 2]]), Set([[2]])])),
+        ) == Set([Set([[1, 2, 3], [1, 4, 2, 2], [3, 5, 2, 5, 2]]), Set([[2]])])
     end
 
     @testset "Reverse rev_fold_set with rev_greedy_cluster" begin
@@ -2518,14 +2495,10 @@ using DataStructures: OrderedDict, Accumulator
             FreeVar(tset(tlist(tint)), UInt64(1)),
         )
 
-        @test compare_option(
-            run_with_arguments(
-                p,
-                [],
-                Dict(UInt64(1) => Set([Set([[1, 2, 3], [1, 4, 2, 2], [3, 5, 2, 5, 2]]), Set([[2]])])),
-            ),
-            Set([[1, 2, 3], [1, 4, 2, 2], [3, 5, 2, 5, 2], [2]]),
-            Dict(),
-        )
+        @test run_with_arguments(
+            p,
+            [],
+            Dict(UInt64(1) => Set([Set([[1, 2, 3], [1, 4, 2, 2], [3, 5, 2, 5, 2]]), Set([[2]])])),
+        ) == Set([[1, 2, 3], [1, 4, 2, 2], [3, 5, 2, 5, 2], [2]])
     end
 end

@@ -1,3 +1,19 @@
+function unfold_options(options::Vector)
+    if all(x -> !isa(x, EitherOptions), options)
+        return [options]
+    end
+    result = []
+    for item in options
+        if isa(item, EitherOptions)
+            for (h, val) in item.options
+                new_option = [__fix_option_hashes([h], v) for v in options]
+                append!(result, unfold_options(new_option))
+            end
+            break
+        end
+    end
+    return result
+end
 
 function reverse_map(n, is_set = false)
     function _reverse_map(arguments)
@@ -28,33 +44,11 @@ function reverse_map(n, is_set = false)
             for v in value
                 values = rev_f(v)
                 if any(v isa EitherOptions for v in values)
-                    child_options = Dict()
-                    non_eithers = []
-                    for v in values
-                        if v isa EitherOptions
-                            if isempty(child_options)
-                                for (h, val) in v.options
-                                    child_options[h] = vcat(non_eithers, [val])
-                                end
-                            else
-                                for (h, val) in v.options
-                                    push!(child_options[h], val)
-                                end
-                            end
-                        else
-                            if isempty(child_options)
-                                push!(non_eithers, v)
-                            else
-                                for (h, option) in child_options
-                                    push!(option, v)
-                                end
-                            end
-                        end
-                    end
+                    child_options = unfold_options(values)
 
                     new_options = Set()
                     for output_option in output_options
-                        for (h, option) in child_options
+                        for option in child_options
                             new_option = copy(output_option)
                             filled_indices = Dict{Int,Any}()
                             good_option = true
