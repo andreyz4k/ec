@@ -231,6 +231,12 @@ def sample_wrapper_programs():
             "logLikelihood": 0.0,
             "logPrior": -13.349122783628852,
         },
+        {
+            "program": "let $v1, $v2 = rev($inp0 = (cons $v1 $v2)) in let $v3::int = (car $v2) in let $v4::int = Const(int, 1) in let $v5, $v6 = wrap(let $v5, $v6 = rev($v1 = (+ $v5 $v6)); let $v5 = $v4) in let $v7::int = (- (length $inp0) $v5) in let $v8::int = Const(int, 1) in let $v9::int = (+ $v7 $v8) in (repeat $v3 $v9)",
+            "time": 12.727571964263916,
+            "logLikelihood": 0.0,
+            "logPrior": -14.966859498877648,
+        },
     ]
     return programs
 
