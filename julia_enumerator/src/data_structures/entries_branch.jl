@@ -179,7 +179,7 @@ function updated_branches(
     created_paths,
 )
     complexity_summary = get_complexity_summary(new_values, sc.types[t_id])
-    if any(isa(value, PatternWrapper) for value in values)
+    if any(isa(value, PatternWrapper) for value in new_values)
         new_entry = PatternEntry(t_id, new_values, complexity_summary, get_complexity(sc, complexity_summary))
     else
         new_entry = ValueEntry(t_id, new_values, complexity_summary, get_complexity(sc, complexity_summary))
@@ -249,7 +249,7 @@ function updated_branches(
     created_paths,
 )
     complexity_summary = get_complexity_summary(new_values, sc.types[t_id])
-    if any(isa(value, PatternWrapper) for value in values)
+    if any(isa(value, PatternWrapper) for value in new_values)
         new_entry = PatternEntry(t_id, new_values, complexity_summary, get_complexity(sc, complexity_summary))
     else
         new_entry = ValueEntry(t_id, new_values, complexity_summary, get_complexity(sc, complexity_summary))
@@ -322,7 +322,7 @@ function updated_branches(
     created_paths,
 )
     complexity_summary = get_complexity_summary(new_values, sc.types[t_id])
-    if any(isa(value, PatternWrapper) for value in values)
+    if any(isa(value, PatternWrapper) for value in new_values)
         new_entry = PatternEntry(t_id, new_values, complexity_summary, get_complexity(sc, complexity_summary))
     else
         new_entry = ValueEntry(t_id, new_values, complexity_summary, get_complexity(sc, complexity_summary))
