@@ -303,6 +303,8 @@ function try_get_reversed_values(sc::SolutionContext, p::Program, context, path,
         t_id = push!(sc.types, t)
         if any(isa(value, EitherOptions) for value in values)
             new_entry = EitherEntry(t_id, values, complexity_summary, get_complexity(sc, complexity_summary))
+        elseif any(isa(value, PatternWrapper) for value in values)
+            new_entry = PatternEntry(t_id, values, complexity_summary, get_complexity(sc, complexity_summary))
         else
             new_entry = ValueEntry(t_id, values, complexity_summary, get_complexity(sc, complexity_summary))
         end
@@ -937,9 +939,16 @@ function enumeration_iteration(
             sc.total_number_of_enumerated_programs += 1
         end
     else
+        if sc.verbose
+            @info "Checking unfinished $bp"
+        end
         for child in block_state_successors(maxFreeParameters, g, bp.state)
             _, new_request = apply_context(child.context, bp.request)
-            q[BlockPrototype(child, new_request, bp.input_vars, bp.output_var, bp.reverse)] = child.cost
+            new_bp = BlockPrototype(child, new_request, bp.input_vars, bp.output_var, bp.reverse)
+            if sc.verbose
+                @info "Enqueing $new_bp"
+            end
+            q[new_bp] = child.cost
         end
     end
     update_branch_priority(sc, br_id, is_explained)

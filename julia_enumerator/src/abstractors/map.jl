@@ -136,6 +136,10 @@ function reverse_map(n, is_set = false)
             _reverse_eithers(__reverse_map, value)
         end
 
+        function __reverse_map(value::PatternWrapper)::Vector{Any}
+            _reverse_pattern(__reverse_map, value)
+        end
+
         return __reverse_map
     end
 

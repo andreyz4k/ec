@@ -12,7 +12,6 @@ end
 Base.hash(v::ValueEntry, h::UInt64) = hash(v.type_id, hash(v.values, h))
 Base.:(==)(v1::ValueEntry, v2::ValueEntry) = v1.type_id == v2.type_id && v1.values == v2.values
 
-get_matching_seq(entry::ValueEntry) = [(rv -> rv == v) for v in entry.values]
 match_at_index(entry::ValueEntry, index::Int, value) = entry.values[index] == value
 
 match_with_entry(sc, entry::ValueEntry, other::ValueEntry) = entry == other
@@ -50,7 +49,6 @@ end
 Base.hash(v::NoDataEntry, h::UInt64) = hash(v.type_id, h)
 Base.:(==)(v1::NoDataEntry, v2::NoDataEntry) = v1.type_id == v2.type_id
 
-get_matching_seq(entry::NoDataEntry) = Iterators.repeated(_ -> true)
 match_at_index(entry::NoDataEntry, index::Int, value) = true
 
 match_with_entry(sc, entry::NoDataEntry, other::ValueEntry) =
@@ -122,6 +120,16 @@ end
 Base.:(==)(v1::EitherOptions, v2::EitherOptions) = v1.options == v2.options
 Base.hash(v::EitherOptions, h::UInt64) = hash(v.options, h)
 
+struct AnyObject end
+any_object = AnyObject()
+
+struct PatternWrapper
+    value::Any
+end
+
+Base.:(==)(v1::PatternWrapper, v2::PatternWrapper) = v1.value == v2.value
+Base.hash(v::PatternWrapper, h::UInt64) = hash(v.value, h)
+
 struct EitherEntry <: Entry
     type_id::UInt64
     values::Vector
@@ -165,23 +173,25 @@ function _const_options(value)
     return [value]
 end
 
+function _const_options(value::PatternWrapper)
+    return []
+end
+
 function const_options(entry::EitherEntry)
     return _const_options(entry.values[1])
 end
 
-function _match_options(value::EitherOptions)
-    matchers = [_match_options(op) for (_, op) in value.options]
-    return rv -> (any(matcher(rv) for matcher in matchers))
+function _match_options(value::EitherOptions, other_value)
+    return any(_match_options(op, other_value) for (_, op) in value.options)
 end
 
-_match_options(value) = (rv -> rv == value)
+_match_options(value::PatternWrapper, other_value) = _match_pattern(value, other_value)
+_match_options(value, other_value) = value == other_value
 
-get_matching_seq(entry::EitherEntry) = [_match_options(value) for value in entry.values]
-match_at_index(entry::EitherEntry, index::Int, value) = _match_options(entry.values[index])(value)
+match_at_index(entry::EitherEntry, index::Int, value) = _match_options(entry.values[index], value)
 
 function match_with_entry(sc, entry::EitherEntry, other::ValueEntry)
-    matchers = get_matching_seq(entry)
-    return all(matcher(v) for (matcher, v) in zip(matchers, other.values))
+    return all(match_at_index(entry, i, other.values[i]) for i in 1:sc.example_count)
 end
 
 is_subeither(wide::EitherOptions, narrow) = any(is_subeither(op, narrow) for op in wide.options)
@@ -196,3 +206,51 @@ function is_subeither(wide::EitherOptions, narrow::EitherOptions)
         any(is_subeither(op, narrow) for op in wide.options)
     end
 end
+
+struct PatternEntry <: Entry
+    type_id::UInt64
+    values::Vector
+    complexity_summary::Accumulator
+    complexity::Float64
+end
+
+Base.hash(v::PatternEntry, h::UInt64) = hash(v.type_id, hash(v.values, h))
+Base.:(==)(v1::PatternEntry, v2::PatternEntry) = v1.type_id == v2.type_id && v1.values == v2.values
+
+_match_pattern(value::AnyObject, other_value) = true
+_match_pattern(value::PatternWrapper, other_value) = _match_pattern(value.value, other_value)
+_match_pattern(value::PatternWrapper, other_value::PatternWrapper) = value.value == other_value.value
+_match_pattern(value, other_value) = value == other_value
+_match_pattern(value::Vector, other_value) = all(_match_pattern(v, ov) for (v, ov) in zip(value, other_value))
+_match_pattern(value::Tuple, other_value) = all(_match_pattern(v, ov) for (v, ov) in zip(value, other_value))
+
+match_at_index(entry::PatternEntry, index::Int, value) = _match_pattern(entry.values[index], value)
+
+function match_with_entry(sc, entry::PatternEntry, other::ValueEntry)
+    return all(match_at_index(entry, i, other.values[i]) for i in 1:sc.example_count)
+end
+
+function matching_with_unknown_candidates(sc, entry::PatternEntry, var_id)
+    results = []
+
+    branches = sc.branch_types[:, entry.type_id]
+
+    known_branches = emul(branches, sc.branch_is_not_copy[:])
+
+    for (known_branch_id, tp_id) in zip(findnz(known_branches)...)
+        if known_branch_id == sc.target_branch_id
+            continue
+        end
+        known_var_id = sc.branch_vars[known_branch_id]
+        if vars_in_loop(sc, known_var_id, var_id) ||
+           !match_with_entry(sc, entry, sc.entries[sc.branch_entries[known_branch_id]])
+            # || !is_branch_compatible(unknown_branch.key, unknown_branch, [input_branch])
+            continue
+        end
+        tp = sc.types[tp_id]
+        push!(results, (FreeVar(tp, known_var_id), Dict(known_var_id => known_branch_id), tp))
+    end
+    results
+end
+
+const_options(entry::PatternEntry) = []

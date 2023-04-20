@@ -41,6 +41,9 @@ function get_complexity_summary(values::EitherOptions, t::TypeConstructor, accum
     end
 end
 
+get_complexity_summary(values::PatternWrapper, t::TypeConstructor, accum) =
+    get_complexity_summary(values.value, t, accum)
+
 function get_complexity_summary_max(values::EitherOptions, t::TypeConstructor)
     result = Accumulator{String,Int64}()
     for (h, option) in values.options

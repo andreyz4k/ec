@@ -64,9 +64,8 @@ function get_const_options(sc, unknown_entry)
     if isempty(candidates)
         return []
     end
-    matching_seq = get_matching_seq(unknown_entry)
-    for matcher in matching_seq
-        filter!(c -> matcher(c), candidates)
+    for i in 1:sc.example_count
+        filter!(c -> match_at_index(unknown_entry, i, c), candidates)
         if isempty(candidates)
             return []
         end

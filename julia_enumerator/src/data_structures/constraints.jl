@@ -196,6 +196,8 @@ function _fix_option_hashes(sc, fixed_hashes, entry::EitherEntry)
     complexity_summary = get_complexity_summary(out_values, sc.types[entry.type_id])
     if any(isa(v, EitherOptions) for v in out_values)
         return EitherEntry(entry.type_id, out_values, complexity_summary, get_complexity(sc, complexity_summary))
+    elseif any(isa(v, PatternWrapper) for v in out_values)
+        return PatternEntry(entry.type_id, out_values, complexity_summary, get_complexity(sc, complexity_summary))
     else
         return ValueEntry(entry.type_id, out_values, complexity_summary, get_complexity(sc, complexity_summary))
     end

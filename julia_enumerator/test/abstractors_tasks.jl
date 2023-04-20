@@ -630,4 +630,49 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated >= 10
         @test number_enumerated <= 2000
     end
+
+    @testset "Replace background" begin
+        payload = create_task(
+            Dict{String,Any}(
+                "name" => "replace background",
+                "maximumFrontier" => 10,
+                "examples" => Any[
+                    Dict{String,Any}(
+                        "output" => Any[1, 2, 1, 4, 1],
+                        "inputs" => Dict{String,Any}("inp0" => Any[3, 2, 3, 4, 3]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[4, 2, 4, 1, 1, 1],
+                        "inputs" => Dict{String,Any}("inp0" => Any[4, 2, 4, 3, 3, 3]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[1, 5, 2, 6, 1, 1, 4],
+                        "inputs" => Dict{String,Any}("inp0" => Any[3, 5, 2, 6, 3, 3, 4]),
+                    ),
+                ],
+                "test_examples" => Any[],
+                "request" => Dict{String,Any}(
+                    "arguments" => Dict{String,Any}(
+                        "inp0" => Dict{String,Any}(
+                            "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
+                            "constructor" => "list",
+                        ),
+                    ),
+                    "output" => Dict{String,Any}(
+                        "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
+                        "constructor" => "list",
+                    ),
+                    "constructor" => "->",
+                ),
+            ),
+        )
+        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        # timeout = 600
+        # verbose = true
+        solutions, number_enumerated =
+            @time enumerate_for_task(g, type_weights, task, maximum_frontier, timeout, verbose)
+        @test length(solutions) >= 1
+        @test number_enumerated >= 10
+        @test number_enumerated <= 2000
+    end
 end

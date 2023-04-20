@@ -179,7 +179,11 @@ function updated_branches(
     created_paths,
 )
     complexity_summary = get_complexity_summary(new_values, sc.types[t_id])
-    new_entry = ValueEntry(t_id, new_values, complexity_summary, get_complexity(sc, complexity_summary))
+    if any(isa(value, PatternWrapper) for value in values)
+        new_entry = PatternEntry(t_id, new_values, complexity_summary, get_complexity(sc, complexity_summary))
+    else
+        new_entry = ValueEntry(t_id, new_values, complexity_summary, get_complexity(sc, complexity_summary))
+    end
     new_entry_index = push!(sc.entries, new_entry)
     new_parents, possible_result = find_related_branches(sc, branch_id, new_entry, new_entry_index)
     parent_constraints = nonzeroinds(sc.constrained_branches[branch_id, :])
@@ -245,7 +249,11 @@ function updated_branches(
     created_paths,
 )
     complexity_summary = get_complexity_summary(new_values, sc.types[t_id])
-    new_entry = ValueEntry(t_id, new_values, complexity_summary, get_complexity(sc, complexity_summary))
+    if any(isa(value, PatternWrapper) for value in values)
+        new_entry = PatternEntry(t_id, new_values, complexity_summary, get_complexity(sc, complexity_summary))
+    else
+        new_entry = ValueEntry(t_id, new_values, complexity_summary, get_complexity(sc, complexity_summary))
+    end
     new_entry_index = push!(sc.entries, new_entry)
     new_parents, possible_result = find_related_branches(sc, branch_id, new_entry, new_entry_index)
     parent_constraints = nonzeroinds(sc.constrained_branches[branch_id, :])
@@ -298,6 +306,80 @@ function updated_branches(
         allow_fails, next_blocks = _downstream_blocks_existing_branch(sc, var_id, new_branch_id, fixed_branches)
     end
     return new_branch_id, false, allow_fails, next_blocks, true, block_created_paths
+end
+
+function updated_branches(
+    sc,
+    entry::PatternEntry,
+    @nospecialize(new_values),
+    block_id,
+    is_new_block,
+    var_id::UInt64,
+    branch_id::UInt64,
+    t_id::UInt64,
+    is_meaningful::Bool,
+    fixed_branches::Dict{UInt64,UInt64},
+    created_paths,
+)
+    complexity_summary = get_complexity_summary(new_values, sc.types[t_id])
+    if any(isa(value, PatternWrapper) for value in values)
+        new_entry = PatternEntry(t_id, new_values, complexity_summary, get_complexity(sc, complexity_summary))
+    else
+        new_entry = ValueEntry(t_id, new_values, complexity_summary, get_complexity(sc, complexity_summary))
+    end
+    new_entry_index = push!(sc.entries, new_entry)
+    new_parents, possible_result = find_related_branches(sc, branch_id, new_entry, new_entry_index)
+    parent_constraints = nonzeroinds(sc.constrained_branches[branch_id, :])
+    if !isnothing(possible_result)
+        set_explained = false
+        if !sc.branch_is_explained[possible_result]
+            sc.branch_is_explained[possible_result] = true
+            set_explained = true
+        end
+        if is_meaningful && sc.branch_is_not_copy[possible_result] != true
+            sc.branch_is_not_copy[possible_result] = true
+        end
+        block_created_paths =
+            get_new_paths_for_block(sc, block_id, is_new_block, created_paths, var_id, possible_result, fixed_branches)
+        if isempty(block_created_paths)
+            allow_fails = false
+            next_blocks = Set()
+        else
+            allow_fails, next_blocks = _downstream_blocks_existing_branch(sc, var_id, possible_result, fixed_branches)
+        end
+        return possible_result, false, allow_fails, next_blocks, set_explained, block_created_paths
+    end
+
+    new_branch_id = increment!(sc.branches_count)
+    sc.branch_entries[new_branch_id] = new_entry_index
+    sc.branch_vars[new_branch_id] = var_id
+    sc.branch_types[new_branch_id, t_id] = t_id
+    sc.branch_is_explained[new_branch_id] = true
+    if is_meaningful
+        sc.branch_is_not_copy[new_branch_id] = true
+    end
+
+    sc.branch_children[new_parents, new_branch_id] = 1
+    sc.complexities[new_branch_id] = new_entry.complexity
+    sc.unused_explained_complexities[new_branch_id] = new_entry.complexity
+    sc.unmatched_complexities[new_branch_id] = new_entry.complexity
+
+    block_created_paths =
+        get_new_paths_for_block(sc, block_id, is_new_block, created_paths, var_id, new_branch_id, fixed_branches)
+    if !isempty(parent_constraints)
+        for constraint_id in parent_constraints
+            tighten_constraint(sc, constraint_id, new_branch_id, branch_id)
+        end
+        if isempty(block_created_paths)
+            allow_fails = false
+            next_blocks = Set()
+        else
+            allow_fails, next_blocks = _downstream_blocks_existing_branch(sc, var_id, new_branch_id, fixed_branches)
+        end
+    else
+        allow_fails, next_blocks = _downstream_blocks_new_branch(sc, var_id, branch_id, new_branch_id, fixed_branches)
+    end
+    return new_branch_id, true, allow_fails, next_blocks, true, block_created_paths
 end
 
 function _downstream_branch_options_known(sc, block_id, block_copy_id, fixed_branches, unfixed_vars)

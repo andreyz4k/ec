@@ -1,9 +1,6 @@
 
 all_abstractors = Dict{Program,Tuple{Vector,Any}}()
 
-struct AnyObject end
-any_object = AnyObject()
-
 function _is_reversible(p::Primitive)
     if haskey(all_abstractors, p)
         all_abstractors[p][1]
@@ -117,6 +114,41 @@ function _reverse_eithers(_reverse_function, value)
     return results
 end
 
+_has_wildcard(v::PatternWrapper) = true
+_has_wildcard(v) = false
+_has_wildcard(v::AnyObject) = true
+_has_wildcard(v::Vector) = any(_has_wildcard, v)
+_has_wildcard(v::Tuple) = any(_has_wildcard, v)
+_has_wildcard(v::Set) = any(_has_wildcard, v)
+
+_wrap_wildcard(p::PatternWrapper) = p
+
+function _wrap_wildcard(v)
+    if _has_wildcard(v)
+        return PatternWrapper(v)
+    else
+        return v
+    end
+end
+
+function _wrap_wildcard(v::EitherOptions)
+    options = Dict()
+    for (h, op) in v.options
+        options[h] = _wrap_wildcard(op)
+    end
+    return EitherOptions(options)
+end
+
+function _reverse_pattern(_reverse_function, value)
+    outputs = _reverse_function(value.value)
+
+    results = []
+    for out in outputs
+        push!(results, _wrap_wildcard(out))
+    end
+    return results
+end
+
 function generic_reverse(rev_function, n)
     function _generic_reverse(arguments)
         rev_functions = []
@@ -130,6 +162,9 @@ function generic_reverse(rev_function, n)
         end
         function _reverse_function(value::EitherOptions)::Vector{Any}
             _reverse_eithers(_reverse_function, value)
+        end
+        function _reverse_function(value::PatternWrapper)::Vector{Any}
+            _reverse_pattern(_reverse_function, value)
         end
         return _reverse_function
     end

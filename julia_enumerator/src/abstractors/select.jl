@@ -103,7 +103,7 @@ function reverse_rev_select()
                     end
                     option_hash = rand(UInt64)
                     options_selector[option_hash] = selector_option
-                    options_base[option_hash] = results_base
+                    options_base[option_hash] = PatternWrapper(results_base)
                     options_others[option_hash] = results_others
                 end
 
@@ -131,12 +131,16 @@ function reverse_rev_select()
                 if all(v == results_others[1] for v in results_others)
                     error("All elements are equal according to selector")
                 end
-                return vcat(rev_base(results_base), rev_others(results_others))
+                return vcat(rev_base(PatternWrapper(results_base)), rev_others(results_others))
             end
         end
 
         function __reverse_rev_select(value::EitherOptions)::Vector{Any}
             _reverse_eithers(__reverse_rev_select, value)
+        end
+
+        function __reverse_rev_select(value::PatternWrapper)::Vector{Any}
+            _reverse_pattern(__reverse_rev_select, value)
         end
 
         return __reverse_rev_select
@@ -235,6 +239,10 @@ function reverse_rev_select_set()
 
         function __reverse_rev_select(value::EitherOptions)::Vector{Any}
             _reverse_eithers(__reverse_rev_select, value)
+        end
+
+        function __reverse_rev_select(value::PatternWrapper)::Vector{Any}
+            _reverse_pattern(__reverse_rev_select, value)
         end
 
         return __reverse_rev_select

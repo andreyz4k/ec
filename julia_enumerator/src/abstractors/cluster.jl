@@ -57,6 +57,10 @@ function reverse_rev_greedy_cluster()
             _reverse_eithers(__reverse_rev_greedy_cluster, value)
         end
 
+        function __reverse_rev_greedy_cluster(value::PatternWrapper)::Vector{Any}
+            _reverse_pattern(__reverse_rev_greedy_cluster, value)
+        end
+
         return __reverse_rev_greedy_cluster
     end
     return [(_has_no_holes, _is_possible_key_extractor)], _reverse_rev_greedy_cluster

@@ -415,6 +415,8 @@ function (p::Apply)(environment, workspace)
         x = p.x(environment, workspace)
         if x === nothing
             error("Parameter is nothing")
+        elseif x isa PatternWrapper
+            return f(x.value)
         else
             return f(x)
         end

@@ -80,6 +80,9 @@ function reverse_rev_fold()
         function __reverse_rev_fold(value::EitherOptions)::Vector{Any}
             _reverse_eithers(__reverse_rev_fold, value)
         end
+        function __reverse_rev_fold(value::PatternWrapper)::Vector{Any}
+            _reverse_pattern(__reverse_rev_fold, value)
+        end
 
         return __reverse_rev_fold
     end
@@ -235,6 +238,10 @@ function reverse_fold(is_set = false)
 
         function __reverse_fold(value::EitherOptions)::Vector{Any}
             _reverse_eithers(__reverse_fold, value)
+        end
+
+        function __reverse_fold(value::PatternWrapper)::Vector{Any}
+            _reverse_pattern(__reverse_fold, value)
         end
 
         return __reverse_fold
@@ -393,6 +400,10 @@ function reverse_fold_grid(dim)
 
         function __reverse_fold(value::EitherOptions)::Vector{Any}
             _reverse_eithers(__reverse_fold, value)
+        end
+
+        function __reverse_fold(value::PatternWrapper)::Vector{Any}
+            _reverse_pattern(__reverse_fold, value)
         end
 
         return __reverse_fold

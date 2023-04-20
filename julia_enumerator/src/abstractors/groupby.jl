@@ -60,6 +60,10 @@ function reverse_rev_groupby()
             _reverse_eithers(__reverse_rev_groupby, value)
         end
 
+        function __reverse_rev_groupby(value::PatternWrapper)::Vector{Any}
+            _reverse_pattern(__reverse_rev_groupby, value)
+        end
+
         return __reverse_rev_groupby
     end
     return [(_has_no_holes, _is_possible_key_extractor)], _reverse_rev_groupby

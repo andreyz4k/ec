@@ -34,7 +34,10 @@ using solver:
     ttuple2,
     ttuple3,
     tset,
-    unfold_options
+    unfold_options,
+    match_at_index,
+    PatternEntry,
+    PatternWrapper
 using DataStructures: OrderedDict, Accumulator
 
 @testset "Abstractors" begin
@@ -392,6 +395,20 @@ using DataStructures: OrderedDict, Accumulator
         @test compare_options(rev_p([1, any_object, 1]), [1, 3])
         @test compare_options(rev_p([any_object, any_object, 1]), [1, 3])
         @test rev_p([any_object, any_object, 1])[1] !== any_object
+        @test match_at_index(
+            PatternEntry(
+                0x0000000000000001,
+                Any[
+                    PatternWrapper(Any[1, any_object, 1, any_object, 1]),
+                    PatternWrapper(Any[any_object, any_object, any_object, 1, 1, 1]),
+                    PatternWrapper(Any[1, any_object, any_object, any_object, 1, 1, any_object]),
+                ],
+                Accumulator("int" => 9, "list" => 3),
+                12.0,
+            ),
+            1,
+            [1, 1, 1, 1, 1],
+        )
     end
 
     @testset "Reverse repeat grid" begin
@@ -1327,9 +1344,10 @@ using DataStructures: OrderedDict, Accumulator
                 EitherOptions(Dict(0xa0664d92ec387436 => 3, 0x6711a85d77d098cf => 1, 0xfcd4cc2c187414b6 => 2)),
                 EitherOptions(
                     Dict(
-                        0xa0664d92ec387436 => Any[any_object, any_object, any_object, 3, any_object, any_object],
-                        0x6711a85d77d098cf => Any[1, any_object, 1, any_object, any_object, 1],
-                        0xfcd4cc2c187414b6 => Any[any_object, 2, any_object, any_object, 2, any_object],
+                        0xa0664d92ec387436 =>
+                            PatternWrapper(Any[any_object, any_object, any_object, 3, any_object, any_object]),
+                        0x6711a85d77d098cf => PatternWrapper(Any[1, any_object, 1, any_object, any_object, 1]),
+                        0xfcd4cc2c187414b6 => PatternWrapper(Any[any_object, 2, any_object, any_object, 2, any_object]),
                     ),
                 ),
                 EitherOptions(
@@ -1395,7 +1413,7 @@ using DataStructures: OrderedDict, Accumulator
 
         @test compare_options(
             rev_p([[0, 1, 2], [], [0, 1, 2, 3]]),
-            [[any_object, [], any_object], [[0, 1, 2], nothing, [0, 1, 2, 3]]],
+            [PatternWrapper([any_object, [], any_object]), [[0, 1, 2], nothing, [0, 1, 2, 3]]],
         )
     end
 
