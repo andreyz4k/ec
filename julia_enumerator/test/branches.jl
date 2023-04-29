@@ -39,7 +39,6 @@ using solver:
 
 import Redis
 using DataStructures
-using SuiteSparseGraphBLAS
 
 function initial_state(t, g)
     EnumerationState(Hole(t, g.no_context, false, nothing), empty_context, [], 0.0, 0)
