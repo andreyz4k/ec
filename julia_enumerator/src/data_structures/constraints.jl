@@ -4,12 +4,12 @@ function _find_relatives_for_type(sc, t, branch_id, branch_type)
         return branch_id, UInt64[], UInt64[]
     end
     if sc.branch_is_explained[branch_id] && is_subtype(t, branch_type)
-        return nothing, nonzeroinds(sc.branch_children[:, branch_id]), Int[branch_id]
+        return nothing, get_connected_to(sc.branch_children, branch_id), Int[branch_id]
     end
     parents = UInt64[]
     children = UInt64[]
-    for child_id in nonzeroinds(sc.branch_children[branch_id, :])
-        child_type = sc.types[reduce(any, sc.branch_types[child_id, :])]
+    for child_id in get_connected_from(sc.branch_children, branch_id)
+        child_type = sc.types[first(get_connected_from(sc.branch_types, child_id))]
         if is_subtype(child_type, t)
             exact_match, parents_, children_ = _find_relatives_for_type(sc, t, child_id, child_type)
             if !isnothing(exact_match)
@@ -41,7 +41,7 @@ function _tighten_constraint(
     new_branches = Dict()
     out_constrained_branches = Dict()
 
-    new_type = sc.types[reduce(any, sc.branch_types[new_branch_id, :])]
+    new_type = sc.types[first(get_connected_from(sc.branch_types, new_branch_id))]
     context = unify(context, new_type, sc.types[old_entry.type_id])
 
     for (var_id, branch_id) in constrained_branches
@@ -49,7 +49,7 @@ function _tighten_constraint(
             out_branches[branch_id] = new_branch_id
             new_branches[branch_id] = new_branch_id
         else
-            branch_type = sc.types[reduce(any, sc.branch_types[branch_id, :])]
+            branch_type = sc.types[first(get_connected_from(sc.branch_types, branch_id))]
             context, new_type = apply_context(context, branch_type)
 
             exact_match, parents, children = _find_relatives_for_type(sc, new_type, branch_id, branch_type)
@@ -66,17 +66,17 @@ function _tighten_constraint(
                 created_branch_id = increment!(sc.branches_count)
                 sc.branch_entries[created_branch_id] = entry_id
                 sc.branch_vars[created_branch_id] = var_id
-                sc.branch_types[created_branch_id, new_type_id] = new_type_id
+                sc.branch_types[created_branch_id, new_type_id] = true
                 deleteat!(sc.branch_children, parents, children)
-                sc.branch_children[parents, created_branch_id] = 1
-                sc.branch_children[created_branch_id, children] = 1
+                sc.branch_children[parents, created_branch_id] = true
+                sc.branch_children[created_branch_id, children] = true
 
                 sc.branch_is_unknown[created_branch_id] = true
                 sc.branch_unknown_from_output[created_branch_id] = sc.branch_unknown_from_output[branch_id]
                 sc.unknown_min_path_costs[created_branch_id] = sc.unknown_min_path_costs[branch_id]
                 sc.unknown_complexity_factors[created_branch_id] = sc.unknown_complexity_factors[branch_id]
-                sc.related_unknown_complexity_branches[created_branch_id, :] =
-                    sc.related_unknown_complexity_branches[branch_id, :]
+                related_branches = get_connected_from(sc.related_unknown_complexity_branches, branch_id)
+                sc.related_unknown_complexity_branches[created_branch_id, related_branches] = true
 
                 if is_polymorphic(new_type)
                     out_constrained_branches[var_id] = created_branch_id
@@ -88,14 +88,11 @@ function _tighten_constraint(
     end
 
     unknown_old_branches = UInt64[br_id for (br_id, _) in new_branches]
-    next_blocks = unique(zip(findnz(sc.branch_outgoing_blocks[unknown_old_branches, :])[2:3]...))
+    next_blocks = merge([get_connected_from(sc.branch_outgoing_blocks, br_id) for br_id in unknown_old_branches]...)
     for (b_copy_id, b_id) in next_blocks
-        inp_branches = nonzeroinds(sc.branch_outgoing_blocks[:, b_copy_id])
-        inputs = Dict(
-            v => haskey(out_branches, b) ? out_branches[b] : b for
-            (v, b) in zip(sc.branch_vars[inp_branches], inp_branches)
-        )
-        out_block_branches = nonzeroinds(sc.branch_incoming_blocks[:, b_copy_id])
+        inp_branches = keys(get_connected_to(sc.branch_outgoing_blocks, b_copy_id))
+        inputs = Dict(sc.branch_vars[b] => haskey(out_branches, b) ? out_branches[b] : b for b in inp_branches)
+        out_block_branches = keys(get_connected_to(sc.branch_incoming_blocks, b_copy_id))
         target_branches = UInt64[haskey(out_branches, b) ? out_branches[b] : b for b in out_block_branches]
         _save_block_branch_connections(sc, b_id, sc.blocks[b_id], inputs, target_branches)
     end
@@ -110,7 +107,7 @@ end
 
 function tighten_constraint(sc, constraint_id, new_branch_id, old_branch_id)
     old_entry = sc.entries[sc.branch_entries[old_branch_id]]
-    constrained_branches = Dict(v => b for (b, v) in zip(findnz(sc.constrained_branches[:, constraint_id])...))
+    constrained_branches = Dict(v => b for (b, v) in get_connected_to(sc.constrained_branches, constraint_id))
     constrained_context_id = sc.constrained_contexts[constraint_id]
     new_constrained_branches, new_context_id = _tighten_constraint(
         sc,
@@ -210,7 +207,7 @@ function _find_relatives_for_either(sc, new_entry, branch_id, old_entry)
 
     parents = UInt64[]
     children = UInt64[]
-    for child_id in nonzeroinds(sc.branch_children[branch_id, :])
+    for child_id in get_connected_from(sc.branch_children, branch_id)
         child_entry = sc.entries[sc.branch_entries[child_id]]
         if is_subeither(child_entry.values, new_entry.values)
             exact_match, parents_, children_ = _find_relatives_for_either(sc, new_entry, child_id, child_entry)
@@ -272,14 +269,14 @@ function _tighten_constraint(
                 created_branch_id = increment!(sc.branches_count)
                 sc.branch_entries[created_branch_id] = entry_index
                 sc.branch_vars[created_branch_id] = var_id
-                sc.branch_types[created_branch_id, new_br_entry.type_id] = new_br_entry.type_id
+                sc.branch_types[created_branch_id, new_br_entry.type_id] = true
                 if sc.branch_is_unknown[branch_id]
                     sc.branch_is_unknown[created_branch_id] = true
                     sc.branch_unknown_from_output[created_branch_id] = sc.branch_unknown_from_output[branch_id]
                 end
                 deleteat!(sc.branch_children, parents, children)
-                sc.branch_children[parents, created_branch_id] = 1
-                sc.branch_children[created_branch_id, children] = 1
+                sc.branch_children[parents, created_branch_id] = true
+                sc.branch_children[created_branch_id, children] = true
 
                 original_path_cost = sc.unknown_min_path_costs[branch_id]
                 if !isnothing(original_path_cost)
@@ -298,23 +295,20 @@ function _tighten_constraint(
     end
     for (old_br_id, new_br_id) in new_branches
         if sc.branch_is_unknown[new_br_id]
-            old_related_branches = nonzeroinds(sc.related_unknown_complexity_branches[old_br_id, :])
+            old_related_branches = get_connected_from(sc.related_unknown_complexity_branches, old_br_id)
             new_related_branches =
                 UInt64[(haskey(new_branches, b_id) ? new_branches[b_id] : b_id) for b_id in old_related_branches]
-            sc.related_unknown_complexity_branches[new_br_id, new_related_branches] = 1
+            sc.related_unknown_complexity_branches[new_br_id, new_related_branches] = true
             sc.unknown_complexity_factors[new_br_id] = branch_complexity_factor_unknown(sc, new_br_id)
         end
     end
 
     unknown_old_branches = UInt64[br_id for (br_id, _) in new_branches]
-    next_blocks = unique(zip(findnz(sc.branch_outgoing_blocks[unknown_old_branches, :])[2:3]...))
+    next_blocks = merge([get_connected_from(sc.branch_outgoing_blocks, br_id) for br_id in unknown_old_branches]...)
     for (b_copy_id, b_id) in next_blocks
-        inp_branches = nonzeroinds(sc.branch_outgoing_blocks[:, b_copy_id])
-        inputs = Dict(
-            v => haskey(out_branches, b) ? out_branches[b] : b for
-            (v, b) in zip(sc.branch_vars[inp_branches], inp_branches)
-        )
-        out_block_branches = nonzeroinds(sc.branch_incoming_blocks[:, b_copy_id])
+        inp_branches = keys(get_connected_to(sc.branch_outgoing_blocks, b_copy_id))
+        inputs = Dict(sc.branch_vars[b] => haskey(out_branches, b) ? out_branches[b] : b for b in inp_branches)
+        out_block_branches = keys(get_connected_to(sc.branch_incoming_blocks, b_copy_id))
         target_branches = UInt64[haskey(out_branches, b) ? out_branches[b] : b for b in out_block_branches]
 
         bl = sc.blocks[b_id]

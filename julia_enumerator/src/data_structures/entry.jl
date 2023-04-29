@@ -20,11 +20,12 @@ function matching_with_unknown_candidates(sc, entry::ValueEntry, var_id)
     results = []
     index = get_index(sc.entries, entry)
 
-    branches = sc.branch_types[:, entry.type_id]
+    branches = get_connected_to(sc.branch_types, entry.type_id)
 
-    known_branches = emul(branches, sc.branch_is_not_copy[:])
-
-    for known_branch_id in nonzeroinds(known_branches)
+    for known_branch_id in branches
+        if !sc.branch_is_not_copy[known_branch_id]
+            continue
+        end
         if known_branch_id == sc.target_branch_id
             continue
         end
@@ -34,7 +35,7 @@ function matching_with_unknown_candidates(sc, entry::ValueEntry, var_id)
             continue
         end
         if sc.branch_entries[known_branch_id] == index
-            known_type = sc.types[reduce(any, sc.branch_types[known_branch_id, :])]
+            known_type = sc.types[first(get_connected_from(sc.branch_types, known_branch_id))]
             push!(results, (FreeVar(known_type, known_var_id), Dict(known_var_id => known_branch_id), known_type))
         end
     end
@@ -58,21 +59,22 @@ function matching_with_unknown_candidates(sc, entry::NoDataEntry, var_id)
     results = []
     types = get_sub_types(sc.types, entry.type_id)
 
-    branches = reduce(any, sc.branch_types[:, types], dims = 2)
-
-    known_branches = emul(branches, sc.branch_is_not_copy[:])
-
-    for (known_branch_id, tp_id) in zip(findnz(known_branches)...)
-        if known_branch_id == sc.target_branch_id
-            continue
+    for tp_id in types
+        for known_branch_id in get_connected_to(sc.branch_types, tp_id)
+            if !sc.branch_is_not_copy[known_branch_id]
+                continue
+            end
+            if known_branch_id == sc.target_branch_id
+                continue
+            end
+            known_var_id = sc.branch_vars[known_branch_id]
+            if vars_in_loop(sc, known_var_id, var_id)
+                # || !is_branch_compatible(unknown_branch.key, unknown_branch, [input_branch])
+                continue
+            end
+            tp = sc.types[tp_id]
+            push!(results, (FreeVar(tp, known_var_id), Dict(known_var_id => known_branch_id), tp))
         end
-        known_var_id = sc.branch_vars[known_branch_id]
-        if vars_in_loop(sc, known_var_id, var_id)
-            # || !is_branch_compatible(unknown_branch.key, unknown_branch, [input_branch])
-            continue
-        end
-        tp = sc.types[tp_id]
-        push!(results, (FreeVar(tp, known_var_id), Dict(known_var_id => known_branch_id), tp))
     end
 
     results
@@ -84,22 +86,24 @@ function matching_with_known_candidates(sc, entry::ValueEntry, known_branch_id)
     results = []
     types = get_super_types(sc.types, entry.type_id)
     entry_type = sc.types[entry.type_id]
-    branches = reduce(any, sc.branch_types[:, types], dims = 2)
-
-    unknown_branches = emul(branches, sc.branch_is_unknown[:])
 
     known_var_id = sc.branch_vars[known_branch_id]
-    for unknown_branch_id in nonzeroinds(unknown_branches)
-        unknown_var_id = sc.branch_vars[unknown_branch_id]
-        if vars_in_loop(sc, known_var_id, unknown_var_id)
-            # || !is_branch_compatible(unknown_branch.key, unknown_branch, [input_branch])
-            continue
-        end
-        unknown_entry_id = sc.branch_entries[unknown_branch_id]
-        unknown_entry = sc.entries[unknown_entry_id]
-        if unknown_entry_id == sc.branch_entries[known_branch_id] ||
-           (!isa(unknown_entry, ValueEntry) && match_with_entry(sc, unknown_entry, entry))
-            push!(results, (FreeVar(entry_type, known_var_id), unknown_var_id, unknown_branch_id, entry_type))
+    for tp_id in types
+        for unknown_branch_id in get_connected_to(sc.branch_types, tp_id)
+            if !sc.branch_is_unknown[unknown_branch_id]
+                continue
+            end
+            unknown_var_id = sc.branch_vars[unknown_branch_id]
+            if vars_in_loop(sc, known_var_id, unknown_var_id)
+                # || !is_branch_compatible(unknown_branch.key, unknown_branch, [input_branch])
+                continue
+            end
+            unknown_entry_id = sc.branch_entries[unknown_branch_id]
+            unknown_entry = sc.entries[unknown_entry_id]
+            if unknown_entry_id == sc.branch_entries[known_branch_id] ||
+               (!isa(unknown_entry, ValueEntry) && match_with_entry(sc, unknown_entry, entry))
+                push!(results, (FreeVar(entry_type, known_var_id), unknown_var_id, unknown_branch_id, entry_type))
+            end
         end
     end
 
@@ -144,22 +148,23 @@ function matching_with_unknown_candidates(sc, entry::EitherEntry, var_id)
     results = []
     types = get_super_types(sc.types, entry.type_id)
 
-    branches = reduce(any, sc.branch_types[:, types], dims = 2)
-
-    known_branches = emul(branches, sc.branch_is_not_copy[:])
-
-    for (known_branch_id, tp_id) in zip(findnz(known_branches)...)
-        if known_branch_id == sc.target_branch_id
-            continue
+    for tp_id in types
+        for known_branch_id in get_connected_to(sc.branch_types, tp_id)
+            if !sc.branch_is_not_copy[known_branch_id]
+                continue
+            end
+            if known_branch_id == sc.target_branch_id
+                continue
+            end
+            known_var_id = sc.branch_vars[known_branch_id]
+            if vars_in_loop(sc, known_var_id, var_id) ||
+               !match_with_entry(sc, entry, sc.entries[sc.branch_entries[known_branch_id]])
+                # || !is_branch_compatible(unknown_branch.key, unknown_branch, [input_branch])
+                continue
+            end
+            tp = sc.types[tp_id]
+            push!(results, (FreeVar(tp, known_var_id), Dict(known_var_id => known_branch_id), tp))
         end
-        known_var_id = sc.branch_vars[known_branch_id]
-        if vars_in_loop(sc, known_var_id, var_id) ||
-           !match_with_entry(sc, entry, sc.entries[sc.branch_entries[known_branch_id]])
-            # || !is_branch_compatible(unknown_branch.key, unknown_branch, [input_branch])
-            continue
-        end
-        tp = sc.types[tp_id]
-        push!(results, (FreeVar(tp, known_var_id), Dict(known_var_id => known_branch_id), tp))
     end
 
     results
@@ -233,11 +238,10 @@ end
 function matching_with_unknown_candidates(sc, entry::PatternEntry, var_id)
     results = []
 
-    branches = sc.branch_types[:, entry.type_id]
-
-    known_branches = emul(branches, sc.branch_is_not_copy[:])
-
-    for (known_branch_id, tp_id) in zip(findnz(known_branches)...)
+    for known_branch_id in get_connected_to(sc.branch_types, entry.type_id)
+        if !sc.branch_is_not_copy[known_branch_id]
+            continue
+        end
         if known_branch_id == sc.target_branch_id
             continue
         end
@@ -247,7 +251,7 @@ function matching_with_unknown_candidates(sc, entry::PatternEntry, var_id)
             # || !is_branch_compatible(unknown_branch.key, unknown_branch, [input_branch])
             continue
         end
-        tp = sc.types[tp_id]
+        tp = sc.types[entry.type_id]
         push!(results, (FreeVar(tp, known_var_id), Dict(known_var_id => known_branch_id), tp))
     end
     results

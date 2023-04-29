@@ -8,15 +8,15 @@ mutable struct SolutionContext
     vars_count::CountStorage
     branches_count::CountStorage
 
-    branch_is_unknown::VectorStorage{Bool,Bool}
-    branch_is_explained::VectorStorage{Bool,Bool}
-    branch_is_not_copy::VectorStorage{Bool,Bool}
+    branch_is_unknown::VectorStorage{Bool}
+    branch_is_explained::VectorStorage{Bool}
+    branch_is_not_copy::VectorStorage{Bool}
 
-    branch_entries::VectorStorage{UInt64,Nothing}
-    branch_vars::VectorStorage{UInt64,Nothing}
+    branch_entries::VectorStorage{UInt64}
+    branch_vars::VectorStorage{UInt64}
 
-    "[branch_id x type_id] -> type_id"
-    branch_types::GraphStorage{Nothing}
+    "[branch_id x type_id] -> {false, true}"
+    branch_types::ConnectionGraphStorage
 
     blocks::IndexedStorage{AbstractProgramBlock}
     block_copies_count::CountStorage
@@ -24,40 +24,40 @@ mutable struct SolutionContext
     constraints_count::CountStorage
     constraint_contexts::IndexedStorage{Context}
 
-    "[parent_branch_id x child_branch_id] -> {nothing, 1}"
-    branch_children::GraphStorage{Nothing}
+    "[parent_branch_id x child_branch_id] -> {false, true}"
+    branch_children::ConnectionGraphStorage
 
     "[branch_id x block_copy_id] -> block_id"
-    branch_incoming_blocks::GraphStorage{Nothing}
+    branch_incoming_blocks::ValueGraphStorage
     "[branch_id x block_copy_id] -> block_id"
-    branch_outgoing_blocks::GraphStorage{Nothing}
+    branch_outgoing_blocks::ValueGraphStorage
 
     "[var_id x constraint_id] -> branch_id"
-    constrained_vars::GraphStorage{Nothing}
+    constrained_vars::ValueGraphStorage
     "[branch_id x constraint_id] -> var_id"
-    constrained_branches::GraphStorage{Nothing}
+    constrained_branches::ValueGraphStorage
     "constraint_id -> context_id"
-    constrained_contexts::VectorStorage{UInt64,Nothing}
+    constrained_contexts::VectorStorage{UInt64}
 
-    "[branch_id x related_branch_id] -> {nothing, 1}"
-    related_explained_complexity_branches::GraphStorage{Nothing}
-    "[branch_id x related_branch_id] -> {nothing, 1}"
-    related_unknown_complexity_branches::GraphStorage{Nothing}
+    "[branch_id x related_branch_id] -> {false, true}"
+    related_explained_complexity_branches::ConnectionGraphStorage
+    "[branch_id x related_branch_id] -> {false, true}"
+    related_unknown_complexity_branches::ConnectionGraphStorage
 
     "branch_id -> [{var_id -> block_id}]"
     incoming_paths::PathsStorage
 
-    unknown_min_path_costs::VectorStorage{Float64,Nothing}
-    explained_min_path_costs::VectorStorage{Float64,Nothing}
-    unknown_complexity_factors::VectorStorage{Float64,Nothing}
-    explained_complexity_factors::VectorStorage{Float64,Nothing}
-    complexities::VectorStorage{Float64,Nothing}
-    added_upstream_complexities::VectorStorage{Float64,Nothing}
-    unused_explained_complexities::VectorStorage{Float64,Nothing}
-    unmatched_complexities::VectorStorage{Float64,Nothing}
+    unknown_min_path_costs::VectorStorage{Float64}
+    explained_min_path_costs::VectorStorage{Float64}
+    unknown_complexity_factors::VectorStorage{Float64}
+    explained_complexity_factors::VectorStorage{Float64}
+    complexities::VectorStorage{Float64}
+    added_upstream_complexities::VectorStorage{Float64}
+    unused_explained_complexities::VectorStorage{Float64}
+    unmatched_complexities::VectorStorage{Float64}
 
-    "[previous_var_id x following_var_id] -> {nothing, 1}"
-    previous_vars::GraphStorage{Nothing}
+    "[previous_var_id x following_var_id] -> {false, true}"
+    previous_vars::ConnectionGraphStorage
 
     input_keys::Dict{UInt64,String}
     target_branch_id::UInt64
@@ -68,8 +68,8 @@ mutable struct SolutionContext
     pq_output::PriorityQueue{Tuple{UInt64,Bool},Float64,Base.Order.ForwardOrdering}
     branch_queues_unknown::Dict{UInt64,PriorityQueue{BlockPrototype,Float64,Base.Order.ForwardOrdering}}
     branch_queues_explained::Dict{UInt64,PriorityQueue{BlockPrototype,Float64,Base.Order.ForwardOrdering}}
-    branch_unknown_from_output::VectorStorage{Bool,Bool}
-    branch_known_from_input::VectorStorage{Bool,Bool}
+    branch_unknown_from_output::VectorStorage{Bool}
+    branch_known_from_input::VectorStorage{Bool}
 
     verbose::Bool
 end
@@ -82,24 +82,24 @@ function create_starting_context(task::Task, type_weights, verbose)::SolutionCon
         TypeStorage(),
         CountStorage(),
         CountStorage(),
-        VectorStorage{Bool}(false),
-        VectorStorage{Bool}(false),
-        VectorStorage{Bool}(false),
+        VectorStorage{Bool}(),
+        VectorStorage{Bool}(),
+        VectorStorage{Bool}(),
         VectorStorage{UInt64}(),
         VectorStorage{UInt64}(),
-        GraphStorage(),
+        ConnectionGraphStorage(),
         IndexedStorage{AbstractProgramBlock}(),
         CountStorage(),
         CountStorage(),
         IndexedStorage{Context}(),
-        GraphStorage(),
-        GraphStorage(),
-        GraphStorage(),
-        GraphStorage(),
-        GraphStorage(),
+        ConnectionGraphStorage(),
+        ValueGraphStorage(),
+        ValueGraphStorage(),
+        ValueGraphStorage(),
+        ValueGraphStorage(),
         VectorStorage{UInt64}(),
-        GraphStorage(),
-        GraphStorage(),
+        ConnectionGraphStorage(),
+        ConnectionGraphStorage(),
         PathsStorage(),
         VectorStorage{Float64}(),
         VectorStorage{Float64}(),
@@ -109,7 +109,7 @@ function create_starting_context(task::Task, type_weights, verbose)::SolutionCon
         VectorStorage{Float64}(),
         VectorStorage{Float64}(),
         VectorStorage{Float64}(),
-        GraphStorage(),
+        ConnectionGraphStorage(),
         Dict{UInt64,String}(),
         0,
         example_count,
@@ -119,8 +119,8 @@ function create_starting_context(task::Task, type_weights, verbose)::SolutionCon
         PriorityQueue{Tuple{UInt64,Bool},Float64}(),
         Dict(),
         Dict(),
-        VectorStorage{Bool}(false),
-        VectorStorage{Bool}(false),
+        VectorStorage{Bool}(),
+        VectorStorage{Bool}(),
         verbose,
     )
     start_transaction!(sc)
@@ -137,7 +137,7 @@ function create_starting_context(task::Task, type_weights, verbose)::SolutionCon
 
         sc.branch_entries[branch_id] = entry_id
         sc.branch_vars[branch_id] = var_id
-        sc.branch_types[branch_id, type_id] = type_id
+        sc.branch_types[branch_id, type_id] = true
         sc.branch_is_explained[branch_id] = true
         sc.branch_is_not_copy[branch_id] = true
         sc.branch_known_from_input[branch_id] = true
@@ -160,7 +160,7 @@ function create_starting_context(task::Task, type_weights, verbose)::SolutionCon
 
     sc.branch_entries[branch_id] = entry_id
     sc.branch_vars[branch_id] = var_id
-    sc.branch_types[branch_id, type_id] = type_id
+    sc.branch_types[branch_id, type_id] = true
     sc.branch_is_unknown[branch_id] = true
     sc.branch_unknown_from_output[branch_id] = true
 
@@ -306,7 +306,7 @@ end
 
 function create_next_var(sc::SolutionContext)
     v = increment!(sc.vars_count)
-    sc.previous_vars[v, v] = 1
+    sc.previous_vars[v, v] = true
     return v
 end
 
@@ -407,7 +407,7 @@ function get_new_paths_for_block(
     else
         input_paths = get_input_paths_for_existing_block(sc, bl, input_branches, new_paths)
     end
-    check_path_cost = nnz(sc.explained_min_path_costs[UInt64[input_branches[v_id] for v_id in bl.input_vars]]) > 0
+    check_path_cost = any(!isnothing(sc.explained_min_path_costs[input_branches[v_id]]) for v_id in bl.input_vars)
     best_cost = Inf
     if check_path_cost
         for path in input_paths
@@ -508,12 +508,12 @@ function set_new_paths_for_var(
 end
 
 function branch_complexity_factor_unknown(sc::SolutionContext, branch_id)
-    related_branches = nonzeroinds(sc.related_unknown_complexity_branches[branch_id, :])
+    related_branches = get_connected_from(sc.related_unknown_complexity_branches, branch_id)
     return _branch_complexity_factor_unknown(sc, branch_id, related_branches)
 end
 
 function branch_complexity_factor_known(sc::SolutionContext, branch_id)
-    related_branches = nonzeroinds(sc.related_explained_complexity_branches[branch_id, :])
+    related_branches = get_connected_from(sc.related_explained_complexity_branches, branch_id)
     return _branch_complexity_factor_known(sc, branch_id, sc.added_upstream_complexities[branch_id], related_branches)
 end
 
@@ -534,8 +534,8 @@ function _update_complexity_factor_unknown(sc::SolutionContext, branch_id)
             sc.unknown_complexity_factors[branch_id] = new_factor
         end
     else
-        for out_block_copy_id in nonzeroinds(sc.branch_outgoing_blocks[branch_id, :])
-            out_branches = nonzeroinds(sc.branch_incoming_blocks[:, out_block_copy_id])
+        for out_block_copy_id in keys(get_connected_from(sc.branch_outgoing_blocks, branch_id))
+            out_branches = keys(get_connected_to(sc.branch_incoming_blocks, out_block_copy_id))
             for out_branch_id in out_branches
                 if sc.complexity_factors[branch_id] > sc.complexity_factors[out_branch_id]
                     sc.complexity_factors[branch_id] = sc.complexity_factors[out_branch_id]
@@ -553,16 +553,16 @@ function _push_unmatched_complexity_to_output(sc::SolutionContext, branch_id, fi
         # @info "Updating complexities for $branch_id"
         # @info fixed_branches
 
-        out_block_copies = nonzeroinds(sc.branch_outgoing_blocks[branch_id, :])
+        out_block_copies = keys(get_connected_from(sc.branch_outgoing_blocks, branch_id))
 
         for out_block_copy_id in out_block_copies
-            inp_branches = nonzeroinds(sc.branch_outgoing_blocks[:, out_block_copy_id])
+            inp_branches = keys(get_connected_to(sc.branch_outgoing_blocks, out_block_copy_id))
 
-            un_complexity = sum(sc.unmatched_complexities[inp_branches])
+            un_complexity = get_sum(sc.unmatched_complexities, inp_branches, 0.0)
 
-            out_branches = nonzeroinds(sc.branch_incoming_blocks[:, out_block_copy_id])
+            out_branches = keys(get_connected_to(sc.branch_incoming_blocks, out_block_copy_id))
 
-            if nnz(sc.constrained_branches[out_branches, :]) > 0
+            if any(!isempty(get_connected_from(sc.constrained_branches, out_branch)) for out_branch in out_branches)
                 continue
                 # error("Not implemented")
             end
@@ -578,10 +578,10 @@ function _push_unused_complexity_to_input(sc::SolutionContext, branch_id, fixed_
     current_unused_complexity = sc.unused_explained_complexities[branch_id]
     if isnothing(current_unused_complexity) || current_unused_complexity > unused_complexity
         sc.unused_explained_complexities[branch_id] = unused_complexity
-        for (in_block_copy_id, in_block_id) in zip(findnz(sc.branch_incoming_blocks[branch_id, :])...)
+        for (in_block_copy_id, in_block_id) in get_connected_from(sc.branch_incoming_blocks, branch_id)
             in_block = sc.blocks[in_block_id]
 
-            out_branches = nonzeroinds(sc.branch_incoming_blocks[:, in_block_copy_id])
+            out_branches = keys(get_connected_to(sc.branch_incoming_blocks, in_block_copy_id))
             if isa(in_block, ReverseProgramBlock)
                 if any(
                     v_id -> haskey(fixed_branches, v_id) && !in(fixed_branches[v_id], out_branches),
@@ -591,7 +591,7 @@ function _push_unused_complexity_to_input(sc::SolutionContext, branch_id, fixed_
                 end
             end
 
-            in_branches = nonzeroinds(sc.branch_outgoing_blocks[:, in_block_copy_id])
+            in_branches = keys(get_connected_to(sc.branch_outgoing_blocks, in_block_copy_id))
             if any(!sc.branch_is_explained[br] for br in in_branches)
                 continue
             end
@@ -601,7 +601,7 @@ function _push_unused_complexity_to_input(sc::SolutionContext, branch_id, fixed_
             )
                 continue
             end
-            un_complexity = sum(sc.unused_explained_complexities[out_branches])
+            un_complexity = get_sum(sc.unused_explained_complexities, out_branches, 0.0)
             for in_branch_id in in_branches
                 _push_unused_complexity_to_input(sc, in_branch_id, fixed_branches, un_complexity)
             end
@@ -614,11 +614,11 @@ function update_complexity_factors_unknown(sc::SolutionContext, input_branches, 
         return
     end
     branch_ids = UInt64[br_id for (_, br_id) in input_branches]
-    un_complexity = sum(sc.unmatched_complexities[branch_ids])
+    un_complexity = get_sum(sc.unmatched_complexities, branch_ids, 0.0)
 
     _push_unmatched_complexity_to_output(sc, output_branch, input_branches, un_complexity)
 
-    related_branches = nonzeroinds(sc.related_unknown_complexity_branches[:, output_branch])
+    related_branches = get_connected_to(sc.related_unknown_complexity_branches, output_branch)
     for related_branch_id in related_branches
         # @info "Updating unknown complexity factor for related branch $related_branch_id"
         _update_complexity_factor_unknown(sc, related_branch_id)
@@ -657,8 +657,8 @@ function update_complexity_factors_known(sc::SolutionContext, bl::ProgramBlock, 
             inp_branch_id = input_branches[inp_var_id]
             in_complexity += sc.complexities[inp_branch_id]
             added_upstream_complexity += sc.added_upstream_complexities[inp_branch_id]
-            related_brs = nonzeroinds(sc.related_explained_complexity_branches[inp_branch_id, :])
-            merge!(related_branches, Dict(zip(related_brs, sc.branch_vars[related_brs])))
+            related_brs = get_connected_from(sc.related_explained_complexity_branches, inp_branch_id)
+            merge!(related_branches, Dict(b_id => sc.branch_vars[b_id] for b_id in related_brs))
         end
 
         for path in get_new_paths(sc.incoming_paths, out_branch_id)
@@ -677,13 +677,15 @@ function update_complexity_factors_known(sc::SolutionContext, bl::ProgramBlock, 
                 sc.explained_complexity_factors[out_branch_id] = new_complexity_factor
                 sc.added_upstream_complexities[out_branch_id] = new_added_complexity
                 deleteat!(sc.related_explained_complexity_branches, out_branch_id, :)
-                sc.related_explained_complexity_branches[out_branch_id, filtered_related_branches] = 1
+                sc.related_explained_complexity_branches[out_branch_id, filtered_related_branches] = true
             end
         end
     end
 
-    if !any(isnothing, sc.complexities[parents]) &&
-       (sc.branch_unknown_from_output[out_branch_id] || any(sc.branch_unknown_from_output[parents]))
+    if !any(isnothing, sc.complexities[parent] for parent in parents) && (
+        sc.branch_unknown_from_output[out_branch_id] ||
+        any(sc.branch_unknown_from_output[parent] for parent in parents)
+    )
         _push_unmatched_complexity_to_output(sc, out_branch_id, input_branches, 0.0)
         _push_unused_complexity_to_input(sc, out_branch_id, input_branches, 0.0)
         # for inp_branch_var in bl.input_vars
@@ -711,8 +713,8 @@ function update_complexity_factors_known(
 
     for out_var_id in bl.output_vars
         out_branch_id = output_branches[out_var_id]
-        related_brs = nonzeroinds(sc.related_explained_complexity_branches[out_branch_id, :])
-        related_branches = Dict(zip(related_brs, sc.branch_vars[related_brs]))
+        related_brs = get_connected_from(sc.related_explained_complexity_branches, out_branch_id)
+        related_branches = Dict(b_id => sc.branch_vars[b_id] for b_id in related_brs)
         for path in get_new_paths(sc.incoming_paths, out_branch_id)
             filtered_related_branches =
                 UInt64[b_id for (b_id, var_id) in related_branches if !path_sets_var(path, var_id)]
@@ -724,12 +726,12 @@ function update_complexity_factors_known(
                 sc.explained_complexity_factors[out_branch_id] = new_complexity_factor
                 sc.added_upstream_complexities[out_branch_id] = added_upstream_complexity
                 deleteat!(sc.related_explained_complexity_branches, out_branch_id, :)
-                sc.related_explained_complexity_branches[out_branch_id, filtered_related_branches] = 1
+                sc.related_explained_complexity_branches[out_branch_id, filtered_related_branches] = true
             end
         end
     end
 
-    out_complexity = reduce(+, sc.complexities[UInt64[output_branches[v_id] for v_id in bl.output_vars]])
+    out_complexity = get_sum(sc.complexities, [output_branches[v_id] for v_id in bl.output_vars], 0.0)
     _push_unused_complexity_to_input(sc, in_branch_id, Dict(), out_complexity)
 end
 
@@ -737,7 +739,12 @@ function update_context(sc::SolutionContext)
     updated_unmatched_complexities = get_new_values(sc.unmatched_complexities)
     new_branches = get_new_values(sc.branch_is_unknown)
     setdiff!(updated_unmatched_complexities, new_branches)
-    related_branches = unique(nonzeroinds(sc.related_unknown_complexity_branches[:, updated_unmatched_complexities])[1])
+    related_branches = union(
+        Set{UInt64}(),
+        [
+            get_connected_to(sc.related_unknown_complexity_branches, br_id) for br_id in updated_unmatched_complexities
+        ]...,
+    )
     for branch_id in related_branches
         _update_complexity_factor_unknown(sc, branch_id)
     end
@@ -745,7 +752,10 @@ function update_context(sc::SolutionContext)
     updated_unused_complexities = get_new_values(sc.unused_explained_complexities)
     new_branches = get_new_values(sc.branch_is_explained)
     setdiff!(updated_unused_complexities, new_branches)
-    related_branches = unique(nonzeroinds(sc.related_explained_complexity_branches[:, updated_unused_complexities])[1])
+    related_branches = union(
+        Set{UInt64}(),
+        [get_connected_to(sc.related_explained_complexity_branches, br_id) for br_id in updated_unused_complexities]...,
+    )
     for branch_id in related_branches
         _update_complexity_factor_known(sc, branch_id)
     end
@@ -762,21 +772,21 @@ function _update_prev_follow_vars(sc::SolutionContext, bl::ProgramBlock)
     if isempty(bl.input_vars)
         return
     end
-    inp_prev_vars = nonzeroinds(reduce(any, sc.previous_vars[:, bl.input_vars], dims = 2))
-    out_foll_vars = nonzeroinds(sc.previous_vars[bl.output_var, :])
-    sc.previous_vars[inp_prev_vars, out_foll_vars] = 1
+    inp_prev_vars = union([get_connected_to(sc.previous_vars, inp_var) for inp_var in bl.input_vars]...)
+    out_foll_vars = get_connected_from(sc.previous_vars, bl.output_var)
+    sc.previous_vars[inp_prev_vars, out_foll_vars] = true
 end
 
 function _update_prev_follow_vars(sc, bl::Union{ReverseProgramBlock,WrapEitherBlock})
-    inp_prev_vars = nonzeroinds(reduce(any, sc.previous_vars[:, bl.input_vars], dims = 2))
-    out_foll_vars = nonzeroinds(reduce(any, sc.previous_vars[bl.output_vars, :], dims = 1; desc = Descriptor()))
-    sc.previous_vars[inp_prev_vars, out_foll_vars] = 1
+    inp_prev_vars = union([get_connected_to(sc.previous_vars, inp_var) for inp_var in bl.input_vars]...)
+    out_foll_vars = union([get_connected_from(sc.previous_vars, out_var) for out_var in bl.output_vars]...)
+    sc.previous_vars[inp_prev_vars, out_foll_vars] = true
 end
 
 function vars_in_loop(sc::SolutionContext, known_var_id, unknown_var_id)
-    prev_known = sc.previous_vars[:, known_var_id]
-    foll_unknown = sc.previous_vars[unknown_var_id, :]
-    !isnothing((transpose(foll_unknown)*prev_known)[1])
+    prev_known = get_connected_to(sc.previous_vars, known_var_id)
+    foll_unknown = get_connected_from(sc.previous_vars, unknown_var_id)
+    !isempty(intersect(prev_known, foll_unknown))
 end
 
 function is_block_loops(sc::SolutionContext, bp::BlockPrototype)
@@ -790,9 +800,9 @@ function is_block_loops(sc::SolutionContext, bp::BlockPrototype)
         out_vars = [bp.output_var[1]]
         inp_vars = collect(keys(bp.input_vars))
     end
-    prev_inputs = reduce(any, sc.previous_vars[:, inp_vars], dims = 2)
-    foll_outputs = reduce(any, sc.previous_vars[out_vars, :], dims = 1)
-    return !isnothing((transpose(foll_outputs)*prev_inputs)[1])
+    prev_inputs = union(Set{UInt64}(), [get_connected_to(sc.previous_vars, inp_var) for inp_var in inp_vars]...)
+    foll_outputs = union([get_connected_from(sc.previous_vars, out_var) for out_var in out_vars]...)
+    return !isempty(intersect(prev_inputs, foll_outputs))
 end
 
 function assert_context_consistency(sc::SolutionContext)
@@ -825,7 +835,7 @@ function assert_context_consistency(sc::SolutionContext)
                 error("Branch $branch_id key differs from child $child_id key")
             end
         end
-        for constraint_id in nonzeroinds(sc.constrained_branches[branch_id, :])
+        for constraint_id in keys(get_connected_from(sc.constrained_branches, branch_id))
             if sc.constrained_branches[branch_id, constraint_id] != var_id
                 error(
                     "Constrained var_id in constraint $constraint_id for branch $branch_id is $(sc.constrained_branches[branch_id, constraint_id]) differs from original $var_id",

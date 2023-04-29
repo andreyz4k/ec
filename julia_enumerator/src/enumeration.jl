@@ -323,9 +323,9 @@ function try_get_reversed_values(sc::SolutionContext, p::Program, context, path,
     either_var_ids = UInt64[]
 
     if is_known
-        out_related_complexity_branches = sc.related_explained_complexity_branches[output_branch_id, :]
+        out_related_complexity_branches = get_connected_from(sc.related_explained_complexity_branches, output_branch_id)
     else
-        out_related_complexity_branches = sc.related_unknown_complexity_branches[output_branch_id, :]
+        out_related_complexity_branches = get_connected_from(sc.related_unknown_complexity_branches, output_branch_id)
     end
 
     for (var_id, entry) in new_entries
@@ -333,20 +333,20 @@ function try_get_reversed_values(sc::SolutionContext, p::Program, context, path,
         branch_id = increment!(sc.branches_count)
         sc.branch_entries[branch_id] = entry_index
         sc.branch_vars[branch_id] = var_id
-        sc.branch_types[branch_id, entry.type_id] = entry.type_id
+        sc.branch_types[branch_id, entry.type_id] = true
         if is_known
             sc.explained_min_path_costs[branch_id] = cost + sc.explained_min_path_costs[output_branch_id]
             sc.explained_complexity_factors[branch_id] = complexity_factor
             sc.unused_explained_complexities[branch_id] = entry.complexity
             sc.added_upstream_complexities[branch_id] = sc.added_upstream_complexities[output_branch_id]
-            sc.related_explained_complexity_branches[branch_id, :] = out_related_complexity_branches
+            sc.related_explained_complexity_branches[branch_id, out_related_complexity_branches] = true
         else
             sc.branch_is_unknown[branch_id] = true
             sc.branch_unknown_from_output[branch_id] = sc.branch_unknown_from_output[output_branch_id]
             sc.unknown_min_path_costs[branch_id] = cost + sc.unknown_min_path_costs[output_branch_id]
             sc.unknown_complexity_factors[branch_id] = complexity_factor
             sc.unmatched_complexities[branch_id] = entry.complexity
-            sc.related_unknown_complexity_branches[branch_id, :] = out_related_complexity_branches
+            sc.related_unknown_complexity_branches[branch_id, out_related_complexity_branches] = true
         end
         sc.complexities[branch_id] = entry.complexity
 
@@ -362,14 +362,14 @@ function try_get_reversed_values(sc::SolutionContext, p::Program, context, path,
         for (_, branch_id, _) in new_branches
             inds = [b_id for (_, b_id, _) in new_branches if b_id != branch_id]
             if is_known
-                sc.related_explained_complexity_branches[branch_id, inds] = 1
+                sc.related_explained_complexity_branches[branch_id, inds] = true
             else
-                sc.related_unknown_complexity_branches[branch_id, inds] = 1
+                sc.related_unknown_complexity_branches[branch_id, inds] = true
             end
         end
     end
     if length(either_branch_ids) >= 1
-        active_constraints = nonzeroinds(sc.constrained_branches[output_branch_id, :])
+        active_constraints = keys(get_connected_from(sc.constrained_branches, output_branch_id))
         if length(active_constraints) == 0
             new_constraint_id = increment!(sc.constraints_count)
             # @info "Added new constraint with either $new_constraint_id"
@@ -408,10 +408,9 @@ function create_wrapping_block(
     sc.branch_entries[new_branch_id] = sc.branch_entries[branch_id]
     sc.branch_is_unknown[new_branch_id] = true
     sc.branch_vars[new_branch_id] = new_var
-    sc.branch_types[new_branch_id, unknown_type_id] = unknown_type_id
+    sc.branch_types[new_branch_id, unknown_type_id] = true
     sc.complexities[new_branch_id] = sc.complexities[branch_id]
 
-    # constraints = nonzeroinds(sc.constrained_branches[branch_id, :])
     new_constraint_id = increment!(sc.constraints_count)
     sc.constrained_branches[new_branch_id, new_constraint_id] = new_var
     sc.constrained_vars[new_var, new_constraint_id] = new_branch_id
@@ -813,7 +812,8 @@ function enumeration_iteration_finished_input(sc, bp)
             create_reversed_block(sc, state.skeleton, state.context, state.path, bp.output_var, state.cost)
         return abstractor_results
     else
-        arg_types = [sc.types[reduce(any, sc.branch_types[branch_id, :])] for (_, branch_id) in bp.input_vars]
+        arg_types =
+            [sc.types[first(get_connected_from(sc.branch_types, branch_id))] for (_, branch_id) in bp.input_vars]
         p_type = arrow(arg_types..., return_of_type(bp.request))
         new_block = ProgramBlock(
             state.skeleton,
@@ -850,7 +850,7 @@ function enumeration_iteration_finished_output(sc::SolutionContext, bp::BlockPro
             branch_id = increment!(sc.branches_count)
             sc.branch_entries[branch_id] = entry_index
             sc.branch_vars[branch_id] = var_id
-            sc.branch_types[branch_id, t_id] = t_id
+            sc.branch_types[branch_id, t_id] = true
             sc.branch_is_unknown[branch_id] = true
             sc.branch_unknown_from_output[branch_id] = sc.branch_unknown_from_output[output_branch_id]
             sc.unknown_min_path_costs[branch_id] = min_path_cost
@@ -870,8 +870,10 @@ function enumeration_iteration_finished_output(sc::SolutionContext, bp::BlockPro
         end
     else
         p = state.skeleton
-        input_vars =
-            [(var_id, branch_id, reduce(any, sc.branch_types[branch_id, :])) for (var_id, branch_id) in bp.input_vars]
+        input_vars = [
+            (var_id, branch_id, first(get_connected_from(sc.branch_types, branch_id))) for
+            (var_id, branch_id) in bp.input_vars
+        ]
     end
     arg_types = [sc.types[v[3]] for v in input_vars]
     if isempty(arg_types)
@@ -1033,7 +1035,7 @@ function log_results(sc, hits)
                 sc.branch_vars[br_id],
                 sc.branch_entries[br_id],
                 sc.entries[sc.branch_entries[br_id]],
-                [sc.blocks[b_id] for b_id in nonzeros(sc.branch_incoming_blocks[br_id, :])],
+                [sc.blocks[b_id] for (_, b_id) in get_connected_from(sc.branch_incoming_blocks, br_id)],
             )
             if length(v) != length(unique(v))
                 @warn "Incoming paths for branch $br_id"

@@ -33,7 +33,9 @@ using solver:
     apply_context,
     SetConst,
     Path,
-    all_abstractors
+    all_abstractors,
+    get_connected_from,
+    get_connected_to
 
 import Redis
 using DataStructures
@@ -124,7 +126,7 @@ function next_state(state, target_candidate, cg)
 end
 
 function create_block_prototype(sc, target_branch_id, steps, g)
-    target_type_id = reduce(any, sc.branch_types[target_branch_id, :])
+    target_type_id = first(get_connected_from(sc.branch_types, target_branch_id))
     target_type = sc.types[target_type_id]
     state = initial_state(target_type, g)
     for step in steps
@@ -217,7 +219,7 @@ end
         out_var_id::UInt64 = 2
         inp_branch_id::UInt64 = 1
         out_branch_id::UInt64 = 2
-        inp_type_id = reduce(any, sc.branch_types[inp_branch_id, :])
+        inp_type_id = first(get_connected_from(sc.branch_types, inp_branch_id))
         new_block = ProgramBlock(
             FreeVar(sc.types[inp_type_id], inp_var_id),
             sc.types[inp_type_id],
@@ -232,15 +234,14 @@ end
             add_new_block(sc, new_block_id, Dict(inp_var_id => inp_branch_id), Dict(out_var_id => out_branch_id))
         @test new_solution_paths == Set([Path(OrderedDict(out_var_id => new_block_id), Dict(), 0.0)])
 
-        out_children = nonzeroinds(sc.branch_children[out_branch_id, :])
-        @test length(out_children) == 0
+        @test isempty(get_connected_from(sc.branch_children, out_branch_id))
 
         @test sc.branch_is_explained[out_branch_id] == true
         @test sc.branch_is_not_copy[out_branch_id] == false
         @test sc.incoming_paths[out_branch_id] == Set([Path(OrderedDict(out_var_id => new_block_id), Dict(), 0.0)])
-        @test nnz(sc.branch_incoming_blocks[out_branch_id, :]) == 1
+        @test length(get_connected_from(sc.branch_incoming_blocks, out_branch_id)) == 1
         @test sc.branch_incoming_blocks[out_branch_id, new_block_id] == 1
-        @test nnz(sc.branch_outgoing_blocks[out_branch_id, :]) == 0
+        @test length(get_connected_from(sc.branch_outgoing_blocks, out_branch_id)) == 0
 
         @test sc.unknown_min_path_costs[out_branch_id] == 0.0
         @test sc.explained_min_path_costs[out_branch_id] == 0.0
@@ -250,8 +251,8 @@ end
         @test sc.added_upstream_complexities[out_branch_id] == 0.0
         @test sc.unused_explained_complexities[out_branch_id] == 0.0
         @test sc.unmatched_complexities[out_branch_id] == 0.0
-        @test nnz(sc.related_unknown_complexity_branches[out_branch_id, :]) == 0
-        @test nnz(sc.related_explained_complexity_branches[out_branch_id, :]) == 0
+        @test isempty(get_connected_from(sc.related_unknown_complexity_branches, out_branch_id))
+        @test isempty(get_connected_from(sc.related_explained_complexity_branches, out_branch_id))
     end
 
     @testset "Type only match" begin
@@ -296,8 +297,8 @@ end
         out_var_id::UInt64 = 2
         inp_branch_id::UInt64 = 1
         out_branch_id::UInt64 = 2
-        inp_type_id = reduce(any, sc.branch_types[inp_branch_id, :])
-        out_type_id = reduce(any, sc.branch_types[out_branch_id, :])
+        inp_type_id = first(get_connected_from(sc.branch_types, inp_branch_id))
+        out_type_id = first(get_connected_from(sc.branch_types, out_branch_id))
 
         bp = create_block_prototype(
             sc,
@@ -335,19 +336,19 @@ end
               Set([Path(OrderedDict(out_var_id => first_block_id, connection_var_id => new_block_id), Dict(), 0.0)])
         new_block_copy_id = new_block_id
 
-        conn_children = nonzeroinds(sc.branch_children[connection_branch_id, :])
+        conn_children = get_connected_from(sc.branch_children, connection_branch_id)
         @test length(conn_children) == 1
-        conn_child_id = conn_children[1]
+        conn_child_id = first(conn_children)
         first_block_known_copy_id = new_block_copy_id + 1
 
         @test sc.branch_entries[conn_child_id] == sc.branch_entries[inp_branch_id]
         @test sc.branch_vars[conn_child_id] == connection_var_id
-        @test sc.branch_types[conn_child_id, :] == sc.branch_types[inp_branch_id, :]
+        @test get_connected_from(sc.branch_types, conn_child_id) == get_connected_from(sc.branch_types, inp_branch_id)
         @test sc.incoming_paths[conn_child_id] ==
               Set([Path(OrderedDict(connection_var_id => new_block_id), Dict(), 0.0)])
-        @test nnz(sc.branch_incoming_blocks[conn_child_id, :]) == 1
+        @test length(get_connected_from(sc.branch_incoming_blocks, conn_child_id)) == 1
         @test sc.branch_incoming_blocks[conn_child_id, new_block_copy_id] == new_block_id
-        @test nnz(sc.branch_outgoing_blocks[conn_child_id, :]) == 1
+        @test length(get_connected_from(sc.branch_outgoing_blocks, conn_child_id)) == 1
         @test sc.branch_outgoing_blocks[conn_child_id, first_block_known_copy_id] == first_block_id
         @test sc.branch_is_unknown[conn_child_id] == false
         @test sc.branch_is_explained[conn_child_id] == true
@@ -358,18 +359,18 @@ end
         @test sc.added_upstream_complexities[conn_child_id] == 0.0
         @test sc.unused_explained_complexities[conn_child_id] == 0.0
         @test sc.unmatched_complexities[conn_child_id] === nothing
-        @test nnz(sc.related_unknown_complexity_branches[conn_child_id, :]) == 0
-        @test nnz(sc.related_explained_complexity_branches[conn_child_id, :]) == 0
+        @test isempty(get_connected_from(sc.related_unknown_complexity_branches, conn_child_id))
+        @test isempty(get_connected_from(sc.related_explained_complexity_branches, conn_child_id))
 
-        out_children = nonzeroinds(sc.branch_children[out_branch_id, :])
+        out_children = get_connected_from(sc.branch_children, out_branch_id)
         @test length(out_children) == 0
 
         @test sc.incoming_paths[out_branch_id] ==
               Set([Path(OrderedDict(out_var_id => first_block_id, connection_var_id => new_block_id), Dict(), 0.0)])
-        @test nnz(sc.branch_incoming_blocks[out_branch_id, :]) == 2
+        @test length(get_connected_from(sc.branch_incoming_blocks, out_branch_id)) == 2
         @test sc.branch_incoming_blocks[out_branch_id, first_block_copy_id] == first_block_id
         @test sc.branch_incoming_blocks[out_branch_id, first_block_known_copy_id] == first_block_id
-        @test nnz(sc.branch_outgoing_blocks[out_branch_id, :]) == 0
+        @test length(get_connected_from(sc.branch_outgoing_blocks, out_branch_id)) == 0
         @test sc.branch_is_unknown[out_branch_id] == true
         @test sc.branch_is_explained[out_branch_id] == true
         @test sc.branch_is_not_copy[out_branch_id] == true
@@ -381,8 +382,8 @@ end
         @test sc.added_upstream_complexities[out_branch_id] == 0.0
         @test sc.unused_explained_complexities[out_branch_id] == 0.0
         @test sc.unmatched_complexities[out_branch_id] == 0.0
-        @test nnz(sc.related_unknown_complexity_branches[out_branch_id, :]) == 0
-        @test nnz(sc.related_explained_complexity_branches[out_branch_id, :]) == 0
+        @test isempty(get_connected_from(sc.related_unknown_complexity_branches, out_branch_id))
+        @test isempty(get_connected_from(sc.related_explained_complexity_branches, out_branch_id))
     end
 
     @testset "Either match" begin
@@ -447,16 +448,16 @@ end
 
         @test sc.branch_entries[v1_branch_id] == 3
         @test sc.branch_vars[v1_branch_id] == v1_var_id
-        @test sc.branch_types[v1_branch_id, :] == sc.branch_types[inp_branch_id, :]
-        @test nnz(sc.branch_children[v1_branch_id, :]) == 0
-        @test nnz(sc.branch_children[:, v1_branch_id]) == 0
-        @test nnz(sc.constrained_branches[v1_branch_id, :]) == 1
+        @test get_connected_from(sc.branch_types, v1_branch_id) == get_connected_from(sc.branch_types, inp_branch_id)
+        @test isempty(get_connected_from(sc.branch_children, v1_branch_id))
+        @test isempty(get_connected_to(sc.branch_children, v1_branch_id))
+        @test length(get_connected_from(sc.constrained_branches, v1_branch_id)) == 1
         @test sc.constrained_branches[v1_branch_id, constraint_id] == v1_var_id
-        @test nnz(sc.constrained_vars[v1_var_id, :]) == 1
+        @test length(get_connected_from(sc.constrained_vars, v1_var_id)) == 1
         @test sc.constrained_vars[v1_var_id, constraint_id] == v1_branch_id
         @test sc.incoming_paths[v1_branch_id] == Set([])
-        @test nnz(sc.branch_incoming_blocks[v1_branch_id, :]) == 0
-        @test nnz(sc.branch_outgoing_blocks[v1_branch_id, :]) == 1
+        @test length(get_connected_from(sc.branch_incoming_blocks, v1_branch_id)) == 0
+        @test length(get_connected_from(sc.branch_outgoing_blocks, v1_branch_id)) == 1
         @test sc.branch_outgoing_blocks[v1_branch_id, first_block_copy_id] == first_block_id
         @test sc.branch_is_unknown[v1_branch_id] == true
         @test sc.branch_is_explained[v1_branch_id] == false
@@ -464,21 +465,21 @@ end
         @test sc.unknown_complexity_factors[v1_branch_id] == 20.0
         @test sc.complexities[v1_branch_id] == 10.0
         @test sc.unmatched_complexities[v1_branch_id] == 10.0
-        @test nnz(sc.related_unknown_complexity_branches[v1_branch_id, :]) == 1
-        @test sc.related_unknown_complexity_branches[v1_branch_id, v2_branch_id] == 1
+        @test length(get_connected_from(sc.related_unknown_complexity_branches, v1_branch_id)) == 1
+        @test sc.related_unknown_complexity_branches[v1_branch_id, v2_branch_id] == true
 
         @test sc.branch_entries[v2_branch_id] == 4
         @test sc.branch_vars[v2_branch_id] == v2_var_id
-        @test sc.branch_types[v2_branch_id, :] == sc.branch_types[inp_branch_id, :]
-        @test nnz(sc.branch_children[v2_branch_id, :]) == 0
-        @test nnz(sc.branch_children[:, v2_branch_id]) == 0
-        @test nnz(sc.constrained_branches[v2_branch_id, :]) == 1
+        @test get_connected_from(sc.branch_types, v2_branch_id) == get_connected_from(sc.branch_types, inp_branch_id)
+        @test isempty(get_connected_from(sc.branch_children, v2_branch_id))
+        @test isempty(get_connected_to(sc.branch_children, v2_branch_id))
+        @test length(get_connected_from(sc.constrained_branches, v2_branch_id)) == 1
         @test sc.constrained_branches[v2_branch_id, constraint_id] == v2_var_id
-        @test nnz(sc.constrained_vars[v2_var_id, :]) == 1
+        @test length(get_connected_from(sc.constrained_vars, v2_var_id)) == 1
         @test sc.constrained_vars[v2_var_id, constraint_id] == v2_branch_id
         @test sc.incoming_paths[v2_branch_id] == Set([])
-        @test nnz(sc.branch_incoming_blocks[v2_branch_id, :]) == 0
-        @test nnz(sc.branch_outgoing_blocks[v2_branch_id, :]) == 1
+        @test length(get_connected_from(sc.branch_incoming_blocks, v2_branch_id)) == 0
+        @test length(get_connected_from(sc.branch_outgoing_blocks, v2_branch_id)) == 1
         @test sc.branch_outgoing_blocks[v2_branch_id, first_block_copy_id] == first_block_id
         @test sc.branch_is_unknown[v2_branch_id] == true
         @test sc.branch_is_explained[v2_branch_id] == false
@@ -486,10 +487,10 @@ end
         @test sc.unknown_complexity_factors[v2_branch_id] == 20.0
         @test sc.complexities[v2_branch_id] == 10.0
         @test sc.unmatched_complexities[v2_branch_id] == 10.0
-        @test nnz(sc.related_unknown_complexity_branches[v2_branch_id, :]) == 1
-        @test sc.related_unknown_complexity_branches[v2_branch_id, v1_branch_id] == 1
+        @test length(get_connected_from(sc.related_unknown_complexity_branches, v2_branch_id)) == 1
+        @test sc.related_unknown_complexity_branches[v2_branch_id, v1_branch_id] == true
 
-        inp_type_id = reduce(any, sc.branch_types[inp_branch_id, :])
+        inp_type_id = first(get_connected_from(sc.branch_types, inp_branch_id))
         inp_type = sc.types[inp_type_id]
 
         new_block = ProgramBlock(FreeVar(inp_type, inp_var_id), inp_type, 0.0, [inp_var_id], v2_var_id, false)
@@ -501,26 +502,26 @@ end
         first_block_known_copy_id::UInt64 = 2
         @test new_solution_paths == Set()
 
-        v2_children = nonzeroinds(sc.branch_children[v2_branch_id, :])
+        v2_children = get_connected_from(sc.branch_children, v2_branch_id)
         @test length(v2_children) == 1
-        v2_child_id = v2_children[1]
+        v2_child_id = first(v2_children)
 
-        v1_children = nonzeroinds(sc.branch_children[v1_branch_id, :])
+        v1_children = get_connected_from(sc.branch_children, v1_branch_id)
         @test length(v1_children) == 1
-        v1_child_id = v1_children[1]
+        v1_child_id = first(v1_children)
 
         @test sc.branch_entries[v2_child_id] == sc.branch_entries[inp_branch_id]
         @test sc.branch_vars[v2_child_id] == v2_var_id
-        @test sc.branch_types[v2_child_id, :] == sc.branch_types[inp_branch_id, :]
-        @test nnz(sc.branch_children[v2_child_id, :]) == 0
-        @test nnz(sc.branch_children[:, v2_child_id]) == 1
-        @test sc.branch_children[v2_branch_id, v2_child_id] == 1
-        @test nnz(sc.constrained_branches[v2_child_id, :]) == 0
-        @test nnz(sc.constrained_vars[v2_var_id, :]) == 1
+        @test get_connected_from(sc.branch_types, v2_child_id) == get_connected_from(sc.branch_types, inp_branch_id)
+        @test isempty(get_connected_from(sc.branch_children, v2_child_id))
+        @test length(get_connected_to(sc.branch_children, v2_child_id)) == 1
+        @test sc.branch_children[v2_branch_id, v2_child_id] == true
+        @test length(get_connected_from(sc.constrained_branches, v2_child_id)) == 0
+        @test length(get_connected_from(sc.constrained_vars, v2_var_id)) == 1
         @test sc.incoming_paths[v2_child_id] == Set([Path(OrderedDict(v2_var_id => new_block_id), Dict(), 0.0)])
-        @test nnz(sc.branch_incoming_blocks[v2_child_id, :]) == 1
+        @test length(get_connected_from(sc.branch_incoming_blocks, v2_child_id)) == 1
         @test sc.branch_incoming_blocks[v2_child_id, new_block_copy_id] == new_block_id
-        @test nnz(sc.branch_outgoing_blocks[v2_child_id, :]) == 1
+        @test length(get_connected_from(sc.branch_outgoing_blocks, v2_child_id)) == 1
         @test sc.branch_outgoing_blocks[v2_child_id, first_block_known_copy_id] == first_block_id
         @test sc.branch_is_unknown[v2_child_id] == false
         @test sc.branch_is_explained[v2_child_id] == true
@@ -531,20 +532,20 @@ end
         @test sc.added_upstream_complexities[v2_child_id] == 0.0
         @test sc.unused_explained_complexities[v2_child_id] == 0.0
         @test sc.unmatched_complexities[v2_child_id] == 0.0
-        @test nnz(sc.related_explained_complexity_branches[v2_child_id, :]) == 0
-        @test nnz(sc.related_unknown_complexity_branches[v2_child_id, :]) == 0
+        @test isempty(get_connected_from(sc.related_explained_complexity_branches, v2_child_id))
+        @test isempty(get_connected_from(sc.related_unknown_complexity_branches, v2_child_id))
 
         @test sc.branch_entries[v1_child_id] == 5
         @test sc.branch_vars[v1_child_id] == v1_var_id
-        @test sc.branch_types[v1_child_id, :] == sc.branch_types[inp_branch_id, :]
-        @test nnz(sc.branch_children[v1_child_id, :]) == 0
-        @test nnz(sc.branch_children[:, v1_child_id]) == 1
-        @test sc.branch_children[v1_branch_id, v1_child_id] == 1
-        @test nnz(sc.constrained_branches[v1_child_id, :]) == 0
-        @test nnz(sc.constrained_vars[v1_var_id, :]) == 1
+        @test get_connected_from(sc.branch_types, v1_child_id) == get_connected_from(sc.branch_types, inp_branch_id)
+        @test isempty(get_connected_from(sc.branch_children, v1_child_id))
+        @test length(get_connected_to(sc.branch_children, v1_child_id)) == 1
+        @test sc.branch_children[v1_branch_id, v1_child_id] == true
+        @test length(get_connected_from(sc.constrained_branches, v1_child_id)) == 0
+        @test length(get_connected_from(sc.constrained_vars, v1_var_id)) == 1
         @test sc.incoming_paths[v1_child_id] == Set([])
-        @test nnz(sc.branch_incoming_blocks[v1_child_id, :]) == 0
-        @test nnz(sc.branch_outgoing_blocks[v1_child_id, :]) == 1
+        @test length(get_connected_from(sc.branch_incoming_blocks, v1_child_id)) == 0
+        @test length(get_connected_from(sc.branch_outgoing_blocks, v1_child_id)) == 1
         @test sc.branch_outgoing_blocks[v1_child_id, first_block_known_copy_id] == first_block_id
         @test sc.branch_is_unknown[v1_child_id] == true
         @test sc.branch_is_explained[v1_child_id] == false
@@ -553,8 +554,8 @@ end
         @test sc.unknown_complexity_factors[v1_child_id] == 6.0
         @test sc.complexities[v1_child_id] == 6.0
         @test sc.unmatched_complexities[v1_child_id] == 6.0
-        @test nnz(sc.related_unknown_complexity_branches[v1_child_id, :]) == 1
-        @test sc.related_unknown_complexity_branches[v1_child_id, v2_child_id] == 1
+        @test length(get_connected_from(sc.related_unknown_complexity_branches, v1_child_id)) == 1
+        @test sc.related_unknown_complexity_branches[v1_child_id, v2_child_id] == true
 
         const_block = ProgramBlock(SetConst(inp_type, [5]), inp_type, 0.0, [], v1_var_id, false)
         const_block_id = push!(sc.blocks, const_block)
@@ -569,14 +570,14 @@ end
             ),
         ])
 
-        @test nnz(sc.branch_children[v2_child_id, :]) == 0
-        @test nnz(sc.constrained_branches[v2_child_id, :]) == 0
+        @test isempty(get_connected_from(sc.branch_children, v2_child_id))
+        @test length(get_connected_from(sc.constrained_branches, v2_child_id)) == 0
 
-        @test nnz(sc.constrained_vars[v2_var_id, :]) == 1
+        @test length(get_connected_from(sc.constrained_vars, v2_var_id)) == 1
         @test sc.incoming_paths[v2_child_id] == Set([Path(OrderedDict(v2_var_id => new_block_id), Dict(), 0.0)])
-        @test nnz(sc.branch_incoming_blocks[v2_child_id, :]) == 1
+        @test length(get_connected_from(sc.branch_incoming_blocks, v2_child_id)) == 1
         @test sc.branch_incoming_blocks[v2_child_id, new_block_copy_id] == new_block_id
-        @test nnz(sc.branch_outgoing_blocks[v2_child_id, :]) == 1
+        @test length(get_connected_from(sc.branch_outgoing_blocks, v2_child_id)) == 1
         @test sc.branch_outgoing_blocks[v2_child_id, first_block_known_copy_id] == first_block_id
         @test sc.branch_is_unknown[v2_child_id] == false
         @test sc.branch_is_explained[v2_child_id] == true
@@ -587,17 +588,17 @@ end
         @test sc.added_upstream_complexities[v2_child_id] == 0.0
         @test sc.unused_explained_complexities[v2_child_id] == 0.0
         @test sc.unmatched_complexities[v2_child_id] == 0.0
-        @test nnz(sc.related_explained_complexity_branches[v2_child_id, :]) == 0
-        @test nnz(sc.related_unknown_complexity_branches[v2_child_id, :]) == 0
+        @test isempty(get_connected_from(sc.related_explained_complexity_branches, v2_child_id))
+        @test isempty(get_connected_from(sc.related_unknown_complexity_branches, v2_child_id))
 
-        @test nnz(sc.branch_children[v1_child_id, :]) == 0
-        @test nnz(sc.branch_children[:, v1_child_id]) == 1
-        @test sc.branch_children[v1_branch_id, v1_child_id] == 1
-        @test nnz(sc.constrained_vars[v1_var_id, :]) == 1
+        @test isempty(get_connected_from(sc.branch_children, v1_child_id))
+        @test length(get_connected_to(sc.branch_children, v1_child_id)) == 1
+        @test sc.branch_children[v1_branch_id, v1_child_id] == true
+        @test length(get_connected_from(sc.constrained_vars, v1_var_id)) == 1
         @test sc.incoming_paths[v1_child_id] == Set([Path(OrderedDict(v1_var_id => const_block_id), Dict(), 0.0)])
-        @test nnz(sc.branch_incoming_blocks[v1_child_id, :]) == 1
+        @test length(get_connected_from(sc.branch_incoming_blocks, v1_child_id)) == 1
         @test sc.branch_incoming_blocks[v1_child_id, const_block_copy_id] == const_block_id
-        @test nnz(sc.branch_outgoing_blocks[v1_child_id, :]) == 1
+        @test length(get_connected_from(sc.branch_outgoing_blocks, v1_child_id)) == 1
         @test sc.branch_outgoing_blocks[v1_child_id, first_block_known_copy_id] == first_block_id
         @test sc.branch_is_unknown[v1_child_id] == true
         @test sc.branch_is_explained[v1_child_id] == true
@@ -610,14 +611,14 @@ end
         @test sc.added_upstream_complexities[v1_child_id] == 10.0
         @test sc.unused_explained_complexities[v1_child_id] == 0.0
         @test sc.unmatched_complexities[v1_child_id] == 0.0
-        @test nnz(sc.related_unknown_complexity_branches[v1_child_id, :]) == 1
-        @test sc.related_unknown_complexity_branches[v1_child_id, v2_child_id] == 1
-        @test nnz(sc.related_explained_complexity_branches[v1_child_id, :]) == 0
+        @test length(get_connected_from(sc.related_unknown_complexity_branches, v1_child_id)) == 1
+        @test sc.related_unknown_complexity_branches[v1_child_id, v2_child_id] == true
+        @test isempty(get_connected_from(sc.related_explained_complexity_branches, v1_child_id))
 
-        @test nnz(sc.branch_children[out_branch_id, :]) == 0
+        @test isempty(get_connected_from(sc.branch_children, out_branch_id))
 
-        @test nnz(sc.constrained_branches[out_branch_id, :]) == 0
-        @test nnz(sc.constrained_vars[out_var_id, :]) == 0
+        @test length(get_connected_from(sc.constrained_branches, out_branch_id)) == 0
+        @test length(get_connected_from(sc.constrained_vars, out_var_id)) == 0
         @test sc.incoming_paths[out_branch_id] == Set([
             Path(
                 OrderedDict(out_var_id => first_block_id, v2_var_id => new_block_id, v1_var_id => const_block_id),
@@ -625,10 +626,10 @@ end
                 0.0,
             ),
         ])
-        @test nnz(sc.branch_incoming_blocks[out_branch_id, :]) == 2
+        @test length(get_connected_from(sc.branch_incoming_blocks, out_branch_id)) == 2
         @test sc.branch_incoming_blocks[out_branch_id, first_block_copy_id] == first_block_id
         @test sc.branch_incoming_blocks[out_branch_id, first_block_known_copy_id] == first_block_id
-        @test nnz(sc.branch_outgoing_blocks[out_branch_id, :]) == 0
+        @test length(get_connected_from(sc.branch_outgoing_blocks, out_branch_id)) == 0
         @test sc.branch_is_unknown[out_branch_id] == true
         @test sc.branch_is_explained[out_branch_id] == true
         @test sc.branch_is_not_copy[out_branch_id] == true
@@ -638,7 +639,7 @@ end
         @test sc.added_upstream_complexities[out_branch_id] == 10.0
         @test sc.unused_explained_complexities[out_branch_id] == 0.0
         @test sc.unmatched_complexities[out_branch_id] == 0.0
-        @test nnz(sc.related_unknown_complexity_branches[out_branch_id, :]) == 0
-        @test nnz(sc.related_explained_complexity_branches[out_branch_id, :]) == 0
+        @test isempty(get_connected_from(sc.related_unknown_complexity_branches, out_branch_id))
+        @test isempty(get_connected_from(sc.related_explained_complexity_branches, out_branch_id))
     end
 end

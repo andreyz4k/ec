@@ -1,10 +1,10 @@
 
 struct TypeStorage
     types::IndexedStorage{Tp}
-    unifiable_types::GraphStorage{Nothing}
+    unifiable_types::ConnectionGraphStorage
 end
 
-TypeStorage() = TypeStorage(IndexedStorage{Tp}(), GraphStorage())
+TypeStorage() = TypeStorage(IndexedStorage{Tp}(), ConnectionGraphStorage())
 
 function start_transaction!(storage::TypeStorage)
     start_transaction!(storage.types)
@@ -30,13 +30,13 @@ function Base.push!(storage::TypeStorage, type::Tp)::UInt64
     for t_id::UInt64 in 1:l
         t = storage.types[t_id]
         if might_unify(t, type)
-            storage.unifiable_types[t_id, new_id] = 1
+            storage.unifiable_types[t_id, new_id] = true
             if !is_polymorphic(type)
-                storage.unifiable_types[new_id, t_id] = 1
+                storage.unifiable_types[new_id, t_id] = true
             end
         end
     end
-    storage.unifiable_types[new_id, new_id] = 1
+    storage.unifiable_types[new_id, new_id] = true
     return new_id
 end
 
@@ -45,9 +45,9 @@ function Base.getindex(storage::TypeStorage, id::UInt64)
 end
 
 function get_sub_types(storage::TypeStorage, type_id::UInt64)
-    return nonzeroinds(storage.unifiable_types[:, type_id])
+    return get_connected_to(storage.unifiable_types, type_id)
 end
 
 function get_super_types(storage::TypeStorage, type_id::UInt64)
-    return nonzeroinds(storage.unifiable_types[type_id, :])
+    return get_connected_from(storage.unifiable_types, type_id)
 end

@@ -1,6 +1,6 @@
 
 function get_all_parents(sc, branch_id)
-    parents = nonzeroinds(sc.branch_children[:, branch_id])
+    parents = get_connected_to(sc.branch_children, branch_id)
     for parent_id in parents
         parents = union(parents, get_all_parents(sc, parent_id))
     end
@@ -98,7 +98,7 @@ function value_updates(
         for (_, branch_id) in out_branches
             if length(out_branches) > 1
                 inds = [b_id for (_, b_id) in out_branches if b_id != branch_id]
-                sc.related_explained_complexity_branches[branch_id, inds] = 1
+                sc.related_explained_complexity_branches[branch_id, inds] = true
             end
             if !sc.branch_known_from_input[branch_id]
                 sc.branch_known_from_input[branch_id] = known_from_input
@@ -143,7 +143,7 @@ end
 
 function find_related_branches(sc, branch_id, new_entry, new_entry_index)::Tuple{Vector{UInt64},Union{UInt64,Nothing}}
     possible_parents = UInt64[]
-    for child_id in nonzeroinds(sc.branch_children[branch_id, :])
+    for child_id in get_connected_from(sc.branch_children, branch_id)
         if sc.branch_entries[child_id] == new_entry_index
             return UInt64[], child_id
         else
@@ -186,7 +186,7 @@ function updated_branches(
     end
     new_entry_index = push!(sc.entries, new_entry)
     new_parents, possible_result = find_related_branches(sc, branch_id, new_entry, new_entry_index)
-    parent_constraints = nonzeroinds(sc.constrained_branches[branch_id, :])
+    parent_constraints = keys(get_connected_from(sc.constrained_branches, branch_id))
     if !isnothing(possible_result)
         set_explained = false
         if !sc.branch_is_explained[possible_result]
@@ -207,13 +207,13 @@ function updated_branches(
     new_branch_id = increment!(sc.branches_count)
     sc.branch_entries[new_branch_id] = new_entry_index
     sc.branch_vars[new_branch_id] = var_id
-    sc.branch_types[new_branch_id, t_id] = t_id
+    sc.branch_types[new_branch_id, t_id] = true
     sc.branch_is_explained[new_branch_id] = true
     if is_meaningful
         sc.branch_is_not_copy[new_branch_id] = true
     end
 
-    sc.branch_children[new_parents, new_branch_id] = 1
+    sc.branch_children[new_parents, new_branch_id] = true
     sc.complexities[new_branch_id] = new_entry.complexity
     sc.unused_explained_complexities[new_branch_id] = new_entry.complexity
 
@@ -256,7 +256,7 @@ function updated_branches(
     end
     new_entry_index = push!(sc.entries, new_entry)
     new_parents, possible_result = find_related_branches(sc, branch_id, new_entry, new_entry_index)
-    parent_constraints = nonzeroinds(sc.constrained_branches[branch_id, :])
+    parent_constraints = keys(get_connected_from(sc.constrained_branches, branch_id))
     if !isnothing(possible_result)
         set_explained = false
         if !sc.branch_is_explained[possible_result]
@@ -280,13 +280,13 @@ function updated_branches(
     new_branch_id = increment!(sc.branches_count)
     sc.branch_entries[new_branch_id] = new_entry_index
     sc.branch_vars[new_branch_id] = var_id
-    sc.branch_types[new_branch_id, t_id] = t_id
+    sc.branch_types[new_branch_id, t_id] = true
     sc.branch_is_explained[new_branch_id] = true
     if is_meaningful
         sc.branch_is_not_copy[new_branch_id] = true
     end
 
-    sc.branch_children[new_parents, new_branch_id] = 1
+    sc.branch_children[new_parents, new_branch_id] = true
     sc.complexities[new_branch_id] = new_entry.complexity
     sc.unused_explained_complexities[new_branch_id] = new_entry.complexity
     sc.unmatched_complexities[new_branch_id] = new_entry.complexity
@@ -329,7 +329,7 @@ function updated_branches(
     end
     new_entry_index = push!(sc.entries, new_entry)
     new_parents, possible_result = find_related_branches(sc, branch_id, new_entry, new_entry_index)
-    parent_constraints = nonzeroinds(sc.constrained_branches[branch_id, :])
+    parent_constraints = keys(get_connected_from(sc.constrained_branches, branch_id))
     if !isnothing(possible_result)
         set_explained = false
         if !sc.branch_is_explained[possible_result]
@@ -353,13 +353,13 @@ function updated_branches(
     new_branch_id = increment!(sc.branches_count)
     sc.branch_entries[new_branch_id] = new_entry_index
     sc.branch_vars[new_branch_id] = var_id
-    sc.branch_types[new_branch_id, t_id] = t_id
+    sc.branch_types[new_branch_id, t_id] = true
     sc.branch_is_explained[new_branch_id] = true
     if is_meaningful
         sc.branch_is_not_copy[new_branch_id] = true
     end
 
-    sc.branch_children[new_parents, new_branch_id] = 1
+    sc.branch_children[new_parents, new_branch_id] = true
     sc.complexities[new_branch_id] = new_entry.complexity
     sc.unused_explained_complexities[new_branch_id] = new_entry.complexity
     sc.unmatched_complexities[new_branch_id] = new_entry.complexity
@@ -383,15 +383,15 @@ function updated_branches(
 end
 
 function _downstream_branch_options_known(sc, block_id, block_copy_id, fixed_branches, unfixed_vars)
-    inp_branches = nonzeroinds(sc.branch_outgoing_blocks[:, block_copy_id])
-    all_inputs = Dict(v => b for (v, b) in zip(sc.branch_vars[inp_branches], inp_branches))
+    inp_branches = keys(get_connected_to(sc.branch_outgoing_blocks, block_copy_id))
+    all_inputs = Dict(sc.branch_vars[b] => b for b in inp_branches)
     for (v, b) in all_inputs
         if haskey(fixed_branches, v) && sc.branch_is_explained[b] && fixed_branches[v] != b
             return false, Set(), Set()
         end
     end
-    out_branches = nonzeroinds(sc.branch_incoming_blocks[:, block_copy_id])
-    target_output = Dict(v => b for (v, b) in zip(sc.branch_vars[out_branches], out_branches))
+    out_branches = keys(get_connected_to(sc.branch_incoming_blocks, block_copy_id))
+    target_output = Dict(sc.branch_vars[b] => b for b in out_branches)
     if isempty(unfixed_vars)
         return false, Set([(block_id, fixed_branches, target_output)]), Set()
     end
@@ -399,7 +399,7 @@ function _downstream_branch_options_known(sc, block_id, block_copy_id, fixed_bra
     # @info unfixed_vars
     inputs = Dict(v => b for (v, b) in all_inputs if in(v, unfixed_vars))
     new_fixed_branches = merge(fixed_branches, inputs)
-    if all(e == true for e in sc.branch_is_explained[collect(values(inputs))])
+    if all(sc.branch_is_explained[br_id] for br_id in values(inputs))
         return false, Set([(block_id, new_fixed_branches, target_output)]), Set()
     end
     allow_fails = false
@@ -417,7 +417,7 @@ function _downstream_blocks_existing_branch(sc, var_id, out_branch_id, fixed_bra
     allow_fails = false
     outputs = Set()
     fixed_branches = merge(fixed_branches, Dict(var_id => out_branch_id))
-    next_blocks = unique(zip(findnz(sc.branch_outgoing_blocks[out_branch_id, :])...))
+    next_blocks = get_connected_from(sc.branch_outgoing_blocks, out_branch_id)
     for (b_copy_id, b_id) in next_blocks
         block = sc.blocks[b_id]
         unfixed_vars = [v_id for v_id in block.input_vars if !haskey(fixed_branches, v_id)]
@@ -438,7 +438,7 @@ function _downstream_blocks_new_branch(sc, var_id, target_branch_id, out_branch_
     outputs = Set()
     fixed_branches = merge(fixed_branches, Dict(var_id => out_branch_id))
 
-    next_blocks = unique(zip(findnz(sc.branch_outgoing_blocks[target_branch_id, :])...))
+    next_blocks = get_connected_from(sc.branch_outgoing_blocks, target_branch_id)
     unexplained_options = Set()
     for (b_copy_id, b_id) in next_blocks
         block = sc.blocks[b_id]
@@ -460,16 +460,18 @@ end
 function _save_block_branch_connections(sc, block_id, block, fixed_branches, out_branches)
     input_br_ids = UInt64[fixed_branches[var_id] for var_id in block.input_vars]
     existing_outgoing = DefaultDict{UInt64,Int}(() -> 0)
-    for (_, bl_copy_id, bl_id) in zip(findnz(sc.branch_outgoing_blocks[input_br_ids, :])...)
-        if bl_id == block_id
-            existing_outgoing[bl_copy_id] += 1
+    for in_br_id in input_br_ids
+        for (bl_copy_id, bl_id) in get_connected_from(sc.branch_outgoing_blocks, in_br_id)
+            if bl_id == block_id
+                existing_outgoing[bl_copy_id] += 1
+            end
         end
     end
     for (bl_copy_id, count) in existing_outgoing
         if count != length(input_br_ids)
             continue
         end
-        if Vector{UInt64}(nonzeroinds(sc.branch_incoming_blocks[:, bl_copy_id])) == out_branches
+        if sort(collect(keys(get_connected_to(sc.branch_incoming_blocks, bl_copy_id)))) == out_branches
             if sc.verbose
                 @info "Block $block_id $block already has connections for inputs $input_br_ids and outputs $out_branches"
             end
