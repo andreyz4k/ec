@@ -160,6 +160,18 @@ function generic_reverse(rev_function, n)
             rev_results = rev_function(value)
             return vcat([rev_functions[i](rev_results[i]) for i in 1:n]...)
         end
+        function _reverse_function(value::Union{Nothing,AnyObject})::Vector{Any}
+            try
+                rev_results = rev_function(value)
+                return vcat([rev_functions[i](rev_results[i]) for i in 1:n]...)
+            catch e
+                if isa(e, MethodError)
+                    return vcat([rev_functions[i](value) for i in 1:n]...)
+                else
+                    rethrow(e)
+                end
+            end
+        end
         function _reverse_function(value::EitherOptions)::Vector{Any}
             _reverse_eithers(_reverse_function, value)
         end

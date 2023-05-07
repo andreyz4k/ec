@@ -235,6 +235,21 @@ function match_with_entry(sc, entry::PatternEntry, other::ValueEntry)
     return all(match_at_index(entry, i, other.values[i]) for i in 1:sc.example_count)
 end
 
+function match_with_entry(sc, entry::ValueEntry, other::PatternEntry)
+    return false
+end
+
+function match_with_entry(sc, entry::PatternEntry, other::PatternEntry)
+    return all(match_at_index(entry, i, other.values[i]) for i in 1:sc.example_count)
+end
+
+function match_with_entry(sc, entry::EitherEntry, other::PatternEntry)
+    return all(match_at_index(entry, i, other.values[i]) for i in 1:sc.example_count)
+end
+
+match_with_entry(sc, entry::NoDataEntry, other::PatternEntry) =
+    might_unify(sc.types[entry.type_id], sc.types[other.type_id])
+
 function matching_with_unknown_candidates(sc, entry::PatternEntry, var_id)
     results = []
 
@@ -254,6 +269,34 @@ function matching_with_unknown_candidates(sc, entry::PatternEntry, var_id)
         tp = sc.types[entry.type_id]
         push!(results, (FreeVar(tp, known_var_id), Dict(known_var_id => known_branch_id), tp))
     end
+    results
+end
+
+function matching_with_known_candidates(sc, entry::PatternEntry, known_branch_id)
+    results = []
+    types = get_super_types(sc.types, entry.type_id)
+    entry_type = sc.types[entry.type_id]
+
+    known_var_id = sc.branch_vars[known_branch_id]
+    for tp_id in types
+        for unknown_branch_id in get_connected_to(sc.branch_types, tp_id)
+            if !sc.branch_is_unknown[unknown_branch_id]
+                continue
+            end
+            unknown_var_id = sc.branch_vars[unknown_branch_id]
+            if vars_in_loop(sc, known_var_id, unknown_var_id)
+                # || !is_branch_compatible(unknown_branch.key, unknown_branch, [input_branch])
+                continue
+            end
+            unknown_entry_id = sc.branch_entries[unknown_branch_id]
+            unknown_entry = sc.entries[unknown_entry_id]
+            if unknown_entry_id == sc.branch_entries[known_branch_id] ||
+               (!isa(unknown_entry, ValueEntry) && match_with_entry(sc, unknown_entry, entry))
+                push!(results, (FreeVar(entry_type, known_var_id), unknown_var_id, unknown_branch_id, entry_type))
+            end
+        end
+    end
+
     results
 end
 
