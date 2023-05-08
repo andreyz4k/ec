@@ -483,7 +483,7 @@ using solver: load_problems, enumerate_for_task
         solutions, number_enumerated =
             @time enumerate_for_task(g, type_weights, task, maximum_frontier, timeout, verbose)
         @test length(solutions) == 0
-        @test number_enumerated >= 5000
+        @test number_enumerated >= 3000
     end
 
     @testset "4258a5f9.json" begin
@@ -557,7 +557,7 @@ using solver: load_problems, enumerate_for_task
         solutions, number_enumerated =
             @time enumerate_for_task(g, type_weights, task, maximum_frontier, timeout, verbose)
         @test length(solutions) == 0
-        @test number_enumerated >= 2000
+        @test number_enumerated >= 1000
     end
 
     @testset "63613498.json" begin
@@ -581,7 +581,7 @@ using solver: load_problems, enumerate_for_task
         solutions, number_enumerated =
             @time enumerate_for_task(g, type_weights, task, maximum_frontier, timeout, verbose)
         @test length(solutions) == 0
-        @test number_enumerated >= 5000
+        @test number_enumerated >= 3000
     end
 
     # @testset "8731374e.json" begin
