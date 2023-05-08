@@ -834,8 +834,8 @@ using DataStructures: OrderedDict, Accumulator
         @test is_reversible(skeleton)
         rev_p = get_reversed_program(skeleton)
 
-        @test compare_options(rev_p([0, 1, 2]), [2])
-        @test compare_options(rev_p([]), [-1])
+        @test compare_options(rev_p([0, 1, 2]), [3])
+        @test compare_options(rev_p([]), [0])
     end
 
     @testset "Reverse map with range" begin
@@ -855,7 +855,7 @@ using DataStructures: OrderedDict, Accumulator
         @test is_reversible(skeleton)
         rev_p = get_reversed_program(skeleton)
 
-        @test compare_options(rev_p([[0, 1, 2], [0, 1], [0, 1, 2, 3]]), [[2, 1, 3]])
+        @test compare_options(rev_p([[0, 1, 2], [0, 1], [0, 1, 2, 3]]), [[3, 2, 4]])
     end
 
     @testset "Reverse map set with range" begin
@@ -875,7 +875,7 @@ using DataStructures: OrderedDict, Accumulator
         @test is_reversible(skeleton)
         rev_p = get_reversed_program(skeleton)
 
-        @test compare_options(rev_p(Set([[0, 1, 2], [0, 1], [0, 1, 2, 3]])), [Set([2, 1, 3])])
+        @test compare_options(rev_p(Set([[0, 1, 2], [0, 1], [0, 1, 2, 3]])), [Set([3, 2, 4])])
     end
 
     @testset "Reverse map with repeat" begin
@@ -1441,7 +1441,7 @@ using DataStructures: OrderedDict, Accumulator
         @test is_reversible(skeleton)
         rev_p = get_reversed_program(skeleton)
 
-        @test compare_options(rev_p([[0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 3]]), [3, 4])
+        @test compare_options(rev_p([[0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 3]]), [4, 3])
     end
 
     @testset "Invented abstractor with range in map2" begin
@@ -1461,7 +1461,7 @@ using DataStructures: OrderedDict, Accumulator
 
         @test compare_options(
             rev_p([[[0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 3]], [[0, 1, 2], [0, 1, 2]]]),
-            [[3, 2], [4, 2]],
+            [[4, 3], [4, 2]],
         )
     end
 

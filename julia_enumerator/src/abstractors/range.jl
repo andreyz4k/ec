@@ -5,7 +5,7 @@ function reverse_range(value)::Vector{Any}
             error("Invalid value")
         end
     end
-    return [length(value) - 1]
+    return [length(value)]
 end
 
 @define_reverse_primitive "range" arrow(tint, tlist(tint)) (n -> collect(0:n-1)) reverse_range

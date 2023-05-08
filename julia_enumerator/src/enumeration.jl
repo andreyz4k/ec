@@ -272,6 +272,41 @@ function try_run_reversed_with_value(reverse_program::Function, value, new_vars_
     try_run_function(reverse_program, [value])
 end
 
+function check_reversed_program_forward(p, vars, inputs, expected_output)
+    if any(isa(v, EitherOptions) for v in inputs)
+        either_val = first(v for v in inputs if isa(v, EitherOptions))
+        hashes = keys(either_val.options)
+        for h in hashes
+            inps = [__fix_option_hashes([h], v) for v in inputs]
+            exp_out = __fix_option_hashes([h], expected_output)
+            check_reversed_program_forward(p, vars, inps, exp_out)
+        end
+    elseif any(isa(v, PatternWrapper) for v in inputs)
+        inps = [isa(v, PatternWrapper) ? v.value : v for v in inputs]
+        check_reversed_program_forward(p, vars, inps, expected_output)
+    else
+        output = try
+            try_evaluate_program(p, [], Dict(v_id => v for ((v_id, _), v) in zip(vars, inputs)))
+        catch e
+            @error(p)
+            @error(vars)
+            @error inputs
+            @error output
+            @error expected_output
+            @error e
+            error("Can't run reversed program forward")
+        end
+        if output != expected_output
+            @error(p)
+            @error(vars)
+            @error inputs
+            @error output
+            @error expected_output
+            error("Can't run reversed program forward")
+        end
+    end
+end
+
 function try_get_reversed_values(sc::SolutionContext, p::Program, context, path, output_branch_id, cost, is_known)
     reverse_program = get_reversed_program(p)
     out_entry = sc.entries[sc.branch_entries[output_branch_id]]
@@ -289,6 +324,7 @@ function try_get_reversed_values(sc::SolutionContext, p::Program, context, path,
             @warn value
             @warn calculated_value
         end
+        check_reversed_program_forward(new_p, new_vars, calculated_value, value)
         for i in 1:new_vars_count
             push!(calculated_values[i], calculated_value[i])
         end
