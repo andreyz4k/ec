@@ -149,6 +149,7 @@ function main()
 
     source_path = get(task_local_storage(), :SOURCE_PATH, nothing)
 
+    sleep(1)
     for pid in workers()
         req_channel, resp_channel = start_timeout_monitor(pid)
         @spawnat pid solver.worker_loop(req_channel, resp_channel)
