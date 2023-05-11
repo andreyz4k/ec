@@ -68,8 +68,8 @@ function show_type(t::TypeNamedArgsConstructor, is_return::Bool)
             vcat(["("], args, [" -> "], show_type(t.output, true), [")"])
         end
     else
-        args = vcat([vcat([k, ":"], show_type(a, true), [", "]) for (k, a) in t.arguments]...)[1:end-1]
-        vcat([t.name, "("], args, [")"])
+        args = vcat([vcat([k, ":"], show_type(a, false), [", "]) for (k, a) in t.arguments]...)[1:end-1]
+        vcat([t.name, "("], args, [", "], show_type(t.output, true), [")"])
     end
 end
 
@@ -359,4 +359,40 @@ function deserialize_type(message)
     else
         return TypeConstructor(message["constructor"], map(deserialize_type, message["arguments"]))
     end
+end
+
+using ParserCombinator
+
+type_parser = Delayed()
+parse_number = p"([0-9])+" > (s -> parse(Int64, s))
+parse_token = p"([a-zA-Z0-9])+"
+parse_tid = E"t" + parse_number > (x -> TypeVariable(x))
+parse_tcon_simple = parse_token > (x -> TypeConstructor(x, []))
+parse_args_seq = Repeat(type_parser + E", ") + type_parser
+
+parse_tcon = parse_token + E"(" + parse_args_seq + E")" |> (x -> TypeConstructor(x[1], x[2:end]))
+
+parse_tncon = Delayed()
+parse_simple_type = parse_tid | parse_tcon | parse_tcon_simple | parse_tncon
+
+parse_function_type = Delayed()
+parse_tparam = parse_simple_type | (P"\(" + parse_function_type + P"\)")
+parse_tcon_arrow = (parse_tparam+E" -> ")[1:end] + parse_tparam |> (x -> arrow(x...))
+
+parse_named_arg = parse_token + E":" + parse_tparam |> (x -> (x[1], x[2]))
+
+parse_tncon_arrow =
+    (parse_named_arg+E" -> ")[1:end] + parse_simple_type |>
+    (x -> TypeNamedArgsConstructor(ARROW, Dict(x[1:end-1]), x[end]))
+
+parse_function_type.matcher = parse_tcon_arrow | parse_tncon_arrow
+
+parse_nargs_seq = Repeat(parse_named_arg + E", ") + parse_simple_type
+parse_tncon.matcher =
+    parse_token + E"(" + parse_nargs_seq + E")" |> (x -> TypeNamedArgsConstructor(x[1], Dict(x[2:end-1]), x[end]))
+
+type_parser.matcher = parse_function_type | parse_simple_type
+
+function parse_type(s)
+    parse_one(s, type_parser + Eos())[1]
 end

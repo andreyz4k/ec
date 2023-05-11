@@ -255,11 +255,13 @@ end
 
 using ParserCombinator
 
-parse_token = p"([a-zA-Z0-9_\-+*/',.<>|@?])+"
+parse_token = p"([a-zA-Z0-9_\-+*/'.<>|@?])+"
 
 parse_whitespace = Drop(Star(Space()))
 
 parse_number = p"([0-9])+" > (s -> parse(Int64, s))
+
+parse_var_name = (E"v" + p"([0-9])+" > (s -> parse(UInt64, s))) | (p"([a-zA-Z0-9])+" > (s -> string(s)))
 
 using AutoHashEquals
 @auto_hash_equals mutable struct MatchPrimitive <: Delegate
@@ -286,6 +288,8 @@ parse_primitive = MatchPrimitive(parse_token)
 
 parse_variable = P"\$" + parse_number > Index
 
+parse_free_variable = P"\$" + parse_var_name > (v -> FreeVar(t0, v))
+
 parse_fixed_real = P"real" + parse_token > (v -> Primitive(treal, "real", parse(Float64, v)))
 
 _parse_program = Delayed()
@@ -311,6 +315,47 @@ parse_application = P"\(" + Repeat(_parse_program + parse_whitespace, 2, ALL) + 
 
 parse_exception = P"exception" > ExceptionProgram
 
+parse_let_clause =
+    P"let " + P"\$v" + parse_number + P"::" + type_parser + P" = " + _parse_program + P" in " + _parse_program |>
+    (v -> LetClause(v[1], v[2], v[3], v[4]))
+
+parse_var_name_list = (E"$"+parse_var_name+E", ")[0:end] + E"$" + parse_var_name |> (vs -> vs)
+
+parse_let_rev_clause =
+    P"let " +
+    parse_var_name_list +
+    P" = rev\(\$" +
+    parse_var_name +
+    P" = " +
+    _parse_program +
+    P"\) in " +
+    _parse_program |> (v -> LetRevClause(v[1], v[2], v[3], nothing, v[4]))
+
+parse_object = Delayed()
+parse_object.matcher =
+    parse_token |
+    (parse_token + e"(" + (parse_object+e", ")[0:end] + parse_object + e")") |
+    (parse_token + e"[" + (parse_object+e", ")[0:end] + parse_object + e"]") |
+    (parse_token + e"[]") |> (vs -> eval(Meta.parse(join(vs, ""))))
+
+parse_const_clause = P"Const\(" + type_parser + P", " + parse_object + P"\)" |> (v -> SetConst(v[1], v[2]))
+
+parse_wrap_either_clause =
+    P"let " +
+    parse_var_name_list +
+    P" = wrap\(let " +
+    parse_var_name_list +
+    P" = rev\(\$" +
+    parse_var_name +
+    P" = " +
+    _parse_program +
+    P"\); let \$" +
+    parse_var_name +
+    P" = " +
+    _parse_program +
+    P"\) in " +
+    _parse_program |> (v -> WrapEither(v[1], v[3], v[5], v[4], nothing, v[6], v[7]))
+
 _parse_program.matcher =
     parse_application |
     parse_exception |
@@ -318,7 +363,12 @@ _parse_program.matcher =
     parse_invented |
     parse_abstraction |
     parse_primitive |
-    parse_fixed_real
+    parse_fixed_real |
+    parse_free_variable |
+    parse_let_clause |
+    parse_let_rev_clause |
+    parse_const_clause |
+    parse_wrap_either_clause
 
 function parse_program(s)
     parse_one(s, _parse_program)[1]
