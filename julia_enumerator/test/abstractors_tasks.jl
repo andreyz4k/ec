@@ -419,7 +419,7 @@ using solver: load_problems, enumerate_for_task
     )
 
     function create_task(task_dict)
-        result = copy(sample_payload)
+        result = deepcopy(sample_payload)
         result["task"] = task_dict
         result["name"] = task_dict["name"]
         return result

@@ -844,9 +844,43 @@ using solver: load_problems, enumerate_for_task
         ),
     )
 
-    # @testset "full loading" begin
-    #     task, maximum_frontier, g, _mfp, _nc, timeout, _verbose, program_timeout = load_problems(payload1)
-    # end
+    payload11 = create_task(
+        Dict{String,Any}(
+            "name" => "product",
+            "maximumFrontier" => 10,
+            "examples" => Any[
+                Dict{String,Any}("output" => 6, "inputs" => Dict{String,Any}("inp0" => Any[1, 2, 3])),
+                Dict{String,Any}("output" => 0, "inputs" => Dict{String,Any}("inp0" => Any[0])),
+                Dict{String,Any}("output" => 2, "inputs" => Dict{String,Any}("inp0" => Any[1, 1, 2, 1])),
+                Dict{String,Any}("output" => 105, "inputs" => Dict{String,Any}("inp0" => Any[7, 15])),
+                Dict{String,Any}("output" => 105, "inputs" => Dict{String,Any}("inp0" => Any[15, 7])),
+                Dict{String,Any}("output" => 891, "inputs" => Dict{String,Any}("inp0" => Any[11, 9, 9])),
+                Dict{String,Any}("output" => 84, "inputs" => Dict{String,Any}("inp0" => Any[7, 1, 6, 2])),
+                Dict{String,Any}("output" => 6, "inputs" => Dict{String,Any}("inp0" => Any[6])),
+                Dict{String,Any}("output" => 743424, "inputs" => Dict{String,Any}("inp0" => Any[8, 6, 8, 11, 11, 16])),
+                Dict{String,Any}("output" => 483840, "inputs" => Dict{String,Any}("inp0" => Any[10, 6, 8, 4, 6, 6, 7])),
+                Dict{String,Any}("output" => 0, "inputs" => Dict{String,Any}("inp0" => Any[16, 1, 14, 0, 12])),
+                Dict{String,Any}("output" => 0, "inputs" => Dict{String,Any}("inp0" => Any[0, 4, 11, 12, 15, 5, 2])),
+                Dict{String,Any}(
+                    "output" => 3243240,
+                    "inputs" => Dict{String,Any}("inp0" => Any[9, 5, 6, 11, 6, 13, 14]),
+                ),
+                Dict{String,Any}("output" => 1755, "inputs" => Dict{String,Any}("inp0" => Any[3, 1, 5, 9, 13])),
+                Dict{String,Any}("output" => 34320, "inputs" => Dict{String,Any}("inp0" => Any[3, 10, 8, 13, 11])),
+            ],
+            "test_examples" => Any[],
+            "request" => Dict{String,Any}(
+                "arguments" => Dict{String,Any}(
+                    "inp0" => Dict{String,Any}(
+                        "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
+                        "constructor" => "list",
+                    ),
+                ),
+                "output" => Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                "constructor" => "->",
+            ),
+        ),
+    )
 
     @testset "try_enumerate add-k with k=1" begin
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload1)
@@ -922,8 +956,14 @@ using solver: load_problems, enumerate_for_task
 
     @testset "drop-k with k=5" begin
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload10)
-        # timeout = 180
-        # verbose = true
+        solutions, number_enumerated =
+            @time enumerate_for_task(g, type_weights, task, maximum_frontier, timeout, verbose)
+        @test length(solutions) == 0
+        @test number_enumerated >= 600
+    end
+
+    @testset "product" begin
+        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload11)
         solutions, number_enumerated =
             @time enumerate_for_task(g, type_weights, task, maximum_frontier, timeout, verbose)
         @test length(solutions) == 0
