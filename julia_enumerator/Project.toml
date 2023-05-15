@@ -1,7 +1,7 @@
+authors = ["Andrey Zakharevich <andreyzakharevich@gmail.com>"]
+julia_version = "1.9"
 name = "solver"
 uuid = "5b87f58b-a6cb-43fc-b459-8e7b9fbb6b24"
-authors = ["Andrey Zakharevich <andreyzakharevich@gmail.com>"]
-julia_version = "1.8"
 version = "0.1.0"
 
 [deps]
