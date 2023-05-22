@@ -622,7 +622,7 @@ uuid = "1a1011a3-84de-559e-8e89-a11a2f7dc383"
 deps = ["Distributed", "Serialization", "SharedArrays"]
 git-tree-sha1 = "744498c6ec3de5530543a483879559930d589f7b"
 repo-rev = "main"
-repo-url = "git@github.com:andreyz4k/SharedMemoryLocks.jl.git"
+repo-url = "https://github.com/andreyz4k/SharedMemoryLocks.jl.git"
 uuid = "7bb51ff7-3c6a-41be-b642-de78e6952b49"
 version = "0.1.0"
 
