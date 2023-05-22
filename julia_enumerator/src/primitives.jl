@@ -7,9 +7,10 @@ function _unfold(is_end, ext_item, next_state, state)
         new_state = next_state(state)
         i += 1
         if new_state == state
+            error("Infinite loop")
         end
-        if i % 10000 == 0
-            sleep(0.0)
+        if i > 10000
+            error("Too many iterations")
         end
         state = new_state
     end

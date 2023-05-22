@@ -1158,16 +1158,30 @@ using solver: load_problems, enumerate_for_task
 
     @testset "prepend-k with k=0" begin
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload6)
-        solutions, number_enumerated =
-            @time enumerate_for_task(g, type_weights, task, maximum_frontier, timeout, verbose)
+        solutions, number_enumerated = @time enumerate_for_task(
+            Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
+            g,
+            type_weights,
+            task,
+            maximum_frontier,
+            timeout,
+            verbose,
+        )
         @test length(solutions) >= 1
         @test number_enumerated <= 2000
     end
 
     @testset "remove empty lists" begin
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload7)
-        solutions, number_enumerated =
-            @time enumerate_for_task(g, type_weights, task, maximum_frontier, timeout, verbose)
+        solutions, number_enumerated = @time enumerate_for_task(
+            Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
+            g,
+            type_weights,
+            task,
+            maximum_frontier,
+            timeout,
+            verbose,
+        )
         @test length(solutions) == 0
         @test number_enumerated >= 2000
     end
