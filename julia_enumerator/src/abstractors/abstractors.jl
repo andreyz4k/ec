@@ -168,7 +168,7 @@ function generic_reverse(rev_function, n)
                 if isa(e, MethodError)
                     return vcat([rev_functions[i](value) for i in 1:n]...)
                 else
-                    rethrow(e)
+                    rethrow()
                 end
             end
         end

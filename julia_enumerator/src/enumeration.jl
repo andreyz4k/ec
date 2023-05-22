@@ -291,6 +291,9 @@ function check_reversed_program_forward(p, vars, inputs, expected_output)
         output = try
             try_evaluate_program(p, [], Dict(v_id => v for ((v_id, _), v) in zip(vars, inputs)))
         catch e
+            if isa(e, InterruptException)
+                rethrow()
+            end
             @error(p)
             @error(vars)
             @error inputs
@@ -326,7 +329,7 @@ function try_get_reversed_values(sc::SolutionContext, p::Program, context, path,
             @warn value
             @warn calculated_value
         end
-        check_reversed_program_forward(new_p, new_vars, calculated_value, value)
+        # check_reversed_program_forward(new_p, new_vars, calculated_value, value)
         for i in 1:new_vars_count
             push!(calculated_values[i], calculated_value[i])
         end
@@ -560,6 +563,7 @@ function try_run_block(
             try_evaluate_program(block.p, [], xs)
         catch e
             if !isa(e, EnumerationException)
+                @error e
                 @error xs
                 @error block.p
             end
@@ -946,6 +950,7 @@ function enumeration_iteration_finished(sc::SolutionContext, finalizer, g, bp::B
 end
 
 function enumeration_iteration(
+    run_context,
     sc::SolutionContext,
     finalizer,
     maxFreeParameters::Int,
@@ -964,17 +969,17 @@ function enumeration_iteration(
                 # @info "Block $bp creates a loop"
                 throw(EnumerationException())
             end
-            enumeration_iteration_finished(sc, finalizer, g, bp, br_id)
-            # ok = @run_with_timeout run_context "program_timeout" enumeration_iteration_finished(
-            #     sc,
-            #     finalizer,
-            #     g,
-            #     bp,
-            #     br_id,
-            # )
-            # if isnothing(ok)
-            #     throw(EnumerationException())
-            # end
+            # enumeration_iteration_finished(sc, finalizer, g, bp, br_id)
+            ok = @run_with_timeout run_context "program_timeout" enumeration_iteration_finished(
+                sc,
+                finalizer,
+                g,
+                bp,
+                br_id,
+            )
+            if isnothing(ok)
+                throw(EnumerationException())
+            end
             enqueue_updates(sc, g)
             sc.total_number_of_enumerated_programs += 1
         end
@@ -995,6 +1000,7 @@ function enumeration_iteration(
 end
 
 function enumerate_for_task(
+    run_context,
     g::ContextualGrammar,
     type_weights::Dict{String,Any},
     task::Task,
@@ -1049,7 +1055,7 @@ function enumerate_for_task(
         (br_id, is_explained), pr = peek(pq)
         q = (is_explained ? sc.branch_queues_explained : sc.branch_queues_unknown)[br_id]
         bp = dequeue!(q)
-        enumeration_iteration(sc, finalizer, maxFreeParameters, g, q, bp, br_id, is_explained)
+        enumeration_iteration(run_context, sc, finalizer, maxFreeParameters, g, q, bp, br_id, is_explained)
     end
 
     log_results(sc, hits)

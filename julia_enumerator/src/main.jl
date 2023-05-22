@@ -6,103 +6,6 @@ using Distributed
 import Redis
 import Redis: execute_command
 
-function check_worker_timeouts(pid, lk, active_timeouts)
-    function (t)
-        if !in(pid, workers())
-            close(t)
-            return
-        end
-        lock(lk) do
-            for depth in length(active_timeouts):-1:1
-                threshold_time, status, retries = active_timeouts[depth]
-                if status == 1
-                    if threshold_time + 10 < time()
-                        active_timeouts[depth] = time(), 1, retries + 1
-                        if retries >= 3
-                            @warn "Killing worker $pid because retried too many times $retries"
-                            # @warn "Killing worker $pid because retried too many times $retries for depth $depth $threshold_time"
-                            rmprocs(pid, waitfor = 0)
-                        else
-                            @warn "Interrupting worker $pid again $retries"
-                            # @warn "Interrupting worker $pid again $retries for depth $depth $threshold_time"
-                            interrupt(pid)
-                        end
-                    end
-                    break
-                elseif threshold_time < time()
-                    max_depth = length(active_timeouts)
-                    last_threshold, _, _ = active_timeouts[max_depth]
-                    active_timeouts[max_depth] = last_threshold, 1, retries + 1
-                    @warn "Interrupting worker $pid"
-                    # @warn "Interrupting worker $pid for depth $depth max $max_depth $threshold_time"
-                    interrupt(pid)
-                    break
-                end
-            end
-        end
-    end
-end
-
-function handle_timeout_messages(pid, lk, timeout_request_channel, timeout_response_channel, active_timeouts)
-    while true
-        message = take!(timeout_request_channel)
-        # @info "Got message from worker $pid $message"
-        lock(lk) do
-            if message[1] == 0
-                _, threshold_time = message
-                if length(active_timeouts) > 0 && active_timeouts[end][2] == 1
-                    # @warn "Don't set new timeout $threshold_time for worker $pid because previous was fired"
-                    put!(timeout_response_channel, -1)
-                else
-                    push!(active_timeouts, (threshold_time, 0, 0))
-                    # @info "Setting new timeout for worker $pid $threshold_time $(length(active_timeouts))"
-                    put!(timeout_response_channel, length(active_timeouts))
-                end
-            elseif message[1] == 1
-                _, depth, expected_status = message
-                if depth > length(active_timeouts)
-                    # @warn "Trying to remove already removed timeout for worker $pid $depth"
-                    put!(timeout_response_channel, 2)
-                else
-                    if depth < length(active_timeouts)
-                        _, current_status, _ = active_timeouts[end]
-                        threshold_time, _, _ = active_timeouts[depth]
-                        # @warn "Trying to remove non-top timeout for worker $pid $depth $threshold_time"
-                        if current_status == expected_status
-                            while depth < length(active_timeouts)
-                                pop!(active_timeouts)
-                            end
-                        end
-                    else
-                        threshold_time, current_status, _ = active_timeouts[depth]
-                    end
-                    if current_status == expected_status
-                        # @info "Successfully remove timeout $expected_status for worker $pid $depth $threshold_time"
-                        pop!(active_timeouts)
-                        put!(timeout_response_channel, 0)
-                    else
-                        # @info "Conflict on removing timeout $expected_status for worker $pid $depth $threshold_time"
-                        put!(timeout_response_channel, 1)
-                    end
-                end
-            end
-            # while isready(timeout_response_channel)
-            #     sleep(0.001)
-            # end
-        end
-    end
-end
-
-function start_timeout_monitor(pid)
-    lk = ReentrantLock()
-    timeout_request_channel = RemoteChannel(() -> Channel{Tuple}(1))
-    timeout_response_channel = RemoteChannel(() -> Channel{Int}(1))
-    active_timeouts = []
-    Timer(check_worker_timeouts(pid, lk, active_timeouts), 1, interval = 1)
-    @async handle_timeout_messages(pid, lk, timeout_request_channel, timeout_response_channel, active_timeouts)
-    return timeout_request_channel, timeout_response_channel
-end
-
 function setup_worker(pid, source_path)
     @async begin
         @fetchfrom pid begin
@@ -110,10 +13,10 @@ function setup_worker(pid, source_path)
             include("solver.jl")
         end
         @warn "Starting timeout monitor for new worker $pid"
-        req_channel, resp_channel = start_timeout_monitor(pid)
-        @warn "Created channels for new worker $pid"
+        timeout_container = solver.start_timeout_monitor(pid)
+        @warn "Created timeout container for new worker $pid"
         # @fetchfrom pid solver.init_logger()
-        @spawnat pid solver.worker_loop(req_channel, resp_channel)
+        @spawnat pid solver.worker_loop(timeout_container)
         @warn "Finished setting up worker $pid"
     end
 end
@@ -151,8 +54,8 @@ function main()
 
     sleep(1)
     for pid in workers()
-        req_channel, resp_channel = start_timeout_monitor(pid)
-        @spawnat pid solver.worker_loop(req_channel, resp_channel)
+        timeout_container = solver.start_timeout_monitor(pid)
+        @spawnat pid solver.worker_loop(timeout_container)
     end
 
     active_workers = workers()

@@ -1,7 +1,7 @@
-authors = ["Andrey Zakharevich <andreyzakharevich@gmail.com>"]
-julia_version = "1.9"
 name = "solver"
 uuid = "5b87f58b-a6cb-43fc-b459-8e7b9fbb6b24"
+authors = ["Andrey Zakharevich <andreyzakharevich@gmail.com>"]
+julia_version = "1.9"
 version = "0.1.0"
 
 [deps]
@@ -17,6 +17,8 @@ ParserCombinator = "fae87a5f-d1ad-5cf0-8f61-c941e1580b46"
 ProfileView = "c46f51b8-102a-5cf2-8d2c-8597cb0e0da7"
 Redis = "0cf705f9-a9e2-50d1-a699-2b372a39b750"
 Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
+SharedArrays = "1a1011a3-84de-559e-8e89-a11a2f7dc383"
+SharedMemoryLocks = "7bb51ff7-3c6a-41be-b642-de78e6952b49"
 TerminalExtensions = "d3a6a179-465e-5219-bd3e-0137f7fd17c7"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 TestSetExtensions = "98d24dd4-01ad-11ea-1b02-c9a08f80db04"

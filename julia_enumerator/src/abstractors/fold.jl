@@ -216,7 +216,10 @@ function reverse_fold(is_set = false)
                         end
                     end
 
-                catch
+                catch e
+                    if isa(e, InterruptException)
+                        rethrow()
+                    end
                     continue
                 end
             end
@@ -379,7 +382,10 @@ function reverse_fold_grid(dim)
                             push!(options_queue, new_h)
                         end
                     end
-                catch
+                catch e
+                    if isa(e, InterruptException)
+                        rethrow()
+                    end
                     continue
                 end
             end

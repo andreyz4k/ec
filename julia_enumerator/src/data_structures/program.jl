@@ -280,6 +280,9 @@ function ParserCombinator.success(k::Config, m::MatchPrimitive, s, t, i, r::Valu
         result = lookup_primitive(r[1])
         Success(MatchPrimitiveState(t), i, Any[result])
     catch e
+        if isa(e, InterruptException)
+            rethrow()
+        end
         # @error "Error finding type of primitive $(r[1])"
         FAILURE
     end

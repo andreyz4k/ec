@@ -1,123 +1,116 @@
+using SharedArrays
+using SharedMemoryLocks
+struct TimeoutContainer
+    lock::SharedMemoryLock
+    time::SharedArray{Float64,1}
+    status::SharedArray{Int64,1}  # 0: running -1:finished 1+:fired n times
+end
 
-function set_timeout(req_channel, resp_channel, end_time::Float64)
-    # try
-    #     @info "Setting timeout $end_time"
-    if isready(req_channel)
-        # @info "Request channel is not empty"
-        take!(req_channel)
+function TimeoutContainer(pids)
+    cont = TimeoutContainer(
+        SharedMemoryLock(pids),
+        SharedArray{Float64,1}(1, pids = pids),
+        SharedArray{Int64,1}(1, pids = pids),
+    )
+    cont.status[1] = -1
+    return cont
+end
+
+function set_timeout(container::TimeoutContainer, timeout)
+    lock(container.lock) do
+        end_time = time() + timeout
+        container.time[1] = end_time
+        container.status[1] = 0
     end
-    if isready(resp_channel)
-        # @info "Response channel is not empty"
-        take!(resp_channel)
+end
+
+function remove_timeout(container::TimeoutContainer)
+    need_wait = lock(container.lock) do
+        if container.status[1] > 0
+            return true
+        else
+            container.status[1] = -1
+            return false
+        end
     end
-    put!(req_channel, (0, end_time))
-    # @info "Waiting for set master response"
-    depth = take!(resp_channel)
-    if depth == -1
-        # @info "Can't add new timeout, waiting for interrupt to arrive $depth"
+    if need_wait
+        @warn "Waiting for interrupt to arrive"
+        flush(stdout)
         while true
             sleep(1)
         end
     end
-    # @info "Set timeout for depth $depth"
-    return depth
-    # catch e
-    #     if isa(e, InterruptException)
-    #         @info "Got interrupt exception while trying to set timeout $end_time"
-    #         @info "Request channel is ready $(isready(req_channel))"
-    #         @info "Response channel is ready $(isready(resp_channel))"
-    #     else
-    #         @info "Got exception $e while trying to set timeout $end_time"
-    #         @info "Request channel is ready $(isready(req_channel))"
-    #         @info "Response channel is ready $(isready(resp_channel))"
-    #     end
-    #     rethrow()
-    # end
 end
 
-function remove_timeout(req_channel, resp_channel, depth::Int)
-    # try
-    #     @info "Removing unused timeout $depth"
-    if isready(req_channel)
-        # @info "Request channel is not empty"
-        take!(req_channel)
-    end
-    if isready(resp_channel)
-        # @info "Response channel is not empty"
-        take!(resp_channel)
-    end
-    put!(req_channel, (1, depth, 0))
-    # @info "Waiting for remove unused master response"
-    status = take!(resp_channel)
-    # @info "Removed unused timeout $depth"
-    if status == 1
-        # @info "Waiting for interrupt to arrive $depth"
-        while true
-            sleep(1)
+function clean_fired_timeout(container::TimeoutContainer)
+    lock(container.lock) do
+        @warn "Cleaning fired timeout"
+        if container.status[1] > 0
+            container.status[1] = -1
+        else
+            error("Trying to clean non-fired timeout")
         end
     end
-    # catch e
-    #     if isa(e, InterruptException)
-    #         @info "Got interrupt exception while trying to remove unused timeout $depth"
-    #         @info "Request channel is ready $(isready(req_channel))"
-    #         @info "Response channel is ready $(isready(resp_channel))"
-    #     else
-    #         @info "Got exception $e while trying to remove unused timeout $depth"
-    #         @info "Request channel is ready $(isready(req_channel))"
-    #         @info "Response channel is ready $(isready(resp_channel))"
-    #     end
-    #     rethrow()
-    # end
 end
 
-function clean_fired_timeout(req_channel, resp_channel, depth::Int)
-    # try
-    #     @info "Removing fired timeout $depth"
-    if isready(req_channel)
-        # @info "Request channel is not empty"
-        take!(req_channel)
+function check_worker_timeouts(pid, container::TimeoutContainer)
+    function (t)
+        if !in(pid, workers())
+            @warn "Stopping timeout monitor for worker $pid"
+            close(t)
+            return
+        end
+        need_interrupt, need_kill = lock(container.lock) do
+            if container.status[1] == -1
+                return false, false
+            elseif container.status[1] == 0
+                if container.time[1] < time()
+                    @warn "Timeout threshold reached for worker $pid $(container.time[1]) $(time())"
+                    container.status[1] = 1
+                    @warn "Interrupting worker $pid"
+                    return true, false
+                end
+            else
+                if container.time[1] + 10 < time()
+                    @warn "Extended timeout threshold reached for worker $pid $(container.time[1] + 10) $(time())"
+                    container.status[1] += 1
+                    if container.status[1] > 3
+                        @warn "Killing worker $pid because retried too many times $(container.status[1])"
+                        return false, true
+                    else
+                        @warn "Interrupting worker $pid again $(container.status[1])"
+                        return true, false
+                    end
+                end
+            end
+            return false, false
+        end
+        if need_interrupt
+            interrupt(pid)
+            @warn "Sent interrupt to worker $pid"
+        end
+        if need_kill
+            rmprocs(pid, waitfor = 0)
+            @warn "Sent kill to worker $pid"
+        end
     end
-    if isready(resp_channel)
-        # @info "Response channel is not empty"
-        take!(resp_channel)
-    end
-    put!(req_channel, (1, depth, 1))
-    # @info "Waiting for remove fired master response"
-    status = take!(resp_channel)
-    if status == 1
-        error("Wrong timeout status on cleanup $depth")
-    elseif status == 2
-        # @warn "Rethrowing incorrectly catched interrupt $depth"
-        rethrow()
-    else
-        # @info "Removed fired timeout $depth"
-    end
-    # catch e
-    #     if isa(e, InterruptException)
-    #         @info "Got interrupt exception while trying to remove fired timeout $depth"
-    #         @info "Request channel is ready $(isready(req_channel))"
-    #         @info "Response channel is ready $(isready(resp_channel))"
-    #     else
-    #         @info "Got exception $e while trying to remove fired timeout $depth"
-    #         @info "Request channel is ready $(isready(req_channel))"
-    #         @info "Response channel is ready $(isready(resp_channel))"
-    #     end
-    #     rethrow()
-    # end
+end
+
+function start_timeout_monitor(pid)
+    container = TimeoutContainer([pid, myid()])
+    Timer(check_worker_timeouts(pid, container), 1, interval = 1)
+    return container
 end
 
 macro run_with_timeout(run_context, timeout_key, expr)
     return quote
         local context = $(esc(run_context))
-        # if !haskey(context, "timeout_request_channel")
-        if true
+        if !haskey(context, "timeout_container")
             $(esc(expr))
         else
             local timeout = context[$(esc(timeout_key))]
-            local end_time = time() + timeout
-            local req_channel = context["timeout_request_channel"]
-            local resp_channel = context["timeout_response_channel"]
-            local depth = set_timeout(req_channel, resp_channel, end_time)
+            local timeout_container = context["timeout_container"]
+            set_timeout(timeout_container, timeout)
 
             local result = nothing
             try
@@ -131,12 +124,14 @@ macro run_with_timeout(run_context, timeout_key, expr)
                     rethrow()
                 finally
                     if !got_interrupt
-                        remove_timeout(req_channel, resp_channel, depth)
+                        remove_timeout(timeout_container)
                     end
                 end
             catch e
                 if isa(e, InterruptException)
-                    clean_fired_timeout(req_channel, resp_channel, depth)
+                    bt = catch_backtrace()
+                    @warn "Interrupted" exception = (e, bt)
+                    clean_fired_timeout(timeout_container)
                 else
                     rethrow()
                 end

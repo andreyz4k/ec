@@ -30,7 +30,8 @@ function reverse_plus(value)
     end
 end
 
-@define_reverse_primitive "+" arrow(tint, tint, tint) (a -> (b -> a + b)) reverse_plus
+# @define_reverse_primitive "+" arrow(tint, tint, tint) (a -> (b -> a + b)) reverse_plus
+@define_primitive "+" arrow(tint, tint, tint) (a -> (b -> a + b))
 
 function reverse_mult(value)
     options = []
@@ -55,4 +56,5 @@ function reverse_mult(value)
     end
 end
 
-@define_reverse_primitive "*" arrow(tint, tint, tint) (a -> (b -> a * b)) reverse_mult
+# @define_reverse_primitive "*" arrow(tint, tint, tint) (a -> (b -> a * b)) reverse_mult
+@define_primitive "*" arrow(tint, tint, tint) (a -> (b -> a * b))

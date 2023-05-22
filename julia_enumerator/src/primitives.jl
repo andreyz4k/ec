@@ -1,9 +1,17 @@
 
 function _unfold(is_end, ext_item, next_state, state)
     acc = []
+    i = 0
     while !is_end(state)
         push!(acc, ext_item(state))
-        state = next_state(state)
+        new_state = next_state(state)
+        i += 1
+        if new_state == state
+        end
+        if i % 10000 == 0
+            sleep(0.0)
+        end
+        state = new_state
     end
     acc
 end

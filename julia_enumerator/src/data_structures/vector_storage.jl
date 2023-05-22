@@ -57,7 +57,7 @@ function get_new_values(storage::VectorStorage)::Vector{UInt64}
     if storage.transaction_depth == 0 || length(storage.values_stack) == 1
         return UInt64[]
     elseif storage.transaction_depth == 2
-        return keys(storage.values_stack[2])
+        return collect(keys(storage.values_stack[2]))
     else
         inds = Set{UInt64}()
         for i in 2:min(length(storage.values_stack), (storage.transaction_depth + 1))

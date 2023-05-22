@@ -1152,6 +1152,14 @@ function run_arc_tests(is_start)
     for payload in payloads
         @info payload["name"]
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
-        @time enumerate_for_task(g, type_weights, task, maximum_frontier, timeout, verbose)
+        @time enumerate_for_task(
+            Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
+            g,
+            type_weights,
+            task,
+            maximum_frontier,
+            timeout,
+            verbose,
+        )
     end
 end

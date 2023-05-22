@@ -40,7 +40,7 @@ function run_solving_process(run_context, message)
     task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, _verbose, program_timeout = load_problems(message)
     run_context["program_timeout"] = program_timeout
     run_context["timeout"] = timeout
-    solutions, number_enumerated = enumerate_for_task(g, type_weights, task, maximum_frontier, timeout)
+    solutions, number_enumerated = enumerate_for_task(run_context, g, type_weights, task, maximum_frontier, timeout)
     return export_frontiers(number_enumerated, task, solutions)
 end
 
@@ -74,7 +74,7 @@ end
 
 using JSON
 
-function worker_loop(req_channel, resp_channel)
+function worker_loop(timeout_container)
     @info "Starting worker loop"
     redis = RedisContext(Redis.RedisConnection())
     i = 1
@@ -91,17 +91,17 @@ function worker_loop(req_channel, resp_channel)
             @info "Running task number $i $name"
             i += 1
             output = @time try
-                run_context = Dict{String,Any}(
-                    "timeout_request_channel" => req_channel,
-                    "timeout_response_channel" => resp_channel,
-                    "timeout" => timeout,
-                )
+                run_context = Dict{String,Any}("timeout_container" => timeout_container, "timeout" => timeout)
                 result = run_solving_process(run_context, payload)
                 if isnothing(result)
                     result = Dict("number_enumerated" => 0, "solutions" => [])
                 end
                 Dict("status" => "success", "payload" => result, "name" => name)
             catch e
+                if isa(e, InterruptException)
+                    @warn "Interrupted"
+                    rethrow()
+                end
                 buf = IOBuffer()
                 bt = catch_backtrace()
                 showerror(buf, e, bt)

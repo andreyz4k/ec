@@ -32,7 +32,11 @@ function deserialize_grammar(payload)
 
     continuation_type = try
         deserialize_type(payload["continuationType"])
-    catch
+    catch e
+        if isa(e, InterruptException)
+            @warn "Interrupted"
+            rethrow()
+        end
         nothing
     end
 
