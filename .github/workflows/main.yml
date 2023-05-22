@@ -94,9 +94,14 @@ jobs:
         run: python -m pytest tests
 
   test-julia:
+    name: Test julia ${{ matrix.version }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      matrix:
+        version:
+          - '1.9'
+          - '1.8'
 
     steps:
       - name: Checkout code
@@ -107,7 +112,7 @@ jobs:
       - name: Setup Julia
         uses: julia-actions/setup-julia@latest
         with:
-          version: '1.9'
+          version: ${{ matrix.version }}
 
       - uses: julia-actions/julia-buildpkg@latest
         with:
@@ -127,8 +132,14 @@ jobs:
           project: julia_enumerator
 
   test-julia-list:
+    name: Test julia list ${{ matrix.version }}
     needs: [ocaml-build, create-virtualenv]
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        version:
+          - '1.9'
+          - '1.8'
 
     steps:
       - name: Checkout code
@@ -137,7 +148,7 @@ jobs:
       - name: Setup Julia
         uses: julia-actions/setup-julia@latest
         with:
-          version: '1.9'
+          version: ${{ matrix.version }}
 
       - name: Download binaries patch
         uses: actions/download-artifact@v3
@@ -175,8 +186,14 @@ jobs:
         run: python bin/list.py -t 20 -RS 5 -i 2 --solver=julia -g --primitives=julia
 
   test-arc:
+    name: Test arc ${{ matrix.version }}
     needs: [ocaml-build, create-virtualenv]
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        version:
+          - '1.9'
+          - '1.8'
 
     steps:
       - name: Checkout code
@@ -187,7 +204,7 @@ jobs:
       - name: Setup Julia
         uses: julia-actions/setup-julia@latest
         with:
-          version: '1.9'
+          version: ${{ matrix.version }}
 
       - name: Download binaries patch
         uses: actions/download-artifact@v3
@@ -231,8 +248,14 @@ jobs:
         run: python bin/arc.py -t 20 -RS 5 -i 1
 
   test-julia-recognition-list:
+    name: Test julia recognition list ${{ matrix.version }}
     needs: [ocaml-build, create-virtualenv]
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        version:
+          - '1.9'
+          - '1.8'
 
     steps:
       - name: Checkout code
@@ -241,7 +264,7 @@ jobs:
       - name: Setup Julia
         uses: julia-actions/setup-julia@latest
         with:
-          version: '1.9'
+          version: ${{ matrix.version }}
 
       - name: Download binaries patch
         uses: actions/download-artifact@v3
