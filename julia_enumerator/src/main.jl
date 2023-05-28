@@ -23,7 +23,11 @@ end
 
 function add_new_workers(count, source_path)
     @warn "Adding $count new workers"
-    new_pids = addprocs(count)
+    if Base.VERSION >= v"1.9.0"
+        new_pids = addprocs(count, exeflags = "--heap-size-hint=1G")
+    else
+        new_pids = addprocs(count)
+    end
     setup_futures = [setup_worker(pid, source_path) for pid in new_pids]
     for f in setup_futures
         fetch(f)
@@ -53,12 +57,8 @@ function main()
     source_path = get(task_local_storage(), :SOURCE_PATH, nothing)
 
     sleep(1)
-    for pid in workers()
-        timeout_container = solver.start_timeout_monitor(pid)
-        @spawnat pid solver.worker_loop(timeout_container)
-    end
 
-    active_workers = workers()
+    active_workers = add_new_workers(length(Sys.cpu_info()), source_path)
     num_workers = length(active_workers)
 
     conn = Redis.RedisConnection()
