@@ -120,7 +120,7 @@ function updated_branches(
     is_meaningful::Bool,
     fixed_branches::Dict{UInt64,UInt64},
     created_paths,
-)
+)::Tuple{UInt64,Bool,Bool,Set{Any},Bool,Vector{Any}}
     if is_meaningful && sc.branch_is_not_copy[branch_id] != true
         sc.branch_is_not_copy[branch_id] = true
     end
@@ -177,7 +177,7 @@ function updated_branches(
     is_meaningful::Bool,
     fixed_branches::Dict{UInt64,UInt64},
     created_paths,
-)
+)::Tuple{UInt64,Bool,Bool,Set{Any},Bool,Vector{Any}}
     complexity_summary = get_complexity_summary(new_values, sc.types[t_id])
     if any(isa(value, PatternWrapper) for value in new_values)
         new_entry = PatternEntry(t_id, new_values, complexity_summary, get_complexity(sc, complexity_summary))
@@ -247,7 +247,7 @@ function updated_branches(
     is_meaningful::Bool,
     fixed_branches::Dict{UInt64,UInt64},
     created_paths,
-)
+)::Tuple{UInt64,Bool,Bool,Set{Any},Bool,Vector{Any}}
     complexity_summary = get_complexity_summary(new_values, sc.types[t_id])
     if any(isa(value, PatternWrapper) for value in new_values)
         new_entry = PatternEntry(t_id, new_values, complexity_summary, get_complexity(sc, complexity_summary))
@@ -320,7 +320,7 @@ function updated_branches(
     is_meaningful::Bool,
     fixed_branches::Dict{UInt64,UInt64},
     created_paths,
-)
+)::Tuple{UInt64,Bool,Bool,Set{Any},Bool,Vector{Any}}
     complexity_summary = get_complexity_summary(new_values, sc.types[t_id])
     if any(isa(value, PatternWrapper) for value in new_values)
         new_entry = PatternEntry(t_id, new_values, complexity_summary, get_complexity(sc, complexity_summary))
