@@ -535,9 +535,7 @@ using DataStructures
                 if !haskey(vars_mapping, p.inp_var_id)
                     vars_mapping[p.inp_var_id] = length(vars_mapping) + copied_vars + 1
                 end
-                if !haskey(vars_mapping, p.fixer_var_id)
-                    vars_mapping[p.fixer_var_id] = length(vars_mapping) + copied_vars + 1
-                end
+
                 for v in p.var_ids
                     if !haskey(vars_mapping, v)
                         vars_mapping[v] = length(vars_mapping) + copied_vars + 1
@@ -545,6 +543,21 @@ using DataStructures
                     if p.inp_var_id in vars_from_input
                         push!(vars_from_input, v)
                     end
+                end
+                if p.f.var_id in vars_from_input
+                    copied_vars += 1
+                    fixer_var = length(vars_mapping) + copied_vars
+                    copy_block = ProgramBlock(
+                        FreeVar(t0, vars_mapping[p.f.var_id]),
+                        t0,
+                        0.0,
+                        [vars_mapping[p.f.var_id]],
+                        fixer_var,
+                        false,
+                    )
+                    push!(blocks, copy_block)
+                else
+                    fixer_var = vars_mapping[p.f.var_id]
                 end
 
                 bl = WrapEitherBlock(
@@ -555,13 +568,18 @@ using DataStructures
                         [vars_mapping[p.inp_var_id]],
                         [vars_mapping[v] for v in p.var_ids],
                     ),
-                    vars_mapping[p.fixer_var_id],
+                    fixer_var,
                     0.0,
-                    [vars_mapping[p.inp_var_id], vars_mapping[p.fixer_var_id]],
+                    [vars_mapping[p.inp_var_id], fixer_var],
                     [vars_mapping[v] for v in p.var_ids],
                 )
                 push!(blocks, bl)
                 p = p.b
+            elseif p isa FreeVar
+                in_var = vars_mapping[p.var_id]
+                bl = ProgramBlock(FreeVar(t0, in_var), t0, 0.0, [in_var], vars_mapping["out"], false)
+                push!(blocks, bl)
+                break
             else
                 vars = _used_vars(p)
                 in_vars = []
@@ -642,6 +660,17 @@ using DataStructures
         return result
     end
 
+    function _fetch_branches_children(sc, branches)
+        result = Dict()
+        for (var_id, branch_id) in branches
+            while !isempty(get_connected_from(sc.branch_children, branch_id))
+                branch_id = first(get_connected_from(sc.branch_children, branch_id))
+            end
+            result[var_id] = branch_id
+        end
+        return result
+    end
+
     function _simulate_block_search(
         sc,
         bl::ProgramBlock,
@@ -655,19 +684,16 @@ using DataStructures
     )
         # @info "Simulating block search for $bl"
         if bl.p isa FreeVar
-            from_input = true
             is_explained = true
             branch_id = branches[vars_mapping[bl.input_vars[1]]]
         else
-            from_input = false
             is_explained = false
             branch_id = branches[vars_mapping[bl.output_var]]
         end
-        while !isempty(get_connected_from(sc.branch_children, branch_id))
-            branch_id = first(get_connected_from(sc.branch_children, branch_id))
+        if !haskey((is_explained ? sc.branch_queues_explained : sc.branch_queues_unknown), branch_id)
+            # @info "Queue is empty"
+            return Set(), Set([_get_entries(sc, vars_mapping, branches)])
         end
-        pq = from_input ? sc.pq_input : sc.pq_output
-        @test haskey(pq, (branch_id, is_explained))
         q = (is_explained ? sc.branch_queues_explained : sc.branch_queues_unknown)[branch_id]
         @test !isempty(q)
         while !isempty(q)
@@ -710,6 +736,7 @@ using DataStructures
                     for out_branch in out_branches
                         updated_branches[sc.branch_vars[out_branch]] = out_branch
                     end
+                    updated_branches = _fetch_branches_children(sc, updated_branches)
                     # @info "updated_branches: $updated_branches"
 
                     updated_vars_mapping = copy(vars_mapping)
@@ -751,10 +778,11 @@ using DataStructures
     )
         # @info "Simulating block search for $bl"
         in_branch_id = branches[vars_mapping[bl.input_vars[1]]]
-        from_input = true
         is_explained = true
-        pq = from_input ? sc.pq_input : sc.pq_output
-        @test haskey(pq, (in_branch_id, is_explained))
+        if !haskey((is_explained ? sc.branch_queues_explained : sc.branch_queues_unknown), in_branch_id)
+            # @info "Queue is empty"
+            return Set(), Set([_get_entries(sc, vars_mapping, branches)])
+        end
         q = (is_explained ? sc.branch_queues_explained : sc.branch_queues_unknown)[in_branch_id]
         @test !isempty(q)
         while !isempty(q)
@@ -784,7 +812,8 @@ using DataStructures
                     for out_branch in out_branches
                         updated_branches[sc.branch_vars[out_branch]] = out_branch
                     end
-                    # @info updated_branches
+                    updated_branches = _fetch_branches_children(sc, updated_branches)
+                    # @info "updated_branches: $updated_branches"
 
                     updated_vars_mapping = copy(vars_mapping)
                     for (original_var, new_var) in zip(bl.output_vars, created_block.output_vars)
@@ -792,6 +821,87 @@ using DataStructures
                             updated_vars_mapping[original_var] = new_var
                         end
                     end
+                    # @info "updated_vars_mapping: $updated_vars_mapping"
+                    return _check_reachable(
+                        sc,
+                        rem_blocks,
+                        updated_vars_mapping,
+                        updated_branches,
+                        g,
+                        run_context,
+                        finalizer,
+                        mfp,
+                    )
+                end
+            else
+                # @info "not on path"
+            end
+        end
+        # @info "Failed to find block"
+        return Set(), Set([_get_entries(sc, vars_mapping, branches)])
+    end
+
+    function _simulate_block_search(
+        sc,
+        bl::WrapEitherBlock,
+        rem_blocks,
+        branches,
+        vars_mapping,
+        g,
+        run_context,
+        finalizer,
+        mfp,
+    )
+        # @info "Simulating block search for $bl"
+        in_branch_id = branches[vars_mapping[bl.input_vars[1]]]
+        is_explained = true
+        if !haskey((is_explained ? sc.branch_queues_explained : sc.branch_queues_unknown), in_branch_id)
+            # @info "Queue is empty"
+            return Set(), Set([_get_entries(sc, vars_mapping, branches)])
+        end
+        q = (is_explained ? sc.branch_queues_explained : sc.branch_queues_unknown)[in_branch_id]
+        @test !isempty(q)
+        while !isempty(q)
+            bp = dequeue!(q)
+            # @info bp
+            if is_on_path(bp.state.skeleton, bl.main_block.p)
+                # @info "on path"
+                enumeration_iteration(run_context, sc, finalizer, mfp, g, q, bp, in_branch_id, is_explained)
+                if is_reversible(bp.state.skeleton) || state_finished(bp.state)
+                    # @info "found end"
+                    out_blocks = get_connected_from(sc.branch_outgoing_blocks, in_branch_id)
+                    if isempty(out_blocks)
+                        children = get_connected_from(sc.branch_children, in_branch_id)
+                        @test length(children) == 1
+                        child_id = first(children)
+                        out_blocks = get_connected_from(sc.branch_outgoing_blocks, child_id)
+                    end
+                    @test !isempty(out_blocks)
+                    # @info "out_blocks: $out_blocks"
+                    created_block_id = first(values(out_blocks))
+                    created_block = sc.blocks[created_block_id]
+                    # @info "created_block: $created_block"
+
+                    updated_branches = copy(branches)
+                    created_block_copy_id = first(keys(out_blocks))
+                    in_branches = keys(get_connected_to(sc.branch_outgoing_blocks, created_block_copy_id))
+                    for in_branch in in_branches
+                        updated_branches[sc.branch_vars[in_branch]] = in_branch
+                    end
+                    out_branches = keys(get_connected_to(sc.branch_incoming_blocks, created_block_copy_id))
+                    for out_branch in out_branches
+                        updated_branches[sc.branch_vars[out_branch]] = out_branch
+                    end
+                    updated_branches = _fetch_branches_children(sc, updated_branches)
+                    # @info "updated_branches: $updated_branches"
+
+                    updated_vars_mapping = copy(vars_mapping)
+                    for (original_var, new_var) in zip(bl.output_vars, created_block.output_vars)
+                        if !haskey(updated_vars_mapping, original_var)
+                            updated_vars_mapping[original_var] = new_var
+                        end
+                    end
+                    updated_vars_mapping[bl.input_vars[2]] = created_block.input_vars[2]
                     # @info "updated_vars_mapping: $updated_vars_mapping"
                     return _check_reachable(
                         sc,
@@ -1051,6 +1161,45 @@ using DataStructures
             ),
         )
         target_solution = "let \$v1::int = (length \$inp0) in let \$v2::int = Const(int, 1) in let \$v3::list(int) = (repeat \$v1 \$v2) in let \$v4::list(int) = (concat \$inp0 \$v3) in let \$v5::list(int) = Const(list(int), Any[6, 7, 8, 9, 10]) in (concat \$v4 \$v5)"
+        check_reachable(payload, target_solution)
+    end
+
+    @testset "Use eithers from input" begin
+        payload = create_task(
+            Dict{String,Any}(
+                "name" => "use eithers",
+                "maximumFrontier" => 10,
+                "examples" => Any[
+                    Dict{String,Any}(
+                        "output" => Any[1, 2, 3, 4, 5],
+                        "inputs" => Dict{String,Any}("inp0" => Any[1, 2, 3, 4, 5, 10, 9, 8, 7]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[4, 2, 4],
+                        "inputs" => Dict{String,Any}("inp0" => Any[4, 2, 4, 10, 9, 8, 7]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[3, 3, 3, 8],
+                        "inputs" => Dict{String,Any}("inp0" => Any[3, 3, 3, 8, 10, 9, 8, 7]),
+                    ),
+                ],
+                "test_examples" => Any[],
+                "request" => Dict{String,Any}(
+                    "arguments" => Dict{String,Any}(
+                        "inp0" => Dict{String,Any}(
+                            "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
+                            "constructor" => "list",
+                        ),
+                    ),
+                    "output" => Dict{String,Any}(
+                        "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
+                        "constructor" => "list",
+                    ),
+                    "constructor" => "->",
+                ),
+            ),
+        )
+        target_solution = "let \$v1::list(int) = Const(list(int), Any[10, 9, 8, 7]) in let \$v2, \$v3 = wrap(let \$v2, \$v3 = rev(\$inp0 = (concat \$v2 \$v3)); let \$v3 = \$v1) in \$v2"
         check_reachable(payload, target_solution)
     end
 end
