@@ -653,6 +653,9 @@ using DataStructures
     function _get_entries(sc, vars_mapping, branches)
         result = Dict()
         for (original_var, mapped_var) in vars_mapping
+            if !haskey(branches, mapped_var)
+                continue
+            end
             branch_id = branches[mapped_var]
             entry = sc.entries[sc.branch_entries[branch_id]]
             result[original_var] = entry
@@ -676,6 +679,7 @@ using DataStructures
         bl::ProgramBlock,
         rem_blocks,
         branches,
+        branches_history,
         vars_mapping,
         g,
         run_context,
@@ -692,7 +696,7 @@ using DataStructures
         end
         if !haskey((is_explained ? sc.branch_queues_explained : sc.branch_queues_unknown), branch_id)
             # @info "Queue is empty"
-            return Set(), Set([_get_entries(sc, vars_mapping, branches)])
+            return Set(), Set([(_get_entries(sc, vars_mapping, branches), bl)])
         end
         q = (is_explained ? sc.branch_queues_explained : sc.branch_queues_unknown)[branch_id]
         @test !isempty(q)
@@ -714,7 +718,7 @@ using DataStructures
                         children = get_connected_from(sc.branch_children, out_branch_id)
                         if isempty(children)
                             # @info "Can't add block"
-                            return Set(), Set([_get_entries(sc, vars_mapping, branches)])
+                            return Set(), Set([(_get_entries(sc, vars_mapping, branches), bl)])
                         end
                         @test length(children) == 1
                         child_id = first(children)
@@ -746,11 +750,13 @@ using DataStructures
                         end
                     end
                     # @info "updated_vars_mapping: $updated_vars_mapping"
+                    updated_history = vcat(branches_history, [(branches, bl)])
                     return _check_reachable(
                         sc,
                         rem_blocks,
                         updated_vars_mapping,
                         updated_branches,
+                        updated_history,
                         g,
                         run_context,
                         finalizer,
@@ -762,7 +768,7 @@ using DataStructures
             end
         end
         # @info "Failed to find block"
-        return Set(), Set([_get_entries(sc, vars_mapping, branches)])
+        return Set(), Set([(_get_entries(sc, vars_mapping, branches), bl)])
     end
 
     function _simulate_block_search(
@@ -770,6 +776,7 @@ using DataStructures
         bl::ReverseProgramBlock,
         rem_blocks,
         branches,
+        branches_history,
         vars_mapping,
         g,
         run_context,
@@ -781,7 +788,7 @@ using DataStructures
         is_explained = true
         if !haskey((is_explained ? sc.branch_queues_explained : sc.branch_queues_unknown), in_branch_id)
             # @info "Queue is empty"
-            return Set(), Set([_get_entries(sc, vars_mapping, branches)])
+            return Set(), Set([(_get_entries(sc, vars_mapping, branches), bl)])
         end
         q = (is_explained ? sc.branch_queues_explained : sc.branch_queues_unknown)[in_branch_id]
         @test !isempty(q)
@@ -822,11 +829,13 @@ using DataStructures
                         end
                     end
                     # @info "updated_vars_mapping: $updated_vars_mapping"
+                    updated_history = vcat(branches_history, [(branches, bl)])
                     return _check_reachable(
                         sc,
                         rem_blocks,
                         updated_vars_mapping,
                         updated_branches,
+                        updated_history,
                         g,
                         run_context,
                         finalizer,
@@ -838,7 +847,7 @@ using DataStructures
             end
         end
         # @info "Failed to find block"
-        return Set(), Set([_get_entries(sc, vars_mapping, branches)])
+        return Set(), Set([(_get_entries(sc, vars_mapping, branches), bl)])
     end
 
     function _simulate_block_search(
@@ -846,6 +855,7 @@ using DataStructures
         bl::WrapEitherBlock,
         rem_blocks,
         branches,
+        branches_history,
         vars_mapping,
         g,
         run_context,
@@ -857,7 +867,7 @@ using DataStructures
         is_explained = true
         if !haskey((is_explained ? sc.branch_queues_explained : sc.branch_queues_unknown), in_branch_id)
             # @info "Queue is empty"
-            return Set(), Set([_get_entries(sc, vars_mapping, branches)])
+            return Set(), Set([(_get_entries(sc, vars_mapping, branches), bl)])
         end
         q = (is_explained ? sc.branch_queues_explained : sc.branch_queues_unknown)[in_branch_id]
         @test !isempty(q)
@@ -903,11 +913,13 @@ using DataStructures
                     end
                     updated_vars_mapping[bl.input_vars[2]] = created_block.input_vars[2]
                     # @info "updated_vars_mapping: $updated_vars_mapping"
+                    updated_history = vcat(branches_history, [(branches, bl)])
                     return _check_reachable(
                         sc,
                         rem_blocks,
                         updated_vars_mapping,
                         updated_branches,
+                        updated_history,
                         g,
                         run_context,
                         finalizer,
@@ -919,14 +931,14 @@ using DataStructures
             end
         end
         # @info "Failed to find block"
-        return Set(), Set([_get_entries(sc, vars_mapping, branches)])
+        return Set(), Set([(_get_entries(sc, vars_mapping, branches), bl)])
     end
 
-    function _check_reachable(sc, blocks, vars_mapping, branches, g, run_context, finalizer, mfp)
+    function _check_reachable(sc, blocks, vars_mapping, branches, branches_history, g, run_context, finalizer, mfp)
         checked_any = false
         if isempty(blocks)
             # @info "Found all blocks"
-            return Set([_get_entries(sc, vars_mapping, branches)]), Set()
+            return Set([Set([(_get_entries(sc, vars_mapping, brs), bl) for (brs, bl) in branches_history])]), Set()
         end
         successful = Set()
         failed = Set()
@@ -939,6 +951,7 @@ using DataStructures
                     bl,
                     Any[b for b in blocks if b != bl],
                     branches,
+                    branches_history,
                     vars_mapping,
                     g,
                     run_context,
@@ -1000,19 +1013,19 @@ using DataStructures
         end
         inner_mapping[vars_mapping["out"]] = sc.branch_vars[sc.target_branch_id]
         # @info inner_mapping
-        successful, failed = _check_reachable(sc, blocks, inner_mapping, branches, g, run_context, finalizer, mfp)
+        successful, failed = _check_reachable(sc, blocks, inner_mapping, branches, [], g, run_context, finalizer, mfp)
         # @info "successful: $successful"
         # @info "failed: $failed"
+        # @info "length successful: $(length(successful))"
+        # @info "length failed: $(length(failed))"
         for f_entries in failed
-            for s_entries in successful
-                is_subset = true
-                for (k, f_entry) in f_entries
-                    if !haskey(s_entries, k) || s_entries[k] != f_entry
-                        is_subset = false
-                        break
-                    end
+            for s_snapshots in successful
+                @test all(s_entries != f_entries for s_entries in s_snapshots)
+                if any(s_entries == f_entries for s_entries in s_snapshots)
+                    @info "Found failed case"
+                    @info f_entries
+                    @info s_snapshots
                 end
-                @test !is_subset
             end
         end
     end
