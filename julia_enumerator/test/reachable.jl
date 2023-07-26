@@ -1202,4 +1202,43 @@ using DataStructures
         target_solution = "let \$v1::list(int) = Const(list(int), Any[10, 9, 8, 7]) in let \$v2, \$v3 = wrap(let \$v2, \$v3 = rev(\$inp0 = (concat \$v2 \$v3)); let \$v3 = \$v1) in \$v2"
         check_reachable(payload, target_solution)
     end
+
+    @testset "Replace background" begin
+        payload = create_task(
+            Dict{String,Any}(
+                "name" => "replace background",
+                "maximumFrontier" => 10,
+                "examples" => Any[
+                    Dict{String,Any}(
+                        "output" => Any[1, 2, 1, 4, 1],
+                        "inputs" => Dict{String,Any}("inp0" => Any[3, 2, 3, 4, 3]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[4, 2, 4, 1, 1, 1],
+                        "inputs" => Dict{String,Any}("inp0" => Any[4, 2, 4, 3, 3, 3]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[1, 5, 2, 6, 1, 1, 4],
+                        "inputs" => Dict{String,Any}("inp0" => Any[3, 5, 2, 6, 3, 3, 4]),
+                    ),
+                ],
+                "test_examples" => Any[],
+                "request" => Dict{String,Any}(
+                    "arguments" => Dict{String,Any}(
+                        "inp0" => Dict{String,Any}(
+                            "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
+                            "constructor" => "list",
+                        ),
+                    ),
+                    "output" => Dict{String,Any}(
+                        "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
+                        "constructor" => "list",
+                    ),
+                    "constructor" => "->",
+                ),
+            ),
+        )
+        target_solution = "let \$v1::int = Const(int, 1) in let \$v2::int = Const(int, 1) in let \$v3::int = Const(int, 3) in let \$v4, \$v5, \$v6 = wrap(let \$v4, \$v5, \$v6 = rev(\$inp0 = (rev_select (lambda (eq? \$0 \$v4)) \$v5 \$v6)); let \$v4 = \$v3) in let \$v7, \$v8 = rev(\$v5 = (repeat \$v7 \$v8)) in let \$v9::list(int) = (repeat \$v2 \$v8) in (rev_select (lambda (eq? \$0 \$v1)) \$v9 \$v6)"
+        check_reachable(payload, target_solution)
+    end
 end
