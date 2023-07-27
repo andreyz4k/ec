@@ -455,6 +455,27 @@ end
 
 (p::Invented)(environment, workspace) = p.b(environment, workspace)
 
+function wrap_any_object_call(f)
+    # Should I put this in @define_primitive macro?
+    function _inner(x)
+        try
+            r = f(x)
+            if r isa Function
+                return wrap_any_object(r)
+            else
+                return r
+            end
+        catch e
+            if e isa MethodError
+                return any_object
+            else
+                rethrow()
+            end
+        end
+    end
+    return _inner
+end
+
 function (p::Apply)(environment, workspace)
     if isa(p.f, Apply) && isa(p.f.f, Apply) && isa(p.f.f.f, Primitive) && p.f.f.f.name == "if"
         branch = p.f.f.x(environment, workspace)
@@ -469,7 +490,13 @@ function (p::Apply)(environment, workspace)
         if x === nothing
             error("Parameter is nothing")
         elseif x isa PatternWrapper
-            return f(x.value)
+            if x.value === any_object
+                return wrap_any_object_call(f)(x.value)
+            else
+                return f(x.value)
+            end
+        elseif x === any_object
+            return wrap_any_object_call(f)(x)
         else
             return f(x)
         end
