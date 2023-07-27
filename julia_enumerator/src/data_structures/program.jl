@@ -347,9 +347,9 @@ parse_application = P"\(" + Repeat(_parse_program + parse_whitespace, 2, ALL) + 
 
 parse_let_clause =
     P"let " + P"\$v" + parse_number + P"::" + type_parser + P" = " + _parse_program + P" in " + _parse_program |>
-    (v -> LetClause(v[1], v[2], v[3], v[4]))
+    (v -> LetClause(UInt64(v[1]), v[2], v[3], v[4]))
 
-parse_var_name_list = (E"$"+parse_var_name+E", ")[0:end] + E"$" + parse_var_name |> (vs -> vs)
+parse_var_name_list = (E"$"+parse_var_name+E", ")[0:end] + E"$" + parse_var_name |> (vs -> [v for v in vs])
 
 parse_let_rev_clause =
     P"let " +
