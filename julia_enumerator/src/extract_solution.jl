@@ -51,7 +51,7 @@ function alpha_substitution(p::LetClause, replacements, next_index::UInt64, inpu
 end
 
 function alpha_substitution(p::LetRevClause, replacements, next_index::UInt64, input_keys)
-    new_var_ids = []
+    new_var_ids = UInt64[]
     for var_id in p.var_ids
         replacements[var_id] = next_index
         push!(new_var_ids, next_index)
@@ -70,7 +70,7 @@ function alpha_substitution(p::LetRevClause, replacements, next_index::UInt64, i
 end
 
 function alpha_substitution(p::WrapEither, replacements, next_index::UInt64, input_keys)
-    new_var_ids = []
+    new_var_ids = UInt64[]
     for var_id in p.var_ids
         replacements[var_id] = next_index
         push!(new_var_ids, next_index)

@@ -3,31 +3,36 @@ abstract type Program <: Function end
 
 struct Index <: Program
     n::Int64
+    hash_value::UInt64
+    Index(n::Int64) = new(n, hash(n))
 end
 
-Base.hash(p::Index, h::UInt64) = hash(p.n, h)
+Base.hash(p::Program, h::UInt64) = p.hash_value ⊻ h
 Base.:(==)(p::Index, q::Index) = p.n == q.n
 
 struct Abstraction <: Program
     b::Program
+    hash_value::UInt64
+    Abstraction(b::Program) = new(b, hash(b))
 end
-Base.hash(p::Abstraction, h::UInt64) = hash(p.b, h)
 Base.:(==)(p::Abstraction, q::Abstraction) = p.b == q.b
 
 struct Apply <: Program
     f::Program
     x::Program
+    hash_value::UInt64
+    Apply(f::Program, x::Program) = new(f, x, hash(f, hash(x)))
 end
-Base.hash(p::Apply, h::UInt64) = hash(p.f, hash(p.x, h))
 Base.:(==)(p::Apply, q::Apply) = p.f == q.f && p.x == q.x
 
 struct Primitive <: Program
     t::Tp
     name::String
     code::Any
+    hash_value::UInt64
+    Primitive(t::Tp, name::String, code::Any) = new(t, name, code, hash(name))
 end
 
-Base.hash(p::Primitive, h::UInt64) = hash(p.name, h)
 Base.:(==)(p::Primitive, q::Primitive) = p.name == q.name
 
 every_primitive = Dict{String,Primitive}()
@@ -43,8 +48,9 @@ end
 struct Invented <: Program
     t::Tp
     b::Program
+    hash_value::UInt64
+    Invented(t::Tp, b::Program) = new(t, b, hash(b))
 end
-Base.hash(p::Invented, h::UInt64) = hash(p.b, h)
 Base.:(==)(p::Invented, q::Invented) = p.b == q.b
 
 struct Hole <: Program
@@ -52,23 +58,27 @@ struct Hole <: Program
     grammar::Any
     from_input::Bool
     candidates_filter::Any
+    hash_value::UInt64
+    Hole(t::Tp, grammar::Any, from_input::Bool, candidates_filter::Any) =
+        new(t, grammar, from_input, candidates_filter, hash(t, hash(grammar)))
 end
-Base.hash(p::Hole, h::UInt64) = hash(p.t, hash(p.grammar, h))
 Base.:(==)(p::Hole, q::Hole) =
     p.t == q.t && p.grammar == q.grammar && p.from_input == q.from_input && p.candidates_filter == q.candidates_filter
 
 struct FreeVar <: Program
     t::Tp
     var_id::Union{UInt64,Nothing,String}
+    hash_value::UInt64
+    FreeVar(t::Tp, var_id::Union{UInt64,Nothing,String}) = new(t, var_id, hash(t, hash(var_id)))
 end
-Base.hash(p::FreeVar, h::UInt64) = hash(p.t, hash(p.var_id, h))
 Base.:(==)(p::FreeVar, q::FreeVar) = p.t == q.t && p.var_id == q.var_id
 
 struct SetConst <: Program
     t::Tp
     value::Any
+    hash_value::UInt64
+    SetConst(t::Tp, value::Any) = new(t, value, hash(t, hash(value)))
 end
-Base.hash(p::SetConst, h::UInt64) = hash(p.t, hash(p.value, h))
 Base.:(==)(p::SetConst, q::SetConst) = p.t == q.t && p.value == q.value
 
 struct LetClause <: Program
@@ -76,8 +86,10 @@ struct LetClause <: Program
     var_type::Tp
     v::Program
     b::Program
+    hash_value::UInt64
+    LetClause(var_id::UInt64, var_type::Tp, v::Program, b::Program) =
+        new(var_id, var_type, v, b, hash(var_id, hash(v, hash(b))))
 end
-Base.hash(p::LetClause, h::UInt64) = hash(p.var_id, h) + hash(p.v, h) + hash(p.b, h)
 Base.:(==)(p::LetClause, q::LetClause) = p.var_id == q.var_id && p.v == q.v && p.b == q.b
 
 struct LetRevClause <: Program
@@ -86,9 +98,12 @@ struct LetRevClause <: Program
     v::Program
     rev_v::Any
     b::Program
+    hash_value::UInt64
+    LetRevClause(var_ids::Vector{UInt64}, inp_var_id::Union{UInt64,String}, v::Program, rev_v, b::Program) =
+        new(var_ids, inp_var_id, v, rev_v, b, hash(var_ids, hash(inp_var_id, hash(v, hash(b)))))
 end
-Base.hash(p::LetRevClause, h::UInt64) = hash(p.var_ids, h) + hash(p.v, h) + hash(p.b, h)
-Base.:(==)(p::LetRevClause, q::LetRevClause) = p.var_ids == q.var_ids && p.v == q.v && p.b == q.b
+Base.:(==)(p::LetRevClause, q::LetRevClause) =
+    p.var_ids == q.var_ids && p.inp_var_id == q.inp_var_id && p.v == q.v && p.b == q.b
 
 struct WrapEither <: Program
     var_ids::Vector{UInt64}
@@ -98,9 +113,26 @@ struct WrapEither <: Program
     rev_v::Any
     f::FreeVar
     b::Program
+    hash_value::UInt64
+    WrapEither(
+        var_ids::Vector{UInt64},
+        inp_var_id::Union{UInt64,String},
+        fixer_var_id::UInt64,
+        v::Program,
+        rev_v,
+        f::FreeVar,
+        b::Program,
+    ) = new(
+        var_ids,
+        inp_var_id,
+        fixer_var_id,
+        v,
+        rev_v,
+        f,
+        b,
+        hash(var_ids, hash(inp_var_id, hash(fixer_var_id, hash(v, hash(f, hash(b)))))),
+    )
 end
-Base.hash(p::WrapEither, h::UInt64) =
-    hash(p.var_ids, hash(p.inp_var_id, hash(p.fixer_var_id, hash(p.v, hash(p.f, hash(p.b, h))))))
 Base.:(==)(p::WrapEither, q::WrapEither) =
     p.var_ids == q.var_ids &&
     p.inp_var_id == q.inp_var_id &&
@@ -108,8 +140,6 @@ Base.:(==)(p::WrapEither, q::WrapEither) =
     p.v == q.v &&
     p.f == q.f &&
     p.b == q.b
-
-struct ExceptionProgram <: Program end
 
 Base.show(io::IO, p::Program) = print(io, show_program(p, false)...)
 Base.print(io::IO, p::Program) = print(io, show_program(p, false)...)
@@ -165,7 +195,6 @@ show_program(p::WrapEither, is_function::Bool) = vcat(
     [") in "],
     show_program(p.b, false),
 )
-show_program(p::ExceptionProgram, is_function::Bool) = ["EXCEPTION"]
 
 abstract type AbstractProgramBlock end
 
@@ -316,8 +345,6 @@ parse_abstraction = P"\(lambda " + parse_whitespace + _parse_program + P"\)" > A
 
 parse_application = P"\(" + Repeat(_parse_program + parse_whitespace, 2, ALL) + P"\)" |> (xs -> foldl(Apply, xs))
 
-parse_exception = P"exception" > ExceptionProgram
-
 parse_let_clause =
     P"let " + P"\$v" + parse_number + P"::" + type_parser + P" = " + _parse_program + P" in " + _parse_program |>
     (v -> LetClause(v[1], v[2], v[3], v[4]))
@@ -361,7 +388,6 @@ parse_wrap_either_clause =
 
 _parse_program.matcher =
     parse_application |
-    parse_exception |
     parse_variable |
     parse_invented |
     parse_abstraction |
@@ -405,8 +431,6 @@ function infer_program_type(context, environment, p::Apply)::Tuple{Context,Tp}
 end
 
 infer_program_type(context, environment, p::FreeVar) = instantiate(p.t, context)
-
-infer_program_type(context, environment, p::ExceptionProgram) = instantiate(t0, context)
 
 closed_inference(p) = infer_program_type(empty_context, [], p)[2]
 
