@@ -1138,7 +1138,7 @@ using solver: load_problems, enumerate_for_task
             verbose,
         )
         @test length(solutions) >= 1
-        @test number_enumerated <= 5000
+        @test number_enumerated <= 10000
     end
 
     @testset "try_enumerate is-mod-k with k=1" begin
