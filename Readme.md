@@ -14,6 +14,7 @@
     5. [PyPy](#pypy)
 4. [Software Architecture](#software-architecture)
 5. [`protonet-networks`](#protonet-networks)
+6. [Funding information](#funding-information)
 
 # Overview
 
@@ -284,3 +285,7 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+## Funding information
+
+The work of [@andreyz4k](https://github.com/andreyz4k) on this project is supported by a grant from [Noeon Research](https://noeon.ai) since 16.07.2023.
