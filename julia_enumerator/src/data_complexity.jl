@@ -57,6 +57,9 @@ function get_complexity_summary_max(values::EitherOptions, t::TypeConstructor)
     return result
 end
 
+get_complexity_summary(values::AbductibleValue, t::TypeConstructor, accum) =
+    get_complexity_summary(values.value, t, accum)
+
 function get_complexity(sc::SolutionContext, summary::Accumulator)
     return sum(sc.type_weights[tname] * count for (tname, count) in summary; init = 0.0)
 end

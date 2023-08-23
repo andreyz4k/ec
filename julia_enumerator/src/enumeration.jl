@@ -346,6 +346,8 @@ function try_get_reversed_values(sc::SolutionContext, p::Program, context, path,
             new_entry = EitherEntry(t_id, values, complexity_summary, get_complexity(sc, complexity_summary))
         elseif any(isa(value, PatternWrapper) for value in values)
             new_entry = PatternEntry(t_id, values, complexity_summary, get_complexity(sc, complexity_summary))
+        elseif any(isa(value, AbductibleValue) for value in values)
+            new_entry = AbductibleEntry(t_id, values, complexity_summary, get_complexity(sc, complexity_summary))
         else
             new_entry = ValueEntry(t_id, values, complexity_summary, get_complexity(sc, complexity_summary))
         end
@@ -362,6 +364,8 @@ function try_get_reversed_values(sc::SolutionContext, p::Program, context, path,
     new_branches = []
     either_branch_ids = UInt64[]
     either_var_ids = UInt64[]
+    abductible_branch_ids = UInt64[]
+    abductible_var_ids = UInt64[]
 
     if is_known
         out_related_complexity_branches = get_connected_from(sc.related_explained_complexity_branches, output_branch_id)
@@ -394,6 +398,9 @@ function try_get_reversed_values(sc::SolutionContext, p::Program, context, path,
         if isa(entry, EitherEntry)
             push!(either_branch_ids, branch_id)
             push!(either_var_ids, var_id)
+        elseif isa(entry, AbductibleEntry)
+            push!(abductible_branch_ids, branch_id)
+            push!(abductible_var_ids, var_id)
         end
 
         push!(new_branches, (var_id, branch_id, entry.type_id))
@@ -422,7 +429,11 @@ function try_get_reversed_values(sc::SolutionContext, p::Program, context, path,
         end
     end
 
-    return new_p, reverse_program, new_branches, either_var_ids, either_branch_ids
+    return new_p,
+    reverse_program,
+    new_branches,
+    vcat(either_var_ids, abductible_var_ids),
+    vcat(either_branch_ids, abductible_branch_ids)
 end
 
 function try_get_reversed_inputs(sc, p::Program, context, path, output_branch_id, cost)
@@ -875,14 +886,15 @@ end
 function enumeration_iteration_finished_output(sc::SolutionContext, bp::BlockPrototype)
     state = bp.state
     is_reverse = is_reversible(state.skeleton)
-    if is_reverse
+    output_branch_id = bp.output_var[2]
+    output_entry = sc.entries[sc.branch_entries[output_branch_id]]
+    if is_reverse && !isa(output_entry, AbductibleEntry)
         # @info "Try get reversed for $bp"
         p, input_vars =
             try_get_reversed_inputs(sc, state.skeleton, state.context, state.path, bp.output_var[2], state.cost)
     elseif isnothing(bp.input_vars)
         p, new_vars = capture_free_vars(sc, state.skeleton, state.context)
         input_vars = []
-        output_branch_id = bp.output_var[2]
         min_path_cost = sc.unknown_min_path_costs[output_branch_id] + state.cost
         complexity_factor = sc.unknown_complexity_factors[output_branch_id]
         for (var_id, t) in new_vars
@@ -960,7 +972,8 @@ function enumeration_iteration(
     br_id::UInt64,
     is_explained::Bool,
 )
-    if is_reversible(bp.state.skeleton) || state_finished(bp.state)
+    if (is_reversible(bp.state.skeleton) && !isa(sc.entries[sc.branch_entries[br_id]], AbductibleEntry)) ||
+       state_finished(bp.state)
         if sc.verbose
             @info "Checking finished $bp"
         end

@@ -10,35 +10,28 @@ end
 
 @define_reverse_primitive "abs" arrow(tint, tint) abs reverse_abs
 
-function reverse_plus(value)
-    options = []
-    for i in 0:value
-        push!(options, [i, value - i])
-    end
-    if length(options) == 0
-        # @info "No options for rev plus for value $value"
-        error("No factors")
-    elseif length(options) == 1
-        return options[1]
-    else
-        hashed_options = Dict(rand(UInt64) => option for option in options)
-        result = []
-        for i in 1:2
-            push!(result, EitherOptions(Dict(h => option[i] for (h, option) in hashed_options)))
-        end
-        return result
-    end
+function _rev_dep_plus(sum_value::Int64, x::Int64)
+    return sum_value - x
 end
 
-# @define_reverse_primitive "+" arrow(tint, tint, tint) (a -> (b -> a + b)) reverse_plus
-@define_primitive "+" arrow(tint, tint, tint) (a -> (b -> a + b))
+function reverse_plus(value)
+    return [AbductibleValue(any_object, _rev_dep_plus), AbductibleValue(any_object, _rev_dep_plus)]
+end
+
+@define_reverse_primitive "+" arrow(tint, tint, tint) (a -> (b -> a + b)) reverse_plus
+# @define_primitive "+" arrow(tint, tint, tint) (a -> (b -> a + b))
 
 function reverse_mult(value)
     options = []
-    for i in 1:value
+    if value > 0
+        upper = floor(Int64, sqrt(value))
+    else
+        upper = floor(Int64, sqrt(-value))
+    end
+    for i in 1:upper
         if value % i == 0
-            div
             push!(options, [i, value ÷ i])
+            push!(options, [value ÷ i, i])
         end
     end
     if length(options) == 0
@@ -56,5 +49,5 @@ function reverse_mult(value)
     end
 end
 
-# @define_reverse_primitive "*" arrow(tint, tint, tint) (a -> (b -> a * b)) reverse_mult
-@define_primitive "*" arrow(tint, tint, tint) (a -> (b -> a * b))
+@define_reverse_primitive "*" arrow(tint, tint, tint) (a -> (b -> a * b)) reverse_mult
+# @define_primitive "*" arrow(tint, tint, tint) (a -> (b -> a * b))

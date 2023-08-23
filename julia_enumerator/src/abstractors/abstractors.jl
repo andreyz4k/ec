@@ -149,6 +149,11 @@ function _reverse_pattern(_reverse_function, value)
     return results
 end
 
+function _reverse_abductible(_reverse_function, value, n)
+    results = [value for _ in 1:n]
+    return results
+end
+
 function generic_reverse(rev_function, n)
     function _generic_reverse(arguments)
         rev_functions = []
@@ -177,6 +182,9 @@ function generic_reverse(rev_function, n)
         end
         function _reverse_function(value::PatternWrapper)::Vector{Any}
             _reverse_pattern(_reverse_function, value)
+        end
+        function _reverse_function(value::AbductibleValue)::Vector{Any}
+            _reverse_abductible(_reverse_function, value, n)
         end
         return _reverse_function
     end
@@ -241,6 +249,107 @@ function _get_var_indices(f, n)
         end
     end
     return indices_mapping, external_vars
+end
+
+function _calculate_dependent_vars(p::Invented, inputs, output, arguments, updates)
+    return _calculate_dependent_vars(p.b, inputs, output, arguments, updates)
+end
+
+function _calculate_dependent_vars(p::FreeVar, inputs, output::Nothing, arguments, updates)
+    return inputs[p.var_id], updates
+end
+
+function _calculate_dependent_vars(p::FreeVar, inputs, output, arguments, updates)
+    if inputs[p.var_id] isa AbductibleValue
+        updates[p.var_id] = output
+        return output, updates
+    end
+    return inputs[p.var_id], updates
+end
+
+function _calculate_dependent_vars(p::Apply, inputs, output, arguments, updates)
+    arg, updates = _calculate_dependent_vars(p.x, inputs, nothing, arguments, updates)
+    push!(arguments, (p.x, arg))
+    res = _calculate_dependent_vars(p.f, inputs, output, arguments, updates)
+    pop!(arguments)
+    return res
+end
+
+function _calculate_dependent_vars(p::Primitive, inputs, output::Nothing, arguments, updates)
+    c = p.code
+    i = 0
+    while c isa Function
+        if arguments[end-i][2] isa AbductibleValue
+            return AbductibleValue(nothing, _ -> nothing), updates
+        end
+        c = c(arguments[end-i][2])
+        i += 1
+    end
+    return c, updates
+end
+
+function _abduct_value(generator, output, known_input)
+    return generator(output, known_input)
+end
+
+function _abduct_value(generator, output::Union{Nothing,AnyObject}, known_input)
+    try
+        return generator(output, known_input)
+    catch e
+        if isa(e, MethodError)
+            return output
+        else
+            rethrow()
+        end
+    end
+end
+
+function _abduct_value(generator, output::EitherOptions, known_input)
+    return EitherOptions(Dict(h => _abduct_value(generator, o, known_input) for (h, o) in output.options))
+end
+
+function _calculate_dependent_vars(p::Primitive, inputs, output, arguments, updates)
+    rev_args = [Index(0) for _ in arguments]
+    rev_p = _get_reversed_program(p, rev_args)
+    rev_inputs = rev_p(output)
+    fixer_value = nothing
+    abductible_value = nothing
+    abductible_program = nothing
+    abductible_index = nothing
+    for i in 1:length(rev_inputs)
+        if rev_inputs[i] isa AbductibleValue
+            if !isa(arguments[end-i+1][2], AbductibleValue)
+                fixer_value = arguments[end-i+1][2]
+            else
+                abductible_program = arguments[end-i+1][1]
+                abductible_value = rev_inputs[i]
+                abductible_index = i
+            end
+        else
+            _, updates = _calculate_dependent_vars(
+                arguments[end-i+1][1],
+                inputs,
+                rev_inputs[i],
+                arguments[i+1:length(arguments)],
+                updates,
+            )
+        end
+    end
+    if fixer_value !== nothing && abductible_value !== nothing && abductible_program !== nothing
+        _, updates = _calculate_dependent_vars(
+            abductible_program,
+            inputs,
+            _abduct_value(abductible_value.generator, output, fixer_value),
+            arguments[abductible_index+1:length(arguments)],
+            updates,
+        )
+    end
+    return output, updates
+end
+
+function calculate_dependent_vars(p, inputs, output)
+    _, updates = _calculate_dependent_vars(p, inputs, output, [], Dict())
+    return updates
 end
 
 include("repeat.jl")
