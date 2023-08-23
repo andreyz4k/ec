@@ -42,9 +42,9 @@ function reverse_map(n, is_set = false)
 
             first_item = true
             for v in value
-                values = rev_f(v)
-                if any(v isa EitherOptions for v in values)
-                    child_options = unfold_options(values)
+                reversed_values = rev_f(v)
+                if any(v isa EitherOptions for v in reversed_values)
+                    child_options = unfold_options(reversed_values)
 
                     new_options = Set()
                     for output_option in output_options
@@ -86,7 +86,7 @@ function reverse_map(n, is_set = false)
                     output_options = new_options
                 else
                     filled_indices = Dict{Int,Any}()
-                    for (i, v) in enumerate(values)
+                    for (i, v) in enumerate(reversed_values)
                         mapped_i = indices_mapping[i]
                         if haskey(filled_indices, mapped_i)
                             if filled_indices[mapped_i] != v

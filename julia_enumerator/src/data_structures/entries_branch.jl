@@ -382,6 +382,305 @@ function updated_branches(
     return new_branch_id, true, allow_fails, next_blocks, true, block_created_paths
 end
 
+function _find_out_block(sc, out_blocks, constrained_branches)
+    for (out_block_copy_id, out_block_id) in out_blocks
+        in_branch_ids = keys(get_connected_to(sc.branch_outgoing_blocks, out_block_copy_id))
+        good_copy = true
+        in_branches = Dict()
+        for in_branch_id in in_branch_ids
+            in_var_id = sc.branch_vars[in_branch_id]
+            if haskey(constrained_branches, in_var_id)
+                if constrained_branches[in_var_id] != in_branch_id
+                    good_copy = false
+                    break
+                end
+            end
+            in_branches[in_var_id] = in_branch_id
+        end
+        if !good_copy
+            continue
+        end
+        out_branch_ids = keys(get_connected_to(sc.branch_incoming_blocks, out_block_copy_id))
+        out_branches = Dict()
+        for out_branch_id in out_branch_ids
+            out_var_id = sc.branch_vars[out_branch_id]
+            if haskey(constrained_branches, out_var_id)
+                if constrained_branches[out_var_id] != out_branch_id
+                    good_copy = false
+                    break
+                end
+            end
+            out_branches[out_var_id] = out_branch_id
+        end
+        if good_copy
+            return sc.blocks[out_block_id], in_branches, out_branches
+        end
+    end
+    error("No good block copy found")
+end
+
+function _get_abducted_values(sc, out_block::ProgramBlock, branches)
+    in_entries = Dict(var_id => sc.entries[sc.branch_entries[branches[var_id]]] for var_id in out_block.input_vars)
+    out_entry = sc.entries[sc.branch_entries[branches[out_block.output_var]]]
+
+    updated_branches = DefaultDict{UInt64,Vector}(() -> [])
+    for i in 1:sc.example_count
+        updated_values = calculate_dependent_vars(
+            out_block.p,
+            Dict(var_id => entry.values[i] for (var_id, entry) in in_entries),
+            out_entry.values[i],
+        )
+        for (var_id, entry) in in_entries
+            if haskey(updated_values, var_id)
+                push!(updated_branches[var_id], updated_values[var_id])
+            else
+                push!(updated_branches[var_id], entry.values[i])
+            end
+        end
+    end
+    # @info "Block: $out_block"
+    # @info "In entries: $in_entries"
+    # @info "Out entry: $out_entry"
+    # @info "Updated branches from block: $updated_branches"
+    return updated_branches
+end
+
+function _get_abducted_values(sc, out_block::WrapEitherBlock, branches)
+    out_entries = Dict(var_id => sc.entries[sc.branch_entries[branches[var_id]]] for var_id in out_block.output_vars)
+    in_entry = sc.entries[sc.branch_entries[branches[out_block.input_vars[1]]]]
+    fixer_entry = sc.entries[sc.branch_entries[branches[out_block.input_vars[2]]]]
+
+    updated_branches = DefaultDict{UInt64,Vector}(() -> [])
+
+    for i in 1:sc.example_count
+        out_values = Dict{UInt64,Any}(var_id => entry.values[i] for (var_id, entry) in out_entries)
+        out_values[out_block.fixer_var] = fixer_entry.values[i]
+        updated_values = calculate_dependent_vars(out_block.main_block.p, out_values, in_entry.values[i])
+
+        for (var_id, entry) in out_entries
+            if haskey(updated_values, var_id)
+                push!(updated_branches[var_id], updated_values[var_id])
+                # elseif var_id == out_block.fixer_var
+                #     push!(updated_branches[var_id], fixer_entry.values[i])
+            else
+                push!(updated_branches[var_id], entry.values[i])
+            end
+        end
+    end
+    updated_branches[out_block.fixer_var] = fixer_entry.values
+    # @info "Block: $out_block"
+    # @info "Out entries: $out_entries"
+    # @info "In entry: $in_entry"
+    # @info "Fixer entry: $fixer_entry"
+    # @info "Updated branches from wrapper: $updated_branches"
+    return updated_branches
+end
+
+function _find_relatives_for_abductible(sc, new_entry, branch_id, old_entry)
+    if old_entry == new_entry
+        return branch_id, UInt64[], UInt64[]
+    end
+
+    for child_id in get_connected_from(sc.branch_children, branch_id)
+        child_entry = sc.entries[sc.branch_entries[child_id]]
+        if child_entry.values == new_entry.values
+            return child_id, UInt64[], UInt64[]
+        end
+    end
+
+    return nothing, UInt64[branch_id], UInt64[]
+end
+
+function updated_branches(
+    sc,
+    entry::AbductibleEntry,
+    @nospecialize(new_values),
+    block_id,
+    is_new_block,
+    var_id::UInt64,
+    branch_id::UInt64,
+    t_id::UInt64,
+    is_meaningful::Bool,
+    fixed_branches::Dict{UInt64,UInt64},
+    created_paths,
+)::Tuple{UInt64,Bool,Bool,Set{Any},Bool,Vector{Any}}
+    complexity_summary = get_complexity_summary(new_values, sc.types[t_id])
+    if any(isa(value, PatternWrapper) for value in new_values)
+        new_entry = PatternEntry(t_id, new_values, complexity_summary, get_complexity(sc, complexity_summary))
+    else
+        new_entry = ValueEntry(t_id, new_values, complexity_summary, get_complexity(sc, complexity_summary))
+    end
+    new_entry_index = push!(sc.entries, new_entry)
+    new_parents, possible_result = find_related_branches(sc, branch_id, new_entry, new_entry_index)
+    if !isnothing(possible_result)
+        set_explained = false
+        if !sc.branch_is_explained[possible_result]
+            sc.branch_is_explained[possible_result] = true
+            set_explained = true
+        end
+        if is_meaningful && sc.branch_is_not_copy[possible_result] != true
+            sc.branch_is_not_copy[possible_result] = true
+        end
+        block_created_paths =
+            get_new_paths_for_block(sc, block_id, is_new_block, created_paths, var_id, possible_result, fixed_branches)
+        if isempty(block_created_paths)
+            allow_fails = false
+            next_blocks = Set()
+        else
+            allow_fails, next_blocks = _downstream_blocks_existing_branch(sc, var_id, possible_result, fixed_branches)
+        end
+        return possible_result, false, allow_fails, next_blocks, set_explained, block_created_paths
+    end
+
+    new_branch_id = increment!(sc.branches_count)
+    sc.branch_entries[new_branch_id] = new_entry_index
+    sc.branch_vars[new_branch_id] = var_id
+    sc.branch_types[new_branch_id, t_id] = true
+    sc.branch_is_explained[new_branch_id] = true
+    if is_meaningful
+        sc.branch_is_not_copy[new_branch_id] = true
+    end
+
+    sc.branch_children[new_parents, new_branch_id] = true
+    sc.complexities[new_branch_id] = new_entry.complexity
+    sc.unused_explained_complexities[new_branch_id] = new_entry.complexity
+    sc.unmatched_complexities[new_branch_id] = new_entry.complexity
+
+    out_blocks = get_connected_from(sc.branch_outgoing_blocks, branch_id)
+    if length(out_blocks) != 1
+        @info out_blocks
+        error("Abductible branch has more than one outgoing block")
+    end
+
+    (out_block_copy_id, out_block_id) = first(out_blocks)
+    branch_ids = vcat(
+        collect(keys(get_connected_to(sc.branch_outgoing_blocks, out_block_copy_id))),
+        collect(keys(get_connected_to(sc.branch_incoming_blocks, out_block_copy_id))),
+    )
+    old_branches = Dict{UInt64,UInt64}(sc.branch_vars[b_id] => b_id for b_id in branch_ids)
+
+    old_branches[var_id] = new_branch_id
+
+    updated_values = _get_abducted_values(sc, sc.blocks[out_block_id], old_branches)
+
+    new_branches = Dict{UInt64,UInt64}()
+    out_branches = Dict{UInt64,UInt64}()
+
+    new_branches[branch_id] = new_branch_id
+    out_branches[branch_id] = new_branch_id
+
+    either_branch_ids = UInt64[]
+    either_var_ids = UInt64[]
+
+    for (v_id, b_id) in old_branches
+        if haskey(updated_values, v_id)
+            old_br_entry = sc.entries[sc.branch_entries[b_id]]
+            # @info old_br_entry
+
+            new_br_entry = _make_entry(sc, old_br_entry.type_id, updated_values[v_id])
+            # @info new_br_entry
+            exact_match, parents, children = _find_relatives_for_abductible(sc, new_br_entry, b_id, old_br_entry)
+            if !isnothing(exact_match)
+                if isa(new_br_entry, EitherEntry)
+                    push!(either_branch_ids, exact_match)
+                    push!(either_var_ids, v_id)
+                end
+                out_branches[b_id] = exact_match
+            else
+                entry_index = push!(sc.entries, new_br_entry)
+                # @info entry_index
+
+                created_branch_id = increment!(sc.branches_count)
+                sc.branch_entries[created_branch_id] = entry_index
+                sc.branch_vars[created_branch_id] = v_id
+                sc.branch_types[created_branch_id, new_br_entry.type_id] = true
+                if sc.branch_is_unknown[b_id]
+                    sc.branch_is_unknown[created_branch_id] = true
+                    sc.branch_unknown_from_output[created_branch_id] = sc.branch_unknown_from_output[b_id]
+                end
+                deleteat!(sc.branch_children, parents, children)
+                sc.branch_children[parents, created_branch_id] = true
+                sc.branch_children[created_branch_id, children] = true
+
+                original_path_cost = sc.unknown_min_path_costs[b_id]
+                if !isnothing(original_path_cost)
+                    sc.unknown_min_path_costs[created_branch_id] = original_path_cost
+                end
+                sc.complexities[created_branch_id] = new_br_entry.complexity
+                sc.unmatched_complexities[created_branch_id] = new_br_entry.complexity
+
+                if isa(new_br_entry, EitherEntry)
+                    push!(either_branch_ids, created_branch_id)
+                    push!(either_var_ids, v_id)
+                end
+                out_branches[b_id] = created_branch_id
+                new_branches[b_id] = created_branch_id
+            end
+        end
+    end
+
+    for (old_br_id, new_br_id) in new_branches
+        if sc.branch_is_unknown[new_br_id]
+            old_related_branches = get_connected_from(sc.related_unknown_complexity_branches, old_br_id)
+            new_related_branches =
+                UInt64[(haskey(new_branches, b_id) ? new_branches[b_id] : b_id) for b_id in old_related_branches]
+            sc.related_unknown_complexity_branches[new_br_id, new_related_branches] = true
+            sc.unknown_complexity_factors[new_br_id] = branch_complexity_factor_unknown(sc, new_br_id)
+        end
+    end
+
+    unknown_old_branches = UInt64[br_id for (br_id, _) in new_branches]
+    next_blocks = merge([get_connected_from(sc.branch_outgoing_blocks, br_id) for br_id in unknown_old_branches]...)
+    for (b_copy_id, b_id) in next_blocks
+        inp_branches = keys(get_connected_to(sc.branch_outgoing_blocks, b_copy_id))
+        inputs = Dict(sc.branch_vars[b] => haskey(out_branches, b) ? out_branches[b] : b for b in inp_branches)
+        out_block_branches = keys(get_connected_to(sc.branch_incoming_blocks, b_copy_id))
+        target_branches = UInt64[haskey(out_branches, b) ? out_branches[b] : b for b in out_block_branches]
+
+        bl = sc.blocks[b_id]
+        if isa(bl, WrapEitherBlock)
+            input_entries = Set([sc.branch_entries[inputs[bl.input_vars[1]]]])
+        else
+            input_entries = Set(sc.branch_entries[b] for b in values(inputs))
+        end
+        if any(in(sc.branch_entries[b], input_entries) for b in target_branches)
+            if sc.verbose
+                @info "Fixing constraint leads to a redundant block"
+            end
+            throw(EnumerationException("Fixing constraint leads to a redundant block"))
+        end
+
+        _save_block_branch_connections(sc, b_id, sc.blocks[b_id], inputs, target_branches)
+        for target_branch in target_branches
+            update_complexity_factors_unknown(sc, inputs, target_branch)
+        end
+    end
+
+    if !isempty(either_branch_ids)
+        active_constraints =
+            union([collect(keys(get_connected_from(sc.constrained_branches, br_id))) for br_id in branch_ids]...)
+        if length(active_constraints) == 0
+            new_constraint_id = increment!(sc.constraints_count)
+            # @info "Added new constraint with either $new_constraint_id"
+            active_constraints = UInt64[new_constraint_id]
+        end
+        for constraint_id in active_constraints
+            sc.constrained_branches[either_branch_ids, constraint_id] = either_var_ids
+            sc.constrained_vars[either_var_ids, constraint_id] = either_branch_ids
+        end
+    end
+
+    block_created_paths =
+        get_new_paths_for_block(sc, block_id, is_new_block, created_paths, var_id, new_branch_id, fixed_branches)
+    if isempty(block_created_paths)
+        allow_fails = false
+        next_blocks = Set()
+    else
+        allow_fails, next_blocks = _downstream_blocks_existing_branch(sc, var_id, new_branch_id, fixed_branches)
+    end
+    return new_branch_id, false, allow_fails, next_blocks, true, block_created_paths
+end
+
 function _downstream_branch_options_known(sc, block_id, block_copy_id, fixed_branches, unfixed_vars)
     inp_branches = keys(get_connected_to(sc.branch_outgoing_blocks, block_copy_id))
     all_inputs = Dict(sc.branch_vars[b] => b for b in inp_branches)

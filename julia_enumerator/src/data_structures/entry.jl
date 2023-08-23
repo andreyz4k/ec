@@ -134,6 +134,14 @@ end
 Base.:(==)(v1::PatternWrapper, v2::PatternWrapper) = v1.value == v2.value
 Base.hash(v::PatternWrapper, h::UInt64) = hash(v.value, h)
 
+struct AbductibleValue
+    value::Any
+    generator::Function
+end
+
+Base.:(==)(v1::AbductibleValue, v2::AbductibleValue) = v1.value == v2.value && v1.generator == v2.generator
+Base.hash(v::AbductibleValue, h::UInt64) = hash(v.value, hash(v.generator, h))
+
 struct EitherEntry <: Entry
     type_id::UInt64
     values::Vector
@@ -191,6 +199,7 @@ function _match_options(value::EitherOptions, other_value)
 end
 
 _match_options(value::PatternWrapper, other_value) = _match_pattern(value, other_value)
+_match_options(value::AbductibleValue, other_value) = _match_pattern(value, other_value)
 _match_options(value, other_value) = value == other_value
 
 match_at_index(entry::EitherEntry, index::Int, value) = _match_options(entry.values[index], value)
@@ -228,6 +237,7 @@ _match_pattern(value::PatternWrapper, other_value::PatternWrapper) = value.value
 _match_pattern(value, other_value) = value == other_value
 _match_pattern(value::Vector, other_value) = all(_match_pattern(v, ov) for (v, ov) in zip(value, other_value))
 _match_pattern(value::Tuple, other_value) = all(_match_pattern(v, ov) for (v, ov) in zip(value, other_value))
+_match_pattern(value::AbductibleValue, other_value) = _match_pattern(value.value, other_value)
 
 match_at_index(entry::PatternEntry, index::Int, value) = _match_pattern(entry.values[index], value)
 
@@ -301,3 +311,47 @@ function matching_with_known_candidates(sc, entry::PatternEntry, known_branch_id
 end
 
 const_options(entry::PatternEntry) = []
+
+struct AbductibleEntry <: Entry
+    type_id::UInt64
+    values::Vector
+    complexity_summary::Accumulator
+    complexity::Float64
+end
+
+Base.hash(v::AbductibleEntry, h::UInt64) = hash(v.type_id, hash(v.values, h))
+Base.:(==)(v1::AbductibleEntry, v2::AbductibleEntry) = v1.type_id == v2.type_id && v1.values == v2.values
+
+match_at_index(entry::AbductibleEntry, index::Int, value) = _match_pattern(entry.values[index], value)
+
+function match_with_entry(sc, entry::AbductibleEntry, other::ValueEntry)
+    return all(match_at_index(entry, i, other.values[i]) for i in 1:sc.example_count)
+end
+
+function match_with_entry(sc, entry::AbductibleEntry, other::PatternEntry)
+    return false
+end
+
+function matching_with_unknown_candidates(sc, entry::AbductibleEntry, var_id)
+    results = []
+
+    for known_branch_id in get_connected_to(sc.branch_types, entry.type_id)
+        if !sc.branch_is_not_copy[known_branch_id]
+            continue
+        end
+        if known_branch_id == sc.target_branch_id
+            continue
+        end
+        known_var_id = sc.branch_vars[known_branch_id]
+        if vars_in_loop(sc, known_var_id, var_id) ||
+           !match_with_entry(sc, entry, sc.entries[sc.branch_entries[known_branch_id]])
+            # || !is_branch_compatible(unknown_branch.key, unknown_branch, [input_branch])
+            continue
+        end
+        tp = sc.types[entry.type_id]
+        push!(results, (FreeVar(tp, known_var_id), Dict(known_var_id => known_branch_id), tp))
+    end
+    results
+end
+
+const_options(entry::AbductibleEntry) = []

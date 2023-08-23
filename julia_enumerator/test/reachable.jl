@@ -461,7 +461,7 @@ using DataStructures
     _used_vars(p::Abstraction) = _used_vars(p.b)
     _used_vars(::Any) = []
 
-    function _extract_blocks(task, target_program)
+    function _extract_blocks(task, target_program, verbose = false)
         vars_mapping = Dict{Any,UInt64}()
         vars_from_input = Set{Any}()
         for (arg, _) in task.task_type.arguments
@@ -473,15 +473,19 @@ using DataStructures
         blocks = []
         p = target_program
         while true
-            # @info p
-            # @info vars_mapping
-            # @info blocks
-            # @info vars_from_input
-            # @info copied_vars
+            if verbose
+                @info p
+                @info vars_mapping
+                @info blocks
+                @info vars_from_input
+                @info copied_vars
+            end
             if p isa LetClause
                 vars = _used_vars(p.v)
-                # @info p.v
-                # @info vars
+                if verbose
+                    @info p.v
+                    @info vars
+                end
                 in_vars = []
                 for v in vars
                     if !haskey(vars_mapping, v)
@@ -626,14 +630,16 @@ using DataStructures
         return haskey(vars_mapping, bl.input_vars[1])
     end
 
-    function is_on_path(bp::BlockPrototype, bl::ProgramBlock, vars_mapping)
+    function is_on_path(bp::BlockPrototype, bl::ProgramBlock, vars_mapping, verbose = false)
         if !isa(bp.state.skeleton, FreeVar)
             return false
         end
-        # @info "Check on path"
-        # @info bl.output_var
-        # @info bp.output_var
-        # @info vars_mapping[bl.output_var]
+        if verbose
+            @info "Check on path"
+            @info bl.output_var
+            @info bp.output_var
+            @info vars_mapping[bl.output_var]
+        end
         if vars_mapping[bl.output_var] != bp.output_var[1]
             return false
         end
@@ -685,8 +691,11 @@ using DataStructures
         run_context,
         finalizer,
         mfp,
+        verbose,
     )
-        # @info "Simulating block search for $bl"
+        if verbose
+            @info "Simulating block search for $bl"
+        end
         if bl.p isa FreeVar
             is_explained = true
             branch_id = branches[vars_mapping[bl.input_vars[1]]]
@@ -695,29 +704,39 @@ using DataStructures
             branch_id = branches[vars_mapping[bl.output_var]]
         end
         if !haskey((is_explained ? sc.branch_queues_explained : sc.branch_queues_unknown), branch_id)
-            # @info "Queue is empty"
+            if verbose
+                @info "Queue is empty"
+            end
             return Set(), Set([(_get_entries(sc, vars_mapping, branches), bl)])
         end
         q = (is_explained ? sc.branch_queues_explained : sc.branch_queues_unknown)[branch_id]
         @test !isempty(q)
         while !isempty(q)
             bp = dequeue!(q)
-            # @info bp
+            if verbose
+                @info bp
+            end
             if (!isa(bp.state.skeleton, FreeVar) && is_on_path(bp.state.skeleton, bl.p)) ||
-               is_on_path(bp, bl, vars_mapping)
-                # @info "on path"
+               is_on_path(bp, bl, vars_mapping, verbose)
+                if verbose
+                    @info "on path"
+                end
                 out_branch_id = branches[vars_mapping[bl.output_var]]
                 while !isempty(get_connected_from(sc.branch_children, out_branch_id))
                     out_branch_id = first(get_connected_from(sc.branch_children, out_branch_id))
                 end
                 enumeration_iteration(run_context, sc, finalizer, mfp, g, q, bp, branch_id, is_explained)
                 if is_reversible(bp.state.skeleton) || state_finished(bp.state)
-                    # @info "found end"
+                    if verbose
+                        @info "found end"
+                    end
                     in_blocks = get_connected_from(sc.branch_incoming_blocks, out_branch_id)
                     if isempty(in_blocks)
                         children = get_connected_from(sc.branch_children, out_branch_id)
                         if isempty(children)
-                            # @info "Can't add block"
+                            if verbose
+                                @info "Can't add block"
+                            end
                             return Set(), Set([(_get_entries(sc, vars_mapping, branches), bl)])
                         end
                         @test length(children) == 1
@@ -725,10 +744,14 @@ using DataStructures
                         in_blocks = get_connected_from(sc.branch_incoming_blocks, child_id)
                     end
                     @test !isempty(in_blocks)
-                    # @info "in_blocks: $in_blocks"
+                    if verbose
+                        @info "in_blocks: $in_blocks"
+                    end
                     created_block_id = first(values(in_blocks))
                     created_block = sc.blocks[created_block_id]
-                    # @info "created_block: $created_block"
+                    if verbose
+                        @info "created_block: $created_block"
+                    end
 
                     updated_branches = copy(branches)
                     created_block_copy_id = first(keys(in_blocks))
@@ -741,7 +764,9 @@ using DataStructures
                         updated_branches[sc.branch_vars[out_branch]] = out_branch
                     end
                     updated_branches = _fetch_branches_children(sc, updated_branches)
-                    # @info "updated_branches: $updated_branches"
+                    if verbose
+                        @info "updated_branches: $updated_branches"
+                    end
 
                     updated_vars_mapping = copy(vars_mapping)
                     for (original_var, new_var) in zip(bl.input_vars, created_block.input_vars)
@@ -749,7 +774,9 @@ using DataStructures
                             updated_vars_mapping[original_var] = new_var
                         end
                     end
-                    # @info "updated_vars_mapping: $updated_vars_mapping"
+                    if verbose
+                        @info "updated_vars_mapping: $updated_vars_mapping"
+                    end
                     updated_history = vcat(branches_history, [(branches, bl)])
                     return _check_reachable(
                         sc,
@@ -761,13 +788,18 @@ using DataStructures
                         run_context,
                         finalizer,
                         mfp,
+                        verbose,
                     )
                 end
             else
-                # @info "not on path"
+                if verbose
+                    @info "not on path"
+                end
             end
         end
-        # @info "Failed to find block"
+        if verbose
+            @info "Failed to find block"
+        end
         return Set(), Set([(_get_entries(sc, vars_mapping, branches), bl)])
     end
 
@@ -782,24 +814,35 @@ using DataStructures
         run_context,
         finalizer,
         mfp,
+        verbose,
     )
-        # @info "Simulating block search for $bl"
+        if verbose
+            @info "Simulating block search for $bl"
+        end
         in_branch_id = branches[vars_mapping[bl.input_vars[1]]]
         is_explained = true
         if !haskey((is_explained ? sc.branch_queues_explained : sc.branch_queues_unknown), in_branch_id)
-            # @info "Queue is empty"
+            if verbose
+                @info "Queue is empty"
+            end
             return Set(), Set([(_get_entries(sc, vars_mapping, branches), bl)])
         end
         q = (is_explained ? sc.branch_queues_explained : sc.branch_queues_unknown)[in_branch_id]
         @test !isempty(q)
         while !isempty(q)
             bp = dequeue!(q)
-            # @info bp
+            if verbose
+                @info bp
+            end
             if is_on_path(bp.state.skeleton, bl.p)
-                # @info "on path"
+                if verbose
+                    @info "on path"
+                end
                 enumeration_iteration(run_context, sc, finalizer, mfp, g, q, bp, in_branch_id, is_explained)
                 if is_reversible(bp.state.skeleton) || state_finished(bp.state)
-                    # @info "found end"
+                    if verbose
+                        @info "found end"
+                    end
                     out_blocks = get_connected_from(sc.branch_outgoing_blocks, in_branch_id)
                     if isempty(out_blocks)
                         children = get_connected_from(sc.branch_children, in_branch_id)
@@ -808,10 +851,14 @@ using DataStructures
                         out_blocks = get_connected_from(sc.branch_outgoing_blocks, child_id)
                     end
                     @test !isempty(out_blocks)
-                    # @info "out_blocks: $out_blocks"
+                    if verbose
+                        @info "out_blocks: $out_blocks"
+                    end
                     created_block_id = first(values(out_blocks))
                     created_block = sc.blocks[created_block_id]
-                    # @info "created_block: $created_block"
+                    if verbose
+                        @info "created_block: $created_block"
+                    end
 
                     updated_branches = copy(branches)
                     created_block_copy_id = first(keys(out_blocks))
@@ -820,7 +867,9 @@ using DataStructures
                         updated_branches[sc.branch_vars[out_branch]] = out_branch
                     end
                     updated_branches = _fetch_branches_children(sc, updated_branches)
-                    # @info "updated_branches: $updated_branches"
+                    if verbose
+                        @info "updated_branches: $updated_branches"
+                    end
 
                     updated_vars_mapping = copy(vars_mapping)
                     for (original_var, new_var) in zip(bl.output_vars, created_block.output_vars)
@@ -828,7 +877,9 @@ using DataStructures
                             updated_vars_mapping[original_var] = new_var
                         end
                     end
-                    # @info "updated_vars_mapping: $updated_vars_mapping"
+                    if verbose
+                        @info "updated_vars_mapping: $updated_vars_mapping"
+                    end
                     updated_history = vcat(branches_history, [(branches, bl)])
                     return _check_reachable(
                         sc,
@@ -840,13 +891,18 @@ using DataStructures
                         run_context,
                         finalizer,
                         mfp,
+                        verbose,
                     )
                 end
             else
-                # @info "not on path"
+                if verbose
+                    @info "not on path"
+                end
             end
         end
-        # @info "Failed to find block"
+        if verbose
+            @info "Failed to find block"
+        end
         return Set(), Set([(_get_entries(sc, vars_mapping, branches), bl)])
     end
 
@@ -861,24 +917,35 @@ using DataStructures
         run_context,
         finalizer,
         mfp,
+        verbose,
     )
-        # @info "Simulating block search for $bl"
+        if verbose
+            @info "Simulating block search for $bl"
+        end
         in_branch_id = branches[vars_mapping[bl.input_vars[1]]]
         is_explained = true
         if !haskey((is_explained ? sc.branch_queues_explained : sc.branch_queues_unknown), in_branch_id)
-            # @info "Queue is empty"
+            if verbose
+                @info "Queue is empty"
+            end
             return Set(), Set([(_get_entries(sc, vars_mapping, branches), bl)])
         end
         q = (is_explained ? sc.branch_queues_explained : sc.branch_queues_unknown)[in_branch_id]
         @test !isempty(q)
         while !isempty(q)
             bp = dequeue!(q)
-            # @info bp
+            if verbose
+                @info bp
+            end
             if is_on_path(bp.state.skeleton, bl.main_block.p)
-                # @info "on path"
+                if verbose
+                    @info "on path"
+                end
                 enumeration_iteration(run_context, sc, finalizer, mfp, g, q, bp, in_branch_id, is_explained)
                 if is_reversible(bp.state.skeleton) || state_finished(bp.state)
-                    # @info "found end"
+                    if verbose
+                        @info "found end"
+                    end
                     out_blocks = get_connected_from(sc.branch_outgoing_blocks, in_branch_id)
                     if isempty(out_blocks)
                         children = get_connected_from(sc.branch_children, in_branch_id)
@@ -887,10 +954,14 @@ using DataStructures
                         out_blocks = get_connected_from(sc.branch_outgoing_blocks, child_id)
                     end
                     @test !isempty(out_blocks)
-                    # @info "out_blocks: $out_blocks"
+                    if verbose
+                        @info "out_blocks: $out_blocks"
+                    end
                     created_block_id = first(values(out_blocks))
                     created_block = sc.blocks[created_block_id]
-                    # @info "created_block: $created_block"
+                    if verbose
+                        @info "created_block: $created_block"
+                    end
 
                     updated_branches = copy(branches)
                     created_block_copy_id = first(keys(out_blocks))
@@ -903,7 +974,9 @@ using DataStructures
                         updated_branches[sc.branch_vars[out_branch]] = out_branch
                     end
                     updated_branches = _fetch_branches_children(sc, updated_branches)
-                    # @info "updated_branches: $updated_branches"
+                    if verbose
+                        @info "updated_branches: $updated_branches"
+                    end
 
                     updated_vars_mapping = copy(vars_mapping)
                     for (original_var, new_var) in zip(bl.output_vars, created_block.output_vars)
@@ -912,7 +985,9 @@ using DataStructures
                         end
                     end
                     updated_vars_mapping[bl.input_vars[2]] = created_block.input_vars[2]
-                    # @info "updated_vars_mapping: $updated_vars_mapping"
+                    if verbose
+                        @info "updated_vars_mapping: $updated_vars_mapping"
+                    end
                     updated_history = vcat(branches_history, [(branches, bl)])
                     return _check_reachable(
                         sc,
@@ -924,20 +999,38 @@ using DataStructures
                         run_context,
                         finalizer,
                         mfp,
+                        verbose,
                     )
                 end
             else
-                # @info "not on path"
+                if verbose
+                    @info "not on path"
+                end
             end
         end
-        # @info "Failed to find block"
+        if verbose
+            @info "Failed to find block"
+        end
         return Set(), Set([(_get_entries(sc, vars_mapping, branches), bl)])
     end
 
-    function _check_reachable(sc, blocks, vars_mapping, branches, branches_history, g, run_context, finalizer, mfp)
+    function _check_reachable(
+        sc,
+        blocks,
+        vars_mapping,
+        branches,
+        branches_history,
+        g,
+        run_context,
+        finalizer,
+        mfp,
+        verbose,
+    )
         checked_any = false
         if isempty(blocks)
-            # @info "Found all blocks"
+            if verbose
+                @info "Found all blocks"
+            end
             return Set([Set([(_get_entries(sc, vars_mapping, brs), bl) for (brs, bl) in branches_history])]), Set()
         end
         successful = Set()
@@ -957,37 +1050,46 @@ using DataStructures
                     run_context,
                     finalizer,
                     mfp,
+                    verbose,
                 )
                 union!(successful, s)
                 union!(failed, f)
             end
         end
-        # @info "checked_any: $checked_any"
-        # @info "blocks: $blocks"
+        if verbose
+            @info "checked_any: $checked_any"
+            @info "blocks: $blocks"
+        end
         @test checked_any
         return successful, failed
     end
 
-    function check_reachable(payload, target_solution)
+    function check_reachable(payload, target_solution, verbose_test = false)
         task, maximum_frontier, g, type_weights, mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
         run_context = Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout)
         target_program = parse_program(target_solution)
-        blocks, vars_mapping = _extract_blocks(task, target_program)
-        # @info blocks
-        # @info vars_mapping
+        blocks, vars_mapping = _extract_blocks(task, target_program, verbose_test)
+        if verbose_test
+            @info blocks
+            @info vars_mapping
+        end
         sc = create_starting_context(task, type_weights, verbose)
         enqueue_updates(sc, g)
         branches = Dict()
         for br_id in 1:sc.branches_count[]
             branches[sc.branch_vars[br_id]] = br_id
         end
-        # @info branches
+        if verbose_test
+            @info branches
+        end
         save_changes!(sc)
 
         start_time = time()
         hits = PriorityQueue{HitResult,Float64}()
         finalizer = function (solution, cost)
-            # @info "Got solution $solution"
+            if verbose_test
+                @info "Got solution $solution"
+            end
             ll = task.log_likelihood_checker(task, solution)
             if !isnothing(ll) && !isinf(ll)
                 dt = time() - start_time
@@ -1012,12 +1114,18 @@ using DataStructures
             end
         end
         inner_mapping[vars_mapping["out"]] = sc.branch_vars[sc.target_branch_id]
-        # @info inner_mapping
-        successful, failed = _check_reachable(sc, blocks, inner_mapping, branches, [], g, run_context, finalizer, mfp)
-        # @info "successful: $successful"
-        # @info "failed: $failed"
-        # @info "length successful: $(length(successful))"
-        # @info "length failed: $(length(failed))"
+        if verbose_test
+            @info inner_mapping
+        end
+        successful, failed =
+            _check_reachable(sc, blocks, inner_mapping, branches, [], g, run_context, finalizer, mfp, verbose_test)
+        if verbose_test
+            @info "successful: $successful"
+            @info "failed: $failed"
+            @info "length successful: $(length(successful))"
+            @info "length failed: $(length(failed))"
+        end
+        @test !isempty(successful)
         for f_entries in failed
             for s_snapshots in successful
                 @test all(s_entries != f_entries for s_entries in s_snapshots)
@@ -1252,6 +1360,30 @@ using DataStructures
             ),
         )
         target_solution = "let \$v1::int = Const(int, 1) in let \$v2::int = Const(int, 1) in let \$v3::int = Const(int, 3) in let \$v4, \$v5, \$v6 = wrap(let \$v4, \$v5, \$v6 = rev(\$inp0 = (rev_select (lambda (eq? \$0 \$v4)) \$v5 \$v6)); let \$v4 = \$v3) in let \$v7, \$v8 = rev(\$v5 = (repeat \$v7 \$v8)) in let \$v9::list(int) = (repeat \$v2 \$v8) in (rev_select (lambda (eq? \$0 \$v1)) \$v9 \$v6)"
+        check_reachable(payload, target_solution)
+    end
+
+    @testset "Add const" begin
+        payload = create_task(
+            Dict{String,Any}(
+                "name" => "add const",
+                "maximumFrontier" => 10,
+                "examples" => Any[
+                    Dict{String,Any}("output" => 39, "inputs" => Dict{String,Any}("inp0" => 28)),
+                    Dict{String,Any}("output" => 22, "inputs" => Dict{String,Any}("inp0" => 11)),
+                    Dict{String,Any}("output" => 5, "inputs" => Dict{String,Any}("inp0" => -6)),
+                ],
+                "test_examples" => Any[],
+                "request" => Dict{String,Any}(
+                    "arguments" => Dict{String,Any}(
+                        "inp0" => Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                    ),
+                    "output" => Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                    "constructor" => "->",
+                ),
+            ),
+        )
+        target_solution = "let \$v1::int = Const(int, 11) in (+ \$v1 \$inp0)"
         check_reachable(payload, target_solution)
     end
 end

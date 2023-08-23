@@ -190,13 +190,19 @@ end
 
 function _fix_option_hashes(sc, fixed_hashes, entry::EitherEntry)
     out_values = _fix_option_hashes(fixed_hashes, entry.values)
-    complexity_summary = get_complexity_summary(out_values, sc.types[entry.type_id])
-    if any(isa(v, EitherOptions) for v in out_values)
-        return EitherEntry(entry.type_id, out_values, complexity_summary, get_complexity(sc, complexity_summary))
-    elseif any(isa(v, PatternWrapper) for v in out_values)
-        return PatternEntry(entry.type_id, out_values, complexity_summary, get_complexity(sc, complexity_summary))
+    return _make_entry(sc, entry.type_id, out_values)
+end
+
+function _make_entry(sc, type_id, values)
+    complexity_summary = get_complexity_summary(values, sc.types[type_id])
+    if any(isa(v, EitherOptions) for v in values)
+        return EitherEntry(type_id, values, complexity_summary, get_complexity(sc, complexity_summary))
+    elseif any(isa(v, AbductibleValue) for v in values)
+        return AbductibleEntry(type_id, values, complexity_summary, get_complexity(sc, complexity_summary))
+    elseif any(isa(v, PatternWrapper) for v in values)
+        return PatternEntry(type_id, values, complexity_summary, get_complexity(sc, complexity_summary))
     else
-        return ValueEntry(entry.type_id, out_values, complexity_summary, get_complexity(sc, complexity_summary))
+        return ValueEntry(type_id, values, complexity_summary, get_complexity(sc, complexity_summary))
     end
 end
 
@@ -209,14 +215,16 @@ function _find_relatives_for_either(sc, new_entry, branch_id, old_entry)
     children = UInt64[]
     for child_id in get_connected_from(sc.branch_children, branch_id)
         child_entry = sc.entries[sc.branch_entries[child_id]]
-        if is_subeither(child_entry.values, new_entry.values)
+        if all(is_subeither(child_val, new_val) for (child_val, new_val) in zip(child_entry.values, new_entry.values))
             exact_match, parents_, children_ = _find_relatives_for_either(sc, new_entry, child_id, child_entry)
             if !isnothing(exact_match)
                 return exact_match, UInt64[], UInt64[]
             end
             union!(parents, parents_)
             union!(children, children_)
-        elseif is_subeither(new_entry.values, child_entry.values)
+        elseif all(
+            is_subeither(new_val, child_val) for (child_val, new_val) in zip(child_entry.values, new_entry.values)
+        )
             push!(children, child_id)
         end
     end
