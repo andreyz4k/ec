@@ -220,41 +220,38 @@ function make_options(options, depth)
     return EitherOptions(out_options)
 end
 
-function _remap_options_hashes(path, value)
-    return [], value
+function _remap_options_hashes(path, value, depth)
+    return view(path, 1:depth), value
 end
 
-function _remap_options_hashes(path, value::EitherOptions)
-    if length(path) == 0
-        return [], value
+function _remap_options_hashes(path, value::EitherOptions, depth)
+    if depth == length(path)
+        return path, value
     end
 
-    h = first(path)
+    h = path[depth+1]
     if haskey(value.options, h)
-        path, val = _remap_options_hashes(view(path, 2:length(path)), value.options[h])
+        return _remap_options_hashes(path, value.options[h], depth + 1)
     else
-        path, val = _remap_options_hashes(view(path, 2:length(path)), value)
+        return _remap_options_hashes(path, value, depth + 1)
     end
-
-    push!(path, h)
-    return path, val
 end
 
 function remap_options_hashes(paths, value::EitherOptions)
     out_options = Dict()
     depth = 0
     for path in paths
-        out_path, out_value = _remap_options_hashes(path, value)
+        out_path, out_value = _remap_options_hashes(path, value, 0)
         cur_options = out_options
         depth = length(out_path)
-        for i in length(out_path):-1:2
+        for i in 1:length(out_path)-1
             h = out_path[i]
             if !haskey(cur_options, h)
                 cur_options[h] = Dict()
             end
             cur_options = cur_options[h]
         end
-        cur_options[out_path[1]] = out_value
+        cur_options[out_path[end]] = out_value
     end
     return make_options(out_options, depth)
 end
