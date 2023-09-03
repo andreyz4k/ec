@@ -280,8 +280,8 @@ function check_reversed_program_forward(p, vars, inputs, expected_output)
             if i > 10
                 break
             end
-            inps = [__fix_option_hashes([h], v) for v in inputs]
-            exp_out = __fix_option_hashes([h], expected_output)
+            inps = [fix_option_hashes([h], v) for v in inputs]
+            exp_out = fix_option_hashes([h], expected_output)
             check_reversed_program_forward(p, vars, inps, exp_out)
         end
     elseif any(isa(v, PatternWrapper) for v in inputs)
@@ -692,7 +692,7 @@ function try_run_block(
     fixer_entry = sc.entries[sc.branch_entries[fixer_branch_id]]
     fixer_index = findfirst(isequal(block.fixer_var), block.output_vars)
 
-    fixed_hashes = [_get_fixed_hashes(outs[fixer_index][j], fixer_entry.values[j]) for j in 1:sc.example_count]
+    fixed_hashes = [get_fixed_hashes(outs[fixer_index][j], fixer_entry.values[j]) for j in 1:sc.example_count]
 
     outputs = Vector{Any}[]
     for i in 1:outputs_count

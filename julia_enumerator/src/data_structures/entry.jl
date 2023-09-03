@@ -124,6 +124,145 @@ end
 Base.:(==)(v1::EitherOptions, v2::EitherOptions) = v1.options == v2.options
 Base.hash(v::EitherOptions, h::UInt64) = hash(v.options, h)
 
+function _get_fixed_hashes(options::EitherOptions, value, preselected_hashes)
+    out_hashes = Set()
+    filtered = any(haskey(options.options, h) for h in preselected_hashes)
+    for (h, option) in options.options
+        if filtered && !in(h, preselected_hashes)
+            continue
+        end
+        found, hashes = _get_fixed_hashes(option, value, preselected_hashes)
+        if found
+            union!(out_hashes, hashes)
+            push!(out_hashes, h)
+        end
+    end
+    return !isempty(out_hashes), out_hashes
+end
+
+function _get_fixed_hashes(options, value, preselected_hashes)
+    options == value, Set()
+end
+
+function get_fixed_hashes(options, value, preselected_hashes = Set())
+    found, hashes = _get_fixed_hashes(options, value, preselected_hashes)
+    if !found
+        throw(EnumerationException("Inconsistent match"))
+    end
+    return hashes
+end
+
+function _get_hashes_paths(options::EitherOptions, value, preselected_hashes)
+    out_paths = []
+
+    filtered = any(haskey(options.options, h) for h in preselected_hashes)
+    for (h, option) in options.options
+        if filtered && !in(h, preselected_hashes)
+            continue
+        end
+        paths = _get_hashes_paths(option, value, preselected_hashes)
+        for path in paths
+            push!(path, h)
+        end
+        append!(out_paths, paths)
+    end
+    return out_paths
+end
+
+function _get_hashes_paths(options, value, preselected_hashes)
+    if options == value
+        return [[]]
+    else
+        return []
+    end
+end
+
+function get_hashes_paths(options, value, preselected_hashes = Set())
+    paths = _get_hashes_paths(options, value, preselected_hashes)
+    if isempty(paths)
+        throw(EnumerationException("Inconsistent match"))
+    end
+    return [reverse(p) for p in paths]
+end
+
+function fix_option_hashes(fixed_hashes, value::EitherOptions)
+    filter_level = any(haskey(value.options, h) for h in fixed_hashes)
+    out_options = Dict()
+    for (h, option) in value.options
+        if filter_level && !in(h, fixed_hashes)
+            continue
+        end
+        out_options[h] = fix_option_hashes(fixed_hashes, option)
+    end
+    if isempty(out_options)
+        @info value
+        @info fixed_hashes
+        error("No options left after filtering")
+    elseif length(out_options) == 1
+        return first(out_options)[2]
+    else
+        return EitherOptions(out_options)
+    end
+end
+
+function fix_option_hashes(fixed_hashes, value)
+    return value
+end
+
+function make_options(options, depth)
+    if depth == 0
+        return options
+    end
+    out_options = Dict()
+    for (h, option) in options
+        out_options[h] = make_options(option, depth - 1)
+    end
+    return EitherOptions(out_options)
+end
+
+function _remap_options_hashes(path, value)
+    return [], value
+end
+
+function _remap_options_hashes(path, value::EitherOptions)
+    if length(path) == 0
+        return [], value
+    end
+
+    h = first(path)
+    if haskey(value.options, h)
+        path, val = _remap_options_hashes(view(path, 2:length(path)), value.options[h])
+    else
+        path, val = _remap_options_hashes(view(path, 2:length(path)), value)
+    end
+
+    push!(path, h)
+    return path, val
+end
+
+function remap_options_hashes(paths, value::EitherOptions)
+    out_options = Dict()
+    depth = 0
+    for path in paths
+        out_path, out_value = _remap_options_hashes(path, value)
+        cur_options = out_options
+        depth = length(out_path)
+        for i in length(out_path):-1:2
+            h = out_path[i]
+            if !haskey(cur_options, h)
+                cur_options[h] = Dict()
+            end
+            cur_options = cur_options[h]
+        end
+        cur_options[out_path[1]] = out_value
+    end
+    return make_options(out_options, depth)
+end
+
+function remap_options_hashes(paths, value)
+    return value
+end
+
 struct AnyObject end
 any_object = AnyObject()
 

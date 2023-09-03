@@ -137,53 +137,10 @@ function tighten_constraint(sc, constraint_id, new_branch_id, old_branch_id)
     return true
 end
 
-function _get_fixed_hashes(options::EitherOptions, value)
-    out_hashes = Set()
-    for (h, option) in options.options
-        found, hashes = _get_fixed_hashes(option, value)
-        if found
-            union!(out_hashes, hashes)
-            push!(out_hashes, h)
-        end
-    end
-    return !isempty(out_hashes), out_hashes
-end
-
-function _get_fixed_hashes(options, value)
-    options == value, Set()
-end
-
-function __fix_option_hashes(fixed_hashes, value::EitherOptions)
-    filter_level = any(haskey(value.options, h) for h in fixed_hashes)
-    out_options = Dict()
-    for (h, option) in value.options
-        if filter_level && !in(h, fixed_hashes)
-            continue
-        end
-        out_options[h] = __fix_option_hashes(fixed_hashes, option)
-    end
-    if isempty(out_options)
-        @info value
-        @info fixed_hashes
-        error("No options left after filtering")
-    elseif length(out_options) == 1
-        return first(out_options)[2]
-    else
-        return EitherOptions(out_options)
-    end
-end
-
-function __fix_option_hashes(fixed_hashes, value)
-    return value
-end
-
 function _fix_option_hashes(fixed_hashes, values)
     out_values = []
-    for ((found, hashes), value) in zip(fixed_hashes, values)
-        if !found
-            throw(EnumerationException("Inconsistent match"))
-        end
-        push!(out_values, __fix_option_hashes(hashes, value))
+    for (hashes, value) in zip(fixed_hashes, values)
+        push!(out_values, fix_option_hashes(hashes, value))
     end
     return out_values
 end
@@ -249,7 +206,7 @@ function _tighten_constraint(
     # @info new_branch
     new_entry = sc.entries[sc.branch_entries[new_branch_id]]
     # @info new_entry
-    fixed_hashes = [_get_fixed_hashes(old_entry.values[j], new_entry.values[j]) for j in 1:sc.example_count]
+    fixed_hashes = [get_fixed_hashes(old_entry.values[j], new_entry.values[j]) for j in 1:sc.example_count]
     # @info fixed_hashes
 
     for (var_id, branch_id) in constrained_branches

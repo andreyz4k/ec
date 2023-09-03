@@ -85,6 +85,402 @@ function get_reversed_program(p::Program)
     return _get_reversed_program(p, [])
 end
 
+struct SkipArg end
+
+function _merge_options_paths(path1, path2)
+    i = 1
+    j = 1
+    result = []
+    while i <= length(path1) || j <= length(path2)
+        if i > length(path1)
+            push!(result, path2[j])
+            j += 1
+        elseif j > length(path2)
+            push!(result, path1[i])
+            i += 1
+        elseif path1[i] == path2[j]
+            push!(result, path1[i])
+            i += 1
+            j += 1
+        else
+            push!(result, path1[i])
+            i += 1
+        end
+    end
+    return result
+end
+
+function _intersect_values(
+    old_v::EitherOptions,
+    v::EitherOptions,
+    predicted_arguments,
+    filled_indices,
+    filled_vars,
+    new_args,
+    new_filled_indices,
+    new_filled_vars,
+)
+    if old_v == v
+        return predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars
+    end
+    old_options = Set(_const_options(old_v))
+    new_options = Set(_const_options(v))
+    common_options = intersect(old_options, new_options)
+    paths = []
+    for op in common_options
+        old_op_fixed_hashes = Set()
+        new_op_fixed_hashes = Set()
+        try
+            while true
+                old_op_fixed_hashes_ = get_fixed_hashes(old_v, op, new_op_fixed_hashes)
+
+                new_op_fixed_hashes_ = get_fixed_hashes(v, op, old_op_fixed_hashes_)
+                if old_op_fixed_hashes_ == old_op_fixed_hashes && new_op_fixed_hashes_ == new_op_fixed_hashes
+                    break
+                end
+                old_op_fixed_hashes = old_op_fixed_hashes_
+                new_op_fixed_hashes = new_op_fixed_hashes_
+            end
+            old_op_hashes_paths = get_hashes_paths(old_v, op, new_op_fixed_hashes)
+
+            new_op_hashes_paths = get_hashes_paths(v, op, old_op_fixed_hashes)
+
+            for old_path in old_op_hashes_paths
+                for new_path in new_op_hashes_paths
+                    push!(paths, _merge_options_paths(old_path, new_path))
+                end
+            end
+        catch
+        end
+    end
+    predicted_arguments = [remap_options_hashes(paths, arg) for arg in predicted_arguments]
+    filled_indices = Dict(i => remap_options_hashes(paths, v) for (i, v) in filled_indices)
+    filled_vars = Dict(k => remap_options_hashes(paths, v) for (k, v) in filled_vars)
+
+    new_args = [remap_options_hashes(paths, arg) for arg in new_args]
+    new_filled_indices = Dict(i => remap_options_hashes(paths, v) for (i, v) in new_filled_indices)
+    new_filled_vars = Dict(k => remap_options_hashes(paths, v) for (k, v) in new_filled_vars)
+
+    return predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars
+end
+
+function _intersect_values(
+    old_v::EitherOptions,
+    v,
+    predicted_arguments,
+    filled_indices,
+    filled_vars,
+    new_args,
+    new_filled_indices,
+    new_filled_vars,
+)
+    fixed_hashes = get_fixed_hashes(old_v, v)
+
+    predicted_arguments = [fix_option_hashes(fixed_hashes, arg) for arg in predicted_arguments]
+    filled_indices = Dict(i => fix_option_hashes(fixed_hashes, v) for (i, v) in filled_indices)
+    filled_vars = Dict(k => fix_option_hashes(fixed_hashes, v) for (k, v) in filled_vars)
+    return predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars
+end
+
+function _intersect_values(
+    old_v,
+    v::EitherOptions,
+    predicted_arguments,
+    filled_indices,
+    filled_vars,
+    new_args,
+    new_filled_indices,
+    new_filled_vars,
+)
+    new_args, new_filled_indices, new_filled_vars, predicted_arguments, filled_indices, filled_vars = _intersect_values(
+        v,
+        old_v,
+        new_args,
+        new_filled_indices,
+        new_filled_vars,
+        predicted_arguments,
+        filled_indices,
+        filled_vars,
+    )
+    return predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars
+end
+
+function _intersect_values(
+    predicted_arguments,
+    filled_indices,
+    filled_vars,
+    new_args,
+    new_filled_indices,
+    new_filled_vars,
+)
+    for (i, v) in new_filled_indices
+        if haskey(filled_indices, i) && filled_indices[i] != v
+            predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars =
+                _intersect_values(
+                    filled_indices[i],
+                    v,
+                    predicted_arguments,
+                    filled_indices,
+                    filled_vars,
+                    new_args,
+                    new_filled_indices,
+                    new_filled_vars,
+                )
+        end
+    end
+    for (k, v) in new_filled_vars
+        if haskey(filled_vars, k) && filled_vars[k] != v
+            predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars =
+                _intersect_values(
+                    filled_vars[k],
+                    v,
+                    predicted_arguments,
+                    filled_indices,
+                    filled_vars,
+                    new_args,
+                    new_filled_indices,
+                    new_filled_vars,
+                )
+        end
+    end
+    return predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars
+end
+
+function _run_in_reverse(p::Primitive, output, arguments, predicted_arguments, filled_indices, filled_vars)
+    new_args, new_filled_indices, new_filled_vars = all_abstractors[p][2](output, arguments)
+    predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars = _intersect_values(
+        predicted_arguments,
+        filled_indices,
+        filled_vars,
+        new_args,
+        new_filled_indices,
+        new_filled_vars,
+    )
+    if !isempty(new_filled_indices)
+        filled_indices = merge(filled_indices, new_filled_indices)
+    end
+    if !isempty(new_filled_vars)
+        filled_vars = merge(filled_vars, new_filled_vars)
+    end
+
+    return vcat(predicted_arguments, reverse(new_args)), filled_indices, filled_vars
+end
+
+function _run_in_reverse(
+    p::Primitive,
+    output::AbductibleValue,
+    arguments,
+    predicted_arguments,
+    filled_indices,
+    filled_vars,
+)
+    return vcat(predicted_arguments, [output for _ in 1:length(arguments_of_type(p.t))]), filled_indices, filled_vars
+end
+
+function _run_in_reverse(
+    p::Primitive,
+    output::EitherOptions,
+    arguments,
+    predicted_arguments,
+    filled_indices,
+    filled_vars,
+)
+    arguments_options = Dict[]
+    filled_indices_options = DefaultDict(() -> Dict())
+    filled_vars_options = DefaultDict(() -> Dict())
+    for (h, val) in output.options
+        new_args, new_filled_indices, new_filled_vars = all_abstractors[p][2](val, arguments)
+        fixed_hashes = Set([h])
+
+        predicted_arguments_op, filled_indices_op, filled_vars_op, new_args, new_filled_indices, new_filled_vars =
+            _intersect_values(
+                [fix_option_hashes(fixed_hashes, v) for v in predicted_arguments],
+                Dict(i => fix_option_hashes(fixed_hashes, v) for (i, v) in filled_indices),
+                Dict(k => fix_option_hashes(fixed_hashes, v) for (k, v) in filled_vars),
+                new_args,
+                new_filled_indices,
+                new_filled_vars,
+            )
+
+        if isempty(arguments_options)
+            for _ in 1:(length(predicted_arguments)+length(new_args))
+                push!(arguments_options, Dict())
+            end
+        end
+        for i in 1:length(predicted_arguments)
+            arguments_options[i][h] = predicted_arguments_op[i]
+        end
+        for i in 1:length(new_args)
+            arguments_options[end-i+1][h] = new_args[i]
+        end
+        for (i, v) in filled_indices_op
+            filled_indices_options[i][h] = v
+        end
+        for (k, v) in filled_vars_op
+            filled_vars_options[k][h] = v
+        end
+        for (i, v) in new_filled_indices
+            filled_indices_options[i][h] = v
+        end
+        for (k, v) in new_filled_vars
+            filled_vars_options[k][h] = v
+        end
+    end
+
+    out_args = []
+    out_filled_indices = Dict()
+    out_filled_vars = Dict()
+
+    for args_options in arguments_options
+        if allequal(values(args_options))
+            push!(out_args, first(values(args_options)))
+        elseif any(out == output for out in values(args_options))
+            push!(out_args, output)
+        else
+            push!(out_args, EitherOptions(args_options))
+        end
+    end
+    for (i, v) in filled_indices_options
+        if allequal(values(v))
+            out_filled_indices[i] = first(values(v))
+        elseif any(out == output for out in values(v))
+            out_filled_indices[i] = output
+        else
+            out_filled_indices[i] = EitherOptions(v)
+        end
+    end
+    for (k, v) in filled_vars_options
+        if allequal(values(v))
+            out_filled_vars[k] = first(values(v))
+        elseif any(out == output for out in values(v))
+            out_filled_vars[k] = output
+        else
+            out_filled_vars[k] = EitherOptions(v)
+        end
+    end
+    return out_args, out_filled_indices, out_filled_vars
+end
+
+function _run_in_reverse(
+    p::Primitive,
+    output::PatternWrapper,
+    arguments,
+    predicted_arguments,
+    filled_indices,
+    filled_vars,
+)
+    new_args, new_filled_indices, new_filled_vars = all_abstractors[p][2](output.value, arguments)
+
+    predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars = _intersect_values(
+        predicted_arguments,
+        filled_indices,
+        filled_vars,
+        new_args,
+        new_filled_indices,
+        new_filled_vars,
+    )
+    if !isempty(new_filled_indices)
+        filled_indices = merge(filled_indices, new_filled_indices)
+    end
+    if !isempty(new_filled_vars)
+        filled_vars = merge(filled_vars, new_filled_vars)
+    end
+
+    results = []
+    for out in new_args
+        push!(results, _wrap_wildcard(out))
+    end
+    return vcat(predicted_arguments, reverse(results)), filled_indices, filled_vars
+end
+
+function _run_in_reverse(
+    p::Primitive,
+    output::Union{Nothing,AnyObject},
+    arguments,
+    predicted_arguments,
+    filled_indices,
+    filled_vars,
+)
+    try
+        new_args, new_filled_indices, new_filled_vars = all_abstractors[p][2](output, arguments)
+        predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars =
+            _intersect_values(
+                predicted_arguments,
+                filled_indices,
+                filled_vars,
+                new_args,
+                new_filled_indices,
+                new_filled_vars,
+            )
+        if !isempty(new_filled_indices)
+            filled_indices = merge(filled_indices, new_filled_indices)
+        end
+        if !isempty(new_filled_vars)
+            filled_vars = merge(filled_vars, new_filled_vars)
+        end
+        return vcat(predicted_arguments, reverse(new_args)), filled_indices, filled_vars
+    catch e
+        if isa(e, MethodError)
+            return vcat(predicted_arguments, [output for _ in 1:length(arguments_of_type(p.t))]),
+            filled_indices,
+            filled_vars
+        else
+            rethrow()
+        end
+    end
+end
+
+function _run_in_reverse(p::Apply, output, arguments, predicted_arguments, filled_indices, filled_vars)
+    push!(arguments, p.x)
+    predicted_arguments, filled_indices, filled_vars =
+        _run_in_reverse(p.f, output, arguments, predicted_arguments, filled_indices, filled_vars)
+    pop!(arguments)
+    arg_target = pop!(predicted_arguments)
+    return _run_in_reverse(p.x, arg_target, arguments, predicted_arguments, filled_indices, filled_vars)
+end
+
+function _run_in_reverse(p::FreeVar, output, arguments, predicted_arguments, filled_indices, filled_vars)
+    if haskey(filled_vars, p.var_id)
+        predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars =
+            _intersect_values(predicted_arguments, filled_indices, filled_vars, [], Dict(), Dict(p.var_id => output))
+        filled_vars = merge(filled_vars, new_filled_vars)
+    else
+        filled_vars[p.var_id] = output
+    end
+    return predicted_arguments, filled_indices, filled_vars
+end
+
+function _run_in_reverse(p::Index, output, arguments, predicted_arguments, filled_indices, filled_vars)
+    if haskey(filled_indices, p.n)
+        predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars =
+            _intersect_values(predicted_arguments, filled_indices, filled_vars, [], Dict(p.n => output), Dict())
+        filled_indices = merge(filled_indices, new_filled_indices)
+    else
+        filled_indices[p.n] = output
+    end
+    return predicted_arguments, filled_indices, filled_vars
+end
+
+function _run_in_reverse(p::Invented, output, arguments, predicted_arguments, filled_indices, filled_vars)
+    return _run_in_reverse(p.b, output, arguments, predicted_arguments, filled_indices, filled_vars)
+end
+
+function _run_in_reverse(p::Abstraction, output, arguments, predicted_arguments, filled_indices, filled_vars)
+    predicted_arguments, filled_indices, filled_vars =
+        _run_in_reverse(p.b, output, arguments, predicted_arguments, filled_indices, filled_vars)
+    push!(predicted_arguments, filled_indices[0])
+    delete!(filled_indices, 0)
+    return predicted_arguments, Dict(i - 1 => v for (i, v) in filled_indices), filled_vars
+end
+
+function _run_in_reverse(p::Program, output)
+    return _run_in_reverse(p, output, [], [], Dict(), Dict())
+end
+
+function run_in_reverse(p::Program, output)
+    return _run_in_reverse(p, output, [], [], Dict(), Dict())[3]
+end
+
 function _reverse_eithers(_reverse_function, value)
     hashes = []
     outputs = Vector{Any}[]
@@ -196,8 +592,8 @@ macro define_reverse_primitive(name, t, x, reverse_function)
         local n = $(esc(name))
         @define_primitive n $t $x
         local prim = every_primitive[n]
-        local rev = generic_reverse($(esc(reverse_function)), length(arguments_of_type(prim.t)))
-        all_abstractors[prim] = [], rev
+        # local rev = generic_reverse($(esc(reverse_function)), length(arguments_of_type(prim.t)))
+        all_abstractors[prim] = [], ((v, _) -> ($(esc(reverse_function))(v), Dict(), Dict()))
     end
 end
 

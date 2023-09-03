@@ -557,14 +557,14 @@ function (p::WrapEither)(environment, workspace)
     end
     fixed_val = p.f(environment, workspace)
 
-    fixed_hashes = [_get_fixed_hashes(unfixed_vals[p.fixer_var_id], fixed_val)]
+    fixed_hashes = [get_fixed_hashes(unfixed_vals[p.fixer_var_id], fixed_val)]
 
     fixed_values = Dict()
     for (var_id, target_value) in unfixed_vals
         if var_id == p.fixer_var_id
             fixed_values[var_id] = fixed_val
         else
-            fixed_values[var_id] = _fix_option_hashes(fixed_hashes, [target_value])[1]
+            fixed_values[var_id] = fix_option_hashes(fixed_hashes, target_value)
         end
     end
 
