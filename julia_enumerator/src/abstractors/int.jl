@@ -31,7 +31,11 @@ function reverse_mult(value)
     for i in 1:upper
         if value % i == 0
             push!(options, [i, value ÷ i])
-            push!(options, [value ÷ i, i])
+            push!(options, [-i, -(value ÷ i)])
+            if abs(i) != abs(value ÷ i)
+                push!(options, [value ÷ i, i])
+                push!(options, [-(value ÷ i), -i])
+            end
         end
     end
     if length(options) == 0

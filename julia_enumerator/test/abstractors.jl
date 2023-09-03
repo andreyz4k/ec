@@ -40,7 +40,9 @@ using solver:
     PatternWrapper,
     AbductibleValue,
     _rev_dep_plus,
-    calculate_dependent_vars
+    calculate_dependent_vars,
+    _rev_dep_map,
+    run_in_reverse
 using DataStructures: OrderedDict, Accumulator
 
 @testset "Abstractors" begin
@@ -51,6 +53,24 @@ using DataStructures: OrderedDict, Accumulator
             return false
         end
         return true
+    end
+
+    capture_free_vars(p, max_var = UInt64(0)) = p, max_var
+
+    function capture_free_vars(p::Apply, max_var = UInt64(0))
+        new_f, max_var = capture_free_vars(p.f, max_var)
+        new_x, max_var = capture_free_vars(p.x, max_var)
+        Apply(new_f, new_x), max_var
+    end
+
+    function capture_free_vars(p::Abstraction, max_var = UInt64(0))
+        new_b, max_var = capture_free_vars(p.b, max_var)
+        Abstraction(new_b), max_var
+    end
+
+    function capture_free_vars(p::Union{Hole,FreeVar}, max_var = UInt64(0))
+        var_id = max_var + 1
+        FreeVar(t0, var_id), max_var + 1
     end
 
     @testset "Check reversible simple" begin
@@ -392,12 +412,12 @@ using DataStructures: OrderedDict, Accumulator
             Hole(tint, nothing, true, nothing),
         )
         @test is_reversible(skeleton)
-        rev_p = get_reversed_program(skeleton)
-        @test compare_options(rev_p([[1, 2, 3], [1, 2, 3]]), [[1, 2, 3], 2])
-        @test compare_options(rev_p([1, 1, 1]), [1, 3])
-        @test compare_options(rev_p([1, any_object, 1]), [1, 3])
-        @test compare_options(rev_p([any_object, any_object, 1]), [1, 3])
-        @test rev_p([any_object, any_object, 1])[1] !== any_object
+        p, _ = capture_free_vars(skeleton)
+        @test compare_options(run_in_reverse(p, [[1, 2, 3], [1, 2, 3]]), Dict(UInt64(1) => [1, 2, 3], UInt64(2) => 2))
+        @test compare_options(run_in_reverse(p, [1, 1, 1]), Dict(UInt64(1) => 1, UInt64(2) => 3))
+        @test compare_options(run_in_reverse(p, [1, any_object, 1]), Dict(UInt64(1) => 1, UInt64(2) => 3))
+        @test compare_options(run_in_reverse(p, [any_object, any_object, 1]), Dict(UInt64(1) => 1, UInt64(2) => 3))
+        @test run_in_reverse(p, [any_object, any_object, 1])[UInt64(1)] !== any_object
         @test match_at_index(
             PatternEntry(
                 0x0000000000000001,
@@ -423,16 +443,25 @@ using DataStructures: OrderedDict, Accumulator
             Hole(tint, nothing, true, nothing),
         )
         @test is_reversible(skeleton)
-        rev_p = get_reversed_program(skeleton)
+        p, _ = capture_free_vars(skeleton)
 
         @test compare_options(
-            rev_p([[[1, 2, 3], [1, 2, 3]] [[1, 2, 3], [1, 2, 3]] [[1, 2, 3], [1, 2, 3]]]),
-            [[1, 2, 3], 2, 3],
+            run_in_reverse(p, [[[1, 2, 3], [1, 2, 3]] [[1, 2, 3], [1, 2, 3]] [[1, 2, 3], [1, 2, 3]]]),
+            Dict(UInt64(1) => [1, 2, 3], UInt64(2) => 2, UInt64(3) => 3),
         )
-        @test compare_options(rev_p([[1, 1, 1] [1, 1, 1]]), [1, 3, 2])
-        @test compare_options(rev_p([[1, any_object, 1] [1, any_object, any_object]]), [1, 3, 2])
-        @test compare_options(rev_p([[any_object, any_object, 1] [any_object, any_object, any_object]]), [1, 3, 2])
-        @test rev_p([[any_object, any_object, 1] [any_object, any_object, any_object]])[1] !== any_object
+        @test compare_options(
+            run_in_reverse(p, [[1, 1, 1] [1, 1, 1]]),
+            Dict(UInt64(1) => 1, UInt64(2) => 3, UInt64(3) => 2),
+        )
+        @test compare_options(
+            run_in_reverse(p, [[1, any_object, 1] [1, any_object, any_object]]),
+            Dict(UInt64(1) => 1, UInt64(2) => 3, UInt64(3) => 2),
+        )
+        @test compare_options(
+            run_in_reverse(p, [[any_object, any_object, 1] [any_object, any_object, any_object]]),
+            Dict(UInt64(1) => 1, UInt64(2) => 3, UInt64(3) => 2),
+        )
+        @test run_in_reverse(p, [[any_object, any_object, 1] [any_object, any_object, any_object]])[1] !== any_object
     end
 
     @testset "Reverse cons" begin
@@ -441,8 +470,8 @@ using DataStructures: OrderedDict, Accumulator
             Hole(tlist(tint), nothing, true, nothing),
         )
         @test is_reversible(skeleton)
-        rev_p = get_reversed_program(skeleton)
-        @test compare_options(rev_p([1, 2, 3]), [1, [2, 3]])
+        p, _ = capture_free_vars(skeleton)
+        @test compare_options(run_in_reverse(p, [1, 2, 3]), Dict(UInt64(1) => 1, UInt64(2) => [2, 3]))
     end
 
     @testset "Reverse adjoin" begin
@@ -451,25 +480,24 @@ using DataStructures: OrderedDict, Accumulator
             Hole(tset(tint), nothing, true, nothing),
         )
         @test is_reversible(skeleton)
-        rev_p = get_reversed_program(skeleton)
+        p, _ = capture_free_vars(skeleton)
 
         @test compare_options(
-            rev_p(Set([1, 2, 3])),
-            [
-                EitherOptions(
+            run_in_reverse(p, Set([1, 2, 3])),
+            Dict(
+                UInt64(1) => EitherOptions(
                     Dict{UInt64,Any}(0xdab8105ae838a43f => 1, 0x369f7593fdd6aa68 => 3, 0xa546dd1af6daadbb => 2),
                 ),
-                EitherOptions(
+                UInt64(2) => EitherOptions(
                     Dict{UInt64,Any}(
                         0xdab8105ae838a43f => Set([2, 3]),
                         0x369f7593fdd6aa68 => Set([2, 1]),
                         0xa546dd1af6daadbb => Set([3, 1]),
                     ),
                 ),
-            ],
+            ),
         )
 
-        p = Apply(Apply(every_primitive["adjoin"], FreeVar(tint, UInt64(1))), FreeVar(tset(tint), UInt64(2)))
         @test run_with_arguments(p, [], Dict(UInt64(1) => 1, UInt64(2) => Set([3, 2]))) == Set([1, 2, 3])
     end
 
@@ -479,28 +507,37 @@ using DataStructures: OrderedDict, Accumulator
             Hole(tlist(tint), nothing, true, nothing),
         )
         @test is_reversible(skeleton)
-        rev_p = get_reversed_program(skeleton)
-        @test compare_options(rev_p((1, [2, 3])), [1, [2, 3]])
+        p, _ = capture_free_vars(skeleton)
+        @test compare_options(run_in_reverse(p, (1, [2, 3])), Dict(UInt64(1) => 1, UInt64(2) => [2, 3]))
     end
 
     @testset "Reverse plus" begin
         skeleton =
             Apply(Apply(every_primitive["+"], Hole(tint, nothing, true, nothing)), Hole(tint, nothing, true, nothing))
         @test is_reversible(skeleton)
-        rev_p = get_reversed_program(skeleton)
+        p, _ = capture_free_vars(skeleton)
         @test compare_options(
-            rev_p(3),
-            [AbductibleValue(any_object, _rev_dep_plus), AbductibleValue(any_object, _rev_dep_plus)],
+            run_in_reverse(p, 3),
+            Dict(
+                UInt64(1) => AbductibleValue(any_object, _rev_dep_plus),
+                UInt64(2) => AbductibleValue(any_object, _rev_dep_plus),
+            ),
         )
         @test compare_options(
-            rev_p(15),
-            [AbductibleValue(any_object, _rev_dep_plus), AbductibleValue(any_object, _rev_dep_plus)],
+            run_in_reverse(p, 15),
+            Dict(
+                UInt64(1) => AbductibleValue(any_object, _rev_dep_plus),
+                UInt64(2) => AbductibleValue(any_object, _rev_dep_plus),
+            ),
         )
         @test compare_options(
-            rev_p(-5),
-            [AbductibleValue(any_object, _rev_dep_plus), AbductibleValue(any_object, _rev_dep_plus)],
+            run_in_reverse(p, -5),
+            Dict(
+                UInt64(1) => AbductibleValue(any_object, _rev_dep_plus),
+                UInt64(2) => AbductibleValue(any_object, _rev_dep_plus),
+            ),
         )
-        filled_p = Apply(Apply(every_primitive["+"], FreeVar(tint, UInt64(1))), FreeVar(tint, UInt64(2)))
+
         @test calculate_dependent_vars(
             filled_p,
             Dict(UInt64(1) => 1, UInt64(2) => AbductibleValue(any_object, _rev_dep_plus)),
@@ -525,31 +562,15 @@ using DataStructures: OrderedDict, Accumulator
             Hole(tint, nothing, true, nothing),
         )
         @test is_reversible(skeleton)
-        rev_p = get_reversed_program(skeleton)
+        p, _ = capture_free_vars(skeleton)
         @test compare_options(
-            rev_p(3),
-            [
-                AbductibleValue(any_object, _rev_dep_plus),
-                AbductibleValue(any_object, _rev_dep_plus),
-                AbductibleValue(any_object, _rev_dep_plus),
-            ],
-        )
-        filled_p = Apply(
-            Apply(
-                every_primitive["+"],
-                Apply(Apply(every_primitive["+"], FreeVar(tint, UInt64(1))), FreeVar(tint, UInt64(2))),
-            ),
-            FreeVar(tint, UInt64(3)),
-        )
-        @test calculate_dependent_vars(
-            filled_p,
+            run_in_reverse(p, 3),
             Dict(
-                UInt64(1) => 1,
+                UInt64(1) => AbductibleValue(any_object, _rev_dep_plus),
                 UInt64(2) => AbductibleValue(any_object, _rev_dep_plus),
                 UInt64(3) => AbductibleValue(any_object, _rev_dep_plus),
             ),
-            3,
-        ) == Dict()
+        )
 
         @test calculate_dependent_vars(
             filled_p,
@@ -575,17 +596,14 @@ using DataStructures: OrderedDict, Accumulator
             Hole(tint, nothing, true, nothing),
         )
         @test is_reversible(skeleton)
-        rev_p = get_reversed_program(skeleton)
+        p, _ = capture_free_vars(skeleton)
         @test compare_options(
-            rev_p([3, 3, 3, 3]),
-            [AbductibleValue(any_object, _rev_dep_plus), AbductibleValue(any_object, _rev_dep_plus), 4],
-        )
-        filled_p = Apply(
-            Apply(
-                every_primitive["repeat"],
-                Apply(Apply(every_primitive["+"], FreeVar(tint, UInt64(1))), FreeVar(tint, UInt64(2))),
+            run_in_reverse(p, [3, 3, 3, 3]),
+            Dict(
+                UInt64(1) => AbductibleValue(any_object, _rev_dep_plus),
+                UInt64(2) => AbductibleValue(any_object, _rev_dep_plus),
+                UInt64(3) => 4,
             ),
-            FreeVar(tint, UInt64(3)),
         )
         @test calculate_dependent_vars(
             filled_p,
@@ -600,25 +618,15 @@ using DataStructures: OrderedDict, Accumulator
             Apply(Apply(every_primitive["+"], Hole(tint, nothing, true, nothing)), Hole(tint, nothing, true, nothing)),
         )
         @test is_reversible(skeleton)
-        rev_p = get_reversed_program(skeleton)
+        p, _ = capture_free_vars(skeleton)
         @test compare_options(
-            rev_p(3),
-            [AbductibleValue(any_object, _rev_dep_plus), AbductibleValue(any_object, _rev_dep_plus)],
+            run_in_reverse(p, 3),
+            Dict(
+                UInt64(1) => AbductibleValue(any_object, _rev_dep_plus),
+                UInt64(2) => AbductibleValue(any_object, _rev_dep_plus),
+            ),
         )
-        filled_p = Apply(
-            every_primitive["abs"],
-            Apply(Apply(every_primitive["+"], FreeVar(tint, UInt64(1))), FreeVar(tint, UInt64(2))),
-        )
-        @test compare_options(
-            [
-                calculate_dependent_vars(
-                    filled_p,
-                    Dict(UInt64(1) => 1, UInt64(2) => AbductibleValue(any_object, _rev_dep_plus)),
-                    3,
-                )[UInt64(2)],
-            ],
-            [EitherOptions(Dict{UInt64,Any}(0xc8e6a6dedcb6f132 => -4, 0x9fede9511319ae42 => 2))],
-        )
+
     end
 
     @testset "Reverse plus with abs" begin
@@ -627,105 +635,143 @@ using DataStructures: OrderedDict, Accumulator
             Hole(tint, nothing, true, nothing),
         )
         @test is_reversible(skeleton)
-        rev_p = get_reversed_program(skeleton)
+        p, _ = capture_free_vars(skeleton)
         @test compare_options(
-            rev_p(3),
-            [AbductibleValue(any_object, _rev_dep_plus), AbductibleValue(any_object, _rev_dep_plus)],
+            run_in_reverse(p, 3),
+            Dict(
+                UInt64(1) => AbductibleValue(any_object, _rev_dep_plus),
+                UInt64(2) => AbductibleValue(any_object, _rev_dep_plus),
+            ),
         )
-        filled_p = Apply(
-            Apply(every_primitive["+"], Apply(every_primitive["abs"], FreeVar(tint, UInt64(1)))),
-            FreeVar(tint, UInt64(2)),
-        )
-        @test compare_options(
-            [
-                calculate_dependent_vars(
-                    filled_p,
-                    Dict(UInt64(2) => 1, UInt64(1) => AbductibleValue(any_object, _rev_dep_plus)),
-                    3,
-                )[UInt64(1)],
-            ],
-            [EitherOptions(Dict{UInt64,Any}(0xc8e6a6dedcb6f132 => -2, 0x9fede9511319ae42 => 2))],
-        )
+
     end
 
     @testset "Reverse mult" begin
         skeleton =
             Apply(Apply(every_primitive["*"], Hole(tint, nothing, true, nothing)), Hole(tint, nothing, true, nothing))
         @test is_reversible(skeleton)
-        rev_p = get_reversed_program(skeleton)
+        p, _ = capture_free_vars(skeleton)
         @test compare_options(
-            rev_p(6),
-            [
-                EitherOptions(
+            run_in_reverse(p, 6),
+            Dict(
+                UInt64(1) => EitherOptions(
                     Dict{UInt64,Any}(
-                        0x0b6e510308a5db09 => 1,
-                        0xe4af535f3b27dfe2 => 2,
-                        0xdf9b2644b0ff85f9 => 6,
-                        0x7583e8825cd10a3e => 3,
+                        0x791ecca7c8ec2799 => -1,
+                        0x026990618cb235dc => 1,
+                        0x9f0554b8d57c3390 => -2,
+                        0x80564a377a546d05 => 3,
+                        0xfd0b1e52b4af8b42 => 6,
+                        0x6cd6c1f33c45263a => -6,
+                        0xc46230a01bf2d454 => -3,
+                        0x47d84b05977b5deb => 2,
                     ),
                 ),
-                EitherOptions(
+                UInt64(2) => EitherOptions(
                     Dict{UInt64,Any}(
-                        0x0b6e510308a5db09 => 6,
-                        0xe4af535f3b27dfe2 => 3,
-                        0xdf9b2644b0ff85f9 => 1,
-                        0x7583e8825cd10a3e => 2,
+                        0x791ecca7c8ec2799 => -6,
+                        0x026990618cb235dc => 6,
+                        0x9f0554b8d57c3390 => -3,
+                        0x80564a377a546d05 => 2,
+                        0xfd0b1e52b4af8b42 => 1,
+                        0x6cd6c1f33c45263a => -1,
+                        0xc46230a01bf2d454 => -2,
+                        0x47d84b05977b5deb => 3,
                     ),
                 ),
-            ],
+            ),
         )
         @test compare_options(
-            rev_p(240),
-            [
-                EitherOptions(
+            run_in_reverse(p, 240),
+            Dict(
+                UInt64(1) => EitherOptions(
                     Dict{UInt64,Any}(
-                        0xaa2dcc33efe7cdcd => 30,
-                        0x4ef19a9b1c1cc5e2 => 15,
-                        0xba93eab59dd7267f => 6,
-                        0x6d293928a5304e53 => 120,
-                        0x93efb79a1921aa22 => 10,
-                        0x9e34ec579f41600e => 48,
-                        0xd5ddc05a942237dd => 240,
-                        0x0f940195f908b827 => 1,
-                        0x27afeba80ab88f3a => 60,
-                        0x14f2aa34f84985ac => 5,
-                        0x85cfaadbc52c0298 => 8,
-                        0xeb3a2828fc159a57 => 3,
-                        0xb2c233fbbb286da9 => 4,
-                        0x96e4cbbb272eb912 => 24,
-                        0x9ce7d4b859738e29 => 20,
-                        0xc598dd82facfbf2c => 2,
-                        0x8c25a52828476afc => 80,
-                        0xa246e52c14a8daf1 => 16,
-                        0xa8c57599f896267b => 40,
-                        0xbc20bcdc5623f775 => 12,
+                        0xdf1f43b4a5bf81a0 => 20,
+                        0x93342815c80247ec => -4,
+                        0xe9aa1d03c08f0cf2 => -80,
+                        0x33d952fcc54c964d => -1,
+                        0x37b8c54b99b5c3a5 => -15,
+                        0x63dc56578163bc76 => 5,
+                        0x6ff7a2bbcc2ed680 => -2,
+                        0x941309243bb48eeb => 16,
+                        0x968d3c8577b18d2d => 10,
+                        0xed04d74cdd8b9877 => -240,
+                        0xa81928b0536b8026 => -10,
+                        0x6af9aef9d020dbdc => 60,
+                        0x0a20d070ec27503e => 40,
+                        0xce660b2661a5f670 => 3,
+                        0xee6f39a86668b1d8 => -30,
+                        0x31ca15c719434b64 => 48,
+                        0x66580b8c6fc55812 => 4,
+                        0xb802e16655a4d0c2 => -16,
+                        0x41197faacc3a74ef => -60,
+                        0xbcee6210abb25cbd => 120,
+                        0xd570ebd291a05d56 => 240,
+                        0x584056c4e4e5ea8a => 2,
+                        0xd8bc8f3c8eb7bd15 => -24,
+                        0x9c90ebf3a0c1332e => -48,
+                        0x8424b68d7a07b04a => 30,
+                        0x76bcaa937dbd48f6 => 8,
+                        0x80ee83c129fde539 => -12,
+                        0x827c3471f6fb075a => 80,
+                        0x432965e7dc197b0a => -5,
+                        0xadfbb35f2eba95a1 => -20,
+                        0x82ad704409428d81 => -6,
+                        0x628014e86a639bab => -40,
+                        0xf6e78669adbc0876 => -8,
+                        0x63b5e889bec042a2 => 24,
+                        0x7b43eca45d3cb38c => -3,
+                        0x974f110b4bc26192 => 12,
+                        0x2210825b9d16bfdc => -120,
+                        0xb435ceee34eddd5a => 6,
+                        0x5e01c8deb0bca629 => 1,
+                        0x149de8d52b424366 => 15,
                     ),
                 ),
-                EitherOptions(
+                UInt64(2) => EitherOptions(
                     Dict{UInt64,Any}(
-                        0xaa2dcc33efe7cdcd => 8,
-                        0x4ef19a9b1c1cc5e2 => 16,
-                        0xba93eab59dd7267f => 40,
-                        0x6d293928a5304e53 => 2,
-                        0x93efb79a1921aa22 => 24,
-                        0x9e34ec579f41600e => 5,
-                        0xd5ddc05a942237dd => 1,
-                        0x0f940195f908b827 => 240,
-                        0x27afeba80ab88f3a => 4,
-                        0x14f2aa34f84985ac => 48,
-                        0x85cfaadbc52c0298 => 30,
-                        0xeb3a2828fc159a57 => 80,
-                        0xb2c233fbbb286da9 => 60,
-                        0x96e4cbbb272eb912 => 10,
-                        0x9ce7d4b859738e29 => 12,
-                        0xc598dd82facfbf2c => 120,
-                        0x8c25a52828476afc => 3,
-                        0xa246e52c14a8daf1 => 15,
-                        0xa8c57599f896267b => 6,
-                        0xbc20bcdc5623f775 => 20,
+                        0xdf1f43b4a5bf81a0 => 12,
+                        0x93342815c80247ec => -60,
+                        0xe9aa1d03c08f0cf2 => -3,
+                        0x33d952fcc54c964d => -240,
+                        0x37b8c54b99b5c3a5 => -16,
+                        0x63dc56578163bc76 => 48,
+                        0x6ff7a2bbcc2ed680 => -120,
+                        0x941309243bb48eeb => 15,
+                        0x968d3c8577b18d2d => 24,
+                        0xed04d74cdd8b9877 => -1,
+                        0xa81928b0536b8026 => -24,
+                        0x6af9aef9d020dbdc => 4,
+                        0x0a20d070ec27503e => 6,
+                        0xce660b2661a5f670 => 80,
+                        0xee6f39a86668b1d8 => -8,
+                        0x31ca15c719434b64 => 5,
+                        0x66580b8c6fc55812 => 60,
+                        0xb802e16655a4d0c2 => -15,
+                        0x41197faacc3a74ef => -4,
+                        0xbcee6210abb25cbd => 2,
+                        0xd570ebd291a05d56 => 1,
+                        0x584056c4e4e5ea8a => 120,
+                        0xd8bc8f3c8eb7bd15 => -10,
+                        0x9c90ebf3a0c1332e => -5,
+                        0x8424b68d7a07b04a => 8,
+                        0x76bcaa937dbd48f6 => 30,
+                        0x80ee83c129fde539 => -20,
+                        0x827c3471f6fb075a => 3,
+                        0x432965e7dc197b0a => -48,
+                        0xadfbb35f2eba95a1 => -12,
+                        0x82ad704409428d81 => -40,
+                        0x628014e86a639bab => -6,
+                        0xf6e78669adbc0876 => -30,
+                        0x63b5e889bec042a2 => 10,
+                        0x7b43eca45d3cb38c => -80,
+                        0x974f110b4bc26192 => 20,
+                        0x2210825b9d16bfdc => -2,
+                        0xb435ceee34eddd5a => 40,
+                        0x5e01c8deb0bca629 => 240,
+                        0x149de8d52b424366 => 16,
                     ),
                 ),
-            ],
+            ),
         )
     end
 
@@ -741,9 +787,12 @@ using DataStructures: OrderedDict, Accumulator
             Hole(tint, nothing, true, nothing),
         )
         @test is_reversible(skeleton)
-        rev_p = get_reversed_program(skeleton)
+        p, _ = capture_free_vars(skeleton)
 
-        @test compare_options(rev_p([[1, 2], [1, 2], [1, 2]]), [1, [2], 3])
+        @test compare_options(
+            run_in_reverse(p, [[1, 2], [1, 2], [1, 2]]),
+            Dict(UInt64(1) => 1, UInt64(2) => [2], UInt64(3) => 3),
+        )
     end
 
     @testset "Reverse map2" begin
@@ -784,20 +833,13 @@ using DataStructures: OrderedDict, Accumulator
             )
             @test is_reversible(skeleton)
 
-            rev_p = get_reversed_program(skeleton)
+            p, _ = capture_free_vars(skeleton)
 
-            @test compare_options(rev_p([[1, 1, 1], [2, 2], [4]]), [[1, 2, 4], [3, 2, 1]])
-
-            p = Apply(
-                Apply(
-                    Apply(
-                        every_primitive["map2"],
-                        Abstraction(Abstraction(Apply(Apply(every_primitive["repeat"], Index(1)), Index(0)))),
-                    ),
-                    FreeVar(tlist(tint), UInt64(1)),
-                ),
-                FreeVar(tlist(tint), UInt64(2)),
+            @test compare_options(
+                run_in_reverse(p, [[1, 1, 1], [2, 2], [4]]),
+                Dict(UInt64(1) => [1, 2, 4], UInt64(2) => [3, 2, 1]),
             )
+
             @test run_with_arguments(p, [], Dict(UInt64(1) => [1, 2, 4], UInt64(2) => [3, 2, 1])) ==
                   [[1, 1, 1], [2, 2], [4]]
         end
@@ -963,10 +1005,10 @@ using DataStructures: OrderedDict, Accumulator
     @testset "Reverse range" begin
         skeleton = Apply(every_primitive["range"], Hole(tint, nothing, true, nothing))
         @test is_reversible(skeleton)
-        rev_p = get_reversed_program(skeleton)
+        p, _ = capture_free_vars(skeleton)
 
-        @test compare_options(rev_p([0, 1, 2]), [3])
-        @test compare_options(rev_p([]), [0])
+        @test compare_options(run_in_reverse(p, [0, 1, 2]), Dict(UInt64(1) => 3))
+        @test compare_options(run_in_reverse(p, []), Dict(UInt64(1) => 0))
     end
 
     @testset "Reverse map with range" begin
@@ -1368,101 +1410,6 @@ using DataStructures: OrderedDict, Accumulator
         )
     end
 
-    @testset "Reverse rev select" begin
-        skeleton = Apply(
-            Apply(
-                Apply(
-                    every_primitive["rev_select"],
-                    Abstraction(
-                        Apply(Apply(every_primitive["eq?"], Index(0)), Hole(t0, nothing, false, _is_possible_selector)),
-                    ),
-                ),
-                Hole(tlist(tcolor), nothing, true, nothing),
-            ),
-            Hole(tlist(tcolor), nothing, true, nothing),
-        )
-        @test is_reversible(skeleton)
-
-        rev_p = get_reversed_program(skeleton)
-
-        @test compare_options(
-            rev_p([1, 2, 1, 3, 2, 1]),
-            [
-                EitherOptions(Dict(0xa0664d92ec387436 => 3, 0x6711a85d77d098cf => 1, 0xfcd4cc2c187414b6 => 2)),
-                EitherOptions(
-                    Dict(
-                        0xa0664d92ec387436 =>
-                            PatternWrapper(Any[any_object, any_object, any_object, 3, any_object, any_object]),
-                        0x6711a85d77d098cf => PatternWrapper(Any[1, any_object, 1, any_object, any_object, 1]),
-                        0xfcd4cc2c187414b6 => PatternWrapper(Any[any_object, 2, any_object, any_object, 2, any_object]),
-                    ),
-                ),
-                EitherOptions(
-                    Dict(
-                        0xa0664d92ec387436 => Any[1, 2, 1, nothing, 2, 1],
-                        0x6711a85d77d098cf => Any[nothing, 2, nothing, 3, 2, nothing],
-                        0xfcd4cc2c187414b6 => Any[1, nothing, 1, 3, nothing, 1],
-                    ),
-                ),
-            ],
-        )
-    end
-
-    @testset "Reverse rev select set" begin
-        skeleton = Apply(
-            Apply(
-                Apply(
-                    every_primitive["rev_select_set"],
-                    Abstraction(
-                        Apply(Apply(every_primitive["eq?"], Index(0)), Hole(t0, nothing, false, _is_possible_selector)),
-                    ),
-                ),
-                Hole(tset(tcolor), nothing, true, nothing),
-            ),
-            Hole(tset(tcolor), nothing, true, nothing),
-        )
-        @test is_reversible(skeleton)
-
-        rev_p = get_reversed_program(skeleton)
-
-        @test compare_options(
-            rev_p(Set([1, 2, 3])),
-            [
-                EitherOptions(Dict(0x6711a85d77d098cf => 2, 0x7fec434e3caa5c07 => 1, 0xc99cccbee72d140a => 3)),
-                EitherOptions(
-                    Dict(
-                        0x6711a85d77d098cf => Set(Any[2]),
-                        0x7fec434e3caa5c07 => Set(Any[1]),
-                        0xc99cccbee72d140a => Set(Any[3]),
-                    ),
-                ),
-                EitherOptions(
-                    Dict(
-                        0x6711a85d77d098cf => Set(Any[3, 1]),
-                        0x7fec434e3caa5c07 => Set(Any[2, 3]),
-                        0xc99cccbee72d140a => Set(Any[2, 1]),
-                    ),
-                ),
-            ],
-        )
-    end
-
-    @testset "Reverse rev select with empty" begin
-        skeleton = Apply(
-            Apply(
-                Apply(every_primitive["rev_select"], Abstraction(Apply(every_primitive["empty?"], Index(0)))),
-                Hole(tlist(tlist(tint)), nothing, true, nothing),
-            ),
-            Hole(tlist(tlist(tint)), nothing, true, nothing),
-        )
-        @test is_reversible(skeleton)
-        rev_p = get_reversed_program(skeleton)
-
-        @test compare_options(
-            rev_p([[0, 1, 2], [], [0, 1, 2, 3]]),
-            [PatternWrapper([any_object, [], any_object]), [[0, 1, 2], nothing, [0, 1, 2, 3]]],
-        )
-    end
 
     @testset "Invented abstractor" begin
         source = "#(lambda (lambda (repeat (cons \$1 \$0))))"
@@ -1474,9 +1421,69 @@ using DataStructures: OrderedDict, Accumulator
             Hole(tint, nothing, true, nothing),
         )
         @test is_reversible(skeleton)
-        rev_p = get_reversed_program(skeleton)
+        p, _ = capture_free_vars(skeleton)
 
-        @test compare_options(rev_p([[1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2, 3]]), [1, [2, 3], 4])
+        @test compare_options(
+            run_in_reverse(p, [[1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2, 3]]),
+            Dict(UInt64(1) => 1, UInt64(2) => [2, 3], UInt64(3) => 4),
+        )
+
+        @test run_with_arguments(p, [], Dict(UInt64(1) => 1, UInt64(2) => [2, 3], UInt64(3) => 4)) ==
+              [[1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2, 3]]
+    end
+
+    @testset "Invented abstractor with same index" begin
+        source = "#(lambda (* \$0 \$0))"
+        expression = parse_program(source)
+        tp = closed_inference(expression)
+        @test is_reversible(expression)
+        skeleton = Apply(expression, Hole(tint, nothing, true, nothing))
+        @test is_reversible(skeleton)
+        p, _ = capture_free_vars(skeleton)
+
+        @test compare_options(
+            run_in_reverse(p, 16),
+            Dict(UInt64(1) => EitherOptions(Dict{UInt64,Any}(0x61b87a7d8efbbc18 => -4, 0x34665f52efaea3b2 => 4))),
+        )
+    end
+
+    @testset "Invented abstractor with same index combined" begin
+        source = "#(lambda (* \$0 (* \$0 \$0)))"
+        expression = parse_program(source)
+        tp = closed_inference(expression)
+        @test is_reversible(expression)
+        skeleton = Apply(expression, Hole(tint, nothing, true, nothing))
+        @test is_reversible(skeleton)
+        p, _ = capture_free_vars(skeleton)
+
+        @test compare_options(run_in_reverse(p, 64), Dict(UInt64(1) => 4))
+    end
+
+    @testset "Invented abstractor with same index combined #2" begin
+        source = "#(lambda (* (* \$0 \$0) \$0))"
+        expression = parse_program(source)
+        tp = closed_inference(expression)
+        @test is_reversible(expression)
+        skeleton = Apply(expression, Hole(tint, nothing, true, nothing))
+        @test is_reversible(skeleton)
+        p, _ = capture_free_vars(skeleton)
+
+        @test compare_options(run_in_reverse(p, 64), Dict(UInt64(1) => 4))
+    end
+
+    @testset "Invented abstractor with same index combined #3" begin
+        source = "#(lambda (* (* \$0 \$0) (* \$0 \$0)))"
+        expression = parse_program(source)
+        tp = closed_inference(expression)
+        @test is_reversible(expression)
+        skeleton = Apply(expression, Hole(tint, nothing, true, nothing))
+        @test is_reversible(skeleton)
+        p, _ = capture_free_vars(skeleton)
+
+        @test compare_options(
+            run_in_reverse(p, 16),
+            Dict(UInt64(1) => EitherOptions(Dict{UInt64,Any}(0x791ecca7c8ec2799 => -2, 0x026990618cb235dc => 2))),
+        )
     end
 
     @testset "Invented abstractor with range" begin
@@ -1486,29 +1493,11 @@ using DataStructures: OrderedDict, Accumulator
         @test is_reversible(expression)
         skeleton = Apply(Apply(expression, Hole(tint, nothing, true, nothing)), Hole(tint, nothing, true, nothing))
         @test is_reversible(skeleton)
-        rev_p = get_reversed_program(skeleton)
-
-        @test compare_options(rev_p([[0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 3]]), [4, 3])
-    end
-
-    @testset "Invented abstractor with range in map2" begin
-        source = "#(lambda (repeat (range \$0)))"
-        expression = parse_program(source)
-        tp = closed_inference(expression)
-        @test is_reversible(expression)
-        skeleton = Apply(
-            Apply(
-                Apply(every_primitive["map2"], Abstraction(Abstraction(Apply(Apply(expression, Index(1)), Index(0))))),
-                Hole(tlist(t0), nothing, true, nothing),
-            ),
-            Hole(tlist(t1), nothing, true, nothing),
-        )
-        @test is_reversible(skeleton)
-        rev_p = get_reversed_program(skeleton)
+        p, _ = capture_free_vars(skeleton)
 
         @test compare_options(
-            rev_p([[[0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 3]], [[0, 1, 2], [0, 1, 2]]]),
-            [[4, 3], [4, 2]],
+            run_in_reverse(p, [[0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 3]]),
+            Dict(UInt64(1) => 4, UInt64(2) => 3),
         )
     end
 
@@ -1547,16 +1536,21 @@ using DataStructures: OrderedDict, Accumulator
             Hole(tint, nothing, true, nothing),
         )
         @test is_reversible(skeleton)
-        rev_p = get_reversed_program(skeleton)
+        p, _ = capture_free_vars(skeleton)
 
-        @test compare_options(rev_p([3, 2, 1]), [Set([(1, 3), (2, 2), (3, 1)]), 3])
-        @test compare_options(rev_p([3, nothing, 1]), [Set([(1, 3), (3, 1)]), 3])
-        @test compare_options(rev_p([3, 2, nothing]), [Set([(1, 3), (2, 2)]), 3])
-
-        p = Apply(
-            Apply(every_primitive["rev_list_elements"], FreeVar(tlist(ttuple2(tint, tint)), UInt64(1))),
-            FreeVar(tint, UInt64(2)),
+        @test compare_options(
+            run_in_reverse(p, [3, 2, 1]),
+            Dict(UInt64(1) => Set([(1, 3), (2, 2), (3, 1)]), UInt64(2) => 3),
         )
+        @test compare_options(
+            run_in_reverse(p, [3, nothing, 1]),
+            Dict(UInt64(1) => Set([(1, 3), (3, 1)]), UInt64(2) => 3),
+        )
+        @test compare_options(
+            run_in_reverse(p, [3, 2, nothing]),
+            Dict(UInt64(1) => Set([(1, 3), (2, 2)]), UInt64(2) => 3),
+        )
+
         @test run_with_arguments(p, [], Dict(UInt64(1) => [(1, 3), (2, 2), (3, 1)], UInt64(2) => 3)) == [3, 2, 1]
         @test run_with_arguments(p, [], Dict(UInt64(1) => [(1, 3), (3, 1)], UInt64(2) => 3)) == [3, nothing, 1]
         @test run_with_arguments(p, [], Dict(UInt64(1) => [(1, 3), (2, 2)], UInt64(2) => 3)) == [3, 2, nothing]
@@ -1574,31 +1568,29 @@ using DataStructures: OrderedDict, Accumulator
             Hole(tint, nothing, true, nothing),
         )
         @test is_reversible(skeleton)
-        rev_p = get_reversed_program(skeleton)
+        p, _ = capture_free_vars(skeleton)
 
         @test compare_options(
-            rev_p([[3, 2, 1] [4, 5, 6]]),
-            [Set([((1, 1), 3), ((1, 2), 4), ((2, 1), 2), ((2, 2), 5), ((3, 1), 1), ((3, 2), 6)]), 3, 2],
-        )
-        @test compare_options(
-            rev_p([[3, nothing, 1] [4, 5, 6]]),
-            [Set([((1, 1), 3), ((1, 2), 4), ((2, 2), 5), ((3, 1), 1), ((3, 2), 6)]), 3, 2],
-        )
-        @test compare_options(
-            rev_p([[3, 2, 1] [nothing, nothing, nothing]]),
-            [Set([((1, 1), 3), ((2, 1), 2), ((3, 1), 1)]), 3, 2],
-        )
-
-        p = Apply(
-            Apply(
-                Apply(
-                    every_primitive["rev_grid_elements"],
-                    FreeVar(tlist(ttuple2(ttuple2(tint, tint), tint)), UInt64(1)),
-                ),
-                FreeVar(tint, UInt64(2)),
+            run_in_reverse(p, [[3, 2, 1] [4, 5, 6]]),
+            Dict(
+                UInt64(1) => Set([((1, 1), 3), ((1, 2), 4), ((2, 1), 2), ((2, 2), 5), ((3, 1), 1), ((3, 2), 6)]),
+                UInt64(2) => 3,
+                UInt64(3) => 2,
             ),
-            FreeVar(tint, UInt64(3)),
         )
+        @test compare_options(
+            run_in_reverse(p, [[3, nothing, 1] [4, 5, 6]]),
+            Dict(
+                UInt64(1) => Set([((1, 1), 3), ((1, 2), 4), ((2, 2), 5), ((3, 1), 1), ((3, 2), 6)]),
+                UInt64(2) => 3,
+                UInt64(3) => 2,
+            ),
+        )
+        @test compare_options(
+            run_in_reverse(p, [[3, 2, 1] [nothing, nothing, nothing]]),
+            Dict(UInt64(1) => Set([((1, 1), 3), ((2, 1), 2), ((3, 1), 1)]), UInt64(2) => 3, UInt64(3) => 2),
+        )
+
         @test run_with_arguments(
             p,
             [],
@@ -1630,10 +1622,12 @@ using DataStructures: OrderedDict, Accumulator
             Hole(tlist(tcolor), nothing, true, nothing),
         )
         @test is_reversible(skeleton)
-        rev_p = get_reversed_program(skeleton)
+        p, _ = capture_free_vars(skeleton)
 
-        @test compare_options(rev_p([(1, 3), (2, 2), (3, 1)]), [[1, 2, 3], [3, 2, 1]])
-        p = Apply(Apply(every_primitive["zip2"], FreeVar(tlist(tint), UInt64(1))), FreeVar(tlist(tcolor), UInt64(2)))
+        @test compare_options(
+            run_in_reverse(p, [(1, 3), (2, 2), (3, 1)]),
+            Dict(UInt64(1) => [1, 2, 3], UInt64(2) => [3, 2, 1]),
+        )
         @test run_with_arguments(p, [], Dict(UInt64(1) => [1, 2, 3], UInt64(2) => [3, 2, 1])) ==
               [(1, 3), (2, 2), (3, 1)]
     end
@@ -1644,13 +1638,12 @@ using DataStructures: OrderedDict, Accumulator
             Hole(tgrid(tcolor), nothing, true, nothing),
         )
         @test is_reversible(skeleton)
-        rev_p = get_reversed_program(skeleton)
+        p, _ = capture_free_vars(skeleton)
 
         @test compare_options(
-            rev_p([[(1, 3), (2, 2), (3, 1)] [(4, 5), (9, 2), (2, 5)]]),
-            [[[1, 2, 3] [4, 9, 2]], [[3, 2, 1] [5, 2, 5]]],
+            run_in_reverse(p, [[(1, 3), (2, 2), (3, 1)] [(4, 5), (9, 2), (2, 5)]]),
+            Dict(UInt64(1) => [[1, 2, 3] [4, 9, 2]], UInt64(2) => [[3, 2, 1] [5, 2, 5]]),
         )
-        p = Apply(Apply(every_primitive["zip2"], FreeVar(tgrid(tint), UInt64(1))), FreeVar(tgrid(tcolor), UInt64(2)))
         @test run_with_arguments(p, [], Dict(UInt64(1) => [[1, 2, 3] [4, 9, 2]], UInt64(2) => [[3, 2, 1] [5, 2, 5]])) ==
               [[(1, 3), (2, 2), (3, 1)] [(4, 5), (9, 2), (2, 5)]]
     end

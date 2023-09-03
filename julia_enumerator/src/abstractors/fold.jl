@@ -111,7 +111,7 @@ function unfold_options(options::Dict)
     for (i, item) in options
         if isa(item, EitherOptions)
             for (h, val) in item.options
-                new_option = Dict(k => __fix_option_hashes([h], v) for (k, v) in options)
+                new_option = Dict(k => fix_option_hashes([h], v) for (k, v) in options)
                 append!(result, unfold_options(new_option))
             end
             break
