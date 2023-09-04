@@ -111,6 +111,22 @@ function _merge_options_paths(path1, path2)
 end
 
 function _intersect_values(
+    old_v,
+    v,
+    predicted_arguments,
+    filled_indices,
+    filled_vars,
+    new_args,
+    new_filled_indices,
+    new_filled_vars,
+)
+    if old_v != v
+        error("Can't intersect values")
+    end
+    return predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars
+end
+
+function _intersect_values(
     old_v::EitherOptions,
     v::EitherOptions,
     predicted_arguments,
@@ -471,6 +487,10 @@ function _run_in_reverse(p::Abstraction, output, arguments, predicted_arguments,
     push!(predicted_arguments, filled_indices[0])
     delete!(filled_indices, 0)
     return predicted_arguments, Dict(i - 1 => v for (i, v) in filled_indices), filled_vars
+end
+
+function _run_in_reverse(p::Abstraction, output::SkipArg, arguments, predicted_arguments, filled_indices, filled_vars)
+    return predicted_arguments, filled_indices, filled_vars
 end
 
 function _run_in_reverse(p::Program, output)

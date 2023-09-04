@@ -1,146 +1,177 @@
-function unfold_options(options::Vector)
-    if all(x -> !isa(x, EitherOptions), options)
-        return [options]
+function unfold_options(args::Vector, indices::Dict, vars::Dict)
+    if all(x -> !isa(x, EitherOptions), args) && all(x -> !isa(x, EitherOptions), values(vars))
+        return [(args, indices, vars)]
     end
     result = []
-    for item in options
+    for item in Iterators.flatten([args, values(indices), values(vars)])
         if isa(item, EitherOptions)
             for (h, val) in item.options
-                new_option = [__fix_option_hashes([h], v) for v in options]
-                append!(result, unfold_options(new_option))
+                new_args = [fix_option_hashes([h], v) for v in args]
+                new_indices = Dict(k => fix_option_hashes([h], v) for (k, v) in indices)
+                new_vars = Dict(k => fix_option_hashes([h], v) for (k, v) in vars)
+                append!(result, unfold_options(new_args, new_indices, new_vars))
             end
-            break
+            return result
         end
     end
     return result
 end
 
+function _rev_dep_map(rev_dep_mapper)
+    function __rev_dep_map(output, param)
+        result = []
+        for (out, fixer) in zip(output, param)
+            push!(result, _abduct_value(rev_dep_mapper, out, fixer))
+        end
+
+        return result
+    end
+    return __rev_dep_map
+end
+
 function reverse_map(n, is_set = false)
-    function _reverse_map(arguments)
-        f = pop!(arguments)
-        for _ in 1:n
-            f = f.b
-        end
-        rev_f = _get_reversed_program(f, arguments)
-        rev_f = _rmapper(rev_f, n)
+    function _reverse_map(value, arguments)
+        f = arguments[end]
 
-        indices_mapping, external_vars = _get_var_indices(f, n)
-
-        rev_xs = []
-        for _ in 1:n
-            rev_x = _get_reversed_program(pop!(arguments), arguments)
-            push!(rev_xs, rev_x)
+        if is_set
+            output_options = Set{Tuple{Vector{Any},Dict,Dict}}([(Any[Set() for _ in 1:n], Dict(), Dict())])
+        else
+            output_options = Set{Tuple{Vector{Any},Dict,Dict}}([(Any[[] for _ in 1:n], Dict(), Dict())])
         end
 
-        function __reverse_map(value)::Vector{Any}
-            if is_set
-                output_options =
-                    Set{Vector{Any}}([vcat(Any[nothing for _ in 1:external_vars], Any[Set() for _ in 1:n])])
-            else
-                output_options = Set{Vector{Any}}([vcat(Any[nothing for _ in 1:external_vars], Any[[] for _ in 1:n])])
-            end
+        for item in value
+            predicted_arguments, filled_indices, filled_vars = _run_in_reverse(f, item)
 
-            first_item = true
-            for v in value
-                reversed_values = rev_f(v)
-                if any(v isa EitherOptions for v in reversed_values)
-                    child_options = unfold_options(reversed_values)
+            new_options = Set()
+            if any(v isa EitherOptions for v in predicted_arguments) ||
+               any(v isa EitherOptions for v in values(filled_indices)) ||
+               any(v isa EitherOptions for v in values(filled_vars))
+                child_options = unfold_options(predicted_arguments, filled_indices, filled_vars)
 
-                    new_options = Set()
-                    for output_option in output_options
-                        for option in child_options
-                            new_option = copy(output_option)
-                            filled_indices = Dict{Int,Any}()
-                            good_option = true
-                            for i in 1:length(option)
-                                mapped_i = indices_mapping[i]
-                                if haskey(filled_indices, mapped_i)
-                                    if filled_indices[mapped_i] != option[i]
-                                        good_option = false
-                                        break
-                                    end
-                                else
-                                    filled_indices[mapped_i] = option[i]
-                                    if mapped_i > external_vars
-                                        new_option[mapped_i] = copy(new_option[mapped_i])
-                                        push!(new_option[mapped_i], option[i])
-                                    elseif first_item
-                                        new_option[mapped_i] = option[i]
-                                    elseif new_option[mapped_i] != option[i]
-                                        good_option = false
-                                        break
-                                    end
-                                end
-                            end
-                            if good_option
-                                push!(new_options, new_option)
-                                if length(new_options) > 100
-                                    error("Too many options")
-                                end
-                            end
-                        end
-                    end
-                    if isempty(new_options)
-                        error("No valid options found")
-                    end
-                    output_options = new_options
-                else
-                    filled_indices = Dict{Int,Any}()
-                    for (i, v) in enumerate(reversed_values)
-                        mapped_i = indices_mapping[i]
-                        if haskey(filled_indices, mapped_i)
-                            if filled_indices[mapped_i] != v
-                                error("Filling the same index with different values")
-                            end
+                for output_option in output_options
+                    for (option_args, option_indices, option_vars) in child_options
+                        if !isempty(option_indices)
+                            new_option_indices = copy(output_option[2])
                         else
-                            filled_indices[mapped_i] = v
-                            for option in output_options
-                                if mapped_i > external_vars
-                                    push!(option[mapped_i], v)
-                                elseif first_item
-                                    option[mapped_i] = v
-                                elseif option[mapped_i] != v
-                                    error("Filling the same external index with different values")
-                                end
+                            new_option_indices = output_option[2]
+                        end
+                        if !isempty(option_vars)
+                            new_option_vars = copy(output_option[3])
+                        else
+                            new_option_vars = output_option[3]
+                        end
+
+                        good_option = true
+                        for (k, v) in option_indices
+                            if !haskey(new_option_indices, k)
+                                new_option_indices[k] = v
+                            elseif new_option_indices[k] != v
+                                good_option = false
+                                break
                             end
                         end
-                    end
-                end
-                first_item = false
-            end
-            if first_item && external_vars > 0
-                error("Couldn't fill external variables")
-            end
-            if is_set
-                for option in output_options
-                    for val in option[external_vars+1:end]
-                        if length(val) != length(value)
-                            error("Losing data on map")
+                        if !good_option
+                            continue
+                        end
+                        for (k, v) in option_vars
+                            if !haskey(new_option_vars, k)
+                                new_option_vars[k] = v
+                            elseif new_option_vars[k] != v
+                                good_option = false
+                                break
+                            end
+                        end
+                        if !good_option
+                            continue
+                        end
+                        new_option_args = [copy(arg) for arg in output_option[1]]
+                        for (i, v) in enumerate(option_args)
+                            push!(new_option_args[i], v)
+                        end
+
+                        push!(new_options, (new_option_args, new_option_indices, new_option_vars))
+                        if length(new_options) > 100
+                            error("Too many options")
                         end
                     end
                 end
-            end
-            if length(output_options) == 1
-                result = first(output_options)
+
             else
-                hashed_options = Dict(rand(UInt64) => option for option in output_options)
-                result = []
-                for i in 1:(external_vars+n)
-                    push!(result, EitherOptions(Dict(h => option[i] for (h, option) in hashed_options)))
+                for option in output_options
+                    good_option = true
+                    for (k, v) in filled_indices
+                        if !haskey(option[2], k)
+                            option[2][k] = v
+                        elseif option[2][k] != v
+                            good_option = false
+                            break
+                        end
+                    end
+                    if !good_option
+                        continue
+                    end
+                    for (k, v) in filled_vars
+                        if !haskey(option[3], k)
+                            option[3][k] = v
+                        elseif option[3][k] != v
+                            good_option = false
+                            break
+                        end
+                    end
+                    if !good_option
+                        continue
+                    end
+                    for (i, v) in enumerate(predicted_arguments)
+                        push!(option[1][i], v)
+                    end
+                    push!(new_options, option)
                 end
             end
-            return vcat(result[1:external_vars], [rev_xs[i](result[i+external_vars]) for i in 1:n]...)
+            if isempty(new_options)
+                error("No valid options found")
+            end
+            output_options = new_options
         end
 
-        function __reverse_map(value::EitherOptions)::Vector{Any}
-            _reverse_eithers(__reverse_map, value)
+        if is_set
+            for option in output_options
+                for val in option[1]
+                    if length(val) != length(value)
+                        error("Losing data on map")
+                    end
+                end
+            end
         end
-
-        function __reverse_map(value::PatternWrapper)::Vector{Any}
-            _reverse_pattern(__reverse_map, value)
+        if length(output_options) == 1
+            result_arguments, result_indices, result_vars = first(output_options)
+        else
+            hashed_options = Dict(rand(UInt64) => option for option in output_options)
+            result_arguments = []
+            result_indices = Dict()
+            result_vars = Dict()
+            for i in 1:n
+                push!(result_arguments, EitherOptions(Dict(h => option[1][i] for (h, option) in hashed_options)))
+            end
+            for (k, v) in first(output_options)[2]
+                result_indices[k] = EitherOptions(Dict(h => option[2][k] for (h, option) in hashed_options))
+            end
+            for (k, v) in first(output_options)[3]
+                result_vars[k] = EitherOptions(Dict(h => option[3][k] for (h, option) in hashed_options))
+            end
         end
-
-        return __reverse_map
+        for i in 1:n
+            if !isa(result_arguments[i], EitherOptions) && any(v isa AbductibleValue for v in result_arguments[i])
+                if is_set
+                    error("Abducting values for sets is not supported")
+                else
+                    result_arguments[i] = AbductibleValue(
+                        [v.value for v in result_arguments[i]],
+                        _rev_dep_map(first(result_arguments[i]).generator),
+                    )
+                end
+            end
+        end
+        return vcat([SkipArg()], reverse(result_arguments)), result_indices, result_vars
     end
 
     return [(_is_reversible_subfunction, _is_possible_subfunction)], _reverse_map
