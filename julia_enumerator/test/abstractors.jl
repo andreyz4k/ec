@@ -1366,6 +1366,107 @@ using DataStructures: OrderedDict, Accumulator
         )
     end
 
+    @testset "Reverse rev select" begin
+        skeleton = Apply(
+            Apply(
+                Apply(
+                    every_primitive["rev_select"],
+                    Abstraction(
+                        Apply(Apply(every_primitive["eq?"], Index(0)), Hole(t0, nothing, false, _is_possible_selector)),
+                    ),
+                ),
+                Hole(tlist(tcolor), nothing, true, nothing),
+            ),
+            Hole(tlist(tcolor), nothing, true, nothing),
+        )
+        @test is_reversible(skeleton)
+
+        p, _ = capture_free_vars(skeleton)
+
+        @test compare_options(
+            run_in_reverse(p, [1, 2, 1, 3, 2, 1]),
+            Dict(
+                UInt64(1) =>
+                    EitherOptions(Dict(0xa0664d92ec387436 => 3, 0x6711a85d77d098cf => 1, 0xfcd4cc2c187414b6 => 2)),
+                UInt64(2) => EitherOptions(
+                    Dict(
+                        0xa0664d92ec387436 =>
+                            PatternWrapper(Any[any_object, any_object, any_object, 3, any_object, any_object]),
+                        0x6711a85d77d098cf => PatternWrapper(Any[1, any_object, 1, any_object, any_object, 1]),
+                        0xfcd4cc2c187414b6 =>
+                            PatternWrapper(Any[any_object, 2, any_object, any_object, 2, any_object]),
+                    ),
+                ),
+                UInt64(3) => EitherOptions(
+                    Dict(
+                        0xa0664d92ec387436 => Any[1, 2, 1, nothing, 2, 1],
+                        0x6711a85d77d098cf => Any[nothing, 2, nothing, 3, 2, nothing],
+                        0xfcd4cc2c187414b6 => Any[1, nothing, 1, 3, nothing, 1],
+                    ),
+                ),
+            ),
+        )
+    end
+
+    @testset "Reverse rev select set" begin
+        skeleton = Apply(
+            Apply(
+                Apply(
+                    every_primitive["rev_select_set"],
+                    Abstraction(
+                        Apply(Apply(every_primitive["eq?"], Index(0)), Hole(t0, nothing, false, _is_possible_selector)),
+                    ),
+                ),
+                Hole(tset(tcolor), nothing, true, nothing),
+            ),
+            Hole(tset(tcolor), nothing, true, nothing),
+        )
+        @test is_reversible(skeleton)
+
+        p, _ = capture_free_vars(skeleton)
+
+        @test compare_options(
+            run_in_reverse(p, Set([1, 2, 3])),
+            Dict(
+                UInt64(1) =>
+                    EitherOptions(Dict(0x6711a85d77d098cf => 2, 0x7fec434e3caa5c07 => 1, 0xc99cccbee72d140a => 3)),
+                UInt64(2) => EitherOptions(
+                    Dict(
+                        0x6711a85d77d098cf => Set(Any[2]),
+                        0x7fec434e3caa5c07 => Set(Any[1]),
+                        0xc99cccbee72d140a => Set(Any[3]),
+                    ),
+                ),
+                UInt64(3) => EitherOptions(
+                    Dict(
+                        0x6711a85d77d098cf => Set(Any[3, 1]),
+                        0x7fec434e3caa5c07 => Set(Any[2, 3]),
+                        0xc99cccbee72d140a => Set(Any[2, 1]),
+                    ),
+                ),
+            ),
+        )
+    end
+
+    @testset "Reverse rev select with empty" begin
+        skeleton = Apply(
+            Apply(
+                Apply(every_primitive["rev_select"], Abstraction(Apply(every_primitive["empty?"], Index(0)))),
+                Hole(tlist(tlist(tint)), nothing, true, nothing),
+            ),
+            Hole(tlist(tlist(tint)), nothing, true, nothing),
+        )
+        @test is_reversible(skeleton)
+        p, _ = capture_free_vars(skeleton)
+
+        @test compare_options(
+            run_in_reverse(p, [[0, 1, 2], [], [0, 1, 2, 3]]),
+            Dict(
+                UInt64(1) => PatternWrapper([any_object, [], any_object]),
+                UInt64(2) => [[0, 1, 2], nothing, [0, 1, 2, 3]],
+            ),
+        )
+    end
 
     @testset "Invented abstractor" begin
         source = "#(lambda (lambda (repeat (cons \$1 \$0))))"
@@ -1476,6 +1577,34 @@ using DataStructures: OrderedDict, Accumulator
             run_in_reverse(p, [[[0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 3]], [[0, 1, 2], [0, 1, 2]]]),
             Dict(UInt64(1) => [4, 3], UInt64(2) => [4, 2]),
         )
+    end
+
+    @testset "Reversed map with rev_select" begin
+        skeleton = Apply(
+            Apply(
+                every_primitive["map"],
+                Abstraction(
+                    Apply(
+                        Apply(
+                            Apply(
+                                every_primitive["rev_select"],
+                                Abstraction(
+                                    Apply(
+                                        Apply(every_primitive["eq?"], Index(0)),
+                                        Hole(t1, nothing, false, _is_possible_selector),
+                                    ),
+                                ),
+                            ),
+                            Hole(tlist(tcolor), nothing, true, _is_possible_subfunction),
+                        ),
+                        Hole(tlist(tcolor), nothing, true, _is_possible_subfunction),
+                    ),
+                ),
+            ),
+            Hole(tlist(t0), nothing, true, nothing),
+        )
+
+        @test !is_reversible(skeleton)
     end
 
     @testset "Reverse list elements" begin

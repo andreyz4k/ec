@@ -66,84 +66,78 @@ function _is_possible_selector(p::FreeVar, from_input, skeleton, path)
 end
 
 function reverse_rev_select()
-    function _reverse_rev_select(arguments)
-        f = pop!(arguments)
-        rev_base = _get_reversed_program(pop!(arguments), arguments)
-        rev_others = _get_reversed_program(pop!(arguments), arguments)
+    function _reverse_rev_select(value, arguments)
+        f = arguments[end]
 
-        function __reverse_rev_select(value)::Vector{Any}
-            if isa(f, Abstraction) &&
-               isa(f.b, Apply) &&
-               isa(f.b.x, Hole) &&
-               isa(f.b.f, Apply) &&
-               f.b.f.f == every_primitive["eq?"]
-                options_selector = Dict()
-                options_base = Dict()
-                options_others = Dict()
-                checked_options = Set()
+        if isa(f, Abstraction) &&
+           isa(f.b, Apply) &&
+           (isa(f.b.x, FreeVar) || isa(f.b.x, Index)) &&
+           isa(f.b.f, Apply) &&
+           f.b.f.f == every_primitive["eq?"]
+            options_selector = Dict()
+            options_base = Dict()
+            options_others = Dict()
+            checked_options = Set()
 
-                selector = Abstraction(f.b.f.x)
+            selector = Abstraction(f.b.f.x)
 
-                for i in 1:length(value)
-                    selector_option = try_evaluate_program(selector, [value[i]], Dict())
-                    if in(selector_option, checked_options)
-                        continue
-                    end
-                    push!(checked_options, selector_option)
-                    results_base = Array{Any}(undef, size(value)...)
-                    results_others = Array{Any}(undef, size(value)...)
-                    for j in 1:length(value)
-                        if try_evaluate_program(selector, [value[j]], Dict()) == selector_option
-                            results_base[j] = value[j]
-                            results_others[j] = nothing
-                        else
-                            results_base[j] = any_object
-                            results_others[j] = value[j]
-                        end
-                    end
-                    option_hash = rand(UInt64)
-                    options_selector[option_hash] = selector_option
-                    options_base[option_hash] = PatternWrapper(results_base)
-                    options_others[option_hash] = results_others
+            for i in 1:length(value)
+                selector_option = try_evaluate_program(selector, [value[i]], Dict())
+                if in(selector_option, checked_options)
+                    continue
                 end
-
-                if length(options_selector) < 2
-                    error("All elements are equal according to selector")
-                end
-
-                out_selector = EitherOptions(options_selector)
-                out_base = EitherOptions(options_base)
-                out_others = EitherOptions(options_others)
-
-                return vcat([out_selector], rev_base(out_base), rev_others(out_others))
-            else
+                push!(checked_options, selector_option)
                 results_base = Array{Any}(undef, size(value)...)
                 results_others = Array{Any}(undef, size(value)...)
-                for i in 1:length(value)
-                    if try_evaluate_program(f, [value[i]], Dict())
-                        results_base[i] = value[i]
-                        results_others[i] = nothing
+                for j in 1:length(value)
+                    if try_evaluate_program(selector, [value[j]], Dict()) == selector_option
+                        results_base[j] = value[j]
+                        results_others[j] = nothing
                     else
-                        results_base[i] = any_object
-                        results_others[i] = value[i]
+                        results_base[j] = any_object
+                        results_others[j] = value[j]
                     end
                 end
-                if all(v == results_others[1] for v in results_others)
-                    error("All elements are equal according to selector")
-                end
-                return vcat(rev_base(PatternWrapper(results_base)), rev_others(results_others))
+                option_hash = rand(UInt64)
+                options_selector[option_hash] = selector_option
+                options_base[option_hash] = PatternWrapper(results_base)
+                options_others[option_hash] = results_others
             end
-        end
 
-        function __reverse_rev_select(value::EitherOptions)::Vector{Any}
-            _reverse_eithers(__reverse_rev_select, value)
-        end
+            if length(options_selector) < 2
+                error("All elements are equal according to selector")
+            end
 
-        function __reverse_rev_select(value::PatternWrapper)::Vector{Any}
-            _reverse_pattern(__reverse_rev_select, value)
-        end
+            out_selector = EitherOptions(options_selector)
+            out_base = EitherOptions(options_base)
+            out_others = EitherOptions(options_others)
 
-        return __reverse_rev_select
+            if isa(f.b.x, FreeVar)
+                result_vars = Dict(f.b.x.var_id => out_selector)
+                result_indices = Dict()
+            else
+                result_vars = Dict()
+                result_indices = Dict(f.b.x.n => out_selector)
+            end
+
+            return [SkipArg(), out_base, out_others], result_indices, result_vars
+        else
+            results_base = Array{Any}(undef, size(value)...)
+            results_others = Array{Any}(undef, size(value)...)
+            for i in 1:length(value)
+                if try_evaluate_program(f, [value[i]], Dict())
+                    results_base[i] = value[i]
+                    results_others[i] = nothing
+                else
+                    results_base[i] = any_object
+                    results_others[i] = value[i]
+                end
+            end
+            if all(v == results_others[1] for v in results_others)
+                error("All elements are equal according to selector")
+            end
+            return [SkipArg(), PatternWrapper(results_base), results_others], Dict(), Dict()
+        end
     end
     return [(is_reversible_selector, _is_possible_selector)], _reverse_rev_select
 end
@@ -171,81 +165,75 @@ function rev_select_set(base, others)
 end
 
 function reverse_rev_select_set()
-    function _reverse_rev_select(arguments)
-        f = pop!(arguments)
-        rev_base = _get_reversed_program(pop!(arguments), arguments)
-        rev_others = _get_reversed_program(pop!(arguments), arguments)
+    function _reverse_rev_select(value, arguments)
+        f = arguments[end]
 
-        function __reverse_rev_select(value)::Vector{Any}
-            if isa(f, Abstraction) &&
-               isa(f.b, Apply) &&
-               isa(f.b.x, Hole) &&
-               isa(f.b.f, Apply) &&
-               f.b.f.f == every_primitive["eq?"]
-                options_selector = Dict()
-                options_base = Dict()
-                options_others = Dict()
-                checked_options = Set()
+        if isa(f, Abstraction) &&
+           isa(f.b, Apply) &&
+           (isa(f.b.x, FreeVar) || isa(f.b.x, Index)) &&
+           isa(f.b.f, Apply) &&
+           f.b.f.f == every_primitive["eq?"]
+            options_selector = Dict()
+            options_base = Dict()
+            options_others = Dict()
+            checked_options = Set()
 
-                selector = Abstraction(f.b.f.x)
+            selector = Abstraction(f.b.f.x)
 
-                for val in value
-                    selector_option = try_evaluate_program(selector, [val], Dict())
-                    if in(selector_option, checked_options)
-                        continue
-                    end
-                    push!(checked_options, selector_option)
-                    results_base = Set()
-                    results_others = Set()
-                    for v in value
-                        if try_evaluate_program(selector, [v], Dict()) == selector_option
-                            push!(results_base, v)
-                        else
-                            push!(results_others, v)
-                        end
-                    end
-
-                    option_hash = rand(UInt64)
-                    options_selector[option_hash] = selector_option
-                    options_base[option_hash] = results_base
-                    options_others[option_hash] = results_others
+            for val in value
+                selector_option = try_evaluate_program(selector, [val], Dict())
+                if in(selector_option, checked_options)
+                    continue
                 end
-
-                if length(options_selector) < 2
-                    error("All elements are equal according to selector")
-                end
-
-                out_selector = EitherOptions(options_selector)
-                out_base = EitherOptions(options_base)
-                out_others = EitherOptions(options_others)
-
-                return vcat([out_selector], rev_base(out_base), rev_others(out_others))
-            else
+                push!(checked_options, selector_option)
                 results_base = Set()
                 results_others = Set()
                 for v in value
-                    if try_evaluate_program(f, [v], Dict())
+                    if try_evaluate_program(selector, [v], Dict()) == selector_option
                         push!(results_base, v)
                     else
                         push!(results_others, v)
                     end
                 end
-                if isempty(results_base) || isempty(results_others)
-                    error("All elements are equal according to selector")
-                end
-                return vcat(rev_base(results_base), rev_others(results_others))
+
+                option_hash = rand(UInt64)
+                options_selector[option_hash] = selector_option
+                options_base[option_hash] = results_base
+                options_others[option_hash] = results_others
             end
-        end
 
-        function __reverse_rev_select(value::EitherOptions)::Vector{Any}
-            _reverse_eithers(__reverse_rev_select, value)
-        end
+            if length(options_selector) < 2
+                error("All elements are equal according to selector")
+            end
 
-        function __reverse_rev_select(value::PatternWrapper)::Vector{Any}
-            _reverse_pattern(__reverse_rev_select, value)
-        end
+            out_selector = EitherOptions(options_selector)
+            out_base = EitherOptions(options_base)
+            out_others = EitherOptions(options_others)
 
-        return __reverse_rev_select
+            if isa(f.b.x, FreeVar)
+                result_vars = Dict(f.b.x.var_id => out_selector)
+                result_indices = Dict()
+            else
+                result_vars = Dict()
+                result_indices = Dict(f.b.x.n => out_selector)
+            end
+
+            return [SkipArg(), out_base, out_others], result_indices, result_vars
+        else
+            results_base = Set()
+            results_others = Set()
+            for v in value
+                if try_evaluate_program(f, [v], Dict())
+                    push!(results_base, v)
+                else
+                    push!(results_others, v)
+                end
+            end
+            if isempty(results_base) || isempty(results_others)
+                error("All elements are equal according to selector")
+            end
+            return [SkipArg(), results_base, results_others], Dict(), Dict()
+        end
     end
     return [(is_reversible_selector, _is_possible_selector)], _reverse_rev_select
 end
