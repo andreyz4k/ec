@@ -33,12 +33,15 @@ function reverse_map(n, is_set = false)
     function _reverse_map(value, arguments)
         f = arguments[end]
 
+        has_external_vars = _has_external_vars(f)
+
         if is_set
             output_options = Set{Tuple{Vector{Any},Dict,Dict}}([(Any[Set() for _ in 1:n], Dict(), Dict())])
         else
             output_options = Set{Tuple{Vector{Any},Dict,Dict}}([(Any[[] for _ in 1:n], Dict(), Dict())])
         end
 
+        first_item = true
         for item in value
             predicted_arguments, filled_indices, filled_vars = _run_in_reverse(f, item)
 
@@ -127,12 +130,16 @@ function reverse_map(n, is_set = false)
                     push!(new_options, option)
                 end
             end
+            first_item = false
             if isempty(new_options)
                 error("No valid options found")
             end
             output_options = new_options
         end
 
+        if first_item && has_external_vars
+            error("Couldn't fill external variables")
+        end
         if is_set
             for option in output_options
                 for val in option[1]

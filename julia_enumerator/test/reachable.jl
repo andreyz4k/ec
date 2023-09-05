@@ -526,13 +526,7 @@ using DataStructures
                     end
                 end
 
-                bl = ReverseProgramBlock(
-                    p.v,
-                    p.rev_v,
-                    0.0,
-                    [vars_mapping[p.inp_var_id]],
-                    [vars_mapping[v] for v in p.var_ids],
-                )
+                bl = ReverseProgramBlock(p.v, 0.0, [vars_mapping[p.inp_var_id]], [vars_mapping[v] for v in p.var_ids])
                 push!(blocks, bl)
                 p = p.b
             elseif p isa WrapEither
@@ -565,13 +559,7 @@ using DataStructures
                 end
 
                 bl = WrapEitherBlock(
-                    ReverseProgramBlock(
-                        p.v,
-                        p.rev_v,
-                        0.0,
-                        [vars_mapping[p.inp_var_id]],
-                        [vars_mapping[v] for v in p.var_ids],
-                    ),
+                    ReverseProgramBlock(p.v, 0.0, [vars_mapping[p.inp_var_id]], [vars_mapping[v] for v in p.var_ids]),
                     fixer_var,
                     0.0,
                     [vars_mapping[p.inp_var_id], fixer_var],
