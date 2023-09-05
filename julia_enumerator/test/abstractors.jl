@@ -2128,35 +2128,28 @@ using DataStructures: OrderedDict, Accumulator
         )
         @test is_reversible(skeleton)
 
-        rev_p = get_reversed_program(skeleton)
+        p, _ = capture_free_vars(skeleton)
 
         @test compare_options(
-            rev_p(Set([(1, Set([[1, 2, 3], [1, 4, 2]])), (2, Set([[2]]))])),
-            [
-                EitherOptions(
+            run_in_reverse(p, Set([(1, Set([[1, 2, 3], [1, 4, 2]])), (2, Set([[2]]))])),
+            Dict(
+                UInt64(1) => EitherOptions(
                     Dict{UInt64,Any}(
                         0x1c6ee62fbac1d45a => [2],
                         0x61176613c407e226 => [1, 4, 2],
                         0x52c032b6da5f6ae8 => [1, 2, 3],
                     ),
                 ),
-                EitherOptions(
+                UInt64(2) => EitherOptions(
                     Dict{UInt64,Any}(
                         0x1c6ee62fbac1d45a => Set([(1, Set([[1, 2, 3], [1, 4, 2]]))]),
                         0x61176613c407e226 => Set([(2, Set([[2]])), (1, Set([[1, 2, 3]]))]),
                         0x52c032b6da5f6ae8 => Set([(1, Set([[1, 4, 2]])), (2, Set([[2]]))]),
                     ),
                 ),
-            ],
+            ),
         )
 
-        p = Apply(
-            Apply(
-                Apply(every_primitive["rev_groupby"], Abstraction(Apply(every_primitive["car"], Index(0)))),
-                FreeVar(tlist(tint), UInt64(1)),
-            ),
-            FreeVar(tset(ttuple2(tint, tset(tlist(tint)))), UInt64(2)),
-        )
         @test run_with_arguments(
             p,
             [],
@@ -2192,35 +2185,11 @@ using DataStructures: OrderedDict, Accumulator
         )
         @test is_reversible(skeleton)
 
-        rev_p = get_reversed_program(skeleton)
+        p, _ = capture_free_vars(skeleton)
 
         @test compare_options(
-            rev_p(Set([[1, 2, 3], [1, 4, 2], [2]])),
-            [Set([(1, Set([[1, 2, 3], [1, 4, 2]])), (2, Set([[2]]))])],
-        )
-
-        p = Apply(
-            Apply(
-                Apply(
-                    every_primitive["rev_fold_set"],
-                    Abstraction(
-                        Abstraction(
-                            Apply(
-                                Apply(
-                                    Apply(
-                                        every_primitive["rev_groupby"],
-                                        Abstraction(Apply(every_primitive["car"], Index(0))),
-                                    ),
-                                    Index(1),
-                                ),
-                                Index(0),
-                            ),
-                        ),
-                    ),
-                ),
-                every_primitive["empty_set"],
-            ),
-            FreeVar(tset(tlist(tint)), UInt64(1)),
+            run_in_reverse(p, Set([[1, 2, 3], [1, 4, 2], [2]])),
+            Dict(UInt64(1) => Set([(1, Set([[1, 2, 3], [1, 4, 2]])), (2, Set([[2]]))])),
         )
 
         @test run_with_arguments(p, [], Dict(UInt64(1) => Set([(1, Set([[1, 2, 3], [1, 4, 2]])), (2, Set([[2]]))]))) ==
