@@ -96,11 +96,10 @@ struct LetRevClause <: Program
     var_ids::Vector{UInt64}
     inp_var_id::Union{UInt64,String}
     v::Program
-    rev_v::Any
     b::Program
     hash_value::UInt64
-    LetRevClause(var_ids::Vector{UInt64}, inp_var_id::Union{UInt64,String}, v::Program, rev_v, b::Program) =
-        new(var_ids, inp_var_id, v, rev_v, b, hash(var_ids, hash(inp_var_id, hash(v, hash(b)))))
+    LetRevClause(var_ids::Vector{UInt64}, inp_var_id::Union{UInt64,String}, v::Program, b::Program) =
+        new(var_ids, inp_var_id, v, b, hash(var_ids, hash(inp_var_id, hash(v, hash(b)))))
 end
 Base.:(==)(p::LetRevClause, q::LetRevClause) =
     p.var_ids == q.var_ids && p.inp_var_id == q.inp_var_id && p.v == q.v && p.b == q.b
@@ -110,7 +109,6 @@ struct WrapEither <: Program
     inp_var_id::Union{UInt64,String}
     fixer_var_id::UInt64
     v::Program
-    rev_v::Any
     f::FreeVar
     b::Program
     hash_value::UInt64
@@ -119,7 +117,6 @@ struct WrapEither <: Program
         inp_var_id::Union{UInt64,String},
         fixer_var_id::UInt64,
         v::Program,
-        rev_v,
         f::FreeVar,
         b::Program,
     ) = new(
@@ -127,7 +124,6 @@ struct WrapEither <: Program
         inp_var_id,
         fixer_var_id,
         v,
-        rev_v,
         f,
         b,
         hash(var_ids, hash(inp_var_id, hash(fixer_var_id, hash(v, hash(f, hash(b)))))),
@@ -234,7 +230,6 @@ Base.hash(block::ProgramBlock, h::UInt64) =
 
 struct ReverseProgramBlock <: AbstractProgramBlock
     p::Program
-    reverse_program::Any
     cost::Float64
     input_vars::Vector{UInt64}
     output_vars::Vector{UInt64}
@@ -359,7 +354,7 @@ parse_let_rev_clause =
     P" = " +
     _parse_program +
     P"\) in " +
-    _parse_program |> (v -> LetRevClause(v[1], v[2], v[3], nothing, v[4]))
+    _parse_program |> (v -> LetRevClause(v[1], v[2], v[3], v[4]))
 
 parse_object = Delayed()
 parse_object.matcher =
@@ -384,7 +379,7 @@ parse_wrap_either_clause =
     P" = " +
     _parse_program +
     P"\) in " +
-    _parse_program |> (v -> WrapEither(v[1], v[3], v[5], v[4], nothing, v[6], v[7]))
+    _parse_program |> (v -> WrapEither(v[1], v[3], v[5], v[4], v[6], v[7]))
 
 _parse_program.matcher =
     parse_application |
@@ -538,9 +533,9 @@ function (p::LetClause)(environment, workspace)
 end
 
 function (p::LetRevClause)(environment, workspace)
-    vals = p.rev_v(workspace[p.inp_var_id])
-    for i in 1:length(p.var_ids)
-        workspace[p.var_ids[i]] = vals[i]
+    vals = run_in_reverse(p.v, workspace[p.inp_var_id])
+    for (k, v) in vals
+        workspace[k] = v
     end
     b = p.b(environment, workspace)
     for var_id in p.var_ids
@@ -550,14 +545,14 @@ function (p::LetRevClause)(environment, workspace)
 end
 
 function (p::WrapEither)(environment, workspace)
-    vals = p.rev_v(workspace[p.inp_var_id])
+    vals = run_in_reverse(p.v, workspace[p.inp_var_id])
     unfixed_vals = Dict()
-    for i in 1:length(p.var_ids)
-        unfixed_vals[p.var_ids[i]] = vals[i]
+    for (k, v) in vals
+        unfixed_vals[k] = v
     end
     fixed_val = p.f(environment, workspace)
 
-    fixed_hashes = [get_fixed_hashes(unfixed_vals[p.fixer_var_id], fixed_val)]
+    fixed_hashes = get_fixed_hashes(unfixed_vals[p.fixer_var_id], fixed_val)
 
     fixed_values = Dict()
     for (var_id, target_value) in unfixed_vals

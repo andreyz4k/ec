@@ -268,10 +268,6 @@ function capture_free_vars(sc::SolutionContext, p::Union{Hole,FreeVar}, context)
     FreeVar(t, var_id), [(var_id, t)]
 end
 
-function try_run_reversed_with_value(reverse_program::Function, value, new_vars_count)
-    try_run_function(reverse_program, [value])
-end
-
 function check_reversed_program_forward(p, vars, inputs, expected_output)
     if any(isa(v, EitherOptions) for v in inputs)
         either_val = first(v for v in inputs if isa(v, EitherOptions))
@@ -313,15 +309,14 @@ function check_reversed_program_forward(p, vars, inputs, expected_output)
 end
 
 function try_get_reversed_values(sc::SolutionContext, p::Program, context, path, output_branch_id, cost, is_known)
-    reverse_program = get_reversed_program(p)
     out_entry = sc.entries[sc.branch_entries[output_branch_id]]
 
     new_p, new_vars = capture_free_vars(sc, p, context)
     new_vars_count = length(new_vars)
 
-    calculated_values = [[] for _ in 1:new_vars_count]
+    calculated_values = DefaultDict(() -> [])
     for value in out_entry.values
-        calculated_value = try_run_reversed_with_value(reverse_program, value, new_vars_count)
+        calculated_value = try_run_function(run_in_reverse, [new_p, value])
         if length(calculated_value) != new_vars_count
             @warn p
             @warn new_p
@@ -330,26 +325,25 @@ function try_get_reversed_values(sc::SolutionContext, p::Program, context, path,
             @warn calculated_value
         end
         # check_reversed_program_forward(new_p, new_vars, calculated_value, value)
-        for i in 1:new_vars_count
-            push!(calculated_values[i], calculated_value[i])
+        for (k, v) in calculated_value
+            push!(calculated_values[k], v)
         end
     end
 
     new_entries = []
 
-    for i in 1:new_vars_count
-        var_id, t = new_vars[i]
-        values = calculated_values[i]
-        complexity_summary = get_complexity_summary(values, t)
+    for (var_id, vals) in calculated_values
+        t = first([t_ for (v_id, t_) in new_vars if v_id == var_id])
+        complexity_summary = get_complexity_summary(vals, t)
         t_id = push!(sc.types, t)
-        if any(isa(value, EitherOptions) for value in values)
-            new_entry = EitherEntry(t_id, values, complexity_summary, get_complexity(sc, complexity_summary))
-        elseif any(isa(value, PatternWrapper) for value in values)
-            new_entry = PatternEntry(t_id, values, complexity_summary, get_complexity(sc, complexity_summary))
-        elseif any(isa(value, AbductibleValue) for value in values)
-            new_entry = AbductibleEntry(t_id, values, complexity_summary, get_complexity(sc, complexity_summary))
+        if any(isa(value, EitherOptions) for value in vals)
+            new_entry = EitherEntry(t_id, vals, complexity_summary, get_complexity(sc, complexity_summary))
+        elseif any(isa(value, PatternWrapper) for value in vals)
+            new_entry = PatternEntry(t_id, vals, complexity_summary, get_complexity(sc, complexity_summary))
+        elseif any(isa(value, AbductibleValue) for value in vals)
+            new_entry = AbductibleEntry(t_id, vals, complexity_summary, get_complexity(sc, complexity_summary))
         else
-            new_entry = ValueEntry(t_id, values, complexity_summary, get_complexity(sc, complexity_summary))
+            new_entry = ValueEntry(t_id, vals, complexity_summary, get_complexity(sc, complexity_summary))
         end
         if new_entry == out_entry
             throw(EnumerationException())
@@ -429,15 +423,11 @@ function try_get_reversed_values(sc::SolutionContext, p::Program, context, path,
         end
     end
 
-    return new_p,
-    reverse_program,
-    new_branches,
-    vcat(either_var_ids, abductible_var_ids),
-    vcat(either_branch_ids, abductible_branch_ids)
+    return new_p, new_branches, vcat(either_var_ids, abductible_var_ids), vcat(either_branch_ids, abductible_branch_ids)
 end
 
 function try_get_reversed_inputs(sc, p::Program, context, path, output_branch_id, cost)
-    new_p, _, inputs, _, _ = try_get_reversed_values(sc, p, context, path, output_branch_id, cost, false)
+    new_p, inputs, _, _ = try_get_reversed_values(sc, p, context, path, output_branch_id, cost, false)
     return new_p, inputs
 end
 
@@ -482,9 +472,9 @@ function create_wrapping_block(
 end
 
 function create_reversed_block(sc::SolutionContext, p::Program, context, path, input_var::Tuple{UInt64,UInt64}, cost)
-    new_p, reverse_program, output_vars, either_var_ids, either_branch_ids =
+    new_p, output_vars, either_var_ids, either_branch_ids =
         try_get_reversed_values(sc, p, context, path, input_var[2], cost, true)
-    block = ReverseProgramBlock(new_p, reverse_program, cost, [input_var[1]], [v_id for (v_id, _, _) in output_vars])
+    block = ReverseProgramBlock(new_p, cost, [input_var[1]], [v_id for (v_id, _, _) in output_vars])
     if isempty(either_var_ids)
         block_id = push!(sc.blocks, block)
         return [(
@@ -610,21 +600,14 @@ function try_run_block(
         end
     end
 
-    out_entries = []
-    outputs_count = length(block.output_vars)
+    out_entries = Dict(var_id => sc.entries[sc.branch_entries[target_output[var_id]]] for var_id in block.output_vars)
 
-    for var_id in block.output_vars
-        out_branch_id = target_output[var_id]
-        expected_output = sc.entries[sc.branch_entries[out_branch_id]]
-        push!(out_entries, expected_output)
-    end
-
-    outs = Vector{Any}[[] for _ in 1:outputs_count]
+    outs = DefaultDict(() -> [])
 
     for i in 1:sc.example_count
         xs = inputs[i]
         out_values = try
-            try_run_function(block.reverse_program, xs)
+            try_run_function(run_in_reverse, vcat([block.p], xs))
         catch e
             @error xs
             @error block.p
@@ -633,15 +616,23 @@ function try_run_block(
         if isnothing(out_values)
             throw(EnumerationException())
         end
-        for j in 1:outputs_count
-            v = out_values[j]
-            if !match_at_index(out_entries[j], i, v)
+        for (v_id, v) in out_values
+            if !match_at_index(out_entries[v_id], i, v)
                 throw(EnumerationException())
             end
-            push!(outs[j], v)
+            push!(outs[v_id], v)
         end
     end
-    return value_updates(sc, block, block_id, target_output, outs, fixed_branches, is_new_block, created_paths)
+    return value_updates(
+        sc,
+        block,
+        block_id,
+        target_output,
+        [outs[v_id] for v_id in block.output_vars],
+        fixed_branches,
+        is_new_block,
+        created_paths,
+    )
 end
 
 function try_run_block(
@@ -669,12 +660,12 @@ function try_run_block(
 
     outputs_count = length(block.output_vars)
 
-    outs = Vector{Any}[[] for _ in 1:outputs_count]
+    outs = DefaultDict(() -> [])
 
     for i in 1:sc.example_count
         xs = inputs[i]
         out_values = try
-            try_run_function(main_block.reverse_program, xs)
+            try_run_function(run_in_reverse, vcat([main_block.p], xs))
         catch e
             @error xs
             @error main_block.p
@@ -683,22 +674,21 @@ function try_run_block(
         if isnothing(out_values)
             throw(EnumerationException())
         end
-        for j in 1:outputs_count
-            push!(outs[j], out_values[j])
+        for (v_id, v) in out_values
+            push!(outs[v_id], v)
         end
     end
 
     fixer_branch_id = fixed_branches[block.input_vars[2]]
     fixer_entry = sc.entries[sc.branch_entries[fixer_branch_id]]
-    fixer_index = findfirst(isequal(block.fixer_var), block.output_vars)
 
-    fixed_hashes = [get_fixed_hashes(outs[fixer_index][j], fixer_entry.values[j]) for j in 1:sc.example_count]
+    fixed_hashes = [get_fixed_hashes(outs[block.fixer_var][j], fixer_entry.values[j]) for j in 1:sc.example_count]
 
     outputs = Vector{Any}[]
     for i in 1:outputs_count
         var_id = block.output_vars[i]
-        target_values = outs[i]
-        if i == fixer_index
+        target_values = outs[var_id]
+        if var_id == block.fixer_var
             fixed_values = fixer_entry.values
         else
             fixed_values = _fix_option_hashes(fixed_hashes, target_values)

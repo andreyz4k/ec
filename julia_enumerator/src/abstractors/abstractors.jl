@@ -305,29 +305,32 @@ function _run_in_reverse(
     filled_indices_options = DefaultDict(() -> Dict())
     filled_vars_options = DefaultDict(() -> Dict())
     for (h, val) in output.options
-        new_args, new_filled_indices, new_filled_vars = all_abstractors[p][2](val, arguments)
         fixed_hashes = Set([h])
+        op_predicted_arguments = [fix_option_hashes(fixed_hashes, v) for v in predicted_arguments]
+        op_filled_indices = Dict(i => fix_option_hashes(fixed_hashes, v) for (i, v) in filled_indices)
+        op_filled_vars = Dict(k => fix_option_hashes(fixed_hashes, v) for (k, v) in filled_vars)
+
+        new_args, new_filled_indices, new_filled_vars =
+            _run_in_reverse(p, val, arguments, op_predicted_arguments, op_filled_indices, op_filled_vars)
 
         predicted_arguments_op, filled_indices_op, filled_vars_op, new_args, new_filled_indices, new_filled_vars =
             _intersect_values(
-                [fix_option_hashes(fixed_hashes, v) for v in predicted_arguments],
-                Dict(i => fix_option_hashes(fixed_hashes, v) for (i, v) in filled_indices),
-                Dict(k => fix_option_hashes(fixed_hashes, v) for (k, v) in filled_vars),
+                op_predicted_arguments,
+                op_filled_indices,
+                op_filled_vars,
                 new_args,
                 new_filled_indices,
                 new_filled_vars,
             )
 
         if isempty(arguments_options)
-            for _ in 1:(length(predicted_arguments)+length(new_args))
+            for _ in 1:(length(new_args))
                 push!(arguments_options, Dict())
             end
         end
-        for i in 1:length(predicted_arguments)
-            arguments_options[i][h] = predicted_arguments_op[i]
-        end
+
         for i in 1:length(new_args)
-            arguments_options[end-i+1][h] = new_args[i]
+            arguments_options[i][h] = new_args[i]
         end
         for (i, v) in filled_indices_op
             filled_indices_options[i][h] = v
@@ -385,7 +388,8 @@ function _run_in_reverse(
     filled_indices,
     filled_vars,
 )
-    new_args, new_filled_indices, new_filled_vars = all_abstractors[p][2](output.value, arguments)
+    new_args, new_filled_indices, new_filled_vars =
+        _run_in_reverse(p, output.value, arguments, predicted_arguments, filled_indices, filled_vars)
 
     predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars = _intersect_values(
         predicted_arguments,
@@ -406,7 +410,7 @@ function _run_in_reverse(
     for out in new_args
         push!(results, _wrap_wildcard(out))
     end
-    return vcat(predicted_arguments, reverse(results)), filled_indices, filled_vars
+    return results, filled_indices, filled_vars
 end
 
 function _run_in_reverse(
@@ -645,25 +649,8 @@ __get_var_indices(p::Invented) = []
 __get_var_indices(p::Apply) = vcat(__get_var_indices(p.f), __get_var_indices(p.x))
 __get_var_indices(p::Abstraction) = [((i > 0) ? (i - 1) : i) for i in __get_var_indices(p.b) if (i > 0 || i == -1)]
 
-function _get_var_indices(f, n)
-    raw_indices_mapping = __get_var_indices(f)
-    external_vars = 0
-    for i in raw_indices_mapping
-        if i == -1 || i > n - 1
-            external_vars += 1
-        end
-    end
-    indices_mapping = []
-    marked_external = 0
-    for i in raw_indices_mapping
-        if i == -1 || i > n - 1
-            marked_external += 1
-            push!(indices_mapping, marked_external)
-        else
-            push!(indices_mapping, external_vars + n - i)
-        end
-    end
-    return indices_mapping, external_vars
+function _has_external_vars(f)
+    return !isempty(__get_var_indices(f))
 end
 
 function _calculate_dependent_vars(p::Invented, inputs, output, arguments, updates)

@@ -101,6 +101,8 @@ function reverse_fold(is_set = false)
     function _reverse_fold(value, arguments)
         f = arguments[end]
 
+        has_external_vars = _has_external_vars(f)
+
         options = Dict()
         if is_set
             itr = Set()
@@ -121,11 +123,11 @@ function reverse_fold(is_set = false)
 
                 itr, acc = option[1]
 
-                predicted_arguments, filled_indices, filled_vars = _run_in_reverse(f, acc)
-
-                if (isempty(option[2]) && !isempty(filled_indices)) || (isempty(option[3]) && !isempty(filled_vars))
+                if isempty(option[2]) && isempty(option[3]) && has_external_vars
                     delete!(options, h)
                 end
+
+                predicted_arguments, filled_indices, filled_vars = _run_in_reverse(f, acc)
 
                 for (option_args, option_indices, option_vars) in
                     unfold_options(predicted_arguments, filled_indices, filled_vars)
@@ -236,6 +238,8 @@ function reverse_fold_grid(dim)
     function _reverse_fold(value, arguments)
         f = arguments[end]
 
+        has_external_vars = _has_external_vars(f)
+
         options = Dict()
         if dim == 1
             grid = Array{Any}(undef, length(value), 0)
@@ -258,6 +262,10 @@ function reverse_fold_grid(dim)
                 grid, acc = option[1]
                 indices = option[2]
                 vars = option[3]
+
+                if isempty(option[2]) && isempty(option[3]) && has_external_vars
+                    delete!(options, h)
+                end
 
                 new_options = [([[], []], indices, vars)]
 
