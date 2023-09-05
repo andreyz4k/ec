@@ -34,7 +34,7 @@ using solver:
     ttuple2,
     ttuple3,
     tset,
-    unfold_options,
+    fix_option_hashes,
     match_at_index,
     PatternEntry,
     PatternWrapper,
@@ -46,6 +46,23 @@ using solver:
 using DataStructures: OrderedDict, Accumulator
 
 @testset "Abstractors" begin
+    function unfold_options(options::Dict)
+        if all(x -> !isa(x, EitherOptions), values(options))
+            return [options]
+        end
+        result = []
+        for (i, item) in options
+            if isa(item, EitherOptions)
+                for (h, val) in item.options
+                    new_option = Dict(k => fix_option_hashes([h], v) for (k, v) in options)
+                    append!(result, unfold_options(new_option))
+                end
+                break
+            end
+        end
+        return result
+    end
+
     function compare_options(options, expected)
         if Set(unfold_options(options)) != Set(unfold_options(expected))
             @error options
@@ -1592,20 +1609,10 @@ using DataStructures: OrderedDict, Accumulator
         )
         @test is_reversible(skeleton)
 
-        rev_p = get_reversed_program(skeleton)
+        p, _ = capture_free_vars(skeleton)
 
-        @test compare_options(rev_p([2, 4, 1, 4, 1]), [[1, 4, 1, 4, 2]])
+        @test compare_options(run_in_reverse(p, [2, 4, 1, 4, 1]), Dict(UInt64(1) => [1, 4, 1, 4, 2]))
 
-        p = Apply(
-            Apply(
-                Apply(
-                    every_primitive["rev_fold"],
-                    Abstraction(Abstraction(Apply(Apply(every_primitive["cons"], Index(1)), Index(0)))),
-                ),
-                every_primitive["empty"],
-            ),
-            FreeVar(tlist(tint), UInt64(1)),
-        )
         @test run_with_arguments(p, [], Dict(UInt64(1) => [1, 4, 1, 4, 2])) == [2, 4, 1, 4, 1]
     end
 
@@ -1622,12 +1629,12 @@ using DataStructures: OrderedDict, Accumulator
         )
         @test is_reversible(skeleton)
 
-        rev_p = get_reversed_program(skeleton)
+        p, _ = capture_free_vars(skeleton)
 
         @test compare_options(
-            rev_p([2, 4, 1, 4, 1]),
-            [
-                EitherOptions(
+            run_in_reverse(p, [2, 4, 1, 4, 1]),
+            Dict(
+                UInt64(1) => EitherOptions(
                     Dict{UInt64,Any}(
                         0x5a93e9ec4bc05a56 => Any[2, 4],
                         0x6a7634569af3396c => Any[2, 4, 1, 4],
@@ -1637,7 +1644,7 @@ using DataStructures: OrderedDict, Accumulator
                         0x8c2b7a5e76148bda => Any[2, 4, 1],
                     ),
                 ),
-                EitherOptions(
+                UInt64(2) => EitherOptions(
                     Dict{UInt64,Any}(
                         0x5a93e9ec4bc05a56 => Any[1, 4, 1],
                         0x6a7634569af3396c => Any[1],
@@ -1647,19 +1654,9 @@ using DataStructures: OrderedDict, Accumulator
                         0x8c2b7a5e76148bda => Any[4, 1],
                     ),
                 ),
-            ],
+            ),
         )
 
-        p = Apply(
-            Apply(
-                Apply(
-                    every_primitive["fold"],
-                    Abstraction(Abstraction(Apply(Apply(every_primitive["cons"], Index(1)), Index(0)))),
-                ),
-                FreeVar(tlist(tint), UInt64(1)),
-            ),
-            FreeVar(tlist(tint), UInt64(2)),
-        )
         @test run_with_arguments(p, [], Dict(UInt64(1) => [1, 4, 1, 4, 2], UInt64(2) => [])) == [1, 4, 1, 4, 2]
     end
 
@@ -1719,12 +1716,12 @@ using DataStructures: OrderedDict, Accumulator
         )
         @test is_reversible(skeleton)
 
-        rev_p = get_reversed_program(skeleton)
+        p, _ = capture_free_vars(skeleton)
 
         @test compare_options(
-            rev_p(Set([2, 4, 1, 6, 9])),
-            [
-                EitherOptions(
+            run_in_reverse(p, Set([2, 4, 1, 6, 9])),
+            Dict(
+                UInt64(1) => EitherOptions(
                     Dict{UInt64,Any}(
                         0x165848f11efe26a6 => Set(Any[9, 1]),
                         0x1dca63b72383214d => Set(Any[6, 2]),
@@ -1760,7 +1757,7 @@ using DataStructures: OrderedDict, Accumulator
                         0x705e4c787e636ea1 => Set(Any[4, 9]),
                     ),
                 ),
-                EitherOptions(
+                UInt64(2) => EitherOptions(
                     Dict{UInt64,Any}(
                         0x165848f11efe26a6 => Set([4, 6, 2]),
                         0x1dca63b72383214d => Set([4, 9, 1]),
@@ -1796,18 +1793,9 @@ using DataStructures: OrderedDict, Accumulator
                         0x705e4c787e636ea1 => Set([6, 2, 1]),
                     ),
                 ),
-            ],
-        )
-        p = Apply(
-            Apply(
-                Apply(
-                    every_primitive["fold_set"],
-                    Abstraction(Abstraction(Apply(Apply(every_primitive["adjoin"], Index(1)), Index(0)))),
-                ),
-                FreeVar(tset(tint), UInt64(1)),
             ),
-            FreeVar(tlist(tint), UInt64(2)),
         )
+
         @test run_with_arguments(p, [], Dict(UInt64(1) => Set([1, 4]), UInt64(2) => Set([2, 6, 9]))) ==
               Set([2, 4, 1, 6, 9])
     end
@@ -1825,12 +1813,12 @@ using DataStructures: OrderedDict, Accumulator
         )
         @test is_reversible(skeleton)
 
-        rev_p = get_reversed_program(skeleton)
+        p, _ = capture_free_vars(skeleton)
 
         @test compare_options(
-            rev_p([2, 4, 1, 4, 1]),
-            [
-                EitherOptions(
+            run_in_reverse(p, [2, 4, 1, 4, 1]),
+            Dict(
+                UInt64(1) => EitherOptions(
                     Dict{UInt64,Any}(
                         0x6dd1aa195a066bdf => Any[Any[2, 4], Any[1, 4], Any[1]],
                         0xb6ad491e11602fb6 => Any[Any[2], Any[4, 1, 4, 1]],
@@ -1866,7 +1854,7 @@ using DataStructures: OrderedDict, Accumulator
                         0x35ebedd40c9a88df => Any[Any[2, 4], Any[1], Any[4]],
                     ),
                 ),
-                EitherOptions(
+                UInt64(2) => EitherOptions(
                     Dict{UInt64,Any}(
                         0x6dd1aa195a066bdf => Any[],
                         0xb6ad491e11602fb6 => Any[],
@@ -1902,19 +1890,9 @@ using DataStructures: OrderedDict, Accumulator
                         0x35ebedd40c9a88df => Any[1],
                     ),
                 ),
-            ],
+            ),
         )
 
-        p = Apply(
-            Apply(
-                Apply(
-                    every_primitive["fold"],
-                    Abstraction(Abstraction(Apply(Apply(every_primitive["concat"], Index(1)), Index(0)))),
-                ),
-                FreeVar(tlist(tlist(tint)), UInt64(1)),
-            ),
-            FreeVar(tlist(tint), UInt64(2)),
-        )
         @test run_with_arguments(p, [], Dict(UInt64(1) => [[1, 4, 1, 4, 2], [3, 5, 2, 5]], UInt64(2) => [])) ==
               [1, 4, 1, 4, 2, 3, 5, 2, 5]
     end
@@ -1932,12 +1910,12 @@ using DataStructures: OrderedDict, Accumulator
         )
         @test is_reversible(skeleton)
 
-        rev_p = get_reversed_program(skeleton)
+        p, _ = capture_free_vars(skeleton)
 
         @test compare_options(
-            rev_p([[1, 3, 9], [4, 6, 1], [1, 1, 4], [4, 5, 0], [2, 2, 4]]),
-            [
-                EitherOptions(
+            run_in_reverse(p, [[1, 3, 9], [4, 6, 1], [1, 1, 4], [4, 5, 0], [2, 2, 4]]),
+            Dict(
+                UInt64(1) => EitherOptions(
                     Dict{UInt64,Any}(
                         0x412daf04220dbd95 => Any[1 3 9; 4 6 1; 1 1 4; 4 5 0; 2 2 4],
                         0x1676212d88803b6a => Any[1 3; 4 6; 1 1; 4 5; 2 2],
@@ -1945,7 +1923,7 @@ using DataStructures: OrderedDict, Accumulator
                         0x48834f8b9af8b495 => Matrix{Any}(undef, 5, 0),
                     ),
                 ),
-                EitherOptions(
+                UInt64(2) => EitherOptions(
                     Dict{UInt64,Any}(
                         0x412daf04220dbd95 => Any[Int64[], Int64[], Int64[], Int64[], Int64[]],
                         0x1676212d88803b6a => Any[[9], [1], [4], [0], [4]],
@@ -1953,19 +1931,9 @@ using DataStructures: OrderedDict, Accumulator
                         0x48834f8b9af8b495 => [[1, 3, 9], [4, 6, 1], [1, 1, 4], [4, 5, 0], [2, 2, 4]],
                     ),
                 ),
-            ],
+            ),
         )
 
-        p = Apply(
-            Apply(
-                Apply(
-                    every_primitive["fold_h"],
-                    Abstraction(Abstraction(Apply(Apply(every_primitive["cons"], Index(1)), Index(0)))),
-                ),
-                FreeVar(tgrid(tint), UInt64(1)),
-            ),
-            FreeVar(tlist(tlist(tint)), UInt64(2)),
-        )
         @test run_with_arguments(
             p,
             [],
@@ -1986,12 +1954,12 @@ using DataStructures: OrderedDict, Accumulator
         )
         @test is_reversible(skeleton)
 
-        rev_p = get_reversed_program(skeleton)
+        p, _ = capture_free_vars(skeleton)
 
         @test compare_options(
-            rev_p([[1, 4, 1, 4, 2], [3, 6, 1, 5, 2], [9, 1, 4, 0, 4]]),
-            [
-                EitherOptions(
+            run_in_reverse(p, [[1, 4, 1, 4, 2], [3, 6, 1, 5, 2], [9, 1, 4, 0, 4]]),
+            Dict(
+                UInt64(1) => EitherOptions(
                     Dict{UInt64,Any}(
                         0x1052d159da118660 => Matrix{Any}(undef, 0, 3),
                         0x458556b23e850c49 => Any[1 3 9],
@@ -2001,7 +1969,7 @@ using DataStructures: OrderedDict, Accumulator
                         0x0b8058b5a72803e8 => Any[1 3 9; 4 6 1; 1 1 4; 4 5 0; 2 2 4],
                     ),
                 ),
-                EitherOptions(
+                UInt64(2) => EitherOptions(
                     Dict{UInt64,Any}(
                         0x1052d159da118660 => [[1, 4, 1, 4, 2], [3, 6, 1, 5, 2], [9, 1, 4, 0, 4]],
                         0x458556b23e850c49 => Any[[4, 1, 4, 2], [6, 1, 5, 2], [1, 4, 0, 4]],
@@ -2011,18 +1979,7 @@ using DataStructures: OrderedDict, Accumulator
                         0x0b8058b5a72803e8 => Any[Int64[], Int64[], Int64[]],
                     ),
                 ),
-            ],
-        )
-
-        p = Apply(
-            Apply(
-                Apply(
-                    every_primitive["fold_v"],
-                    Abstraction(Abstraction(Apply(Apply(every_primitive["cons"], Index(1)), Index(0)))),
-                ),
-                FreeVar(tgrid(tint), UInt64(1)),
             ),
-            FreeVar(tlist(tlist(tint)), UInt64(2)),
         )
 
         @test run_with_arguments(

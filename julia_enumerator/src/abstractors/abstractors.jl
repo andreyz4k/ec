@@ -452,6 +452,9 @@ function _run_in_reverse(p::Apply, output, arguments, predicted_arguments, fille
         _run_in_reverse(p.f, output, arguments, predicted_arguments, filled_indices, filled_vars)
     pop!(arguments)
     arg_target = pop!(predicted_arguments)
+    if arg_target isa SkipArg
+        return predicted_arguments, filled_indices, filled_vars
+    end
     return _run_in_reverse(p.x, arg_target, arguments, predicted_arguments, filled_indices, filled_vars)
 end
 
@@ -487,10 +490,6 @@ function _run_in_reverse(p::Abstraction, output, arguments, predicted_arguments,
     push!(predicted_arguments, filled_indices[0])
     delete!(filled_indices, 0)
     return predicted_arguments, Dict(i - 1 => v for (i, v) in filled_indices), filled_vars
-end
-
-function _run_in_reverse(p::Abstraction, output::SkipArg, arguments, predicted_arguments, filled_indices, filled_vars)
-    return predicted_arguments, filled_indices, filled_vars
 end
 
 function _run_in_reverse(p::Program, output)
