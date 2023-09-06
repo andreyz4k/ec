@@ -439,13 +439,13 @@ end
         v1_var_id::UInt64 = 3
         v2_var_id::UInt64 = 4
 
-        v1_branch_id::UInt64 = 4
-        v2_branch_id::UInt64 = 3
+        v1_branch_id::UInt64 = 3
+        v2_branch_id::UInt64 = 4
 
         constraint_id::UInt64 = 1
         @test sc.constrained_contexts[constraint_id] === nothing
 
-        @test sc.branch_entries[v1_branch_id] == 4
+        @test sc.branch_entries[v1_branch_id] == 3
         @test sc.branch_vars[v1_branch_id] == v1_var_id
         @test get_connected_from(sc.branch_types, v1_branch_id) == get_connected_from(sc.branch_types, inp_branch_id)
         @test isempty(get_connected_from(sc.branch_children, v1_branch_id))
@@ -467,7 +467,7 @@ end
         @test length(get_connected_from(sc.related_unknown_complexity_branches, v1_branch_id)) == 1
         @test sc.related_unknown_complexity_branches[v1_branch_id, v2_branch_id] == true
 
-        @test sc.branch_entries[v2_branch_id] == 3
+        @test sc.branch_entries[v2_branch_id] == 4
         @test sc.branch_vars[v2_branch_id] == v2_var_id
         @test get_connected_from(sc.branch_types, v2_branch_id) == get_connected_from(sc.branch_types, inp_branch_id)
         @test isempty(get_connected_from(sc.branch_children, v2_branch_id))
