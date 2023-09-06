@@ -332,8 +332,8 @@ function try_get_reversed_values(sc::SolutionContext, p::Program, context, path,
 
     new_entries = []
 
-    for (var_id, vals) in calculated_values
-        t = first([t_ for (v_id, t_) in new_vars if v_id == var_id])
+    for (var_id, t) in new_vars
+        vals = calculated_values[var_id]
         complexity_summary = get_complexity_summary(vals, t)
         t_id = push!(sc.types, t)
         if any(isa(value, EitherOptions) for value in vals)
