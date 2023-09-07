@@ -23,7 +23,7 @@ _is_possible_key_extractor(p::Index, from_input, skeleton, path) = true
 _is_possible_key_extractor(p::FreeVar, from_input, skeleton, path) = false
 
 function reverse_rev_groupby()
-    function _reverse_rev_groupby(groups, arguments)
+    function _reverse_rev_groupby(groups, arguments, calculated_arguments)
         output_options = []
         for (k, values) in groups
             for v in values
@@ -49,7 +49,7 @@ function reverse_rev_groupby()
                 push!(result, EitherOptions(Dict(h => option[i] for (h, option) in hashed_options)))
             end
         end
-        return result, Dict(), Dict()
+        return groups, result, Dict(), Dict()
     end
     return [(_has_no_holes, _is_possible_key_extractor)], _reverse_rev_groupby
 end

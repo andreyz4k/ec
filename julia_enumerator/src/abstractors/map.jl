@@ -30,7 +30,7 @@ function _rev_dep_map(rev_dep_mapper)
 end
 
 function reverse_map(n, is_set = false)
-    function _reverse_map(value, arguments)
+    function _reverse_map(value, arguments, calculated_arguments)
         f = arguments[end]
 
         has_external_vars = _has_external_vars(f)
@@ -43,7 +43,7 @@ function reverse_map(n, is_set = false)
 
         first_item = true
         for item in value
-            predicted_arguments, filled_indices, filled_vars = _run_in_reverse(f, item)
+            calculated_item, predicted_arguments, filled_indices, filled_vars = _run_in_reverse(f, item)
 
             new_options = Set()
             if any(v isa EitherOptions for v in predicted_arguments) ||
@@ -178,7 +178,7 @@ function reverse_map(n, is_set = false)
                 end
             end
         end
-        return vcat([SkipArg()], reverse(result_arguments)), result_indices, result_vars
+        return value, vcat([SkipArg()], reverse(result_arguments)), result_indices, result_vars
     end
 
     return [(_is_reversible_subfunction, _is_possible_subfunction)], _reverse_map

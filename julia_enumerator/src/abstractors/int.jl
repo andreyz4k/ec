@@ -14,11 +14,22 @@ function _rev_dep_plus(sum_value::Int64, x::Int64)
     return sum_value - x
 end
 
-function reverse_plus(value)
-    return [AbductibleValue(any_object, _rev_dep_plus), AbductibleValue(any_object, _rev_dep_plus)]
+function reverse_plus(value, calculated_arguments)
+    # @info "Reverse plus"
+    # @info value
+    # @info calculated_arguments
+    if calculated_arguments[end] !== missing
+        results = [calculated_arguments[end], value - calculated_arguments[end]]
+    elseif calculated_arguments[end-1] !== missing
+        results = [value - calculated_arguments[end-1], calculated_arguments[end-1]]
+    else
+        results = [AbductibleValue(any_object, _rev_dep_plus), AbductibleValue(any_object, _rev_dep_plus)]
+    end
+    # @info results
+    return results
 end
 
-@define_reverse_primitive "+" arrow(tint, tint, tint) (a -> (b -> a + b)) reverse_plus
+@define_abductible_reverse_primitive "+" arrow(tint, tint, tint) (a -> (b -> a + b)) reverse_plus
 # @define_primitive "+" arrow(tint, tint, tint) (a -> (b -> a + b))
 
 function reverse_mult(value)
