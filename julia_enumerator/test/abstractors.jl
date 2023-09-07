@@ -15,7 +15,6 @@ using solver:
     Index,
     SetConst,
     EitherOptions,
-    get_reversed_program,
     is_reversible,
     parse_program,
     closed_inference,
@@ -556,12 +555,12 @@ using DataStructures: OrderedDict, Accumulator
         )
 
         @test calculate_dependent_vars(
-            filled_p,
+            p,
             Dict(UInt64(1) => 1, UInt64(2) => AbductibleValue(any_object, _rev_dep_plus)),
             3,
         ) == Dict(UInt64(2) => 2)
         @test calculate_dependent_vars(
-            filled_p,
+            p,
             Dict(UInt64(1) => 1, UInt64(2) => AbductibleValue(any_object, _rev_dep_plus)),
             EitherOptions(Dict{UInt64,Any}(0xaa2dcc33efe7cdcd => 30, 0x4ef19a9b1c1cc5e2 => 15)),
         ) == Dict(UInt64(2) => EitherOptions(Dict{UInt64,Any}(0xaa2dcc33efe7cdcd => 29, 0x4ef19a9b1c1cc5e2 => 14)))

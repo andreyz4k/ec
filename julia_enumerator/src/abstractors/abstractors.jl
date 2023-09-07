@@ -45,46 +45,6 @@ _is_reversible(p::Program) = nothing
 
 is_reversible(p::Program)::Bool = !isnothing(_is_reversible(p))
 
-function _get_reversed_program(p::Primitive, arguments)
-    return all_abstractors[p][2](arguments)
-end
-
-function _get_reversed_program(p::Invented, arguments)
-    _get_reversed_program(p.b, arguments)
-end
-
-noop(a)::Vector{Any} = [a]
-
-function _get_reversed_program(p::Hole, arguments)
-    return noop
-end
-
-function _get_reversed_program(p::FreeVar, arguments)
-    return noop
-end
-
-function _get_reversed_program(p::Index, arguments)
-    return noop
-end
-
-function _get_reversed_program(p::Apply, arguments)
-    push!(arguments, p.x)
-    reversed_f = _get_reversed_program(p.f, arguments)
-    return reversed_f
-end
-
-function _get_reversed_program(p::Abstraction, arguments)
-    # Only used in invented functions
-    rev_f = _get_reversed_program(p.b, arguments)
-    rev_a = _get_reversed_program(pop!(arguments), arguments)
-    # TODO: Properly use rev_a
-    return rev_f
-end
-
-function get_reversed_program(p::Program)
-    return _get_reversed_program(p, [])
-end
-
 struct SkipArg end
 
 function _merge_options_paths(path1, path2)
@@ -504,35 +464,6 @@ function run_in_reverse(p::Program, output)
     return _run_in_reverse(p, output, [], [], Dict(), Dict())[3]
 end
 
-function _reverse_eithers(_reverse_function, value)
-    hashes = []
-    outputs = Vector{Any}[]
-    for (h, val) in value.options
-        outs = _reverse_function(val)
-        if isempty(outputs)
-            for _ in 1:length(outs)
-                push!(outputs, [])
-            end
-        end
-        push!(hashes, h)
-        for i in 1:length(outs)
-            push!(outputs[i], outs[i])
-        end
-    end
-    results = []
-    for values in outputs
-        if allequal(values)
-            push!(results, values[1])
-        elseif any(out == value for out in values)
-            push!(results, value)
-        else
-            options = Dict(hashes[i] => values[i] for i in 1:length(hashes))
-            push!(results, EitherOptions(options))
-        end
-    end
-    return results
-end
-
 _has_wildcard(v::PatternWrapper) = true
 _has_wildcard(v) = false
 _has_wildcard(v::AnyObject) = true
@@ -558,64 +489,11 @@ function _wrap_wildcard(v::EitherOptions)
     return EitherOptions(options)
 end
 
-function _reverse_pattern(_reverse_function, value)
-    outputs = _reverse_function(value.value)
-
-    results = []
-    for out in outputs
-        push!(results, _wrap_wildcard(out))
-    end
-    return results
-end
-
-function _reverse_abductible(_reverse_function, value, n)
-    results = [value for _ in 1:n]
-    return results
-end
-
-function generic_reverse(rev_function, n)
-    function _generic_reverse(arguments)
-        rev_functions = []
-        for _ in 1:n
-            rev_a = _get_reversed_program(pop!(arguments), arguments)
-            push!(rev_functions, rev_a)
-        end
-        function _reverse_function(value)::Vector{Any}
-            rev_results = rev_function(value)
-            return vcat([rev_functions[i](rev_results[i]) for i in 1:n]...)
-        end
-        function _reverse_function(value::Union{Nothing,AnyObject})::Vector{Any}
-            try
-                rev_results = rev_function(value)
-                return vcat([rev_functions[i](rev_results[i]) for i in 1:n]...)
-            catch e
-                if isa(e, MethodError)
-                    return vcat([rev_functions[i](value) for i in 1:n]...)
-                else
-                    rethrow()
-                end
-            end
-        end
-        function _reverse_function(value::EitherOptions)::Vector{Any}
-            _reverse_eithers(_reverse_function, value)
-        end
-        function _reverse_function(value::PatternWrapper)::Vector{Any}
-            _reverse_pattern(_reverse_function, value)
-        end
-        function _reverse_function(value::AbductibleValue)::Vector{Any}
-            _reverse_abductible(_reverse_function, value, n)
-        end
-        return _reverse_function
-    end
-    return _generic_reverse
-end
-
 macro define_reverse_primitive(name, t, x, reverse_function)
     return quote
         local n = $(esc(name))
         @define_primitive n $t $x
         local prim = every_primitive[n]
-        # local rev = generic_reverse($(esc(reverse_function)), length(arguments_of_type(prim.t)))
         all_abstractors[prim] = [], ((v, _) -> ($(esc(reverse_function))(v), Dict(), Dict()))
     end
 end
@@ -750,8 +628,8 @@ function _calculate_dependent_vars(p::Primitive, inputs, output, arguments, upda
 end
 
 function calculate_dependent_vars(p, inputs, output)
-    _, updates = _calculate_dependent_vars(p, inputs, output, [], Dict())
-    return updates
+    updated_inputs = _run_in_reverse(p, output, [], [], Dict(), inputs)[3]
+    return Dict(k => v for (k, v) in updated_inputs if !haskey(inputs, k))
 end
 
 include("repeat.jl")
