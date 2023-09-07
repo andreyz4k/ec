@@ -10,10 +10,6 @@ end
 
 @define_reverse_primitive "abs" arrow(tint, tint) abs reverse_abs
 
-function _rev_dep_plus(sum_value::Int64, x::Int64)
-    return sum_value - x
-end
-
 function reverse_plus(value, calculated_arguments)
     # @info "Reverse plus"
     # @info value
@@ -23,7 +19,7 @@ function reverse_plus(value, calculated_arguments)
     elseif calculated_arguments[end-1] !== missing
         results = [value - calculated_arguments[end-1], calculated_arguments[end-1]]
     else
-        results = [AbductibleValue(any_object, _rev_dep_plus), AbductibleValue(any_object, _rev_dep_plus)]
+        results = [AbductibleValue(any_object), AbductibleValue(any_object)]
     end
     # @info results
     return results

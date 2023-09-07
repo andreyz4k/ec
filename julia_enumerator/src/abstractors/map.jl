@@ -17,18 +17,6 @@ function unfold_options(args::Vector, indices::Dict, vars::Dict)
     return result
 end
 
-function _rev_dep_map(rev_dep_mapper)
-    function __rev_dep_map(output, param)
-        result = []
-        for (out, fixer) in zip(output, param)
-            push!(result, _abduct_value(rev_dep_mapper, out, fixer))
-        end
-
-        return result
-    end
-    return __rev_dep_map
-end
-
 function reverse_map(n, is_set = false)
     function _reverse_map(value, arguments, calculated_arguments)
         f = arguments[end]
@@ -171,10 +159,7 @@ function reverse_map(n, is_set = false)
                 if is_set
                     error("Abducting values for sets is not supported")
                 else
-                    result_arguments[i] = AbductibleValue(
-                        [v.value for v in result_arguments[i]],
-                        _rev_dep_map(first(result_arguments[i]).generator),
-                    )
+                    result_arguments[i] = AbductibleValue([v.value for v in result_arguments[i]],)
                 end
             end
         end
