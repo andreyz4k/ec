@@ -38,9 +38,7 @@ using solver:
     PatternEntry,
     PatternWrapper,
     AbductibleValue,
-    _rev_dep_plus,
     calculate_dependent_vars,
-    _rev_dep_map,
     run_in_reverse
 using DataStructures: OrderedDict, Accumulator
 
@@ -534,34 +532,22 @@ using DataStructures: OrderedDict, Accumulator
         p, _ = capture_free_vars(skeleton)
         @test compare_options(
             run_in_reverse(p, 3),
-            Dict(
-                UInt64(1) => AbductibleValue(any_object, _rev_dep_plus),
-                UInt64(2) => AbductibleValue(any_object, _rev_dep_plus),
-            ),
+            Dict(UInt64(1) => AbductibleValue(any_object), UInt64(2) => AbductibleValue(any_object)),
         )
         @test compare_options(
             run_in_reverse(p, 15),
-            Dict(
-                UInt64(1) => AbductibleValue(any_object, _rev_dep_plus),
-                UInt64(2) => AbductibleValue(any_object, _rev_dep_plus),
-            ),
+            Dict(UInt64(1) => AbductibleValue(any_object), UInt64(2) => AbductibleValue(any_object)),
         )
         @test compare_options(
             run_in_reverse(p, -5),
-            Dict(
-                UInt64(1) => AbductibleValue(any_object, _rev_dep_plus),
-                UInt64(2) => AbductibleValue(any_object, _rev_dep_plus),
-            ),
+            Dict(UInt64(1) => AbductibleValue(any_object), UInt64(2) => AbductibleValue(any_object)),
         )
 
+        @test calculate_dependent_vars(p, Dict(UInt64(1) => 1, UInt64(2) => AbductibleValue(any_object)), 3) ==
+              Dict(UInt64(2) => 2)
         @test calculate_dependent_vars(
             p,
-            Dict(UInt64(1) => 1, UInt64(2) => AbductibleValue(any_object, _rev_dep_plus)),
-            3,
-        ) == Dict(UInt64(2) => 2)
-        @test calculate_dependent_vars(
-            p,
-            Dict(UInt64(1) => 1, UInt64(2) => AbductibleValue(any_object, _rev_dep_plus)),
+            Dict(UInt64(1) => 1, UInt64(2) => AbductibleValue(any_object)),
             EitherOptions(Dict{UInt64,Any}(0xaa2dcc33efe7cdcd => 30, 0x4ef19a9b1c1cc5e2 => 15)),
         ) == Dict(UInt64(2) => EitherOptions(Dict{UInt64,Any}(0xaa2dcc33efe7cdcd => 29, 0x4ef19a9b1c1cc5e2 => 14)))
     end
@@ -582,30 +568,26 @@ using DataStructures: OrderedDict, Accumulator
         @test compare_options(
             run_in_reverse(p, 3),
             Dict(
-                UInt64(1) => AbductibleValue(any_object, _rev_dep_plus),
-                UInt64(2) => AbductibleValue(any_object, _rev_dep_plus),
-                UInt64(3) => AbductibleValue(any_object, _rev_dep_plus),
+                UInt64(1) => AbductibleValue(any_object),
+                UInt64(2) => AbductibleValue(any_object),
+                UInt64(3) => AbductibleValue(any_object),
             ),
         )
 
         @test calculate_dependent_vars(
             p,
-            Dict(
-                UInt64(1) => 1,
-                UInt64(2) => AbductibleValue(any_object, _rev_dep_plus),
-                UInt64(3) => AbductibleValue(any_object, _rev_dep_plus),
-            ),
+            Dict(UInt64(1) => 1, UInt64(2) => AbductibleValue(any_object), UInt64(3) => AbductibleValue(any_object)),
             3,
         ) == Dict()
 
         @test calculate_dependent_vars(
             p,
-            Dict(UInt64(1) => 1, UInt64(2) => 5, UInt64(3) => AbductibleValue(any_object, _rev_dep_plus)),
+            Dict(UInt64(1) => 1, UInt64(2) => 5, UInt64(3) => AbductibleValue(any_object)),
             3,
         ) == Dict(UInt64(3) => -3)
         @test calculate_dependent_vars(
             p,
-            Dict(UInt64(1) => 1, UInt64(2) => AbductibleValue(any_object, _rev_dep_plus), UInt64(3) => 5),
+            Dict(UInt64(1) => 1, UInt64(2) => AbductibleValue(any_object), UInt64(3) => 5),
             3,
         ) == Dict(UInt64(2) => -3)
     end
@@ -625,16 +607,12 @@ using DataStructures: OrderedDict, Accumulator
         p, _ = capture_free_vars(skeleton)
         @test compare_options(
             run_in_reverse(p, [3, 3, 3, 3]),
-            Dict(
-                UInt64(1) => AbductibleValue(any_object, _rev_dep_plus),
-                UInt64(2) => AbductibleValue(any_object, _rev_dep_plus),
-                UInt64(3) => 4,
-            ),
+            Dict(UInt64(1) => AbductibleValue(any_object), UInt64(2) => AbductibleValue(any_object), UInt64(3) => 4),
         )
 
         @test calculate_dependent_vars(
             p,
-            Dict(UInt64(1) => 1, UInt64(2) => AbductibleValue(any_object, _rev_dep_plus), UInt64(3) => 4),
+            Dict(UInt64(1) => 1, UInt64(2) => AbductibleValue(any_object), UInt64(3) => 4),
             [3, 3, 3, 3],
         ) == Dict(UInt64(2) => 2)
     end
@@ -648,18 +626,11 @@ using DataStructures: OrderedDict, Accumulator
         p, _ = capture_free_vars(skeleton)
         @test compare_options(
             run_in_reverse(p, 3),
-            Dict(
-                UInt64(1) => AbductibleValue(any_object, _rev_dep_plus),
-                UInt64(2) => AbductibleValue(any_object, _rev_dep_plus),
-            ),
+            Dict(UInt64(1) => AbductibleValue(any_object), UInt64(2) => AbductibleValue(any_object)),
         )
 
         @test compare_options(
-            calculate_dependent_vars(
-                p,
-                Dict(UInt64(1) => 1, UInt64(2) => AbductibleValue(any_object, _rev_dep_plus)),
-                3,
-            ),
+            calculate_dependent_vars(p, Dict(UInt64(1) => 1, UInt64(2) => AbductibleValue(any_object)), 3),
             Dict(UInt64(2) => EitherOptions(Dict{UInt64,Any}(0xc8e6a6dedcb6f132 => -4, 0x9fede9511319ae42 => 2))),
         )
     end
@@ -673,18 +644,11 @@ using DataStructures: OrderedDict, Accumulator
         p, _ = capture_free_vars(skeleton)
         @test compare_options(
             run_in_reverse(p, 3),
-            Dict(
-                UInt64(1) => AbductibleValue(any_object, _rev_dep_plus),
-                UInt64(2) => AbductibleValue(any_object, _rev_dep_plus),
-            ),
+            Dict(UInt64(1) => AbductibleValue(any_object), UInt64(2) => AbductibleValue(any_object)),
         )
 
         @test compare_options(
-            calculate_dependent_vars(
-                p,
-                Dict(UInt64(2) => 1, UInt64(1) => AbductibleValue(any_object, _rev_dep_plus)),
-                3,
-            ),
+            calculate_dependent_vars(p, Dict(UInt64(2) => 1, UInt64(1) => AbductibleValue(any_object)), 3),
             Dict(UInt64(1) => EitherOptions(Dict{UInt64,Any}(0xc8e6a6dedcb6f132 => -2, 0x9fede9511319ae42 => 2))),
         )
     end
@@ -1307,17 +1271,14 @@ using DataStructures: OrderedDict, Accumulator
         @test compare_options(
             run_in_reverse(p, [3, 2]),
             Dict(
-                UInt64(1) => AbductibleValue([any_object, any_object], _rev_dep_map(_rev_dep_plus)),
-                UInt64(2) => AbductibleValue([any_object, any_object], _rev_dep_map(_rev_dep_plus)),
+                UInt64(1) => AbductibleValue([any_object, any_object],),
+                UInt64(2) => AbductibleValue([any_object, any_object],),
             ),
         )
 
         @test calculate_dependent_vars(
             p,
-            Dict(
-                UInt64(1) => [1, 2],
-                UInt64(2) => AbductibleValue([any_object, any_object], _rev_dep_map(_rev_dep_plus)),
-            ),
+            Dict(UInt64(1) => [1, 2], UInt64(2) => AbductibleValue([any_object, any_object],)),
             [3, 2],
         ) == Dict(UInt64(2) => [2, 0])
     end

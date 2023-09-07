@@ -272,11 +272,10 @@ Base.hash(v::PatternWrapper, h::UInt64) = hash(v.value, h)
 
 struct AbductibleValue
     value::Any
-    generator::Function
 end
 
-Base.:(==)(v1::AbductibleValue, v2::AbductibleValue) = v1.value == v2.value && v1.generator == v2.generator
-Base.hash(v::AbductibleValue, h::UInt64) = hash(v.value, hash(v.generator, h))
+Base.:(==)(v1::AbductibleValue, v2::AbductibleValue) = v1.value == v2.value
+Base.hash(v::AbductibleValue, h::UInt64) = hash(v.value, h)
 
 struct EitherEntry <: Entry
     type_id::UInt64
