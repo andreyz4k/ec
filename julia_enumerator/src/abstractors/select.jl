@@ -66,7 +66,7 @@ function _is_possible_selector(p::FreeVar, from_input, skeleton, path)
 end
 
 function reverse_rev_select()
-    function _reverse_rev_select(value, arguments)
+    function _reverse_rev_select(value, arguments, calculated_arguments)
         f = arguments[end]
 
         if isa(f, Abstraction) &&
@@ -120,7 +120,7 @@ function reverse_rev_select()
                 result_indices = Dict(f.b.x.n => out_selector)
             end
 
-            return [SkipArg(), out_base, out_others], result_indices, result_vars
+            return value, [SkipArg(), out_base, out_others], result_indices, result_vars
         else
             results_base = Array{Any}(undef, size(value)...)
             results_others = Array{Any}(undef, size(value)...)
@@ -136,7 +136,7 @@ function reverse_rev_select()
             if all(v == results_others[1] for v in results_others)
                 error("All elements are equal according to selector")
             end
-            return [SkipArg(), PatternWrapper(results_base), results_others], Dict(), Dict()
+            return value, [SkipArg(), PatternWrapper(results_base), results_others], Dict(), Dict()
         end
     end
     return [(is_reversible_selector, _is_possible_selector)], _reverse_rev_select
@@ -165,7 +165,7 @@ function rev_select_set(base, others)
 end
 
 function reverse_rev_select_set()
-    function _reverse_rev_select(value, arguments)
+    function _reverse_rev_select(value, arguments, calculated_arguments)
         f = arguments[end]
 
         if isa(f, Abstraction) &&
@@ -218,7 +218,7 @@ function reverse_rev_select_set()
                 result_indices = Dict(f.b.x.n => out_selector)
             end
 
-            return [SkipArg(), out_base, out_others], result_indices, result_vars
+            return value, [SkipArg(), out_base, out_others], result_indices, result_vars
         else
             results_base = Set()
             results_others = Set()
@@ -232,7 +232,7 @@ function reverse_rev_select_set()
             if isempty(results_base) || isempty(results_others)
                 error("All elements are equal according to selector")
             end
-            return [SkipArg(), results_base, results_others], Dict(), Dict()
+            return value, [SkipArg(), results_base, results_others], Dict(), Dict()
         end
     end
     return [(is_reversible_selector, _is_possible_selector)], _reverse_rev_select

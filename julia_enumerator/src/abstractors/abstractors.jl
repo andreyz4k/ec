@@ -87,6 +87,32 @@ function _intersect_values(
 end
 
 function _intersect_values(
+    old_v::AbductibleValue,
+    v,
+    predicted_arguments,
+    filled_indices,
+    filled_vars,
+    new_args,
+    new_filled_indices,
+    new_filled_vars,
+)
+    return predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars
+end
+
+function _intersect_values(
+    old_v::AbductibleValue,
+    v::EitherOptions,
+    predicted_arguments,
+    filled_indices,
+    filled_vars,
+    new_args,
+    new_filled_indices,
+    new_filled_vars,
+)
+    return predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars
+end
+
+function _intersect_values(
     old_v::EitherOptions,
     v::EitherOptions,
     predicted_arguments,
@@ -222,8 +248,17 @@ function _intersect_values(
     return predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars
 end
 
-function _run_in_reverse(p::Primitive, output, arguments, predicted_arguments, filled_indices, filled_vars)
-    new_args, new_filled_indices, new_filled_vars = all_abstractors[p][2](output, arguments)
+function _run_in_reverse(
+    p::Primitive,
+    output,
+    arguments,
+    calculated_arguments,
+    predicted_arguments,
+    filled_indices,
+    filled_vars,
+)
+    calculated_output, new_args, new_filled_indices, new_filled_vars =
+        all_abstractors[p][2](output, arguments, calculated_arguments)
     predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars = _intersect_values(
         predicted_arguments,
         filled_indices,
@@ -239,39 +274,54 @@ function _run_in_reverse(p::Primitive, output, arguments, predicted_arguments, f
         filled_vars = merge(filled_vars, new_filled_vars)
     end
 
-    return vcat(predicted_arguments, reverse(new_args)), filled_indices, filled_vars
+    return calculated_output, vcat(predicted_arguments, reverse(new_args)), filled_indices, filled_vars
 end
 
 function _run_in_reverse(
     p::Primitive,
     output::AbductibleValue,
     arguments,
+    calculated_arguments,
     predicted_arguments,
     filled_indices,
     filled_vars,
 )
-    return vcat(predicted_arguments, [output for _ in 1:length(arguments_of_type(p.t))]), filled_indices, filled_vars
+    # @info "Running in reverse $p $output $arguments $calculated_arguments $predicted_arguments $filled_indices $filled_vars"
+    return output,
+    vcat(predicted_arguments, [output for _ in 1:length(arguments_of_type(p.t))]),
+    filled_indices,
+    filled_vars
 end
 
 function _run_in_reverse(
     p::Primitive,
     output::EitherOptions,
     arguments,
+    calculated_arguments,
     predicted_arguments,
     filled_indices,
     filled_vars,
 )
+    output_options = Dict()
     arguments_options = Dict[]
     filled_indices_options = DefaultDict(() -> Dict())
     filled_vars_options = DefaultDict(() -> Dict())
     for (h, val) in output.options
         fixed_hashes = Set([h])
+        # op_calculated_arguments = [fix_option_hashes(fixed_hashes, v) for v in calculated_arguments]
         op_predicted_arguments = [fix_option_hashes(fixed_hashes, v) for v in predicted_arguments]
         op_filled_indices = Dict(i => fix_option_hashes(fixed_hashes, v) for (i, v) in filled_indices)
         op_filled_vars = Dict(k => fix_option_hashes(fixed_hashes, v) for (k, v) in filled_vars)
 
-        new_args, new_filled_indices, new_filled_vars =
-            _run_in_reverse(p, val, arguments, op_predicted_arguments, op_filled_indices, op_filled_vars)
+        calculated_output, new_args, new_filled_indices, new_filled_vars = _run_in_reverse(
+            p,
+            val,
+            arguments,
+            calculated_arguments,
+            op_predicted_arguments,
+            op_filled_indices,
+            op_filled_vars,
+        )
 
         predicted_arguments_op, filled_indices_op, filled_vars_op, new_args, new_filled_indices, new_filled_vars =
             _intersect_values(
@@ -288,6 +338,7 @@ function _run_in_reverse(
                 push!(arguments_options, Dict())
             end
         end
+        output_options[h] = calculated_output
 
         for i in 1:length(new_args)
             arguments_options[i][h] = new_args[i]
@@ -337,19 +388,27 @@ function _run_in_reverse(
             out_filled_vars[k] = EitherOptions(v)
         end
     end
-    return out_args, out_filled_indices, out_filled_vars
+    return EitherOptions(output_options), out_args, out_filled_indices, out_filled_vars
 end
 
 function _run_in_reverse(
     p::Primitive,
     output::PatternWrapper,
     arguments,
+    calculated_arguments,
     predicted_arguments,
     filled_indices,
     filled_vars,
 )
-    new_args, new_filled_indices, new_filled_vars =
-        _run_in_reverse(p, output.value, arguments, predicted_arguments, filled_indices, filled_vars)
+    calculated_output, new_args, new_filled_indices, new_filled_vars = _run_in_reverse(
+        p,
+        output.value,
+        arguments,
+        calculated_arguments,
+        predicted_arguments,
+        filled_indices,
+        filled_vars,
+    )
 
     predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars = _intersect_values(
         predicted_arguments,
@@ -370,19 +429,21 @@ function _run_in_reverse(
     for out in new_args
         push!(results, _wrap_wildcard(out))
     end
-    return results, filled_indices, filled_vars
+    return _wrap_wildcard(calculated_output), results, filled_indices, filled_vars
 end
 
 function _run_in_reverse(
     p::Primitive,
     output::Union{Nothing,AnyObject},
     arguments,
+    calculated_arguments,
     predicted_arguments,
     filled_indices,
     filled_vars,
 )
     try
-        new_args, new_filled_indices, new_filled_vars = all_abstractors[p][2](output, arguments)
+        calculated_output, new_args, new_filled_indices, new_filled_vars =
+            all_abstractors[p][2](output, arguments, calculated_arguments)
         predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars =
             _intersect_values(
                 predicted_arguments,
@@ -398,10 +459,11 @@ function _run_in_reverse(
         if !isempty(new_filled_vars)
             filled_vars = merge(filled_vars, new_filled_vars)
         end
-        return vcat(predicted_arguments, reverse(new_args)), filled_indices, filled_vars
+        return calculated_output, vcat(predicted_arguments, reverse(new_args)), filled_indices, filled_vars
     catch e
         if isa(e, MethodError)
-            return vcat(predicted_arguments, [output for _ in 1:length(arguments_of_type(p.t))]),
+            return output,
+            vcat(predicted_arguments, [output for _ in 1:length(arguments_of_type(p.t))]),
             filled_indices,
             filled_vars
         else
@@ -410,19 +472,116 @@ function _run_in_reverse(
     end
 end
 
-function _run_in_reverse(p::Apply, output, arguments, predicted_arguments, filled_indices, filled_vars)
-    push!(arguments, p.x)
-    predicted_arguments, filled_indices, filled_vars =
-        _run_in_reverse(p.f, output, arguments, predicted_arguments, filled_indices, filled_vars)
-    pop!(arguments)
-    arg_target = pop!(predicted_arguments)
-    if arg_target isa SkipArg
-        return predicted_arguments, filled_indices, filled_vars
+function _run_in_reverse(
+    p::Apply,
+    output::AbductibleValue,
+    arguments,
+    calculated_arguments,
+    predicted_arguments,
+    filled_indices,
+    filled_vars,
+)
+    # @info "Running in reverse $p $output $arguments $calculated_arguments $predicted_arguments $filled_indices $filled_vars"
+    env = Any[nothing for _ in 1:maximum(keys(filled_indices); init = 0)]
+    for (i, v) in filled_indices
+        env[end-i] = v
     end
-    return _run_in_reverse(p.x, arg_target, arguments, predicted_arguments, filled_indices, filled_vars)
+    try
+        calculated_output = p(env, filled_vars)
+        # @info calculated_output
+        if calculated_output isa Function
+            error("Function output")
+        end
+        return calculated_output, predicted_arguments, filled_indices, filled_vars
+    catch e
+        if e isa InterruptException
+            rethrow()
+        end
+        return @invoke _run_in_reverse(
+            p::Apply,
+            output::Any,
+            arguments,
+            calculated_arguments,
+            predicted_arguments,
+            filled_indices,
+            filled_vars,
+        )
+    end
 end
 
-function _run_in_reverse(p::FreeVar, output, arguments, predicted_arguments, filled_indices, filled_vars)
+function _run_in_reverse(
+    p::Apply,
+    output,
+    arguments,
+    calculated_arguments,
+    predicted_arguments,
+    filled_indices,
+    filled_vars,
+)
+    push!(arguments, p.x)
+    push!(calculated_arguments, missing)
+    calculated_output, predicted_arguments_, filled_indices, filled_vars =
+        _run_in_reverse(p.f, output, arguments, calculated_arguments, predicted_arguments, filled_indices, filled_vars)
+    pop!(arguments)
+    pop!(calculated_arguments)
+    arg_target = pop!(predicted_arguments_)
+    if arg_target isa SkipArg
+        return calculated_output, predicted_arguments_, filled_indices, filled_vars
+    end
+    arg_calculated_output, predicted_arguments_, filled_indices, filled_vars = _run_in_reverse(
+        p.x,
+        arg_target,
+        arguments,
+        calculated_arguments,
+        predicted_arguments_,
+        filled_indices,
+        filled_vars,
+    )
+    # while arg_calculated_output != arg_target
+    if arg_target isa AbductibleValue && arg_calculated_output != arg_target
+        # @info "arg_target $arg_target"
+        # @info "arg_calculated_output $arg_calculated_output"
+        push!(arguments, p.x)
+        push!(calculated_arguments, arg_calculated_output)
+        calculated_output, predicted_arguments_, filled_indices, filled_vars = _run_in_reverse(
+            p.f,
+            output,
+            arguments,
+            calculated_arguments,
+            predicted_arguments,
+            filled_indices,
+            filled_vars,
+        )
+        pop!(arguments)
+        pop!(calculated_arguments)
+        arg_target = pop!(predicted_arguments_)
+        if arg_target isa SkipArg
+            return calculated_output, predicted_arguments_, filled_indices, filled_vars
+        end
+        arg_calculated_output, predicted_arguments_, filled_indices, filled_vars = _run_in_reverse(
+            p.x,
+            arg_target,
+            arguments,
+            calculated_arguments,
+            predicted_arguments_,
+            filled_indices,
+            filled_vars,
+        )
+        # @info "arg_target2 $arg_target"
+        # @info "arg_calculated_output2 $arg_calculated_output"
+    end
+    return calculated_output, predicted_arguments_, filled_indices, filled_vars
+end
+
+function _run_in_reverse(
+    p::FreeVar,
+    output,
+    arguments,
+    calculated_arguments,
+    predicted_arguments,
+    filled_indices,
+    filled_vars,
+)
     if haskey(filled_vars, p.var_id)
         predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars =
             _intersect_values(predicted_arguments, filled_indices, filled_vars, [], Dict(), Dict(p.var_id => output))
@@ -430,10 +589,33 @@ function _run_in_reverse(p::FreeVar, output, arguments, predicted_arguments, fil
     else
         filled_vars[p.var_id] = output
     end
-    return predicted_arguments, filled_indices, filled_vars
+    return filled_vars[p.var_id], predicted_arguments, filled_indices, filled_vars
 end
 
-function _run_in_reverse(p::Index, output, arguments, predicted_arguments, filled_indices, filled_vars)
+function _run_in_reverse(
+    p::FreeVar,
+    output::AbductibleValue,
+    arguments,
+    calculated_arguments,
+    predicted_arguments,
+    filled_indices,
+    filled_vars,
+)
+    if !haskey(filled_vars, p.var_id)
+        filled_vars[p.var_id] = output
+    end
+    return filled_vars[p.var_id], predicted_arguments, filled_indices, filled_vars
+end
+
+function _run_in_reverse(
+    p::Index,
+    output,
+    arguments,
+    calculated_arguments,
+    predicted_arguments,
+    filled_indices,
+    filled_vars,
+)
     if haskey(filled_indices, p.n)
         predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars =
             _intersect_values(predicted_arguments, filled_indices, filled_vars, [], Dict(p.n => output), Dict())
@@ -441,27 +623,66 @@ function _run_in_reverse(p::Index, output, arguments, predicted_arguments, fille
     else
         filled_indices[p.n] = output
     end
-    return predicted_arguments, filled_indices, filled_vars
+    return filled_indices[p.n], predicted_arguments, filled_indices, filled_vars
 end
 
-function _run_in_reverse(p::Invented, output, arguments, predicted_arguments, filled_indices, filled_vars)
-    return _run_in_reverse(p.b, output, arguments, predicted_arguments, filled_indices, filled_vars)
+function _run_in_reverse(
+    p::Index,
+    output::AbductibleValue,
+    arguments,
+    calculated_arguments,
+    predicted_arguments,
+    filled_indices,
+    filled_vars,
+)
+    if !haskey(filled_indices, p.n)
+        filled_indices[p.n] = output
+    end
+    return filled_indices[p.n], predicted_arguments, filled_indices, filled_vars
 end
 
-function _run_in_reverse(p::Abstraction, output, arguments, predicted_arguments, filled_indices, filled_vars)
-    predicted_arguments, filled_indices, filled_vars =
-        _run_in_reverse(p.b, output, arguments, predicted_arguments, filled_indices, filled_vars)
+function _run_in_reverse(
+    p::Invented,
+    output,
+    arguments,
+    calculated_arguments,
+    predicted_arguments,
+    filled_indices,
+    filled_vars,
+)
+    return _run_in_reverse(
+        p.b,
+        output,
+        arguments,
+        calculated_arguments,
+        predicted_arguments,
+        filled_indices,
+        filled_vars,
+    )
+end
+
+function _run_in_reverse(
+    p::Abstraction,
+    output,
+    arguments,
+    calculated_arguments,
+    predicted_arguments,
+    filled_indices,
+    filled_vars,
+)
+    calculated_output, predicted_arguments, filled_indices, filled_vars =
+        _run_in_reverse(p.b, output, arguments, calculated_arguments, predicted_arguments, filled_indices, filled_vars)
     push!(predicted_arguments, filled_indices[0])
     delete!(filled_indices, 0)
-    return predicted_arguments, Dict(i - 1 => v for (i, v) in filled_indices), filled_vars
+    return output, predicted_arguments, Dict(i - 1 => v for (i, v) in filled_indices), filled_vars
 end
 
 function _run_in_reverse(p::Program, output)
-    return _run_in_reverse(p, output, [], [], Dict(), Dict())
+    return _run_in_reverse(p, output, [], [], [], Dict(), Dict())
 end
 
 function run_in_reverse(p::Program, output)
-    return _run_in_reverse(p, output, [], [], Dict(), Dict())[3]
+    return _run_in_reverse(p, output, [], [], [], Dict(), Dict())[4]
 end
 
 _has_wildcard(v::PatternWrapper) = true
@@ -494,7 +715,16 @@ macro define_reverse_primitive(name, t, x, reverse_function)
         local n = $(esc(name))
         @define_primitive n $t $x
         local prim = every_primitive[n]
-        all_abstractors[prim] = [], ((v, _) -> ($(esc(reverse_function))(v), Dict(), Dict()))
+        all_abstractors[prim] = [], ((v, _, _) -> (v, $(esc(reverse_function))(v), Dict(), Dict()))
+    end
+end
+
+macro define_abductible_reverse_primitive(name, t, x, reverse_function)
+    return quote
+        local n = $(esc(name))
+        @define_primitive n $t $x
+        local prim = every_primitive[n]
+        all_abstractors[prim] = [], ((v, _, args) -> (v, $(esc(reverse_function))(v, args), Dict(), Dict()))
     end
 end
 
@@ -503,8 +733,7 @@ macro define_custom_reverse_primitive(name, t, x, reverse_function)
         local n = $(esc(name))
         @define_primitive n $t $x
         local prim = every_primitive[n]
-        local out = $(esc(reverse_function))
-        all_abstractors[prim] = out
+        all_abstractors[prim] = $(esc(reverse_function))
     end
 end
 
@@ -628,8 +857,9 @@ function _calculate_dependent_vars(p::Primitive, inputs, output, arguments, upda
 end
 
 function calculate_dependent_vars(p, inputs, output)
-    updated_inputs = _run_in_reverse(p, output, [], [], Dict(), inputs)[3]
-    return Dict(k => v for (k, v) in updated_inputs if !haskey(inputs, k))
+    updated_inputs = _run_in_reverse(p, output, [], [], [], Dict(), inputs)[4]
+    # @info updated_inputs
+    return Dict(k => v for (k, v) in updated_inputs if !haskey(inputs, k) || inputs[k] != v)
 end
 
 include("repeat.jl")

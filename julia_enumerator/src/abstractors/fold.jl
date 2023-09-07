@@ -2,7 +2,7 @@
 function rev_fold(f, init, acc)
     outs = []
     while acc != init
-        predicted_arguments, filled_indices, filled_vars = _run_in_reverse(f.p, acc)
+        calculated_acc, predicted_arguments, filled_indices, filled_vars = _run_in_reverse(f.p, acc)
         if !isempty(filled_indices) || !isempty(filled_vars)
             error("Can't have external indices or vars in rev_fold")
         end
@@ -22,7 +22,7 @@ function rev_fold_set(f, init, acc)
 
     while !isempty(queue)
         acc, outs = pop!(queue)
-        predicted_arguments, filled_indices, filled_vars = _run_in_reverse(f.p, acc)
+        calculated_acc, predicted_arguments, filled_indices, filled_vars = _run_in_reverse(f.p, acc)
         if !isempty(filled_indices) || !isempty(filled_vars)
             error("Can't have external indices or vars in rev_fold")
         end
@@ -69,7 +69,7 @@ _is_possible_folder(p::Invented, from_input, skeleton, path) = is_reversible(p)
 _is_possible_folder(p::FreeVar, from_input, skeleton, path) = false
 
 function reverse_rev_fold()
-    function _reverse_rev_fold(value, arguments)
+    function _reverse_rev_fold(value, arguments, calculated_arguments)
         f = arguments[end]
 
         init = arguments[end-1]
@@ -78,7 +78,7 @@ function reverse_rev_fold()
         for val in value
             acc = run_with_arguments(f, [val, acc], Dict())
         end
-        return [SkipArg(), SkipArg(), acc], Dict(), Dict()
+        return value, [SkipArg(), SkipArg(), acc], Dict(), Dict()
     end
     return [(_has_no_holes, _is_possible_init), (_is_reversible_subfunction, _is_possible_folder)], _reverse_rev_fold
 end
@@ -98,7 +98,7 @@ end
 )
 
 function reverse_fold(is_set = false)
-    function _reverse_fold(value, arguments)
+    function _reverse_fold(value, arguments, calculated_arguments)
         f = arguments[end]
 
         has_external_vars = _has_external_vars(f)
@@ -127,7 +127,7 @@ function reverse_fold(is_set = false)
                     delete!(options, h)
                 end
 
-                predicted_arguments, filled_indices, filled_vars = _run_in_reverse(f, acc)
+                calculated_acc, predicted_arguments, filled_indices, filled_vars = _run_in_reverse(f, acc)
 
                 for (option_args, option_indices, option_vars) in
                     unfold_options(predicted_arguments, filled_indices, filled_vars)
@@ -215,7 +215,7 @@ function reverse_fold(is_set = false)
                 result_vars[k] = EitherOptions(Dict(h => option[3][k] for (h, option) in hashed_options))
             end
         end
-        return vcat([SkipArg()], result_arguments), result_indices, result_vars
+        return value, vcat([SkipArg()], result_arguments), result_indices, result_vars
     end
 
     return [(_is_reversible_subfunction, _is_possible_subfunction)], _reverse_fold
@@ -235,7 +235,7 @@ end
 )
 
 function reverse_fold_grid(dim)
-    function _reverse_fold(value, arguments)
+    function _reverse_fold(value, arguments, calculated_arguments)
         f = arguments[end]
 
         has_external_vars = _has_external_vars(f)
@@ -270,7 +270,7 @@ function reverse_fold_grid(dim)
                 new_options = [([[], []], indices, vars)]
 
                 for item in acc
-                    predicted_arguments, filled_indices, filled_vars = _run_in_reverse(f, item)
+                    calculated_acc, predicted_arguments, filled_indices, filled_vars = _run_in_reverse(f, item)
 
                     next_options = []
                     for (option_args, option_indices, option_vars) in
@@ -374,7 +374,7 @@ function reverse_fold_grid(dim)
             end
         end
 
-        return vcat([SkipArg()], result_arguments), result_indices, result_vars
+        return value, vcat([SkipArg()], result_arguments), result_indices, result_vars
     end
 
     return [(_is_reversible_subfunction, _is_possible_subfunction)], _reverse_fold

@@ -589,12 +589,22 @@ using DataStructures: OrderedDict, Accumulator
         )
 
         @test calculate_dependent_vars(
-            filled_p,
+            p,
+            Dict(
+                UInt64(1) => 1,
+                UInt64(2) => AbductibleValue(any_object, _rev_dep_plus),
+                UInt64(3) => AbductibleValue(any_object, _rev_dep_plus),
+            ),
+            3,
+        ) == Dict()
+
+        @test calculate_dependent_vars(
+            p,
             Dict(UInt64(1) => 1, UInt64(2) => 5, UInt64(3) => AbductibleValue(any_object, _rev_dep_plus)),
             3,
         ) == Dict(UInt64(3) => -3)
         @test calculate_dependent_vars(
-            filled_p,
+            p,
             Dict(UInt64(1) => 1, UInt64(2) => AbductibleValue(any_object, _rev_dep_plus), UInt64(3) => 5),
             3,
         ) == Dict(UInt64(2) => -3)
@@ -621,8 +631,9 @@ using DataStructures: OrderedDict, Accumulator
                 UInt64(3) => 4,
             ),
         )
+
         @test calculate_dependent_vars(
-            filled_p,
+            p,
             Dict(UInt64(1) => 1, UInt64(2) => AbductibleValue(any_object, _rev_dep_plus), UInt64(3) => 4),
             [3, 3, 3, 3],
         ) == Dict(UInt64(2) => 2)
@@ -643,6 +654,14 @@ using DataStructures: OrderedDict, Accumulator
             ),
         )
 
+        @test compare_options(
+            calculate_dependent_vars(
+                p,
+                Dict(UInt64(1) => 1, UInt64(2) => AbductibleValue(any_object, _rev_dep_plus)),
+                3,
+            ),
+            Dict(UInt64(2) => EitherOptions(Dict{UInt64,Any}(0xc8e6a6dedcb6f132 => -4, 0x9fede9511319ae42 => 2))),
+        )
     end
 
     @testset "Reverse plus with abs" begin
@@ -660,6 +679,14 @@ using DataStructures: OrderedDict, Accumulator
             ),
         )
 
+        @test compare_options(
+            calculate_dependent_vars(
+                p,
+                Dict(UInt64(2) => 1, UInt64(1) => AbductibleValue(any_object, _rev_dep_plus)),
+                3,
+            ),
+            Dict(UInt64(1) => EitherOptions(Dict{UInt64,Any}(0xc8e6a6dedcb6f132 => -2, 0x9fede9511319ae42 => 2))),
+        )
     end
 
     @testset "Reverse mult" begin
@@ -1285,6 +1312,14 @@ using DataStructures: OrderedDict, Accumulator
             ),
         )
 
+        @test calculate_dependent_vars(
+            p,
+            Dict(
+                UInt64(1) => [1, 2],
+                UInt64(2) => AbductibleValue([any_object, any_object], _rev_dep_map(_rev_dep_plus)),
+            ),
+            [3, 2],
+        ) == Dict(UInt64(2) => [2, 0])
     end
 
     @testset "Reverse rows with either" begin
