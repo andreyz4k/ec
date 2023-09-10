@@ -325,6 +325,10 @@ function _const_options(value::PatternWrapper)
     return []
 end
 
+function _const_options(value::AbductibleValue)
+    return []
+end
+
 function const_options(entry::EitherEntry)
     return _const_options(entry.values[1])
 end

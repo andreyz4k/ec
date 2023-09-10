@@ -427,7 +427,9 @@ function _get_abducted_values(sc, out_block::ProgramBlock, branches)
     for i in 1:sc.example_count
         updated_values = calculate_dependent_vars(
             out_block.p,
-            Dict(var_id => entry.values[i] for (var_id, entry) in in_entries),
+            Dict{UInt64,Any}(
+                var_id => entry.values[i] for (var_id, entry) in in_entries if !isa(entry.values[i], AbductibleValue)
+            ),
             out_entry.values[i],
         )
         for (var_id, entry) in in_entries
@@ -453,7 +455,9 @@ function _get_abducted_values(sc, out_block::WrapEitherBlock, branches)
     updated_branches = DefaultDict{UInt64,Vector}(() -> [])
 
     for i in 1:sc.example_count
-        out_values = Dict{UInt64,Any}(var_id => entry.values[i] for (var_id, entry) in out_entries)
+        out_values = Dict{UInt64,Any}(
+            var_id => entry.values[i] for (var_id, entry) in out_entries if !isa(entry.values[i], AbductibleValue)
+        )
         out_values[out_block.fixer_var] = fixer_entry.values[i]
         updated_values = calculate_dependent_vars(out_block.main_block.p, out_values, in_entry.values[i])
 
@@ -491,67 +495,7 @@ function _find_relatives_for_abductible(sc, new_entry, branch_id, old_entry)
     return nothing, UInt64[branch_id], UInt64[]
 end
 
-function updated_branches(
-    sc,
-    entry::AbductibleEntry,
-    @nospecialize(new_values),
-    block_id,
-    is_new_block,
-    var_id::UInt64,
-    branch_id::UInt64,
-    t_id::UInt64,
-    is_meaningful::Bool,
-    fixed_branches::Dict{UInt64,UInt64},
-    created_paths,
-)::Tuple{UInt64,Bool,Bool,Set{Any},Bool,Vector{Any}}
-    complexity_summary = get_complexity_summary(new_values, sc.types[t_id])
-    if any(isa(value, PatternWrapper) for value in new_values)
-        new_entry = PatternEntry(t_id, new_values, complexity_summary, get_complexity(sc, complexity_summary))
-    else
-        new_entry = ValueEntry(t_id, new_values, complexity_summary, get_complexity(sc, complexity_summary))
-    end
-    new_entry_index = push!(sc.entries, new_entry)
-    new_parents, possible_result = find_related_branches(sc, branch_id, new_entry, new_entry_index)
-    if !isnothing(possible_result)
-        set_explained = false
-        if !sc.branch_is_explained[possible_result]
-            sc.branch_is_explained[possible_result] = true
-            set_explained = true
-        end
-        if is_meaningful && sc.branch_is_not_copy[possible_result] != true
-            sc.branch_is_not_copy[possible_result] = true
-        end
-        block_created_paths =
-            get_new_paths_for_block(sc, block_id, is_new_block, created_paths, var_id, possible_result, fixed_branches)
-        if isempty(block_created_paths)
-            allow_fails = false
-            next_blocks = Set()
-        else
-            allow_fails, next_blocks = _downstream_blocks_existing_branch(sc, var_id, possible_result, fixed_branches)
-        end
-        return possible_result, false, allow_fails, next_blocks, set_explained, block_created_paths
-    end
-
-    new_branch_id = increment!(sc.branches_count)
-    sc.branch_entries[new_branch_id] = new_entry_index
-    sc.branch_vars[new_branch_id] = var_id
-    sc.branch_types[new_branch_id, t_id] = true
-    sc.branch_is_explained[new_branch_id] = true
-    if is_meaningful
-        sc.branch_is_not_copy[new_branch_id] = true
-    end
-
-    sc.branch_children[new_parents, new_branch_id] = true
-    sc.complexities[new_branch_id] = new_entry.complexity
-    sc.unused_explained_complexities[new_branch_id] = new_entry.complexity
-    sc.unmatched_complexities[new_branch_id] = new_entry.complexity
-
-    out_blocks = get_connected_from(sc.branch_outgoing_blocks, branch_id)
-    if length(out_blocks) != 1
-        @info out_blocks
-        error("Abductible branch has more than one outgoing block")
-    end
-
+function _abduct_next_block(sc, out_blocks, new_branch_id, var_id, branch_id)
     (out_block_copy_id, out_block_id) = first(out_blocks)
     branch_ids = vcat(
         collect(keys(get_connected_to(sc.branch_outgoing_blocks, out_block_copy_id))),
@@ -668,6 +612,72 @@ function updated_branches(
             sc.constrained_branches[either_branch_ids, constraint_id] = either_var_ids
             sc.constrained_vars[either_var_ids, constraint_id] = either_branch_ids
         end
+    end
+end
+
+function updated_branches(
+    sc,
+    entry::AbductibleEntry,
+    @nospecialize(new_values),
+    block_id,
+    is_new_block,
+    var_id::UInt64,
+    branch_id::UInt64,
+    t_id::UInt64,
+    is_meaningful::Bool,
+    fixed_branches::Dict{UInt64,UInt64},
+    created_paths,
+)::Tuple{UInt64,Bool,Bool,Set{Any},Bool,Vector{Any}}
+    complexity_summary = get_complexity_summary(new_values, sc.types[t_id])
+    if any(isa(value, PatternWrapper) for value in new_values)
+        new_entry = PatternEntry(t_id, new_values, complexity_summary, get_complexity(sc, complexity_summary))
+    else
+        new_entry = ValueEntry(t_id, new_values, complexity_summary, get_complexity(sc, complexity_summary))
+    end
+    new_entry_index = push!(sc.entries, new_entry)
+    new_parents, possible_result = find_related_branches(sc, branch_id, new_entry, new_entry_index)
+    if !isnothing(possible_result)
+        set_explained = false
+        if !sc.branch_is_explained[possible_result]
+            sc.branch_is_explained[possible_result] = true
+            set_explained = true
+        end
+        if is_meaningful && sc.branch_is_not_copy[possible_result] != true
+            sc.branch_is_not_copy[possible_result] = true
+        end
+        block_created_paths =
+            get_new_paths_for_block(sc, block_id, is_new_block, created_paths, var_id, possible_result, fixed_branches)
+        if isempty(block_created_paths)
+            allow_fails = false
+            next_blocks = Set()
+        else
+            allow_fails, next_blocks = _downstream_blocks_existing_branch(sc, var_id, possible_result, fixed_branches)
+        end
+        return possible_result, false, allow_fails, next_blocks, set_explained, block_created_paths
+    end
+
+    new_branch_id = increment!(sc.branches_count)
+    sc.branch_entries[new_branch_id] = new_entry_index
+    sc.branch_vars[new_branch_id] = var_id
+    sc.branch_types[new_branch_id, t_id] = true
+    sc.branch_is_explained[new_branch_id] = true
+    if is_meaningful
+        sc.branch_is_not_copy[new_branch_id] = true
+    end
+
+    sc.branch_children[new_parents, new_branch_id] = true
+    sc.complexities[new_branch_id] = new_entry.complexity
+    sc.unused_explained_complexities[new_branch_id] = new_entry.complexity
+    sc.unmatched_complexities[new_branch_id] = new_entry.complexity
+
+    out_blocks = get_connected_from(sc.branch_outgoing_blocks, branch_id)
+
+    if length(out_blocks) > 1
+        @info out_blocks
+        error("Abductible branch has more than one outgoing block")
+    end
+    if length(out_blocks) == 1
+        _abduct_next_block(sc, out_blocks, new_branch_id, var_id, branch_id)
     end
 
     block_created_paths =
