@@ -543,11 +543,10 @@ using DataStructures: OrderedDict, Accumulator
             Dict(UInt64(1) => AbductibleValue(any_object), UInt64(2) => AbductibleValue(any_object)),
         )
 
-        @test calculate_dependent_vars(p, Dict(UInt64(1) => 1, UInt64(2) => AbductibleValue(any_object)), 3) ==
-              Dict(UInt64(2) => 2)
+        @test calculate_dependent_vars(p, Dict{UInt64,Any}(UInt64(1) => 1), 3) == Dict(UInt64(2) => 2)
         @test calculate_dependent_vars(
             p,
-            Dict(UInt64(1) => 1, UInt64(2) => AbductibleValue(any_object)),
+            Dict{UInt64,Any}(UInt64(1) => 1),
             EitherOptions(Dict{UInt64,Any}(0xaa2dcc33efe7cdcd => 30, 0x4ef19a9b1c1cc5e2 => 15)),
         ) == Dict(UInt64(2) => EitherOptions(Dict{UInt64,Any}(0xaa2dcc33efe7cdcd => 29, 0x4ef19a9b1c1cc5e2 => 14)))
     end
@@ -574,22 +573,10 @@ using DataStructures: OrderedDict, Accumulator
             ),
         )
 
-        @test calculate_dependent_vars(
-            p,
-            Dict(UInt64(1) => 1, UInt64(2) => AbductibleValue(any_object), UInt64(3) => AbductibleValue(any_object)),
-            3,
-        ) == Dict()
+        @test calculate_dependent_vars(p, Dict{UInt64,Any}(UInt64(1) => 1), 3) == Dict()
 
-        @test calculate_dependent_vars(
-            p,
-            Dict(UInt64(1) => 1, UInt64(2) => 5, UInt64(3) => AbductibleValue(any_object)),
-            3,
-        ) == Dict(UInt64(3) => -3)
-        @test calculate_dependent_vars(
-            p,
-            Dict(UInt64(1) => 1, UInt64(2) => AbductibleValue(any_object), UInt64(3) => 5),
-            3,
-        ) == Dict(UInt64(2) => -3)
+        @test calculate_dependent_vars(p, Dict{UInt64,Any}(UInt64(1) => 1, UInt64(2) => 5), 3) == Dict(UInt64(3) => -3)
+        @test calculate_dependent_vars(p, Dict{UInt64,Any}(UInt64(1) => 1, UInt64(3) => 5), 3) == Dict(UInt64(2) => -3)
     end
 
     @testset "Reverse repeat with plus" begin
@@ -610,11 +597,8 @@ using DataStructures: OrderedDict, Accumulator
             Dict(UInt64(1) => AbductibleValue(any_object), UInt64(2) => AbductibleValue(any_object), UInt64(3) => 4),
         )
 
-        @test calculate_dependent_vars(
-            p,
-            Dict(UInt64(1) => 1, UInt64(2) => AbductibleValue(any_object), UInt64(3) => 4),
-            [3, 3, 3, 3],
-        ) == Dict(UInt64(2) => 2)
+        @test calculate_dependent_vars(p, Dict{UInt64,Any}(UInt64(1) => 1, UInt64(3) => 4), [3, 3, 3, 3]) ==
+              Dict(UInt64(2) => 2)
     end
 
     @testset "Reverse abs with plus" begin
@@ -630,7 +614,7 @@ using DataStructures: OrderedDict, Accumulator
         )
 
         @test compare_options(
-            calculate_dependent_vars(p, Dict(UInt64(1) => 1, UInt64(2) => AbductibleValue(any_object)), 3),
+            calculate_dependent_vars(p, Dict{UInt64,Any}(UInt64(1) => 1), 3),
             Dict(UInt64(2) => EitherOptions(Dict{UInt64,Any}(0xc8e6a6dedcb6f132 => -4, 0x9fede9511319ae42 => 2))),
         )
     end
@@ -648,7 +632,7 @@ using DataStructures: OrderedDict, Accumulator
         )
 
         @test compare_options(
-            calculate_dependent_vars(p, Dict(UInt64(2) => 1, UInt64(1) => AbductibleValue(any_object)), 3),
+            calculate_dependent_vars(p, Dict{UInt64,Any}(UInt64(2) => 1), 3),
             Dict(UInt64(1) => EitherOptions(Dict{UInt64,Any}(0xc8e6a6dedcb6f132 => -2, 0x9fede9511319ae42 => 2))),
         )
     end
@@ -1276,11 +1260,7 @@ using DataStructures: OrderedDict, Accumulator
             ),
         )
 
-        @test calculate_dependent_vars(
-            p,
-            Dict(UInt64(1) => [1, 2], UInt64(2) => AbductibleValue([any_object, any_object],)),
-            [3, 2],
-        ) == Dict(UInt64(2) => [2, 0])
+        @test calculate_dependent_vars(p, Dict{UInt64,Any}(UInt64(1) => [1, 2]), [3, 2]) == Dict(UInt64(2) => [2, 0])
     end
 
     @testset "Reverse rows with either" begin

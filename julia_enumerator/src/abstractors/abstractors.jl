@@ -81,7 +81,7 @@ function _intersect_values(
     new_filled_vars,
 )
     if old_v != v
-        error("Can't intersect values")
+        error("Can't intersect values $old_v and $v")
     end
     return predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars
 end

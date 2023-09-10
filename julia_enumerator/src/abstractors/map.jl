@@ -30,8 +30,18 @@ function reverse_map(n, is_set = false)
         end
 
         first_item = true
-        for item in value
-            calculated_item, predicted_arguments, filled_indices, filled_vars = _run_in_reverse(f, item)
+        calculated_value = []
+        for (i, item) in enumerate(value)
+            fixed_indices = Dict()
+            for j in 1:n
+                if !ismissing(calculated_arguments[end-j])
+                    fixed_indices[n-j] = calculated_arguments[end-j][i]
+                end
+            end
+
+            calculated_item, predicted_arguments, filled_indices, filled_vars =
+                _run_in_reverse(f, item, [], [], [], fixed_indices, Dict())
+            push!(calculated_value, calculated_item)
 
             new_options = Set()
             if any(v isa EitherOptions for v in predicted_arguments) ||
@@ -163,7 +173,7 @@ function reverse_map(n, is_set = false)
                 end
             end
         end
-        return value, vcat([SkipArg()], reverse(result_arguments)), result_indices, result_vars
+        return calculated_value, vcat([SkipArg()], reverse(result_arguments)), result_indices, result_vars
     end
 
     return [(_is_reversible_subfunction, _is_possible_subfunction)], _reverse_map
