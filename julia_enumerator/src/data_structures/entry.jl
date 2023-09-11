@@ -141,7 +141,7 @@ function _get_fixed_hashes(options::EitherOptions, value, preselected_hashes)
 end
 
 function _get_fixed_hashes(options, value, preselected_hashes)
-    options == value, Set()
+    _match_pattern(options, value), Set()
 end
 
 function get_fixed_hashes(options, value, preselected_hashes = Set())
@@ -374,8 +374,10 @@ _match_pattern(value::AnyObject, other_value) = true
 _match_pattern(value::PatternWrapper, other_value) = _match_pattern(value.value, other_value)
 _match_pattern(value::PatternWrapper, other_value::PatternWrapper) = value.value == other_value.value
 _match_pattern(value, other_value) = value == other_value
-_match_pattern(value::Vector, other_value) = all(_match_pattern(v, ov) for (v, ov) in zip(value, other_value))
-_match_pattern(value::Tuple, other_value) = all(_match_pattern(v, ov) for (v, ov) in zip(value, other_value))
+_match_pattern(value::Vector, other_value) =
+    length(value) == length(other_value) && all(_match_pattern(v, ov) for (v, ov) in zip(value, other_value))
+_match_pattern(value::Tuple, other_value) =
+    length(value) == length(other_value) && all(_match_pattern(v, ov) for (v, ov) in zip(value, other_value))
 _match_pattern(value::AbductibleValue, other_value) = _match_pattern(value.value, other_value)
 
 match_at_index(entry::PatternEntry, index::Int, value) = _match_pattern(entry.values[index], value)
