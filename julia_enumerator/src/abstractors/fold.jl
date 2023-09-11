@@ -129,6 +129,10 @@ function reverse_fold(is_set = false)
 
                 itr, acc = option[1]
 
+                if isa(acc, AbductibleValue)
+                    continue
+                end
+
                 if (isempty(option[2]) && isempty(option[3]) && has_external_vars) ||
                    (!ismissing(calculated_arguments[1]) && calculated_arguments[1] != acc) ||
                    (!ismissing(calculated_arguments[2]) && calculated_arguments[2] != itr)
@@ -191,12 +195,8 @@ function reverse_fold(is_set = false)
                     new_item = option_args[2]
 
                     if isa(new_item, AbductibleValue)
-                        new_option = ([AbductibleValue(any_object), new_acc_op], new_option_indices, new_option_vars)
-                        new_h = hash(new_option)
-                        empty!(options)
-                        options[new_h] = new_option
-                        empty!(options_queue)
-                        break
+                        new_itr = AbductibleValue(any_object)
+                        options = Dict(h => op for (h, op) in options if isa(op[1][1], AbductibleValue))
                     elseif is_set
                         new_itr = union(itr, [new_item])
                         if new_itr == itr
@@ -289,14 +289,29 @@ function reverse_fold_grid(dim)
                 indices = option[2]
                 vars = option[3]
 
-                if isempty(option[2]) && isempty(option[3]) && has_external_vars
+                if isa(acc, AbductibleValue)
+                    continue
+                end
+
+                if (isempty(option[2]) && isempty(option[3]) && has_external_vars) ||
+                   (!ismissing(calculated_arguments[1]) && calculated_arguments[1] != acc) ||
+                   (!ismissing(calculated_arguments[2]) && calculated_arguments[2] != grid)
                     delete!(options, h)
                 end
 
                 new_options = [([[], []], indices, vars)]
 
-                for item in acc
-                    calculated_acc, predicted_arguments, filled_indices, filled_vars = _run_in_reverse(f, item)
+                for (i, item) in enumerate(acc)
+                    fixed_indices = Dict()
+                    if !ismissing(calculated_arguments[2])
+                        if dim == 1
+                            fixed_indices[1] = calculated_arguments[2][i, size(grid, 2)+1]
+                        else
+                            fixed_indices[1] = calculated_arguments[2][size(grid, 1)+1, i]
+                        end
+                    end
+                    calculated_acc, predicted_arguments, filled_indices, filled_vars =
+                        _run_in_reverse(f, item, [], [], [], fixed_indices, Dict())
 
                     next_options = []
                     for (option_args, option_indices, option_vars) in
@@ -338,8 +353,14 @@ function reverse_fold_grid(dim)
                                 continue
                             end
 
-                            acc_option = vcat(new_args[1], [new_acc_op])
-                            line_option = vcat(new_args[2], [option_args[2]])
+                            if isa(new_acc_op, AbductibleValue) || isa(option_args[2], AbductibleValue)
+                                acc_option = AbductibleValue(any_object)
+                                line_option = AbductibleValue(any_object)
+                                next_options = [op for op in next_options if isa(op[1][1], AbductibleValue)]
+                            else
+                                acc_option = vcat(new_args[1], [new_acc_op])
+                                line_option = vcat(new_args[2], [option_args[2]])
+                            end
                             push!(next_options, ([acc_option, line_option], new_option_indices, new_option_vars))
 
                             if length(next_options) > 100
@@ -360,10 +381,15 @@ function reverse_fold_grid(dim)
                         continue
                     end
                     new_line = new_args[2]
-                    if dim == 1
-                        new_grid = hcat(grid, new_line)
+                    if isa(new_line, AbductibleValue)
+                        new_grid = AbductibleValue(any_object)
+                        options = Dict(h => op for (h, op) in options if isa(op[1][1], AbductibleValue))
                     else
-                        new_grid = vcat(grid, new_line')
+                        if dim == 1
+                            new_grid = hcat(grid, new_line)
+                        else
+                            new_grid = vcat(grid, new_line')
+                        end
                     end
 
                     op = ([new_grid, new_acc], new_indices, new_vars)
