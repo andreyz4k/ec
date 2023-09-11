@@ -2029,6 +2029,41 @@ using DataStructures: OrderedDict, Accumulator
         ) == [[1, 3, 9], [4, 6, 1], [1, 1, 4], [4, 5, 0], [2, 2, 4]]
     end
 
+    @testset "Reverse fold_h with plus" begin
+        skeleton = Apply(
+            Apply(
+                Apply(
+                    every_primitive["fold_h"],
+                    Abstraction(Abstraction(Apply(Apply(every_primitive["+"], Index(0)), Index(1)))),
+                ),
+                Hole(tgrid(tint), nothing, true, nothing),
+            ),
+            Hole(tlist(tint), nothing, true, nothing),
+        )
+        @test is_reversible(skeleton)
+
+        p, _ = capture_free_vars(skeleton)
+
+        @test compare_options(
+            run_in_reverse(p, [[1, 3, 9], [4, 6, 1], [1, 1, 4], [4, 5, 0], [2, 2, 4]]),
+            Dict(UInt64(1) => AbductibleValue(any_object), UInt64(2) => AbductibleValue(any_object)),
+        )
+
+        @test run_with_arguments(
+            p,
+            [],
+            Dict(UInt64(1) => [[1, 4, 1, 4, 2] [3, 6, 1, 5, 2] [9, 1, 4, 0, 4]], UInt64(2) => [0, 0, 0, 0, 0]),
+        ) == [13, 11, 6, 9, 8]
+
+        @test calculate_dependent_vars(
+            p,
+            Dict{UInt64,Any}(UInt64(1) => [[1, 4, 1, 4, 2] [3, 6, 1, 5, 2] [9, 1, 4, 0, 4]]),
+            [13, 11, 6, 9, 8],
+        ) == Dict(UInt64(2) => [0, 0, 0, 0, 0])
+
+        @test calculate_dependent_vars(p, Dict{UInt64,Any}(UInt64(2) => [1, 4, 1, 4, 2]), [13, 11, 6, 9, 8]) == Dict()
+    end
+
     @testset "Reverse fold_v" begin
         skeleton = Apply(
             Apply(
@@ -2075,6 +2110,40 @@ using DataStructures: OrderedDict, Accumulator
             [],
             Dict(UInt64(1) => [[1, 4, 1, 4, 2] [3, 6, 1, 5, 2] [9, 1, 4, 0, 4]], UInt64(2) => [[], [], []]),
         ) == [[1, 4, 1, 4, 2], [3, 6, 1, 5, 2], [9, 1, 4, 0, 4]]
+    end
+
+    @testset "Reverse fold_v with plus" begin
+        skeleton = Apply(
+            Apply(
+                Apply(
+                    every_primitive["fold_v"],
+                    Abstraction(Abstraction(Apply(Apply(every_primitive["+"], Index(0)), Index(1)))),
+                ),
+                Hole(tgrid(tint), nothing, true, nothing),
+            ),
+            Hole(tlist(tint), nothing, true, nothing),
+        )
+        @test is_reversible(skeleton)
+
+        p, _ = capture_free_vars(skeleton)
+
+        @test compare_options(
+            run_in_reverse(p, [[1, 4, 1, 4, 2], [3, 6, 1, 5, 2], [9, 1, 4, 0, 4]]),
+            Dict(UInt64(1) => AbductibleValue(any_object), UInt64(2) => AbductibleValue(any_object)),
+        )
+
+        @test run_with_arguments(
+            p,
+            [],
+            Dict(UInt64(1) => [[1, 4, 1, 4, 2] [3, 6, 1, 5, 2] [9, 1, 4, 0, 4]], UInt64(2) => [0, 0, 0]),
+        ) == [12, 17, 18]
+
+        @test calculate_dependent_vars(
+            p,
+            Dict{UInt64,Any}(UInt64(1) => [[1, 4, 1, 4, 2] [3, 6, 1, 5, 2] [9, 1, 4, 0, 4]]),
+            [12, 17, 18],
+        ) == Dict(UInt64(2) => [0, 0, 0])
+        @test calculate_dependent_vars(p, Dict{UInt64,Any}(UInt64(2) => [1, 4, 1]), [12, 17, 18]) == Dict()
     end
 
     @testset "Reverse rev_groupby" begin
