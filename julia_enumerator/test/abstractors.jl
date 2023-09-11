@@ -1764,48 +1764,32 @@ using DataStructures: OrderedDict, Accumulator
         @test run_with_arguments(p, [], Dict(UInt64(1) => [1, 4, 1, 4, 2], UInt64(2) => [])) == [1, 4, 1, 4, 2]
     end
 
-    # @testset "Reverse fold with plus" begin
-    #     skeleton = Apply(
-    #         Apply(
-    #             Apply(
-    #                 every_primitive["fold"],
-    #                 Abstraction(Abstraction(Apply(Apply(every_primitive["+"], Index(0)), Index(1)))),
-    #             ),
-    #             Hole(tlist(t0), nothing, true, nothing),
-    #         ),
-    #         Hole(tint, nothing, true, nothing),
-    #     )
-    #     @test is_reversible(skeleton)
+    @testset "Reverse fold with plus" begin
+        skeleton = Apply(
+            Apply(
+                Apply(
+                    every_primitive["fold"],
+                    Abstraction(Abstraction(Apply(Apply(every_primitive["+"], Index(0)), Index(1)))),
+                ),
+                Hole(tlist(t0), nothing, true, nothing),
+            ),
+            Hole(tint, nothing, true, nothing),
+        )
+        @test is_reversible(skeleton)
 
-    #     rev_p = get_reversed_program(skeleton)
+        p, _ = capture_free_vars(skeleton)
 
-    #     @test compare_options(
-    #         rev_p(1),
-    #         [
-    #             EitherOptions(
-    #                 Dict{UInt64,Any}(
-    #                     0xbdbd2774acd38672 => Any[],
-    #                     0x41f0890c935e9967 => Any[AbductibleValue(_rev_dep_plus(1))],
-    #                 ),
-    #             ),
-    #             EitherOptions(
-    #                 Dict{UInt64,Any}(0xbdbd2774acd38672 => 1, 0x41f0890c935e9967 => AbductibleValue(_rev_dep_plus(1))),
-    #             ),
-    #         ],
-    #     )
+        @test compare_options(
+            run_in_reverse(p, 1),
+            Dict(UInt64(1) => AbductibleValue(any_object), UInt64(2) => AbductibleValue(any_object)),
+        )
 
-    #     p = Apply(
-    #         Apply(
-    #             Apply(
-    #                 every_primitive["fold"],
-    #                 Abstraction(Abstraction(Apply(Apply(every_primitive["+"], Index(0)), Index(1)))),
-    #             ),
-    #             FreeVar(tlist(tint), UInt64(1)),
-    #         ),
-    #         FreeVar(tint, UInt64(2)),
-    #     )
-    #     @test run_with_arguments(p, [], Dict(UInt64(1) => [1], UInt64(2) => 0)) == 1
-    # end
+        @test run_with_arguments(p, [], Dict(UInt64(1) => [1], UInt64(2) => 0)) == 1
+
+        @test calculate_dependent_vars(p, Dict{UInt64,Any}(UInt64(1) => [1, 2]), 4) == Dict(UInt64(2) => 1)
+        @test calculate_dependent_vars(p, Dict{UInt64,Any}(UInt64(2) => 2), 4) == Dict()
+        @test calculate_dependent_vars(p, Dict{UInt64,Any}(UInt64(2) => 4), 4) == Dict()
+    end
 
     @testset "Reverse fold_set" begin
         skeleton = Apply(

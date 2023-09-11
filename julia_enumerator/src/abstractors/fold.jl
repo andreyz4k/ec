@@ -10,6 +10,9 @@ function rev_fold(f, init, acc)
         if out isa EitherOptions
             error("Can't have eithers in rev_fold")
         end
+        if out isa AbductibleValue
+            error("Can't have abductible values in rev_fold")
+        end
         push!(outs, out)
     end
     return reverse(outs)
@@ -27,6 +30,9 @@ function rev_fold_set(f, init, acc)
             error("Can't have external indices or vars in rev_fold")
         end
         new_acc, out = predicted_arguments
+        if out isa AbductibleValue
+            error("Can't have abductible values in rev_fold")
+        end
         push!(visited, (acc, outs))
         if out isa EitherOptions
             for (h, val) in out.options
@@ -123,11 +129,22 @@ function reverse_fold(is_set = false)
 
                 itr, acc = option[1]
 
-                if isempty(option[2]) && isempty(option[3]) && has_external_vars
+                if (isempty(option[2]) && isempty(option[3]) && has_external_vars) ||
+                   (!ismissing(calculated_arguments[1]) && calculated_arguments[1] != acc) ||
+                   (!ismissing(calculated_arguments[2]) && calculated_arguments[2] != itr)
                     delete!(options, h)
                 end
 
-                calculated_acc, predicted_arguments, filled_indices, filled_vars = _run_in_reverse(f, acc)
+                fixed_indices = Dict()
+                if !ismissing(calculated_arguments[2])
+                    if is_set
+                        fixed_indices[1] = first(v for v in calculated_arguments[2] if v ∉ itr)
+                    else
+                        fixed_indices[1] = calculated_arguments[2][length(itr)+1]
+                    end
+                end
+                calculated_acc, predicted_arguments, filled_indices, filled_vars =
+                    _run_in_reverse(f, acc, [], [], [], fixed_indices, Dict())
 
                 for (option_args, option_indices, option_vars) in
                     unfold_options(predicted_arguments, filled_indices, filled_vars)
@@ -171,13 +188,22 @@ function reverse_fold(is_set = false)
                         continue
                     end
 
-                    if is_set
-                        new_itr = union(itr, [option_args[2]])
+                    new_item = option_args[2]
+
+                    if isa(new_item, AbductibleValue)
+                        new_option = ([AbductibleValue(any_object), new_acc_op], new_option_indices, new_option_vars)
+                        new_h = hash(new_option)
+                        empty!(options)
+                        options[new_h] = new_option
+                        empty!(options_queue)
+                        break
+                    elseif is_set
+                        new_itr = union(itr, [new_item])
                         if new_itr == itr
                             continue
                         end
                     else
-                        new_itr = vcat(itr, [option_args[2]])
+                        new_itr = vcat(itr, [new_item])
                     end
                     new_option = ([new_itr, new_acc_op], new_option_indices, new_option_vars)
 
