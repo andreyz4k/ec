@@ -14,8 +14,8 @@ function rev_greedy_cluster(f, item, groups)
 end
 
 function reverse_rev_greedy_cluster()
-    function _reverse_rev_greedy_cluster(groups, arguments, calculated_arguments)
-        f = arguments[end]
+    function _reverse_rev_greedy_cluster(groups, context)
+        f = context.arguments[end]
         grouper = f([], Dict())
 
         output_options = []
@@ -47,7 +47,7 @@ function reverse_rev_greedy_cluster()
                 push!(result, EitherOptions(Dict(h => option[i] for (h, option) in hashed_options)))
             end
         end
-        return groups, result, Dict(), Dict()
+        return groups, ReverseRunContext(context.arguments, result, context.calculated_arguments, Dict(), Dict())
     end
     return [(_has_no_holes, _is_possible_key_extractor)], _reverse_rev_greedy_cluster
 end

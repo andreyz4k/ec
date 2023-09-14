@@ -1255,12 +1255,33 @@ using DataStructures: OrderedDict, Accumulator
         @test compare_options(
             run_in_reverse(p, [3, 2]),
             Dict(
-                UInt64(1) => AbductibleValue([any_object, any_object],),
-                UInt64(2) => AbductibleValue([any_object, any_object],),
+                UInt64(1) => AbductibleValue([any_object, any_object]),
+                UInt64(2) => AbductibleValue([any_object, any_object]),
             ),
         )
 
         @test calculate_dependent_vars(p, Dict{UInt64,Any}(UInt64(1) => [1, 2]), [3, 2]) == Dict(UInt64(2) => [2, 0])
+    end
+
+    @testset "Reverse map with plus and free var" begin
+        skeleton = Apply(
+            Apply(
+                every_primitive["map"],
+                Abstraction(Apply(Apply(every_primitive["+"], FreeVar(tint, nothing)), Index(0))),
+            ),
+            Hole(tlist(tint), nothing, true, nothing),
+        )
+        @test is_reversible(skeleton)
+
+        p, _ = capture_free_vars(skeleton)
+
+        @test compare_options(
+            run_in_reverse(p, [3, 2]),
+            Dict(UInt64(1) => AbductibleValue(any_object), UInt64(2) => AbductibleValue([any_object, any_object])),
+        )
+
+        @test calculate_dependent_vars(p, Dict{UInt64,Any}(UInt64(2) => [2, 1]), [3, 2]) == Dict(UInt64(1) => 1)
+        @test calculate_dependent_vars(p, Dict{UInt64,Any}(UInt64(1) => 1), [3, 2]) == Dict(UInt64(2) => [2, 1])
     end
 
     @testset "Reverse rows with either" begin
