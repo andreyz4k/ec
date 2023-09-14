@@ -2,11 +2,12 @@
 function rev_fold(f, init, acc)
     outs = []
     while acc != init
-        calculated_acc, predicted_arguments, filled_indices, filled_vars = _run_in_reverse(f.p, acc)
-        if !isempty(filled_indices) || !isempty(filled_vars)
+        calculated_acc, context =
+            _run_in_reverse(f.p, acc, ReverseRunContext([], [], Any[missing, missing], Dict(), Dict()))
+        if !isempty(context.filled_indices) || !isempty(context.filled_vars)
             error("Can't have external indices or vars in rev_fold")
         end
-        acc, out = predicted_arguments
+        acc, out = context.predicted_arguments
         if out isa EitherOptions
             error("Can't have eithers in rev_fold")
         end
@@ -25,11 +26,12 @@ function rev_fold_set(f, init, acc)
 
     while !isempty(queue)
         acc, outs = pop!(queue)
-        calculated_acc, predicted_arguments, filled_indices, filled_vars = _run_in_reverse(f.p, acc)
-        if !isempty(filled_indices) || !isempty(filled_vars)
+        calculated_acc, context =
+            _run_in_reverse(f.p, acc, ReverseRunContext([], [], Any[missing, missing], Dict(), Dict()))
+        if !isempty(context.filled_indices) || !isempty(context.filled_vars)
             error("Can't have external indices or vars in rev_fold")
         end
-        new_acc, out = predicted_arguments
+        new_acc, out = context.predicted_arguments
         if out isa AbductibleValue
             error("Can't have abductible values in rev_fold")
         end
@@ -75,16 +77,17 @@ _is_possible_folder(p::Invented, from_input, skeleton, path) = is_reversible(p)
 _is_possible_folder(p::FreeVar, from_input, skeleton, path) = false
 
 function reverse_rev_fold()
-    function _reverse_rev_fold(value, arguments, calculated_arguments)
-        f = arguments[end]
+    function _reverse_rev_fold(value, context)
+        f = context.arguments[end]
 
-        init = arguments[end-1]
+        init = context.arguments[end-1]
 
         acc = run_with_arguments(init, [], Dict())
         for val in value
             acc = run_with_arguments(f, [val, acc], Dict())
         end
-        return value, [SkipArg(), SkipArg(), acc], Dict(), Dict()
+        return value,
+        ReverseRunContext(context.arguments, [SkipArg(), SkipArg(), acc], context.calculated_arguments, Dict(), Dict())
     end
     return [(_has_no_holes, _is_possible_init), (_is_reversible_subfunction, _is_possible_folder)], _reverse_rev_fold
 end
@@ -104,8 +107,8 @@ end
 )
 
 function reverse_fold(is_set = false)
-    function _reverse_fold(value, arguments, calculated_arguments)
-        f = arguments[end]
+    function _reverse_fold(value, context)
+        f = context.arguments[end]
 
         has_external_vars = _has_external_vars(f)
 
@@ -134,24 +137,30 @@ function reverse_fold(is_set = false)
                 end
 
                 if (isempty(option[2]) && isempty(option[3]) && has_external_vars) ||
-                   (!ismissing(calculated_arguments[1]) && calculated_arguments[1] != acc) ||
-                   (!ismissing(calculated_arguments[2]) && calculated_arguments[2] != itr)
+                   (!ismissing(context.calculated_arguments[end-2]) && context.calculated_arguments[end-2] != acc) ||
+                   (!ismissing(context.calculated_arguments[end-1]) && context.calculated_arguments[end-1] != itr)
                     delete!(options, h)
                 end
 
-                fixed_indices = Dict()
-                if !ismissing(calculated_arguments[2])
+                calculated_arguments = []
+                push!(calculated_arguments, missing)
+                if !ismissing(context.calculated_arguments[end-1])
                     if is_set
-                        fixed_indices[1] = first(v for v in calculated_arguments[2] if v ∉ itr)
+                        push!(calculated_arguments, first(v for v in context.calculated_arguments[end-1] if v ∉ itr))
                     else
-                        fixed_indices[1] = calculated_arguments[2][length(itr)+1]
+                        push!(calculated_arguments, context.calculated_arguments[end-1][length(itr)+1])
                     end
+                else
+                    push!(calculated_arguments, missing)
                 end
-                calculated_acc, predicted_arguments, filled_indices, filled_vars =
-                    _run_in_reverse(f, acc, [], [], [], fixed_indices, Dict())
+                calculated_acc, new_context = _run_in_reverse(
+                    f,
+                    acc,
+                    ReverseRunContext([], [], calculated_arguments, context.filled_indices, context.filled_vars),
+                )
 
                 for (option_args, option_indices, option_vars) in
-                    unfold_options(predicted_arguments, filled_indices, filled_vars)
+                    unfold_options(new_context.predicted_arguments, new_context.filled_indices, new_context.filled_vars)
                     new_acc_op = option_args[1]
                     if new_acc_op == acc
                         continue
@@ -241,7 +250,14 @@ function reverse_fold(is_set = false)
                 result_vars[k] = EitherOptions(Dict(h => option[3][k] for (h, option) in hashed_options))
             end
         end
-        return value, vcat([SkipArg()], result_arguments), result_indices, result_vars
+        return value,
+        ReverseRunContext(
+            context.arguments,
+            vcat([SkipArg()], result_arguments),
+            context.calculated_arguments,
+            result_indices,
+            result_vars,
+        )
     end
 
     return [(_is_reversible_subfunction, _is_possible_subfunction)], _reverse_fold
@@ -261,8 +277,8 @@ end
 )
 
 function reverse_fold_grid(dim)
-    function _reverse_fold(value, arguments, calculated_arguments)
-        f = arguments[end]
+    function _reverse_fold(value, context)
+        f = context.arguments[end]
 
         has_external_vars = _has_external_vars(f)
 
@@ -294,28 +310,38 @@ function reverse_fold_grid(dim)
                 end
 
                 if (isempty(option[2]) && isempty(option[3]) && has_external_vars) ||
-                   (!ismissing(calculated_arguments[1]) && calculated_arguments[1] != acc) ||
-                   (!ismissing(calculated_arguments[2]) && calculated_arguments[2] != grid)
+                   (!ismissing(context.calculated_arguments[end-2]) && context.calculated_arguments[end-2] != acc) ||
+                   (!ismissing(context.calculated_arguments[end-1]) && context.calculated_arguments[end-1] != grid)
                     delete!(options, h)
                 end
 
                 new_options = [([[], []], indices, vars)]
 
                 for (i, item) in enumerate(acc)
-                    fixed_indices = Dict()
-                    if !ismissing(calculated_arguments[2])
+                    calculated_arguments = []
+                    push!(calculated_arguments, missing)
+                    if !ismissing(context.calculated_arguments[end-1])
                         if dim == 1
-                            fixed_indices[1] = calculated_arguments[2][i, size(grid, 2)+1]
+                            push!(calculated_arguments, context.calculated_arguments[end-1][i, size(grid, 2)+1])
                         else
-                            fixed_indices[1] = calculated_arguments[2][size(grid, 1)+1, i]
+                            push!(calculated_arguments, context.calculated_arguments[end-1][size(grid, 1)+1, i])
                         end
+                    else
+                        push!(calculated_arguments, missing)
                     end
-                    calculated_acc, predicted_arguments, filled_indices, filled_vars =
-                        _run_in_reverse(f, item, [], [], [], fixed_indices, Dict())
+
+                    calculated_acc, new_context = _run_in_reverse(
+                        f,
+                        item,
+                        ReverseRunContext([], [], calculated_arguments, context.filled_indices, context.filled_vars),
+                    )
 
                     next_options = []
-                    for (option_args, option_indices, option_vars) in
-                        unfold_options(predicted_arguments, filled_indices, filled_vars)
+                    for (option_args, option_indices, option_vars) in unfold_options(
+                        new_context.predicted_arguments,
+                        new_context.filled_indices,
+                        new_context.filled_vars,
+                    )
                         new_acc_op = option_args[1]
                         for (new_args, new_indices, new_vars) in new_options
                             if !isempty(option_indices) && isempty(new_indices)
@@ -426,7 +452,14 @@ function reverse_fold_grid(dim)
             end
         end
 
-        return value, vcat([SkipArg()], result_arguments), result_indices, result_vars
+        return value,
+        ReverseRunContext(
+            context.arguments,
+            vcat([SkipArg()], result_arguments),
+            context.calculated_arguments,
+            result_indices,
+            result_vars,
+        )
     end
 
     return [(_is_reversible_subfunction, _is_possible_subfunction)], _reverse_fold

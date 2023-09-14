@@ -18,8 +18,8 @@ function unfold_options(args::Vector, indices::Dict, vars::Dict)
 end
 
 function reverse_map(n, is_set = false)
-    function _reverse_map(value, arguments, calculated_arguments)
-        f = arguments[end]
+    function _reverse_map(value, context)
+        f = context.arguments[end]
 
         has_external_vars = _has_external_vars(f)
 
@@ -32,22 +32,28 @@ function reverse_map(n, is_set = false)
         first_item = true
         calculated_value = []
         for (i, item) in enumerate(value)
-            fixed_indices = Dict()
+            calculated_arguments = []
             for j in 1:n
-                if !ismissing(calculated_arguments[end-j])
-                    fixed_indices[n-j] = calculated_arguments[end-j][i]
+                if !ismissing(context.calculated_arguments[end-j])
+                    push!(calculated_arguments, context.calculated_arguments[end-j][i])
+                else
+                    push!(calculated_arguments, missing)
                 end
             end
 
-            calculated_item, predicted_arguments, filled_indices, filled_vars =
-                _run_in_reverse(f, item, [], [], [], fixed_indices, Dict())
+            calculated_item, new_context = _run_in_reverse(
+                f,
+                item,
+                ReverseRunContext([], [], reverse(calculated_arguments), context.filled_indices, context.filled_vars),
+            )
             push!(calculated_value, calculated_item)
 
             new_options = Set()
-            if any(v isa EitherOptions for v in predicted_arguments) ||
-               any(v isa EitherOptions for v in values(filled_indices)) ||
-               any(v isa EitherOptions for v in values(filled_vars))
-                child_options = unfold_options(predicted_arguments, filled_indices, filled_vars)
+            if any(v isa EitherOptions for v in new_context.predicted_arguments) ||
+               any(v isa EitherOptions for v in values(new_context.filled_indices)) ||
+               any(v isa EitherOptions for v in values(new_context.filled_vars))
+                child_options =
+                    unfold_options(new_context.predicted_arguments, new_context.filled_indices, new_context.filled_vars)
 
                 for output_option in output_options
                     for (option_args, option_indices, option_vars) in child_options
@@ -100,7 +106,7 @@ function reverse_map(n, is_set = false)
             else
                 for option in output_options
                     good_option = true
-                    for (k, v) in filled_indices
+                    for (k, v) in new_context.filled_indices
                         if !haskey(option[2], k)
                             option[2][k] = v
                         elseif option[2][k] != v
@@ -111,7 +117,7 @@ function reverse_map(n, is_set = false)
                     if !good_option
                         continue
                     end
-                    for (k, v) in filled_vars
+                    for (k, v) in new_context.filled_vars
                         if !haskey(option[3], k)
                             option[3][k] = v
                         elseif option[3][k] != v
@@ -122,7 +128,7 @@ function reverse_map(n, is_set = false)
                     if !good_option
                         continue
                     end
-                    for (i, v) in enumerate(predicted_arguments)
+                    for (i, v) in enumerate(new_context.predicted_arguments)
                         push!(option[1][i], v)
                     end
                     push!(new_options, option)
@@ -173,7 +179,15 @@ function reverse_map(n, is_set = false)
                 end
             end
         end
-        return calculated_value, vcat([SkipArg()], reverse(result_arguments)), result_indices, result_vars
+
+        return calculated_value,
+        ReverseRunContext(
+            context.arguments,
+            vcat([SkipArg()], reverse(result_arguments)),
+            context.calculated_arguments,
+            result_indices,
+            result_vars,
+        )
     end
 
     return [(_is_reversible_subfunction, _is_possible_subfunction)], _reverse_map
