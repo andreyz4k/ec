@@ -425,13 +425,20 @@ function _get_abducted_values(sc, out_block::ProgramBlock, branches)
 
     updated_branches = DefaultDict{UInt64,Vector}(() -> [])
     for i in 1:sc.example_count
-        updated_values = calculate_dependent_vars(
-            out_block.p,
-            Dict{UInt64,Any}(
-                var_id => entry.values[i] for (var_id, entry) in in_entries if !isa(entry.values[i], AbductibleValue)
-            ),
-            out_entry.values[i],
+        updated_values = try_run_function(
+            calculate_dependent_vars,
+            [
+                out_block.p,
+                Dict{UInt64,Any}(
+                    var_id => entry.values[i] for
+                    (var_id, entry) in in_entries if !isa(entry.values[i], AbductibleValue)
+                ),
+                out_entry.values[i],
+            ],
         )
+        if isnothing(updated_values)
+            throw(EnumerationException())
+        end
         for (var_id, entry) in in_entries
             if haskey(updated_values, var_id)
                 push!(updated_branches[var_id], updated_values[var_id])
@@ -459,7 +466,11 @@ function _get_abducted_values(sc, out_block::WrapEitherBlock, branches)
             var_id => entry.values[i] for (var_id, entry) in out_entries if !isa(entry.values[i], AbductibleValue)
         )
         out_values[out_block.fixer_var] = fixer_entry.values[i]
-        updated_values = calculate_dependent_vars(out_block.main_block.p, out_values, in_entry.values[i])
+        updated_values =
+            try_run_function(calculate_dependent_vars, [out_block.main_block.p, out_values, in_entry.values[i]])
+        if isnothing(updated_values)
+            throw(EnumerationException())
+        end
 
         for (var_id, entry) in out_entries
             if haskey(updated_values, var_id)
@@ -495,8 +506,7 @@ function _find_relatives_for_abductible(sc, new_entry, branch_id, old_entry)
     return nothing, UInt64[branch_id], UInt64[]
 end
 
-function _abduct_next_block(sc, out_blocks, new_branch_id, var_id, branch_id)
-    (out_block_copy_id, out_block_id) = first(out_blocks)
+function _abduct_next_block(sc, out_block_copy_id, out_block_id, new_branch_id, var_id, branch_id)
     branch_ids = vcat(
         collect(keys(get_connected_to(sc.branch_outgoing_blocks, out_block_copy_id))),
         collect(keys(get_connected_to(sc.branch_incoming_blocks, out_block_copy_id))),
@@ -672,12 +682,8 @@ function updated_branches(
 
     out_blocks = get_connected_from(sc.branch_outgoing_blocks, branch_id)
 
-    if length(out_blocks) > 1
-        @info out_blocks
-        error("Abductible branch has more than one outgoing block")
-    end
-    if length(out_blocks) == 1
-        _abduct_next_block(sc, out_blocks, new_branch_id, var_id, branch_id)
+    for (out_block_copy_id, out_block_id) in out_blocks
+        _abduct_next_block(sc, out_block_copy_id, out_block_id, new_branch_id, var_id, branch_id)
     end
 
     block_created_paths =

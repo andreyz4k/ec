@@ -48,11 +48,11 @@ is_reversible(p::Program)::Bool = !isnothing(_is_reversible(p))
 struct SkipArg end
 
 mutable struct ReverseRunContext
-    arguments::Vector
-    predicted_arguments::Vector
-    calculated_arguments::Vector
-    filled_indices::Dict
-    filled_vars::Dict
+    arguments::Vector{Any}
+    predicted_arguments::Vector{Any}
+    calculated_arguments::Vector{Any}
+    filled_indices::Dict{Int64,Any}
+    filled_vars::Dict{UInt64,Any}
 end
 
 ReverseRunContext() = ReverseRunContext([], [], [], Dict(), Dict())
@@ -274,10 +274,10 @@ function _run_in_reverse(p::Primitive, output, context)
         new_context.filled_vars,
     )
     if !isempty(new_filled_indices)
-        merge!(context.filled_indices, new_filled_indices)
+        context.filled_indices = merge(context.filled_indices, new_filled_indices)
     end
     if !isempty(new_filled_vars)
-        merge!(context.filled_vars, new_filled_vars)
+        context.filled_vars = merge(context.filled_vars, new_filled_vars)
     end
     context.predicted_arguments = vcat(context.predicted_arguments, reverse(new_args))
 
@@ -299,7 +299,7 @@ function _run_in_reverse(p::Primitive, output::EitherOptions, context)
     filled_vars_options = DefaultDict(() -> Dict())
     for (h, val) in output.options
         fixed_hashes = Set([h])
-        # op_calculated_arguments = [fix_option_hashes(fixed_hashes, v) for v in calculated_arguments]
+        op_calculated_arguments = [fix_option_hashes(fixed_hashes, v) for v in context.calculated_arguments]
         op_predicted_arguments = [fix_option_hashes(fixed_hashes, v) for v in context.predicted_arguments]
         op_filled_indices = Dict(i => fix_option_hashes(fixed_hashes, v) for (i, v) in context.filled_indices)
         op_filled_vars = Dict(k => fix_option_hashes(fixed_hashes, v) for (k, v) in context.filled_vars)
@@ -310,7 +310,7 @@ function _run_in_reverse(p::Primitive, output::EitherOptions, context)
             ReverseRunContext(
                 context.arguments,
                 op_predicted_arguments,
-                context.calculated_arguments,
+                op_calculated_arguments,
                 op_filled_indices,
                 op_filled_vars,
             ),
@@ -388,15 +388,14 @@ end
 function _run_in_reverse(p::Primitive, output::PatternWrapper, context)
     calculated_output, new_context = _run_in_reverse(p, output.value, context)
 
-    context.predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars =
-        _intersect_values(
-            context.predicted_arguments,
-            context.filled_indices,
-            context.filled_vars,
-            new_context.predicted_arguments,
-            new_context.filled_indices,
-            new_context.filled_vars,
-        )
+    predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars = _intersect_values(
+        context.predicted_arguments,
+        context.filled_indices,
+        context.filled_vars,
+        new_context.predicted_arguments,
+        new_context.filled_indices,
+        new_context.filled_vars,
+    )
     if !isempty(new_filled_indices)
         context.filled_indices = merge(filled_indices, new_filled_indices)
     end
@@ -404,9 +403,8 @@ function _run_in_reverse(p::Primitive, output::PatternWrapper, context)
         context.filled_vars = merge(filled_vars, new_filled_vars)
     end
 
-    for out in reverse(new_args)
-        push!(context.predicted_arguments, _wrap_wildcard(out))
-    end
+    context.predicted_arguments = [_wrap_wildcard(arg) for arg in new_args]
+
     return _wrap_wildcard(calculated_output), context
 end
 

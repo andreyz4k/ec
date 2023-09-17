@@ -24,7 +24,10 @@ function get_complexity_summary(values, t::TypeConstructor, accum)
 end
 
 function get_complexity_summary(values::AnyObject, t::TypeConstructor, accum)
-    return
+    inc!(accum, t.name)
+    for arg in t.arguments
+        get_complexity_summary(values, arg, accum)
+    end
 end
 
 function get_complexity_summary(values::Nothing, t::TypeConstructor, accum)
