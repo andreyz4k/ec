@@ -560,7 +560,7 @@ using DataStructures
 
                 bl = WrapEitherBlock(
                     ReverseProgramBlock(p.v, 0.0, [vars_mapping[p.inp_var_id]], [vars_mapping[v] for v in p.var_ids]),
-                    fixer_var,
+                    vars_mapping[p.fixer_var_id],
                     0.0,
                     [vars_mapping[p.inp_var_id], fixer_var],
                     [vars_mapping[v] for v in p.var_ids],
@@ -620,6 +620,9 @@ using DataStructures
 
     function is_on_path(bp::BlockPrototype, bl::ProgramBlock, vars_mapping, verbose = false)
         if !isa(bp.state.skeleton, FreeVar)
+            return false
+        end
+        if !isa(bl.p, FreeVar)
             return false
         end
         if verbose
@@ -945,14 +948,24 @@ using DataStructures
                     if verbose
                         @info "out_blocks: $out_blocks"
                     end
-                    created_block_id = first(values(out_blocks))
-                    created_block = sc.blocks[created_block_id]
+                    fixer_index = findfirst(isequal(bl.fixer_var), bl.output_vars)
+                    created_block_id = nothing
+                    created_block_copy_id = nothing
+                    created_block = nothing
+                    for (block_copy_id, block_id) in out_blocks
+                        block = sc.blocks[block_id]
+                        if block.output_vars[fixer_index] == block.fixer_var
+                            created_block_id = block_id
+                            created_block_copy_id = block_copy_id
+                            created_block = block
+                            break
+                        end
+                    end
                     if verbose
                         @info "created_block: $created_block"
                     end
 
                     updated_branches = copy(branches)
-                    created_block_copy_id = first(keys(out_blocks))
                     in_branches = keys(get_connected_to(sc.branch_outgoing_blocks, created_block_copy_id))
                     for in_branch in in_branches
                         updated_branches[sc.branch_vars[in_branch]] = in_branch
@@ -1061,7 +1074,7 @@ using DataStructures
             @info blocks
             @info vars_mapping
         end
-        sc = create_starting_context(task, type_weights, verbose)
+        sc = create_starting_context(task, type_weights, verbose_test)
         enqueue_updates(sc, g)
         branches = Dict()
         for br_id in 1:sc.branches_count[]

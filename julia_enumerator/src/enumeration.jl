@@ -423,11 +423,11 @@ function try_get_reversed_values(sc::SolutionContext, p::Program, context, path,
         end
     end
 
-    return new_p, new_branches, vcat(either_var_ids, abductible_var_ids), vcat(either_branch_ids, abductible_branch_ids)
+    return new_p, new_branches, either_var_ids, abductible_var_ids, either_branch_ids, abductible_branch_ids
 end
 
 function try_get_reversed_inputs(sc, p::Program, context, path, output_branch_id, cost)
-    new_p, inputs, _, _ = try_get_reversed_values(sc, p, context, path, output_branch_id, cost, false)
+    new_p, inputs, _, _, _, _ = try_get_reversed_values(sc, p, context, path, output_branch_id, cost, false)
     return new_p, inputs
 end
 
@@ -472,10 +472,10 @@ function create_wrapping_block(
 end
 
 function create_reversed_block(sc::SolutionContext, p::Program, context, path, input_var::Tuple{UInt64,UInt64}, cost)
-    new_p, output_vars, either_var_ids, either_branch_ids =
+    new_p, output_vars, either_var_ids, abductible_var_ids, either_branch_ids, abductible_branch_ids =
         try_get_reversed_values(sc, p, context, path, input_var[2], cost, true)
     block = ReverseProgramBlock(new_p, cost, [input_var[1]], [v_id for (v_id, _, _) in output_vars])
-    if isempty(either_var_ids)
+    if isempty(either_var_ids) && isempty(abductible_var_ids)
         block_id = push!(sc.blocks, block)
         return [(
             block_id,
@@ -484,7 +484,8 @@ function create_reversed_block(sc::SolutionContext, p::Program, context, path, i
         )]
     else
         results = []
-        for (var_id, branch_id) in zip(either_var_ids, either_branch_ids)
+        for (var_id, branch_id) in
+            Iterators.flatten([zip(either_var_ids, either_branch_ids), zip(abductible_var_ids, abductible_branch_ids)])
             push!(
                 results,
                 create_wrapping_block(
@@ -697,11 +698,14 @@ function try_run_block(
         expected_output = sc.entries[sc.branch_entries[out_branch_id]]
         for j in 1:sc.example_count
             v = fixed_values[j]
-            if !match_at_index(expected_output, j, v)
+            if isa(v, AbductibleValue) || !match_at_index(expected_output, j, v)
                 throw(EnumerationException())
             end
         end
         push!(outputs, fixed_values)
+    end
+    if sc.verbose
+        @info "Got outputs for block $block_id: $outputs"
     end
     return value_updates(sc, block, block_id, target_output, outputs, fixed_branches, is_new_block, created_paths)
 end
