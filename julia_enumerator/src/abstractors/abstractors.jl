@@ -215,9 +215,6 @@ function _intersect_values(
     common_options = intersect(old_options, new_options)
     paths = Set()
     # @info common_options
-    if isempty(common_options)
-        error("No common options")
-    end
     for op in common_options
         # @info op
         old_op_fixed_hashes = Set()
@@ -251,6 +248,9 @@ function _intersect_values(
                 rethrow()
             end
         end
+    end
+    if isempty(common_options) || isempty(paths)
+        error("No common options")
     end
     # @info paths
     # @info predicted_arguments

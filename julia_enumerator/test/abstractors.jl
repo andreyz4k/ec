@@ -1401,6 +1401,40 @@ using DataStructures: OrderedDict, Accumulator
         )
     end
 
+    @testset "Reverse map with either options with free var with plus and mult 5" begin
+        # (map (lambda (* $0 (* (+ $v2080 $0) $v2081))) $v2082)
+        skeleton = Apply(
+            Apply(
+                every_primitive["map"],
+                Abstraction(
+                    Apply(
+                        Apply(every_primitive["*"], Index(0)),
+                        Apply(
+                            Apply(
+                                every_primitive["*"],
+                                Apply(Apply(every_primitive["+"], FreeVar(tint, nothing)), Index(0)),
+                            ),
+                            FreeVar(tint, nothing),
+                        ),
+                    ),
+                ),
+            ),
+            Hole(tlist(t0), nothing, true, nothing),
+        )
+        @test is_reversible(skeleton)
+        p, _ = capture_free_vars(skeleton)
+
+        @test_throws ErrorException compare_options(
+            run_in_reverse(p, [16, 10, 7, 12, 13, 3]),
+            Dict(
+                UInt64(1) => 1,
+                UInt64(2) => EitherOptions(
+                    Dict{UInt64,Any}(0x83f70505be91eff8 => Any[2, 0, 3, 1], 0x0853c75d0ab1b91c => Any[2, -1, 3, 1]),
+                ),
+            ),
+        )
+    end
+
     @testset "Reverse map2 with plus" begin
         skeleton = Apply(
             Apply(
