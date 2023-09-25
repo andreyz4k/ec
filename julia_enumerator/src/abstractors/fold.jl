@@ -110,7 +110,7 @@ function reverse_fold(is_set = false)
     function _reverse_fold(value, context)
         f = context.arguments[end]
 
-        has_external_vars = _has_external_vars(f)
+        external_indices = _get_var_indices(f)
 
         options = Dict()
         if is_set
@@ -121,7 +121,7 @@ function reverse_fold(is_set = false)
         acc = value
 
         h = rand(UInt64)
-        options[h] = ([itr, acc], Dict(), Dict())
+        options[h] = ([itr, acc], context.filled_indices, context.filled_vars)
 
         options_queue = Set([h])
 
@@ -129,6 +129,7 @@ function reverse_fold(is_set = false)
             try
                 h = pop!(options_queue)
                 option = options[h]
+                # @info "Option $option"
 
                 itr, acc = option[1]
 
@@ -136,12 +137,19 @@ function reverse_fold(is_set = false)
                     continue
                 end
 
-                if (isempty(option[2]) && isempty(option[3]) && has_external_vars) ||
-                   (!ismissing(context.calculated_arguments[end-2]) && context.calculated_arguments[end-2] != acc) ||
-                   (!ismissing(context.calculated_arguments[end-1]) && context.calculated_arguments[end-1] != itr)
-                    delete!(options, h)
+                for i in external_indices
+                    if i >= 0
+                        if !haskey(option[2], i)
+                            delete!(options, h)
+                            break
+                        end
+                    else
+                        if !haskey(option[3], UInt64(-i))
+                            delete!(options, h)
+                            break
+                        end
+                    end
                 end
-
                 calculated_arguments = []
                 push!(calculated_arguments, missing)
                 if !ismissing(context.calculated_arguments[end-1])
@@ -156,48 +164,19 @@ function reverse_fold(is_set = false)
                 calculated_acc, new_context = _run_in_reverse(
                     f,
                     acc,
-                    ReverseRunContext([], [], calculated_arguments, context.filled_indices, context.filled_vars),
+                    ReverseRunContext([], [], calculated_arguments, copy(option[2]), copy(option[3])),
                 )
+                # @info "Calculated acc $calculated_acc"
+                # @info "New context $new_context"
 
                 for (option_args, option_indices, option_vars) in
                     unfold_options(new_context.predicted_arguments, new_context.filled_indices, new_context.filled_vars)
+                    # @info option
+                    # @info option_args
+                    # @info option_indices
+                    # @info option_vars
                     new_acc_op = option_args[1]
                     if new_acc_op == acc
-                        continue
-                    end
-
-                    if !isempty(option_indices)
-                        new_option_indices = copy(option[2])
-                    else
-                        new_option_indices = option[2]
-                    end
-                    if !isempty(option_vars)
-                        new_option_vars = copy(option[3])
-                    else
-                        new_option_vars = option[3]
-                    end
-
-                    good_option = true
-                    for (k, v) in option_indices
-                        if !haskey(new_option_indices, k)
-                            new_option_indices[k] = v
-                        elseif new_option_indices[k] != v
-                            good_option = false
-                            break
-                        end
-                    end
-                    if !good_option
-                        continue
-                    end
-                    for (k, v) in option_vars
-                        if !haskey(new_option_vars, k)
-                            new_option_vars[k] = v
-                        elseif new_option_vars[k] != v
-                            good_option = false
-                            break
-                        end
-                    end
-                    if !good_option
                         continue
                     end
 
@@ -214,7 +193,8 @@ function reverse_fold(is_set = false)
                     else
                         new_itr = vcat(itr, [new_item])
                     end
-                    new_option = ([new_itr, new_acc_op], new_option_indices, new_option_vars)
+                    new_option = ([new_itr, new_acc_op], option_indices, option_vars)
+                    # @info new_option
 
                     new_h = hash(new_option)
                     if !haskey(options, new_h)
@@ -227,9 +207,11 @@ function reverse_fold(is_set = false)
                 if isa(e, InterruptException)
                     rethrow()
                 end
+                # @info e
                 continue
             end
         end
+        # @info "Options $options"
 
         if length(options) == 0
             error("No valid options found")
