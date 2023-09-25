@@ -1302,6 +1302,105 @@ using DataStructures: OrderedDict, Accumulator
         )
     end
 
+    @testset "Reverse map with either options with free var with plus and mult 2" begin
+        # (map (lambda (* $0 (* (+ $v651 $0) $v652))) $v653)
+        skeleton = Apply(
+            Apply(
+                every_primitive["map"],
+                Abstraction(
+                    Apply(
+                        Apply(every_primitive["*"], Index(0)),
+                        Apply(
+                            Apply(
+                                every_primitive["*"],
+                                Apply(Apply(every_primitive["+"], FreeVar(tint, nothing)), Index(0)),
+                            ),
+                            FreeVar(tint, nothing),
+                        ),
+                    ),
+                ),
+            ),
+            Hole(tlist(t0), nothing, true, nothing),
+        )
+        @test is_reversible(skeleton)
+        p, _ = capture_free_vars(skeleton)
+
+        @test_throws ErrorException compare_options(
+            run_in_reverse(p, [1, 2, 3]),
+            Dict(
+                UInt64(1) => 1,
+                UInt64(2) => EitherOptions(
+                    Dict{UInt64,Any}(0x83f70505be91eff8 => Any[2, 0, 3, 1], 0x0853c75d0ab1b91c => Any[2, -1, 3, 1]),
+                ),
+            ),
+        )
+    end
+
+    @testset "Reverse map with either options with free var with plus and mult 3" begin
+        # (map (lambda (* $0 (+ $v154 $0))) $v155)
+        skeleton = Apply(
+            Apply(
+                every_primitive["map"],
+                Abstraction(
+                    Apply(
+                        Apply(every_primitive["*"], Index(0)),
+                        Apply(Apply(every_primitive["+"], FreeVar(tint, nothing)), Index(0)),
+                    ),
+                ),
+            ),
+            Hole(tlist(t0), nothing, true, nothing),
+        )
+        @test is_reversible(skeleton)
+        p, _ = capture_free_vars(skeleton)
+
+        @test compare_options(
+            run_in_reverse(p, [0, 1, 4]),
+            Dict(
+                0x0000000000000002 => EitherOptions(
+                    Dict{UInt64,Any}(
+                        0xa27eae52c3b98d6b => Any[any_object, -1, 2],
+                        0xa053df3c4db3e4d3 => Any[0, -1, -2],
+                        0x3fff5855fea46fa8 => Any[any_object, 1, -2],
+                        0x5d2bb9255b9c58d5 => Any[0, 1, 2],
+                        0x9f7e82c41d14214f => Any[any_object, -1, -2],
+                        0x386f7e49e9148fce => Any[any_object, 1, 2],
+                        0x5ba8072154451d21 => Any[0, -1, 2],
+                        0x97d800ee965ba928 => Any[0, 1, -2],
+                    ),
+                ),
+                0x0000000000000001 => 0,
+            ),
+        )
+    end
+
+    @testset "Reverse map with either options with free var with plus and mult 4" begin
+        # (map (lambda (* $0 (+ $0 $0))) $v2102)
+        skeleton = Apply(
+            Apply(
+                every_primitive["map"],
+                Abstraction(
+                    Apply(
+                        Apply(every_primitive["*"], Index(0)),
+                        Apply(Apply(every_primitive["+"], Index(0)), Index(0)),
+                    ),
+                ),
+            ),
+            Hole(tlist(t0), nothing, true, nothing),
+        )
+        @test is_reversible(skeleton)
+        p, _ = capture_free_vars(skeleton)
+
+        @test_throws ErrorException compare_options(
+            run_in_reverse(p, [0, 2, 12, 2, 11, 0]),
+            Dict(
+                UInt64(1) => 1,
+                UInt64(2) => EitherOptions(
+                    Dict{UInt64,Any}(0x83f70505be91eff8 => Any[2, 0, 3, 1], 0x0853c75d0ab1b91c => Any[2, -1, 3, 1]),
+                ),
+            ),
+        )
+    end
+
     @testset "Reverse map2 with plus" begin
         skeleton = Apply(
             Apply(

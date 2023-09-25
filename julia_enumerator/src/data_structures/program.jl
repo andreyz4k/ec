@@ -480,7 +480,7 @@ function wrap_any_object_call(f)
         try
             r = f(x)
             if r isa Function
-                return wrap_any_object(r)
+                return wrap_any_object_call(r)
             else
                 return r
             end

@@ -254,7 +254,7 @@ function _remap_options_hashes(path, value::EitherOptions, depth)
     end
 end
 
-function convert_to_either(options::EitherOptions, path, depth, processed_hashes)
+function convert_to_either(options, path, depth, processed_hashes)
     return options, true
 end
 
@@ -414,8 +414,16 @@ Base.hash(v::PatternEntry, h::UInt64) = hash(v.type_id, hash(v.values, h))
 Base.:(==)(v1::PatternEntry, v2::PatternEntry) = v1.type_id == v2.type_id && v1.values == v2.values
 
 _match_value(unknown_value::AnyObject, known_value) = true
+_match_value(unknown_value::AnyObject, known_value::PatternWrapper) = true
 _match_value(unknown_value::PatternWrapper, known_value) = _match_value(unknown_value.value, known_value)
 _match_value(unknown_value::PatternWrapper, known_value::PatternWrapper) = unknown_value.value == known_value.value
+_match_value(unknown_value, known_value::PatternWrapper) = unknown_value == known_value.value
+_match_value(unknown_value::Vector, known_value::PatternWrapper) = unknown_value == known_value.value
+_match_value(unknown_value::Tuple, known_value::PatternWrapper) = unknown_value == known_value.value
+_match_value(unknown_value::AbductibleValue, known_value::PatternWrapper) =
+    _match_value(unknown_value.value, known_value.value)
+_match_value(unknown_value::EitherOptions, known_value::PatternWrapper) =
+    @invoke(_match_value(unknown_value::EitherOptions, known_value.value::Any))
 _match_value(unknown_value, known_value) = unknown_value == known_value
 
 _match_value(unknown_value::Vector, known_value) =

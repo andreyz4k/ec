@@ -698,7 +698,7 @@ function try_run_block(
         expected_output = sc.entries[sc.branch_entries[out_branch_id]]
         for j in 1:sc.example_count
             v = fixed_values[j]
-            if isa(v, AbductibleValue) || !match_at_index(expected_output, j, v)
+            if isa(v, AbductibleValue) || isa(v, EitherOptions) || !match_at_index(expected_output, j, v)
                 throw(EnumerationException())
             end
         end
