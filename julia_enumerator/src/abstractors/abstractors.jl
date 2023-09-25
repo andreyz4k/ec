@@ -123,6 +123,32 @@ function _intersect_values(
 end
 
 function _intersect_values(
+    old_v::AbductibleValue,
+    v::Union{AbductibleValue,AnyObject},
+    predicted_arguments,
+    filled_indices,
+    filled_vars,
+    new_args,
+    new_filled_indices,
+    new_filled_vars,
+)
+    return old_v, predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars
+end
+
+function _intersect_values(
+    old_v::Union{AbductibleValue,AnyObject},
+    v::AbductibleValue,
+    predicted_arguments,
+    filled_indices,
+    filled_vars,
+    new_args,
+    new_filled_indices,
+    new_filled_vars,
+)
+    return v, predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars
+end
+
+function _intersect_values(
     old_v::Union{AbductibleValue,AnyObject},
     v::EitherOptions,
     predicted_arguments,
@@ -150,6 +176,7 @@ end
 
 _unify_values(v1, v2::AnyObject) = v1
 _unify_values(v1::AnyObject, v2) = v2
+_unify_values(v1::AnyObject, v2::AnyObject) = v2
 
 function _unify_values(v1::EitherOptions, v2::EitherOptions)
     options = Dict()
@@ -188,6 +215,9 @@ function _intersect_values(
     common_options = intersect(old_options, new_options)
     paths = Set()
     # @info common_options
+    if isempty(common_options)
+        error("No common options")
+    end
     for op in common_options
         # @info op
         old_op_fixed_hashes = Set()
@@ -705,7 +735,7 @@ function _generic_abductible_reverse(f, n, value, calculated_arguments, i, calcu
     if i == n
         return f(value, calculated_arguments)
     else
-        return _generic_abductible_reverse(f, n, value, calculated_arguments, i + 1, calculated_arguments[i+1])
+        return _generic_abductible_reverse(f, n, value, calculated_arguments, i + 1, calculated_arguments[end-i])
     end
 end
 
