@@ -124,14 +124,10 @@ end
 Base.:(==)(v1::EitherOptions, v2::EitherOptions) = v1.options == v2.options
 Base.hash(v::EitherOptions, h::UInt64) = hash(v.options, h)
 
-function _get_fixed_hashes(options::EitherOptions, value, preselected_hashes)
+function _get_fixed_hashes(options::EitherOptions, value)
     out_hashes = Set()
-    filtered = any(haskey(options.options, h) for h in preselected_hashes)
     for (h, option) in options.options
-        if filtered && !in(h, preselected_hashes)
-            continue
-        end
-        found, hashes = _get_fixed_hashes(option, value, preselected_hashes)
+        found, hashes = _get_fixed_hashes(option, value)
         if found
             union!(out_hashes, hashes)
             push!(out_hashes, h)
@@ -140,12 +136,44 @@ function _get_fixed_hashes(options::EitherOptions, value, preselected_hashes)
     return !isempty(out_hashes), out_hashes
 end
 
-function _get_fixed_hashes(options, value, preselected_hashes)
-    _match_pattern(options, value), Set()
+function _get_fixed_hashes(options, value)
+    _match_value(options, value), Set()
 end
 
-function get_fixed_hashes(options, value, preselected_hashes = Set())
-    found, hashes = _get_fixed_hashes(options, value, preselected_hashes)
+function get_fixed_hashes(options, value)
+    found, hashes = _get_fixed_hashes(options, value)
+    if !found
+        throw(EnumerationException("Inconsistent match"))
+    end
+    return hashes
+end
+
+function _get_intersecting_hashes(value, options::EitherOptions, preselected_hashes)
+    return _get_intersecting_hashes(options, value, preselected_hashes)
+end
+
+function _get_intersecting_hashes(options::EitherOptions, value, preselected_hashes)
+    out_hashes = Set()
+    filtered = any(haskey(options.options, h) for h in preselected_hashes)
+    for (h, option) in options.options
+        if filtered && !in(h, preselected_hashes)
+            continue
+        end
+        found, hashes = _get_intersecting_hashes(option, value, preselected_hashes)
+        if found
+            union!(out_hashes, hashes)
+            push!(out_hashes, h)
+        end
+    end
+    return !isempty(out_hashes), out_hashes
+end
+
+function _get_intersecting_hashes(options, value, preselected_hashes)
+    _match_value(options, value) || _match_value(value, options), Set()
+end
+
+function get_intersecting_hashes(options, value, preselected_hashes = Set())
+    found, hashes = _get_intersecting_hashes(options, value, preselected_hashes)
     if !found
         throw(EnumerationException("Inconsistent match"))
     end
@@ -170,7 +198,7 @@ function _get_hashes_paths(options::EitherOptions, value, preselected_hashes)
 end
 
 function _get_hashes_paths(options, value, preselected_hashes)
-    if options == value
+    if _match_value(options, value) || _match_value(value, options)
         return [[]]
     else
         return []
@@ -209,17 +237,6 @@ function fix_option_hashes(fixed_hashes, value)
     return value
 end
 
-function make_options(options, depth)
-    if depth == 0
-        return options
-    end
-    out_options = Dict()
-    for (h, option) in options
-        out_options[h] = make_options(option, depth - 1)
-    end
-    return EitherOptions(out_options)
-end
-
 function _remap_options_hashes(path, value, depth)
     return view(path, 1:depth), value
 end
@@ -237,13 +254,33 @@ function _remap_options_hashes(path, value::EitherOptions, depth)
     end
 end
 
+function convert_to_either(options::EitherOptions, path, depth, processed_hashes)
+    return options, true
+end
+
+function convert_to_either(options::Dict, path, depth, processed_hashes)
+    if depth == length(path)
+        return EitherOptions(options), true
+    end
+    h = path[depth]
+    options[h], processed = convert_to_either(options[h], path, depth + 1, processed_hashes)
+    if processed
+        push!(processed_hashes, h)
+    end
+    if all(in(k, processed_hashes) for k in keys(options))
+        return EitherOptions(options), true
+    else
+        return options, false
+    end
+end
+
 function remap_options_hashes(paths, value::EitherOptions)
     out_options = Dict()
-    depth = 0
+    out_paths = []
     for path in paths
         out_path, out_value = _remap_options_hashes(path, value, 0)
         cur_options = out_options
-        depth = length(out_path)
+        push!(out_paths, out_path)
         for i in 1:length(out_path)-1
             h = out_path[i]
             if !haskey(cur_options, h)
@@ -253,7 +290,21 @@ function remap_options_hashes(paths, value::EitherOptions)
         end
         cur_options[out_path[end]] = out_value
     end
-    return make_options(out_options, depth)
+    # @info "Remapping options"
+    # @info value
+    # @info out_options
+    out_paths = sort(out_paths; by = length, rev = true)
+    # @info out_paths
+    processed_hashes = Set()
+    for path in out_paths
+        # @info path
+        out_options, _ = convert_to_either(out_options, path, 1, processed_hashes)
+        # @info out_options
+        # @info processed_hashes
+    end
+    # @info out_options
+    # @info "Done remapping"
+    return out_options
 end
 
 function remap_options_hashes(paths, value)
@@ -333,15 +384,7 @@ function const_options(entry::EitherEntry)
     return _const_options(entry.values[1])
 end
 
-function _match_options(value::EitherOptions, other_value)
-    return any(_match_options(op, other_value) for (_, op) in value.options)
-end
-
-_match_options(value::PatternWrapper, other_value) = _match_pattern(value, other_value)
-_match_options(value::AbductibleValue, other_value) = _match_pattern(value, other_value)
-_match_options(value, other_value) = value == other_value
-
-match_at_index(entry::EitherEntry, index::Int, value) = _match_options(entry.values[index], value)
+match_at_index(entry::EitherEntry, index::Int, value) = _match_value(entry.values[index], value)
 
 function match_with_entry(sc, entry::EitherEntry, other::ValueEntry)
     return all(match_at_index(entry, i, other.values[i]) for i in 1:sc.example_count)
@@ -370,17 +413,25 @@ end
 Base.hash(v::PatternEntry, h::UInt64) = hash(v.type_id, hash(v.values, h))
 Base.:(==)(v1::PatternEntry, v2::PatternEntry) = v1.type_id == v2.type_id && v1.values == v2.values
 
-_match_pattern(value::AnyObject, other_value) = true
-_match_pattern(value::PatternWrapper, other_value) = _match_pattern(value.value, other_value)
-_match_pattern(value::PatternWrapper, other_value::PatternWrapper) = value.value == other_value.value
-_match_pattern(value, other_value) = value == other_value
-_match_pattern(value::Vector, other_value) =
-    length(value) == length(other_value) && all(_match_pattern(v, ov) for (v, ov) in zip(value, other_value))
-_match_pattern(value::Tuple, other_value) =
-    length(value) == length(other_value) && all(_match_pattern(v, ov) for (v, ov) in zip(value, other_value))
-_match_pattern(value::AbductibleValue, other_value) = _match_pattern(value.value, other_value)
+_match_value(unknown_value::AnyObject, known_value) = true
+_match_value(unknown_value::PatternWrapper, known_value) = _match_value(unknown_value.value, known_value)
+_match_value(unknown_value::PatternWrapper, known_value::PatternWrapper) = unknown_value.value == known_value.value
+_match_value(unknown_value, known_value) = unknown_value == known_value
 
-match_at_index(entry::PatternEntry, index::Int, value) = _match_pattern(entry.values[index], value)
+_match_value(unknown_value::Vector, known_value) =
+    length(unknown_value) == length(known_value) &&
+    all(_match_value(v, ov) for (v, ov) in zip(unknown_value, known_value))
+
+_match_value(unknown_value::Tuple, known_value) =
+    length(unknown_value) == length(known_value) &&
+    all(_match_value(v, ov) for (v, ov) in zip(unknown_value, known_value))
+
+_match_value(unknown_value::AbductibleValue, known_value) = _match_value(unknown_value.value, known_value)
+
+_match_value(unknown_value::EitherOptions, known_value) =
+    any(_match_value(op, known_value) for (_, op) in unknown_value.options)
+
+match_at_index(entry::PatternEntry, index::Int, value) = _match_value(entry.values[index], value)
 
 function match_with_entry(sc, entry::PatternEntry, other::ValueEntry)
     return all(match_at_index(entry, i, other.values[i]) for i in 1:sc.example_count)
@@ -463,7 +514,7 @@ end
 Base.hash(v::AbductibleEntry, h::UInt64) = hash(v.type_id, hash(v.values, h))
 Base.:(==)(v1::AbductibleEntry, v2::AbductibleEntry) = v1.type_id == v2.type_id && v1.values == v2.values
 
-match_at_index(entry::AbductibleEntry, index::Int, value) = _match_pattern(entry.values[index], value)
+match_at_index(entry::AbductibleEntry, index::Int, value) = _match_value(entry.values[index], value)
 
 function match_with_entry(sc, entry::AbductibleEntry, other::ValueEntry)
     return all(match_at_index(entry, i, other.values[i]) for i in 1:sc.example_count)

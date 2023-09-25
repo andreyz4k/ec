@@ -1237,6 +1237,71 @@ using DataStructures: OrderedDict, Accumulator
         )
     end
 
+    @testset "Reverse map with either options with free var and plus" begin
+        skeleton = Apply(
+            Apply(
+                every_primitive["map"],
+                Abstraction(Apply(Apply(every_primitive["+"], FreeVar(tint, nothing)), Index(0))),
+            ),
+            Hole(tlist(t0), nothing, true, nothing),
+        )
+        @test is_reversible(skeleton)
+        p, _ = capture_free_vars(skeleton)
+
+        @test compare_options(
+            run_in_reverse(p, [12, 0, 36, 2]),
+            Dict(
+                0x0000000000000001 => AbductibleValue(any_object),
+                0x0000000000000002 => AbductibleValue([any_object, any_object, any_object, any_object]),
+            ),
+        )
+
+        @test compare_options(
+            calculate_dependent_vars(p, Dict(UInt64(1) => 2), [12, 0, 36, 2]),
+            Dict(UInt64(2) => [10, -2, 34, 0]),
+        )
+
+        @test compare_options(
+            calculate_dependent_vars(p, Dict(UInt64(2) => [9, -3, 33, -1]), [12, 0, 36, 2]),
+            Dict(UInt64(1) => 3),
+        )
+
+        @test_throws ErrorException compare_options(
+            calculate_dependent_vars(p, Dict(UInt64(2) => [9, -3, 37, -1]), [12, 0, 36, 2]),
+            Dict(UInt64(1) => 3),
+        )
+    end
+
+    @testset "Reverse map with either options with free var with plus and mult" begin
+        skeleton = Apply(
+            Apply(
+                every_primitive["map"],
+                Abstraction(
+                    Apply(
+                        Apply(every_primitive["*"], Index(0)),
+                        Apply(
+                            Apply(every_primitive["*"], Index(0)),
+                            Apply(Apply(every_primitive["+"], FreeVar(tint, nothing)), Index(0)),
+                        ),
+                    ),
+                ),
+            ),
+            Hole(tlist(t0), nothing, true, nothing),
+        )
+        @test is_reversible(skeleton)
+        p, _ = capture_free_vars(skeleton)
+
+        @test compare_options(
+            run_in_reverse(p, [12, 0, 36, 2]),
+            Dict(
+                UInt64(1) => 1,
+                UInt64(2) => EitherOptions(
+                    Dict{UInt64,Any}(0x83f70505be91eff8 => Any[2, 0, 3, 1], 0x0853c75d0ab1b91c => Any[2, -1, 3, 1]),
+                ),
+            ),
+        )
+    end
+
     @testset "Reverse map2 with plus" begin
         skeleton = Apply(
             Apply(
@@ -1810,6 +1875,624 @@ using DataStructures: OrderedDict, Accumulator
         @test calculate_dependent_vars(p, Dict{UInt64,Any}(UInt64(1) => [1, 2]), 4) == Dict(UInt64(2) => 1)
         @test calculate_dependent_vars(p, Dict{UInt64,Any}(UInt64(2) => 2), 4) == Dict()
         @test calculate_dependent_vars(p, Dict{UInt64,Any}(UInt64(2) => 4), 4) == Dict()
+    end
+
+    @testset "Reverse fold with free var" begin
+        skeleton = Apply(
+            Apply(
+                Apply(
+                    every_primitive["fold"],
+                    Abstraction(
+                        Abstraction(
+                            Apply(
+                                Apply(
+                                    every_primitive["cons"],
+                                    Apply(Apply(every_primitive["*"], Index(1)), FreeVar(tint, nothing)),
+                                ),
+                                Index(0),
+                            ),
+                        ),
+                    ),
+                ),
+                Hole(tlist(t0), nothing, true, nothing),
+            ),
+            Hole(tint, nothing, true, nothing),
+        )
+        @test is_reversible(skeleton)
+
+        p, _ = capture_free_vars(skeleton)
+
+        @test compare_options(
+            run_in_reverse(p, [3, 5, 2, 1]),
+            Dict(
+                0x0000000000000001 => EitherOptions(
+                    Dict{UInt64,Any}(
+                        0x513e080ea70f5b90 => -3,
+                        0x5027e196b5246a17 => 3,
+                        0xeac31cc26eb31998 => -1,
+                        0x02443a8494b58942 => 1,
+                        0x2ee1e14605cecb1d => -1,
+                        0x5e2483c9ad470920 => -1,
+                        0x94a98a58a423153b => -1,
+                        0x121ba9a3e12380e7 => 1,
+                        0x3dec996303c78cd9 => 1,
+                        0x5aec02cea828a07a => 1,
+                    ),
+                ),
+                0x0000000000000002 => EitherOptions(
+                    Dict{UInt64,Any}(
+                        0x513e080ea70f5b90 => Any[-1],
+                        0x5027e196b5246a17 => Any[1],
+                        0xeac31cc26eb31998 => Any[-3, -5],
+                        0x02443a8494b58942 => Any[3, 5],
+                        0x2ee1e14605cecb1d => Any[-3],
+                        0x5e2483c9ad470920 => Any[-3, -5, -2, -1],
+                        0x94a98a58a423153b => Any[-3, -5, -2],
+                        0x121ba9a3e12380e7 => Any[3, 5, 2, 1],
+                        0x3dec996303c78cd9 => Any[3],
+                        0x5aec02cea828a07a => Any[3, 5, 2],
+                    ),
+                ),
+                0x0000000000000003 => EitherOptions(
+                    Dict{UInt64,Any}(
+                        0x513e080ea70f5b90 => Any[5, 2, 1],
+                        0x5027e196b5246a17 => Any[5, 2, 1],
+                        0xeac31cc26eb31998 => Any[2, 1],
+                        0x02443a8494b58942 => Any[2, 1],
+                        0x2ee1e14605cecb1d => Any[5, 2, 1],
+                        0x5e2483c9ad470920 => Any[],
+                        0x94a98a58a423153b => Any[1],
+                        0x121ba9a3e12380e7 => Any[],
+                        0x3dec996303c78cd9 => Any[5, 2, 1],
+                        0x5aec02cea828a07a => Any[1],
+                    ),
+                ),
+            ),
+        )
+
+        @test compare_options(
+            calculate_dependent_vars(p, Dict{UInt64,Any}(UInt64(3) => []), [3, 5, 2, 1]),
+            Dict(
+                0x0000000000000002 => EitherOptions(
+                    Dict{UInt64,Any}(0xfe1aa1e710789fbb => Any[3, 5, 2, 1], 0xa8b7141625cc424c => Any[-3, -5, -2, -1]),
+                ),
+                0x0000000000000001 =>
+                    EitherOptions(Dict{UInt64,Any}(0xfe1aa1e710789fbb => 1, 0xa8b7141625cc424c => -1)),
+            ),
+        )
+
+        @test compare_options(
+            run_in_reverse(p, [2, 4, 0, 6]),
+            Dict(
+                0x0000000000000001 => EitherOptions(
+                    Dict{UInt64,Any}(
+                        0xca760a1bb67c5298 => -2,
+                        0xed2bac15a8d6cc26 => -1,
+                        0xb1284b06664deac4 => -1,
+                        0xa3b7143518b9cd9b => 1,
+                        0x5b6f8d43aef8a633 => 2,
+                        0x6ad4d8ebad9f1ef6 => 1,
+                        0x05c76f82e24eb100 => 2,
+                        0x2d8fe6fd1d74d9ae => 2,
+                        0x0a8e28c73f4e426b => -1,
+                        0xe82d332493f0bd5e => -1,
+                        0x21a484a40db7f88f => -2,
+                        0xb2a7250d9572ee4b => 1,
+                        0x29c6dada72473106 => -2,
+                        0x560a67db6e685723 => -2,
+                        0x0c2931a6fbd1d7e7 => 1,
+                        0x0c44d0d6b88fb944 => 2,
+                    ),
+                ),
+                0x0000000000000002 => EitherOptions(
+                    Dict{UInt64,Any}(
+                        0xca760a1bb67c5298 => Any[-1, -2, 0],
+                        0xed2bac15a8d6cc26 => Any[-2, -4, 0],
+                        0xb1284b06664deac4 => Any[-2],
+                        0xa3b7143518b9cd9b => Any[2, 4],
+                        0x5b6f8d43aef8a633 => Any[1, 2],
+                        0x6ad4d8ebad9f1ef6 => Any[2, 4, 0, 6],
+                        0x05c76f82e24eb100 => Any[1, 2, 0, 3],
+                        0xe82d332493f0bd5e => Any[-2, -4, 0, -6],
+                        0x2d8fe6fd1d74d9ae => Any[1],
+                        0x0a8e28c73f4e426b => Any[-2, -4],
+                        0x21a484a40db7f88f => Any[-1, -2, 0, -3],
+                        0xb2a7250d9572ee4b => Any[2, 4, 0],
+                        0x29c6dada72473106 => Any[-1],
+                        0x560a67db6e685723 => Any[-1, -2],
+                        0x0c2931a6fbd1d7e7 => Any[2],
+                        0x0c44d0d6b88fb944 => Any[1, 2, 0],
+                    ),
+                ),
+                0x0000000000000003 => EitherOptions(
+                    Dict{UInt64,Any}(
+                        0xca760a1bb67c5298 => Any[6],
+                        0xed2bac15a8d6cc26 => Any[6],
+                        0xb1284b06664deac4 => Any[4, 0, 6],
+                        0xa3b7143518b9cd9b => Any[0, 6],
+                        0x5b6f8d43aef8a633 => Any[0, 6],
+                        0x6ad4d8ebad9f1ef6 => Any[],
+                        0x05c76f82e24eb100 => Any[],
+                        0xe82d332493f0bd5e => Any[],
+                        0x2d8fe6fd1d74d9ae => Any[4, 0, 6],
+                        0x0a8e28c73f4e426b => Any[0, 6],
+                        0x21a484a40db7f88f => Any[],
+                        0xb2a7250d9572ee4b => Any[6],
+                        0x29c6dada72473106 => Any[4, 0, 6],
+                        0x560a67db6e685723 => Any[0, 6],
+                        0x0c2931a6fbd1d7e7 => Any[4, 0, 6],
+                        0x0c44d0d6b88fb944 => Any[6],
+                    ),
+                ),
+            ),
+        )
+
+        @test compare_options(
+            calculate_dependent_vars(p, Dict{UInt64,Any}(UInt64(3) => []), [2, 4, 0, 6]),
+            Dict(
+                0x0000000000000002 => EitherOptions(
+                    Dict{UInt64,Any}(
+                        0x3cf38ef68394c11e => Any[2, 4, 0, 6],
+                        0x6f1c3f9f9812328d => Any[1, 2, 0, 3],
+                        0xc3eab21c6b1fbda0 => Any[-2, -4, 0, -6],
+                        0x6e360089059eb8c4 => Any[-1, -2, 0, -3],
+                    ),
+                ),
+                0x0000000000000001 => EitherOptions(
+                    Dict{UInt64,Any}(
+                        0x3cf38ef68394c11e => 1,
+                        0x6f1c3f9f9812328d => 2,
+                        0xc3eab21c6b1fbda0 => -1,
+                        0x6e360089059eb8c4 => -2,
+                    ),
+                ),
+            ),
+        )
+    end
+
+    @testset "Reverse fold with free var with plus and mult" begin
+        skeleton = Apply(
+            Apply(
+                Apply(
+                    every_primitive["fold"],
+                    Abstraction(
+                        Abstraction(
+                            Apply(
+                                Apply(
+                                    every_primitive["cons"],
+                                    Apply(
+                                        Apply(every_primitive["*"], Index(1)),
+                                        Apply(Apply(every_primitive["+"], Index(1)), FreeVar(tint, nothing)),
+                                    ),
+                                ),
+                                Index(0),
+                            ),
+                        ),
+                    ),
+                ),
+                Hole(tlist(t0), nothing, true, nothing),
+            ),
+            Hole(tint, nothing, true, nothing),
+        )
+        @test is_reversible(skeleton)
+
+        p, _ = capture_free_vars(skeleton)
+
+        @test compare_options(
+            run_in_reverse(p, [2, 6, 12]),
+            Dict(
+                0x0000000000000001 => EitherOptions(
+                    Dict{UInt64,Any}(
+                        0x0e690ae5de47ee55 => 1,
+                        0x1bc8ebaec22ac2a5 => 1,
+                        0x6e64a1283f62644b => 1,
+                        0xa35f46e88205b06c => 1,
+                        0x0577a46b493bfc76 => 1,
+                        0x0f39a4e46f1c9bc5 => -1,
+                        0x86e66c24bd02ed4f => -1,
+                        0xe92160d3a7018821 => -1,
+                        0x013e17a783256094 => -1,
+                        0x0130fdc7641bc8b0 => -1,
+                        0x24410cdad14d3c67 => -1,
+                        0x2d3d89b0d28b1962 => 1,
+                        0x8d99c7b718a725b2 => 1,
+                        0x4e0d8693ae1fe9e8 => -1,
+                        0xe2c213aed0588770 => -1,
+                        0xe22037e66aa3c7a0 => -1,
+                        0x5261536726da829c => -1,
+                        0x6bb1c38a5eff030c => 1,
+                        0x6687b799d963bf53 => 1,
+                        0x222528c3977b34fc => -1,
+                        0x9ed60d5a2abfca5a => -1,
+                        0x2bcbf8b70e34aaa3 => -1,
+                        0xe326edd66135e301 => 1,
+                        0x0b40b3fbfae73982 => -1,
+                        0xee6c6a618e339dd8 => 1,
+                        0x578e794d049ab55a => 1,
+                        0x892be32d50183539 => 1,
+                        0x5eb3ec525bd0610a => 1,
+                    ),
+                ),
+                0x0000000000000002 => EitherOptions(
+                    Dict{UInt64,Any}(
+                        0x0e690ae5de47ee55 => Any[1],
+                        0x1bc8ebaec22ac2a5 => Any[-2, 2, -4],
+                        0x6e64a1283f62644b => Any[1, -3, 3],
+                        0xa35f46e88205b06c => Any[1, -3, -4],
+                        0x0577a46b493bfc76 => Any[-2, -3],
+                        0x0f39a4e46f1c9bc5 => Any[-1, -2, -3],
+                        0x86e66c24bd02ed4f => Any[-1, 3],
+                        0xe92160d3a7018821 => Any[2, 3, 4],
+                        0x013e17a783256094 => Any[-1],
+                        0x0130fdc7641bc8b0 => Any[2, -2, 4],
+                        0x24410cdad14d3c67 => Any[-1, -2, 4],
+                        0x2d3d89b0d28b1962 => Any[1, -3],
+                        0x8d99c7b718a725b2 => Any[1, 2],
+                        0x4e0d8693ae1fe9e8 => Any[2, 3, -3],
+                        0xe2c213aed0588770 => Any[2],
+                        0xe22037e66aa3c7a0 => Any[-1, -2],
+                        0x5261536726da829c => Any[-1, 3, -3],
+                        0x6bb1c38a5eff030c => Any[-2, 2],
+                        0x6687b799d963bf53 => Any[-2, -3, 3],
+                        0x222528c3977b34fc => Any[2, -2, -3],
+                        0x9ed60d5a2abfca5a => Any[2, -2],
+                        0x2bcbf8b70e34aaa3 => Any[-1, 3, 4],
+                        0xe326edd66135e301 => Any[-2],
+                        0x0b40b3fbfae73982 => Any[2, 3],
+                        0xee6c6a618e339dd8 => Any[1, 2, -4],
+                        0x578e794d049ab55a => Any[-2, 2, 3],
+                        0x892be32d50183539 => Any[1, 2, 3],
+                        0x5eb3ec525bd0610a => Any[-2, -3, -4],
+                    ),
+                ),
+                0x0000000000000003 => EitherOptions(
+                    Dict{UInt64,Any}(
+                        0x0e690ae5de47ee55 => Any[6, 12],
+                        0x1bc8ebaec22ac2a5 => Any[],
+                        0x6e64a1283f62644b => Any[],
+                        0xa35f46e88205b06c => Any[],
+                        0x0577a46b493bfc76 => Any[12],
+                        0x0f39a4e46f1c9bc5 => Any[],
+                        0x86e66c24bd02ed4f => Any[12],
+                        0xe92160d3a7018821 => Any[],
+                        0x013e17a783256094 => Any[6, 12],
+                        0x0130fdc7641bc8b0 => Any[],
+                        0x24410cdad14d3c67 => Any[],
+                        0x2d3d89b0d28b1962 => Any[12],
+                        0x8d99c7b718a725b2 => Any[12],
+                        0x4e0d8693ae1fe9e8 => Any[],
+                        0xe2c213aed0588770 => Any[6, 12],
+                        0xe22037e66aa3c7a0 => Any[12],
+                        0x5261536726da829c => Any[],
+                        0x6bb1c38a5eff030c => Any[12],
+                        0x6687b799d963bf53 => Any[],
+                        0x222528c3977b34fc => Any[],
+                        0x9ed60d5a2abfca5a => Any[12],
+                        0x2bcbf8b70e34aaa3 => Any[],
+                        0xe326edd66135e301 => Any[6, 12],
+                        0x0b40b3fbfae73982 => Any[12],
+                        0xee6c6a618e339dd8 => Any[],
+                        0x578e794d049ab55a => Any[],
+                        0x892be32d50183539 => Any[],
+                        0x5eb3ec525bd0610a => Any[],
+                    ),
+                ),
+            ),
+        )
+
+        @test compare_options(
+            calculate_dependent_vars(p, Dict(UInt64(3) => []), [2, 6, 12]),
+            Dict(
+                0x0000000000000001 => EitherOptions(
+                    Dict{UInt64,Any}(
+                        0x7871f5b3fd369c86 => -1,
+                        0xa35fc19c1e73bb96 => 1,
+                        0xbf8c18e285e6687c => 1,
+                        0xa6be11fb3fe86802 => -1,
+                        0x14afff92861e3828 => 1,
+                        0x50a73c3a1361bb75 => -1,
+                        0x6927b6f73a02ba3f => 1,
+                        0x1fa59feed3584b9e => -1,
+                        0x2a3b1fe25aa2fb9c => -1,
+                        0x7ad90cdc29051cd5 => 1,
+                        0x41fa7426dc0beccd => 1,
+                        0xe17eca9de51ae684 => 1,
+                        0x6047efdbf05fa049 => -1,
+                        0x04705ab1e71592d0 => -1,
+                        0xac7d12ce7eab2b23 => 1,
+                        0x4f7f86f04ec75f5a => -1,
+                    ),
+                ),
+                0x0000000000000002 => EitherOptions(
+                    Dict{UInt64,Any}(
+                        0x7871f5b3fd369c86 => Any[2, 3, 4],
+                        0xa35fc19c1e73bb96 => Any[-2, -3, 3],
+                        0xbf8c18e285e6687c => Any[1, 2, 3],
+                        0xa6be11fb3fe86802 => Any[-1, -2, -3],
+                        0x14afff92861e3828 => Any[-2, -3, -4],
+                        0x50a73c3a1361bb75 => Any[2, 3, -3],
+                        0x6927b6f73a02ba3f => Any[1, -3, -4],
+                        0x1fa59feed3584b9e => Any[2, -2, -3],
+                        0x2a3b1fe25aa2fb9c => Any[-1, 3, 4],
+                        0x7ad90cdc29051cd5 => Any[1, -3, 3],
+                        0x41fa7426dc0beccd => Any[1, 2, -4],
+                        0xe17eca9de51ae684 => Any[-2, 2, 3],
+                        0x6047efdbf05fa049 => Any[-1, 3, -3],
+                        0x04705ab1e71592d0 => Any[2, -2, 4],
+                        0xac7d12ce7eab2b23 => Any[-2, 2, -4],
+                        0x4f7f86f04ec75f5a => Any[-1, -2, 4],
+                    ),
+                ),
+            ),
+        )
+
+        @test compare_options(
+            run_in_reverse(p, [2, 6, 0, 12]),
+            Dict(
+                0x0000000000000001 => EitherOptions(
+                    Dict{UInt64,Any}(
+                        0xa4ea3cb4b69bad2f => 1,
+                        0xed006d55f4376adf => 1,
+                        0x2e5326e9d9d139ac => -1,
+                        0x271d023f1dcdd1f7 => 1,
+                        0x8a649c5fc17f91ee => -1,
+                        0x22fa46de7730c45b => 1,
+                        0x61e5d158c32cb720 => 1,
+                        0x6a7bf21ec0094bf4 => -1,
+                        0xf2329b46347eb398 => -1,
+                        0x466fdd8a98e5e559 => -1,
+                        0xfe54673727a96a57 => 1,
+                        0xe4c3f155ef76fcbb => 1,
+                        0x0746572be785d45b => -1,
+                        0x2abe19792f140c7d => 1,
+                        0x824d4c59f39c059e => -1,
+                        0x920ee0549f114042 => -1,
+                        0x2d3724d9f23a1fa4 => -1,
+                        0x01be34d0c392807d => 1,
+                        0x7a79c13aea8bc432 => 1,
+                        0xc646edfb8dd0d3ac => -1,
+                        0x94cf8027c7559c04 => -1,
+                        0x076c62bc8e202f8a => -1,
+                        0x2354447502c44b06 => -1,
+                        0xec7a2826c787efe2 => 1,
+                        0xc5115e196a7d96f8 => -1,
+                        0xc62ee1461a50c164 => -1,
+                        0xb575e6dae94f8f8a => 1,
+                        0x3fe4b3acab8a02d8 => 1,
+                        0xd764510353c5d60c => -1,
+                        0x61eb98abcb725303 => -1,
+                        0xd2a5e99d641917c2 => 1,
+                        0x4f44d55ce40a4205 => 1,
+                        0x37dc5e4943d0af8e => -1,
+                        0xd21d8497c476aa31 => 1,
+                        0x12dcc19aaa49c722 => -1,
+                        0xacee7b3ab1a9937d => 1,
+                        0xec366ba1f1314140 => 1,
+                        0x9fb7ba6612c577e3 => -1,
+                        0x23c03170ecbf5ee0 => -1,
+                        0xd40762d0abcba977 => -1,
+                        0xf52731a3c4572c87 => 1,
+                        0x09b439c6792b6bab => -1,
+                        0x2cec70182cf7d159 => -1,
+                        0xf5f2df3aea05638b => 1,
+                        0x372f62708c5a359b => -1,
+                        0xc90ace6f2d5fadbc => 1,
+                        0x78fbf12562426470 => 1,
+                        0xec5be8c4af0fa427 => 1,
+                        0x844740651529a665 => -1,
+                        0x32374d58b1e3438a => -1,
+                        0x40f3c576d167a0f0 => 1,
+                        0x4a80842b87e4d44d => -1,
+                        0xc96153bfd10c20de => 1,
+                        0x69fdfc5b2eb05631 => 1,
+                        0x8c61695feb2f8114 => 1,
+                        0x424fd85a49b20ef5 => 1,
+                        0xa9e1534fc302fe25 => 1,
+                        0x9b8ea66c6609347c => 1,
+                        0xaa8d671aecadcb8e => -1,
+                        0x85ea71d180be338f => -1,
+                    ),
+                ),
+                0x0000000000000002 => EitherOptions(
+                    Dict{UInt64,Any}(
+                        0xa4ea3cb4b69bad2f => Any[-2, 2, 0, 3],
+                        0xed006d55f4376adf => Any[-2, -3],
+                        0x2e5326e9d9d139ac => Any[2, -2, 0],
+                        0x271d023f1dcdd1f7 => Any[1, -3, -1],
+                        0x8a649c5fc17f91ee => Any[2, -2, 1, -3],
+                        0x22fa46de7730c45b => Any[1, 2, 0, -4],
+                        0x61e5d158c32cb720 => Any[-2],
+                        0x6a7bf21ec0094bf4 => Any[2, 3, 0, -3],
+                        0xf2329b46347eb398 => Any[2],
+                        0x466fdd8a98e5e559 => Any[2, -2, 1],
+                        0xfe54673727a96a57 => Any[-2, 2, -1],
+                        0xe4c3f155ef76fcbb => Any[-2, -3, 0, -4],
+                        0x0746572be785d45b => Any[2, 3, 1, 4],
+                        0x2abe19792f140c7d => Any[1, -3],
+                        0x824d4c59f39c059e => Any[-1, 3, 0, -3],
+                        0x920ee0549f114042 => Any[2, 3, 0],
+                        0x2d3724d9f23a1fa4 => Any[-1, 3, 0, 4],
+                        0x01be34d0c392807d => Any[1],
+                        0x7a79c13aea8bc432 => Any[1, -3, -1, 3],
+                        0xc646edfb8dd0d3ac => Any[2, 3, 1, -3],
+                        0x94cf8027c7559c04 => Any[-1, -2, 1],
+                        0x076c62bc8e202f8a => Any[2, 3, 0, 4],
+                        0x2354447502c44b06 => Any[-1],
+                        0xec7a2826c787efe2 => Any[1, -3, 0, -4],
+                        0xc5115e196a7d96f8 => Any[-1, -2, 1, -3],
+                        0xc62ee1461a50c164 => Any[2, -2, 0, -3],
+                        0xb575e6dae94f8f8a => Any[1, 2, -1],
+                        0x3fe4b3acab8a02d8 => Any[-2, -3, -1, -4],
+                        0xd764510353c5d60c => Any[-1, 3, 1],
+                        0x61eb98abcb725303 => Any[-1, -2, 0],
+                        0xd2a5e99d641917c2 => Any[-2, 2, -1, -4],
+                        0x4f44d55ce40a4205 => Any[-2, 2, 0, -4],
+                        0x37dc5e4943d0af8e => Any[2, -2],
+                        0xd21d8497c476aa31 => Any[1, -3, 0, 3],
+                        0x12dcc19aaa49c722 => Any[2, -2, 1, 4],
+                        0xacee7b3ab1a9937d => Any[-2, -3, -1],
+                        0xec366ba1f1314140 => Any[1, -3, 0],
+                        0x9fb7ba6612c577e3 => Any[-1, 3, 1, 4],
+                        0x23c03170ecbf5ee0 => Any[2, 3, 1],
+                        0xd40762d0abcba977 => Any[-1, 3, 0],
+                        0xf52731a3c4572c87 => Any[1, 2, 0],
+                        0x09b439c6792b6bab => Any[-1, 3, 1, -3],
+                        0x2cec70182cf7d159 => Any[2, -2, 0, 4],
+                        0xf5f2df3aea05638b => Any[1, 2],
+                        0x372f62708c5a359b => Any[-1, 3],
+                        0xc90ace6f2d5fadbc => Any[1, -3, -1, -4],
+                        0x78fbf12562426470 => Any[1, 2, -1, 3],
+                        0xec5be8c4af0fa427 => Any[-2, 2, 0],
+                        0x844740651529a665 => Any[-1, -2, 0, -3],
+                        0x32374d58b1e3438a => Any[-1, -2, 1, 4],
+                        0x40f3c576d167a0f0 => Any[-2, -3, -1, 3],
+                        0x4a80842b87e4d44d => Any[-1, -2],
+                        0xc96153bfd10c20de => Any[1, 2, -1, -4],
+                        0x69fdfc5b2eb05631 => Any[-2, 2],
+                        0x8c61695feb2f8114 => Any[-2, -3, 0, 3],
+                        0x424fd85a49b20ef5 => Any[-2, 2, -1, 3],
+                        0xa9e1534fc302fe25 => Any[-2, -3, 0],
+                        0x9b8ea66c6609347c => Any[1, 2, 0, 3],
+                        0xaa8d671aecadcb8e => Any[2, 3],
+                        0x85ea71d180be338f => Any[-1, -2, 0, 4],
+                    ),
+                ),
+                0x0000000000000003 => EitherOptions(
+                    Dict{UInt64,Any}(
+                        0xa4ea3cb4b69bad2f => Any[],
+                        0xed006d55f4376adf => Any[0, 12],
+                        0x2e5326e9d9d139ac => Any[12],
+                        0x271d023f1dcdd1f7 => Any[12],
+                        0x8a649c5fc17f91ee => Any[],
+                        0x22fa46de7730c45b => Any[],
+                        0x61e5d158c32cb720 => Any[6, 0, 12],
+                        0x6a7bf21ec0094bf4 => Any[],
+                        0xf2329b46347eb398 => Any[6, 0, 12],
+                        0x466fdd8a98e5e559 => Any[12],
+                        0xfe54673727a96a57 => Any[12],
+                        0xe4c3f155ef76fcbb => Any[],
+                        0x0746572be785d45b => Any[],
+                        0x2abe19792f140c7d => Any[0, 12],
+                        0x824d4c59f39c059e => Any[],
+                        0x920ee0549f114042 => Any[12],
+                        0x2d3724d9f23a1fa4 => Any[],
+                        0x01be34d0c392807d => Any[6, 0, 12],
+                        0x7a79c13aea8bc432 => Any[],
+                        0xc646edfb8dd0d3ac => Any[],
+                        0x94cf8027c7559c04 => Any[12],
+                        0x076c62bc8e202f8a => Any[],
+                        0x2354447502c44b06 => Any[6, 0, 12],
+                        0xec7a2826c787efe2 => Any[],
+                        0xc5115e196a7d96f8 => Any[],
+                        0xc62ee1461a50c164 => Any[],
+                        0xb575e6dae94f8f8a => Any[12],
+                        0x3fe4b3acab8a02d8 => Any[],
+                        0xd764510353c5d60c => Any[12],
+                        0x61eb98abcb725303 => Any[12],
+                        0xd2a5e99d641917c2 => Any[],
+                        0x4f44d55ce40a4205 => Any[],
+                        0x37dc5e4943d0af8e => Any[0, 12],
+                        0xd21d8497c476aa31 => Any[],
+                        0x12dcc19aaa49c722 => Any[],
+                        0xacee7b3ab1a9937d => Any[12],
+                        0xec366ba1f1314140 => Any[12],
+                        0x9fb7ba6612c577e3 => Any[],
+                        0x23c03170ecbf5ee0 => Any[12],
+                        0xd40762d0abcba977 => Any[12],
+                        0xf52731a3c4572c87 => Any[12],
+                        0x09b439c6792b6bab => Any[],
+                        0x2cec70182cf7d159 => Any[],
+                        0xf5f2df3aea05638b => Any[0, 12],
+                        0x372f62708c5a359b => Any[0, 12],
+                        0xc90ace6f2d5fadbc => Any[],
+                        0x78fbf12562426470 => Any[],
+                        0xec5be8c4af0fa427 => Any[12],
+                        0x844740651529a665 => Any[],
+                        0x32374d58b1e3438a => Any[],
+                        0x40f3c576d167a0f0 => Any[],
+                        0x4a80842b87e4d44d => Any[0, 12],
+                        0xc96153bfd10c20de => Any[],
+                        0x69fdfc5b2eb05631 => Any[0, 12],
+                        0x8c61695feb2f8114 => Any[],
+                        0x424fd85a49b20ef5 => Any[],
+                        0xa9e1534fc302fe25 => Any[12],
+                        0x9b8ea66c6609347c => Any[],
+                        0xaa8d671aecadcb8e => Any[0, 12],
+                        0x85ea71d180be338f => Any[],
+                    ),
+                ),
+            ),
+        )
+    end
+
+    @testset "Reverse fold with free var with plus" begin
+        skeleton = Apply(
+            Apply(
+                Apply(
+                    every_primitive["fold"],
+                    Abstraction(
+                        Abstraction(
+                            Apply(
+                                Apply(
+                                    every_primitive["cons"],
+                                    Apply(Apply(every_primitive["+"], Index(1)), FreeVar(tint, nothing)),
+                                ),
+                                Index(0),
+                            ),
+                        ),
+                    ),
+                ),
+                Hole(tlist(t0), nothing, true, nothing),
+            ),
+            Hole(tint, nothing, true, nothing),
+        )
+        @test is_reversible(skeleton)
+
+        p, _ = capture_free_vars(skeleton)
+
+        @test compare_options(
+            run_in_reverse(p, [2, 6, 12]),
+            Dict(
+                0x0000000000000001 => AbductibleValue(any_object),
+                0x0000000000000002 => AbductibleValue(any_object),
+                0x0000000000000003 => EitherOptions(
+                    Dict{UInt64,Any}(
+                        0x3227141f658f09fd => Any[],
+                        0xd73cfc3a3cc79cf9 => Any[6, 12],
+                        0x653be1bcb69b7807 => Any[12],
+                    ),
+                ),
+            ),
+        )
+
+        @test compare_options(
+            calculate_dependent_vars(p, Dict(UInt64(1) => 1), [2, 6, 12]),
+            Dict(
+                0x0000000000000002 => EitherOptions(
+                    Dict{UInt64,Any}(
+                        0x9905cb6a759136a0 => Any[],
+                        0x632db207cba038e9 => Any[1],
+                        0xcf6638f9e6d8a4c3 => Any[1, 5, 11],
+                        0x88156e4dc6ade027 => Any[1, 5],
+                    ),
+                ),
+                0x0000000000000003 => EitherOptions(
+                    Dict{UInt64,Any}(
+                        0x9905cb6a759136a0 => Any[2, 6, 12],
+                        0x632db207cba038e9 => Any[6, 12],
+                        0xcf6638f9e6d8a4c3 => Any[],
+                        0x88156e4dc6ade027 => Any[12],
+                    ),
+                ),
+            ),
+        )
+
+        @test compare_options(
+            calculate_dependent_vars(p, Dict(UInt64(2) => [0, 4]), [2, 6, 12]),
+            Dict(0x0000000000000001 => 2, 0x0000000000000003 => Any[12]),
+        )
+
+        @test compare_options(calculate_dependent_vars(p, Dict(UInt64(3) => [12]), [2, 6, 12]), Dict())
     end
 
     @testset "Reverse fold_set" begin

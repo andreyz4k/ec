@@ -1081,6 +1081,208 @@ using solver: load_problems, enumerate_for_task
         "shatter" => 10,
     )
 
+    payload13 = Dict{String,Any}(
+        "DSL" => Dict{String,Any}(
+            "logVariable" => 0.0,
+            "productions" => Any[
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "map",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1) -> list(t0) -> list(t1)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "unfold",
+                    "is_reversible" => false,
+                    "type" => "(t0 -> bool) -> (t0 -> t1) -> (t0 -> t0) -> t0 -> list(t1)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "range",
+                    "is_reversible" => true,
+                    "type" => "int -> list(int)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "index",
+                    "is_reversible" => false,
+                    "type" => "int -> list(t0) -> t0",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "fold",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1 -> t1) -> list(t0) -> t1 -> t1",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "length",
+                    "is_reversible" => false,
+                    "type" => "list(t0) -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "if",
+                    "is_reversible" => false,
+                    "type" => "bool -> t0 -> t0 -> t0",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "+",
+                    "is_reversible" => true,
+                    "type" => "int -> int -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "-",
+                    "is_reversible" => false,
+                    "type" => "int -> int -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "empty",
+                    "is_reversible" => false,
+                    "type" => "list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "cons",
+                    "is_reversible" => true,
+                    "type" => "t0 -> list(t0) -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "car",
+                    "is_reversible" => false,
+                    "type" => "list(t0) -> t0",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "cdr",
+                    "is_reversible" => false,
+                    "type" => "list(t0) -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "empty?",
+                    "is_reversible" => false,
+                    "type" => "list(t0) -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "0",
+                    "is_reversible" => false,
+                    "type" => "int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "1",
+                    "is_reversible" => false,
+                    "type" => "int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "*",
+                    "is_reversible" => true,
+                    "type" => "int -> int -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "mod",
+                    "is_reversible" => false,
+                    "type" => "int -> int -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "gt?",
+                    "is_reversible" => false,
+                    "type" => "int -> int -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "eq?",
+                    "is_reversible" => false,
+                    "type" => "t0 -> t0 -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "is-prime",
+                    "is_reversible" => false,
+                    "type" => "int -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "is-square",
+                    "is_reversible" => false,
+                    "type" => "int -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "repeat",
+                    "is_reversible" => true,
+                    "type" => "t0 -> int -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "concat",
+                    "is_reversible" => true,
+                    "type" => "list(t0) -> list(t0) -> list(t0)",
+                ),
+            ],
+        ),
+        "type_weights" => Dict{String,Any}("int" => 1.0, "list" => 1.0, "bool" => 1.0, "float" => 1.0),
+        "task" => Dict{String,Any}(
+            "name" => "modulo-k with k=5",
+            "maximumFrontier" => 10,
+            "examples" => Any[
+                Dict{String,Any}("output" => Any[0], "inputs" => Dict{String,Any}("inp0" => Any[15])),
+                Dict{String,Any}("output" => Any[0], "inputs" => Dict{String,Any}("inp0" => Any[10])),
+                Dict{String,Any}("output" => Any[], "inputs" => Dict{String,Any}("inp0" => Any[])),
+                Dict{String,Any}("output" => Any[0, 1, 0, 4], "inputs" => Dict{String,Any}("inp0" => Any[5, 6, 0, 9])),
+                Dict{String,Any}("output" => Any[2, 0], "inputs" => Dict{String,Any}("inp0" => Any[7, 15])),
+                Dict{String,Any}("output" => Any[], "inputs" => Dict{String,Any}("inp0" => Any[])),
+                Dict{String,Any}("output" => Any[1], "inputs" => Dict{String,Any}("inp0" => Any[11])),
+                Dict{String,Any}("output" => Any[3], "inputs" => Dict{String,Any}("inp0" => Any[13])),
+                Dict{String,Any}("output" => Any[2], "inputs" => Dict{String,Any}("inp0" => Any[7])),
+                Dict{String,Any}(
+                    "output" => Any[2, 2, 3, 0, 3, 0, 2],
+                    "inputs" => Dict{String,Any}("inp0" => Any[2, 2, 13, 0, 13, 5, 2]),
+                ),
+                Dict{String,Any}("output" => Any[2, 1, 2], "inputs" => Dict{String,Any}("inp0" => Any[2, 6, 12])),
+                Dict{String,Any}("output" => Any[0, 0], "inputs" => Dict{String,Any}("inp0" => Any[0, 10])),
+                Dict{String,Any}(
+                    "output" => Any[2, 4, 0, 1, 1],
+                    "inputs" => Dict{String,Any}("inp0" => Any[7, 4, 0, 1, 11]),
+                ),
+                Dict{String,Any}("output" => Any[], "inputs" => Dict{String,Any}("inp0" => Any[])),
+                Dict{String,Any}(
+                    "output" => Any[1, 2, 1, 1, 4],
+                    "inputs" => Dict{String,Any}("inp0" => Any[11, 2, 16, 6, 4]),
+                ),
+            ],
+            "test_examples" => Any[],
+            "request" => Dict{String,Any}(
+                "arguments" => Dict{String,Any}(
+                    "inp0" => Dict{String,Any}(
+                        "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
+                        "constructor" => "list",
+                    ),
+                ),
+                "output" => Dict{String,Any}(
+                    "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
+                    "constructor" => "list",
+                ),
+                "constructor" => "->",
+            ),
+        ),
+        "name" => "modulo-k with k=5",
+        "programTimeout" => 3.0,
+        "timeout" => 40,
+        "verbose" => false,
+        "shatter" => 10,
+    )
+
     @testset "try_enumerate add-k with k=1" begin
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload1)
         solutions, number_enumerated = @time enumerate_for_task(
@@ -1248,6 +1450,21 @@ using solver: load_problems, enumerate_for_task
 
     @testset "keep gt 3" begin
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload12)
+        solutions, number_enumerated = @time enumerate_for_task(
+            Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
+            g,
+            type_weights,
+            task,
+            maximum_frontier,
+            timeout,
+            verbose,
+        )
+        @test length(solutions) == 0
+        @test number_enumerated >= 600
+    end
+
+    @testset "modulo-k with k=5" begin
+        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload13)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,

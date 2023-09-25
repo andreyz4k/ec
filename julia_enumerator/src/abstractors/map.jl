@@ -1,9 +1,9 @@
 function unfold_options(args::Vector, indices::Dict, vars::Dict)
-    if all(x -> !isa(x, EitherOptions), args) && all(x -> !isa(x, EitherOptions), values(vars))
+    if all(x -> !isa(x, EitherOptions), args)
         return [(args, indices, vars)]
     end
     result = []
-    for item in Iterators.flatten([args, values(indices), values(vars)])
+    for item in args
         if isa(item, EitherOptions)
             for (h, val) in item.options
                 new_args = [fix_option_hashes([h], v) for v in args]
@@ -21,15 +21,22 @@ function reverse_map(n, is_set = false)
     function _reverse_map(value, context)
         f = context.arguments[end]
 
-        has_external_vars = _has_external_vars(f)
+        external_indices = _get_var_indices(f)
 
         if is_set
-            output_options = Set{Tuple{Vector{Any},Dict,Dict}}([(Any[Set() for _ in 1:n], Dict(), Dict())])
+            output_options = Set{Tuple{Vector{Any},Dict,Dict}}([(
+                Any[Set() for _ in 1:n],
+                context.filled_indices,
+                context.filled_vars,
+            )])
         else
-            output_options = Set{Tuple{Vector{Any},Dict,Dict}}([(Any[[] for _ in 1:n], Dict(), Dict())])
+            output_options = Set{Tuple{Vector{Any},Dict,Dict}}([(
+                Any[Any[] for _ in 1:n],
+                context.filled_indices,
+                context.filled_vars,
+            )])
         end
 
-        first_item = true
         calculated_value = []
         for (i, item) in enumerate(value)
             calculated_arguments = []
@@ -41,109 +48,79 @@ function reverse_map(n, is_set = false)
                 end
             end
 
-            calculated_item, new_context = _run_in_reverse(
-                f,
-                item,
-                ReverseRunContext([], [], reverse(calculated_arguments), context.filled_indices, context.filled_vars),
-            )
-            push!(calculated_value, calculated_item)
-
             new_options = Set()
-            if any(v isa EitherOptions for v in new_context.predicted_arguments) ||
-               any(v isa EitherOptions for v in values(new_context.filled_indices)) ||
-               any(v isa EitherOptions for v in values(new_context.filled_vars))
+            for output_option in output_options
+                # @info "Output option $output_option"
+                calculated_item, new_context = try
+                    _run_in_reverse(
+                        f,
+                        item,
+                        ReverseRunContext(
+                            [],
+                            [],
+                            reverse(calculated_arguments),
+                            copy(output_option[2]),
+                            copy(output_option[3]),
+                        ),
+                    )
+                catch e
+                    if isa(e, InterruptException) || isa(e, MethodError)
+                        rethrow()
+                    end
+                    # @info e
+                    continue
+                end
+                # @info "Calculated item $calculated_item"
+                # @info "New context $new_context"
+                push!(calculated_value, calculated_item)
+
                 child_options =
                     unfold_options(new_context.predicted_arguments, new_context.filled_indices, new_context.filled_vars)
 
-                for output_option in output_options
-                    for (option_args, option_indices, option_vars) in child_options
-                        if !isempty(option_indices)
-                            new_option_indices = copy(output_option[2])
-                        else
-                            new_option_indices = output_option[2]
-                        end
-                        if !isempty(option_vars)
-                            new_option_vars = copy(output_option[3])
-                        else
-                            new_option_vars = output_option[3]
-                        end
+                for (option_args, option_indices, option_vars) in child_options
+                    # @info output_option
+                    # @info option_args
+                    # @info option_indices
+                    # @info option_vars
 
-                        good_option = true
-                        for (k, v) in option_indices
-                            if !haskey(new_option_indices, k)
-                                new_option_indices[k] = v
-                            elseif new_option_indices[k] != v
-                                good_option = false
-                                break
-                            end
-                        end
-                        if !good_option
-                            continue
-                        end
-                        for (k, v) in option_vars
-                            if !haskey(new_option_vars, k)
-                                new_option_vars[k] = v
-                            elseif new_option_vars[k] != v
-                                good_option = false
-                                break
-                            end
-                        end
-                        if !good_option
-                            continue
-                        end
-                        new_option_args = [copy(arg) for arg in output_option[1]]
-                        for (i, v) in enumerate(option_args)
-                            push!(new_option_args[i], v)
-                        end
+                    new_option_args = Any[copy(arg) for arg in output_option[1]]
+                    for (i, v) in enumerate(option_args)
+                        push!(new_option_args[i], v)
+                    end
 
-                        push!(new_options, (new_option_args, new_option_indices, new_option_vars))
-                        if length(new_options) > 100
-                            error("Too many options")
-                        end
+                    push!(new_options, (new_option_args, option_indices, option_vars))
+                    if length(new_options) > 100
+                        error("Too many options")
                     end
-                end
-
-            else
-                for option in output_options
-                    good_option = true
-                    for (k, v) in new_context.filled_indices
-                        if !haskey(option[2], k)
-                            option[2][k] = v
-                        elseif option[2][k] != v
-                            good_option = false
-                            break
-                        end
-                    end
-                    if !good_option
-                        continue
-                    end
-                    for (k, v) in new_context.filled_vars
-                        if !haskey(option[3], k)
-                            option[3][k] = v
-                        elseif option[3][k] != v
-                            good_option = false
-                            break
-                        end
-                    end
-                    if !good_option
-                        continue
-                    end
-                    for (i, v) in enumerate(new_context.predicted_arguments)
-                        push!(option[1][i], v)
-                    end
-                    push!(new_options, option)
                 end
             end
-            first_item = false
             if isempty(new_options)
                 error("No valid options found")
             end
             output_options = new_options
         end
 
-        if first_item && has_external_vars
-            error("Couldn't fill external variables")
+        # @info "Output options $output_options"
+        # @info "External indices $external_indices"
+        filter!(output_options) do option
+            for i in external_indices
+                if i >= 0
+                    if !haskey(option[2], i)
+                        return false
+                    end
+                else
+                    if !haskey(option[3], UInt64(-i))
+                        return false
+                    end
+                end
+            end
+            return true
         end
+        # @info "Output options $output_options"
+        if isempty(output_options)
+            error("No valid options found")
+        end
+
         if is_set
             for option in output_options
                 for val in option[1]
@@ -157,7 +134,7 @@ function reverse_map(n, is_set = false)
             result_arguments, result_indices, result_vars = first(output_options)
         else
             hashed_options = Dict(rand(UInt64) => option for option in output_options)
-            result_arguments = []
+            result_arguments = Any[]
             result_indices = Dict()
             result_vars = Dict()
             for i in 1:n
