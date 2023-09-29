@@ -1030,7 +1030,7 @@ function enumerate_for_task(
 
     assert_context_consistency(sc)
     enqueue_updates(sc, g)
-    save_changes!(sc)
+    save_changes!(sc, 0)
     assert_context_consistency(sc)
 
     finalizer = function (solution, cost)

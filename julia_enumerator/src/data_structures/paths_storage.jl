@@ -74,7 +74,7 @@ using DataStructures: SortedSet, DefaultDict
 
 mutable struct PathsStorage
     transaction_depth::Int
-    values::Vector{DefaultDict{UInt64,SortedSet{Path,Base.ReverseOrdering}}}
+    values_stack::Vector{DefaultDict{UInt64,SortedSet{Path,Base.ReverseOrdering}}}
 end
 
 PathsStorage() = PathsStorage(
@@ -86,14 +86,14 @@ PathsStorage() = PathsStorage(
     ],
 )
 
-function start_transaction!(storage::PathsStorage)
-    storage.transaction_depth += 1
+function start_transaction!(storage::PathsStorage, depth)
+    storage.transaction_depth = depth
 end
 
-function save_changes!(storage::PathsStorage)
-    if storage.transaction_depth + 1 <= length(storage.values)
-        new_values = storage.values[storage.transaction_depth+1]
-        last_values = storage.values[storage.transaction_depth]
+function save_changes!(storage::PathsStorage, depth)
+    for d in (length(storage.values_stack)-1):-1:(depth+1)
+        new_values = storage.values_stack[d+1]
+        last_values = storage.values_stack[d]
         for (k, v) in new_values
             if haskey(last_values, k)
                 union!(last_values[k], v)
@@ -105,20 +105,20 @@ function save_changes!(storage::PathsStorage)
             end
         end
     end
-    drop_changes!(storage)
+    drop_changes!(storage, depth)
 end
 
-function drop_changes!(storage::PathsStorage)
-    if storage.transaction_depth + 1 <= length(storage.values)
-        empty!(storage.values[storage.transaction_depth+1])
+function drop_changes!(storage::PathsStorage, depth)
+    for d in (length(storage.values_stack)-1):-1:(depth+1)
+        empty!(storage.values_stack[d+1])
     end
-    storage.transaction_depth -= 1
+    storage.transaction_depth = depth
 end
 
 function Base.getindex(storage::PathsStorage, ind::UInt64)
     result = nothing
-    for i in 1:min(storage.transaction_depth + 1, length(storage.values))
-        vals = storage.values[i]
+    for i in 1:min(storage.transaction_depth + 1, length(storage.values_stack))
+        vals = storage.values_stack[i]
         if haskey(vals, ind)
             if result === nothing
                 result = vals[ind]
@@ -134,31 +134,33 @@ function Base.getindex(storage::PathsStorage, ind::UInt64)
 end
 
 function Base.haskey(storage::PathsStorage, key::UInt64)
-    return any(haskey(storage.values[i], key) for i in 1:min(storage.transaction_depth + 1, length(storage.values)))
+    return any(
+        haskey(storage.values_stack[i], key) for i in 1:min(storage.transaction_depth + 1, length(storage.values_stack))
+    )
 end
 
 function Base.setindex!(storage::PathsStorage, value, ind::UInt64)
-    while storage.transaction_depth + 1 > length(storage.values)
+    while storage.transaction_depth + 1 > length(storage.values_stack)
         push!(
-            storage.values,
+            storage.values_stack,
             DefaultDict{UInt64,SortedSet{Path,Base.ReverseOrdering}}(
                 () -> SortedSet{Path,Base.ReverseOrdering}(Base.ReverseOrdering()),
             ),
         )
     end
-    storage.values[storage.transaction_depth+1][ind] = value
+    storage.values_stack[storage.transaction_depth+1][ind] = value
 end
 
 function add_path!(storage::PathsStorage, branch_id, path)
-    while storage.transaction_depth + 1 > length(storage.values)
+    while storage.transaction_depth + 1 > length(storage.values_stack)
         push!(
-            storage.values,
+            storage.values_stack,
             DefaultDict{UInt64,SortedSet{Path,Base.ReverseOrdering}}(
                 () -> SortedSet{Path,Base.ReverseOrdering}(Base.ReverseOrdering()),
             ),
         )
     end
-    last_values = storage.values[storage.transaction_depth+1]
+    last_values = storage.values_stack[storage.transaction_depth+1]
     if length(last_values[branch_id]) == STORE_MAX_PATHS
         if first(last_values[branch_id]) > path
             push!(last_values[branch_id], path)
@@ -175,8 +177,8 @@ end
 
 function get_new_paths(storage::PathsStorage, branch_id)
     result = nothing
-    for i in 2:min(storage.transaction_depth + 1, length(storage.values))
-        vals = storage.values[i]
+    for i in 2:min(storage.transaction_depth + 1, length(storage.values_stack))
+        vals = storage.values_stack[i]
         if haskey(vals, branch_id)
             if result === nothing
                 result = vals[branch_id]

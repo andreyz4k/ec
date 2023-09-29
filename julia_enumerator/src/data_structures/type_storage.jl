@@ -6,19 +6,19 @@ end
 
 TypeStorage() = TypeStorage(IndexedStorage{Tp}(), ConnectionGraphStorage())
 
-function start_transaction!(storage::TypeStorage)
-    start_transaction!(storage.types)
-    start_transaction!(storage.unifiable_types)
+function start_transaction!(storage::TypeStorage, depth)
+    start_transaction!(storage.types, depth)
+    start_transaction!(storage.unifiable_types, depth)
 end
 
-function save_changes!(storage::TypeStorage)
-    save_changes!(storage.types)
-    save_changes!(storage.unifiable_types)
+function save_changes!(storage::TypeStorage, depth)
+    save_changes!(storage.types, depth)
+    save_changes!(storage.unifiable_types, depth)
 end
 
-function drop_changes!(storage::TypeStorage)
-    drop_changes!(storage.types)
-    drop_changes!(storage.unifiable_types)
+function drop_changes!(storage::TypeStorage, depth)
+    drop_changes!(storage.types, depth)
+    drop_changes!(storage.unifiable_types, depth)
 end
 
 function Base.push!(storage::TypeStorage, type::Tp)::UInt64

@@ -10,23 +10,25 @@ function Base.getindex(storage::CountStorage)
     return storage.values[end]
 end
 
-function start_transaction!(storage::CountStorage)
-    storage.transaction_depth += 1
-end
-
-function save_changes!(storage::CountStorage)
-    if storage.transaction_depth + 1 == length(storage.values)
-        v = pop!(storage.values)
-        storage.values[end] = v
-    end
-    storage.transaction_depth -= 1
-end
-
-function drop_changes!(storage::CountStorage)
-    if storage.transaction_depth + 1 == length(storage.values)
+function start_transaction!(storage::CountStorage, depth)
+    while depth + 1 < length(storage.values)
         pop!(storage.values)
     end
-    storage.transaction_depth -= 1
+    storage.transaction_depth = depth
+end
+
+function save_changes!(storage::CountStorage, depth)
+    if depth + 1 < length(storage.values)
+        storage.values[depth+1] = storage.values[end]
+    end
+    drop_changes!(storage, depth)
+end
+
+function drop_changes!(storage::CountStorage, depth)
+    while depth + 1 < length(storage.values)
+        pop!(storage.values)
+    end
+    storage.transaction_depth = depth
 end
 
 function increment!(storage::CountStorage)

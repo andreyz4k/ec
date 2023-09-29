@@ -8,23 +8,30 @@ end
 
 ConnectionGraphStorage() = ConnectionGraphStorage(0, Dict{UInt64,Set{UInt64}}(), Dict{UInt64,Set{UInt64}}(), [])
 
-function start_transaction!(storage::ConnectionGraphStorage)
-    storage.transaction_depth += 1
+function start_transaction!(storage::ConnectionGraphStorage, depth::Int)
+    storage.transaction_depth = depth
+    for d in depth:length(storage.updates_stack)
+        empty!(storage.updates_stack[d][1])
+        empty!(storage.updates_stack[d][2])
+        empty!(storage.updates_stack[d][3])
+    end
 end
 
-function save_changes!(storage::ConnectionGraphStorage)
-    if storage.transaction_depth <= length(storage.updates_stack)
-        new_rows, new_columns, deleted = storage.updates_stack[storage.transaction_depth]
-        if storage.transaction_depth == 1
-            rows = storage.rows
-            columns = storage.columns
+function save_changes!(storage::ConnectionGraphStorage, depth)
+    for d in (length(storage.updates_stack)-1):-1:(depth)
+        new_rows, new_columns, deleted = storage.updates_stack[d+1]
+        if isempty(new_rows) && isempty(deleted)
+            continue
+        end
+        if d == 0
+            rows = copy(storage.rows)
+            columns = copy(storage.columns)
             prev_deleted = Set{Tuple{UInt64,UInt64}}()
         else
-            rows = storage.updates_stack[storage.transaction_depth-1][1]
-            columns = storage.updates_stack[storage.transaction_depth-1][2]
-            prev_deleted = storage.updates_stack[storage.transaction_depth-1][3]
+            rows = copy(storage.updates_stack[d][1])
+            columns = copy(storage.updates_stack[d][2])
+            prev_deleted = copy(storage.updates_stack[d][3])
         end
-
         if !isempty(new_rows)
             merge!(union, rows, new_rows)
             merge!(union, columns, new_columns)
@@ -48,17 +55,24 @@ function save_changes!(storage::ConnectionGraphStorage)
                 error("Trying to delete non-existing edge")
             end
         end
+        if d == 0
+            storage.rows, storage.columns, storage.updates_stack[1] =
+                rows, columns, (Dict{UInt64,Set{UInt64}}(), Dict{UInt64,Set{UInt64}}(), Set{Tuple{UInt64,UInt64}}())
+        else
+            storage.updates_stack[d:d+1] = [
+                (rows, columns, prev_deleted),
+                (Dict{UInt64,Set{UInt64}}(), Dict{UInt64,Set{UInt64}}(), Set{Tuple{UInt64,UInt64}}()),
+            ]
+        end
     end
-    drop_changes!(storage)
+    storage.transaction_depth = depth
 end
 
-function drop_changes!(storage::ConnectionGraphStorage)
-    if storage.transaction_depth <= length(storage.updates_stack)
-        empty!(storage.updates_stack[storage.transaction_depth][1])
-        empty!(storage.updates_stack[storage.transaction_depth][2])
-        empty!(storage.updates_stack[storage.transaction_depth][3])
+function drop_changes!(storage::ConnectionGraphStorage, depth)
+    for d in (length(storage.updates_stack)):-1:(depth+1)
+        storage.updates_stack[d] = (Dict{UInt64,Set{UInt64}}(), Dict{UInt64,Set{UInt64}}(), Set{Tuple{UInt64,UInt64}}())
     end
-    storage.transaction_depth -= 1
+    storage.transaction_depth = depth
 end
 
 function Base.getindex(storage::ConnectionGraphStorage, i::UInt64, j::UInt64)

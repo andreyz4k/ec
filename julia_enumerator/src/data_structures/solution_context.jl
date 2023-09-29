@@ -72,6 +72,7 @@ mutable struct SolutionContext
     branch_known_from_input::VectorStorage{Bool}
 
     verbose::Bool
+    transaction_depth::Int
 end
 
 function create_starting_context(task::Task, type_weights, verbose)::SolutionContext
@@ -122,8 +123,9 @@ function create_starting_context(task::Task, type_weights, verbose)::SolutionCon
         VectorStorage{Bool}(),
         VectorStorage{Bool}(),
         verbose,
+        0,
     )
-    start_transaction!(sc)
+    start_transaction!(sc, 1)
     for (key, t) in argument_types
         values = [inp[key] for inp in task.train_inputs]
         complexity_summary = get_complexity_summary(values, t)
@@ -175,132 +177,171 @@ function create_starting_context(task::Task, type_weights, verbose)::SolutionCon
 end
 
 function transaction(f, sc::SolutionContext)
+    depth = sc.transaction_depth
     try
-        start_transaction!(sc)
+        start_transaction!(sc, depth + 1)
         f()
-        save_changes!(sc)
-        return nothing
     catch e
-        if isa(e, EnumerationException)
-            drop_changes!(sc)
-            return nothing
-        else
+        finished = false
+        interrupted = nothing
+        while !finished
+            try
+                drop_changes!(sc, depth)
+            catch e
+                @info e
+                if isa(e, InterruptException)
+                    interrupted = e
+                else
+                    rethrow()
+                end
+            else
+                finished = true
+            end
+        end
+        if !isnothing(interrupted)
+            throw(interrupted)
+        end
+        if !isa(e, EnumerationException)
             rethrow()
         end
+    else
+        finished = false
+        interrupted = nothing
+        while !finished
+            try
+                save_changes!(sc, depth)
+            catch e
+                @info e
+                if isa(e, InterruptException)
+                    interrupted = e
+                else
+                    rethrow()
+                end
+            else
+                finished = true
+            end
+        end
+        if !isnothing(interrupted)
+            throw(interrupted)
+        end
     end
+    return nothing
 end
 
-function start_transaction!(sc::SolutionContext)
-    start_transaction!(sc.entries)
-    start_transaction!(sc.types)
-    start_transaction!(sc.vars_count)
-    start_transaction!(sc.branches_count)
-    start_transaction!(sc.branch_is_explained)
-    start_transaction!(sc.branch_is_not_copy)
-    start_transaction!(sc.branch_is_unknown)
-    start_transaction!(sc.branch_entries)
-    start_transaction!(sc.branch_vars)
-    start_transaction!(sc.branch_types)
-    start_transaction!(sc.blocks)
-    start_transaction!(sc.block_copies_count)
-    start_transaction!(sc.constraints_count)
-    start_transaction!(sc.constraint_contexts)
-    start_transaction!(sc.branch_children)
-    start_transaction!(sc.branch_incoming_blocks)
-    start_transaction!(sc.branch_outgoing_blocks)
-    start_transaction!(sc.constrained_vars)
-    start_transaction!(sc.constrained_branches)
-    start_transaction!(sc.constrained_contexts)
-    start_transaction!(sc.related_explained_complexity_branches)
-    start_transaction!(sc.related_unknown_complexity_branches)
-    start_transaction!(sc.incoming_paths)
-    start_transaction!(sc.unknown_min_path_costs)
-    start_transaction!(sc.explained_min_path_costs)
-    start_transaction!(sc.unknown_complexity_factors)
-    start_transaction!(sc.explained_complexity_factors)
-    start_transaction!(sc.complexities)
-    start_transaction!(sc.added_upstream_complexities)
-    start_transaction!(sc.unused_explained_complexities)
-    start_transaction!(sc.unmatched_complexities)
-    start_transaction!(sc.previous_vars)
-    start_transaction!(sc.branch_unknown_from_output)
-    start_transaction!(sc.branch_known_from_input)
+function start_transaction!(sc::SolutionContext, depth)
+    start_transaction!(sc.entries, depth)
+    start_transaction!(sc.types, depth)
+    start_transaction!(sc.vars_count, depth)
+    start_transaction!(sc.branches_count, depth)
+    start_transaction!(sc.branch_is_explained, depth)
+    start_transaction!(sc.branch_is_not_copy, depth)
+    start_transaction!(sc.branch_is_unknown, depth)
+    start_transaction!(sc.branch_entries, depth)
+    start_transaction!(sc.branch_vars, depth)
+    start_transaction!(sc.branch_types, depth)
+    start_transaction!(sc.blocks, depth)
+    start_transaction!(sc.block_copies_count, depth)
+    start_transaction!(sc.constraints_count, depth)
+    start_transaction!(sc.constraint_contexts, depth)
+    start_transaction!(sc.branch_children, depth)
+    start_transaction!(sc.branch_incoming_blocks, depth)
+    start_transaction!(sc.branch_outgoing_blocks, depth)
+    start_transaction!(sc.constrained_vars, depth)
+    start_transaction!(sc.constrained_branches, depth)
+    start_transaction!(sc.constrained_contexts, depth)
+    start_transaction!(sc.related_explained_complexity_branches, depth)
+    start_transaction!(sc.related_unknown_complexity_branches, depth)
+    start_transaction!(sc.incoming_paths, depth)
+    start_transaction!(sc.unknown_min_path_costs, depth)
+    start_transaction!(sc.explained_min_path_costs, depth)
+    start_transaction!(sc.unknown_complexity_factors, depth)
+    start_transaction!(sc.explained_complexity_factors, depth)
+    start_transaction!(sc.complexities, depth)
+    start_transaction!(sc.added_upstream_complexities, depth)
+    start_transaction!(sc.unused_explained_complexities, depth)
+    start_transaction!(sc.unmatched_complexities, depth)
+    start_transaction!(sc.previous_vars, depth)
+    start_transaction!(sc.branch_unknown_from_output, depth)
+    start_transaction!(sc.branch_known_from_input, depth)
+    sc.transaction_depth = depth
     nothing
 end
 
-function save_changes!(sc::SolutionContext)
-    save_changes!(sc.entries)
-    save_changes!(sc.types)
-    save_changes!(sc.vars_count)
-    save_changes!(sc.branches_count)
-    save_changes!(sc.branch_is_explained)
-    save_changes!(sc.branch_is_not_copy)
-    save_changes!(sc.branch_is_unknown)
-    save_changes!(sc.branch_entries)
-    save_changes!(sc.branch_vars)
-    save_changes!(sc.branch_types)
-    save_changes!(sc.blocks)
-    save_changes!(sc.block_copies_count)
-    save_changes!(sc.constraints_count)
-    save_changes!(sc.constraint_contexts)
-    save_changes!(sc.branch_children)
-    save_changes!(sc.branch_incoming_blocks)
-    save_changes!(sc.branch_outgoing_blocks)
-    save_changes!(sc.constrained_vars)
-    save_changes!(sc.constrained_branches)
-    save_changes!(sc.constrained_contexts)
-    save_changes!(sc.related_explained_complexity_branches)
-    save_changes!(sc.related_unknown_complexity_branches)
-    save_changes!(sc.incoming_paths)
-    save_changes!(sc.unknown_min_path_costs)
-    save_changes!(sc.explained_min_path_costs)
-    save_changes!(sc.unknown_complexity_factors)
-    save_changes!(sc.explained_complexity_factors)
-    save_changes!(sc.complexities)
-    save_changes!(sc.added_upstream_complexities)
-    save_changes!(sc.unused_explained_complexities)
-    save_changes!(sc.unmatched_complexities)
-    save_changes!(sc.previous_vars)
-    save_changes!(sc.branch_unknown_from_output)
-    save_changes!(sc.branch_known_from_input)
+function save_changes!(sc::SolutionContext, depth)
+    save_changes!(sc.entries, depth)
+    save_changes!(sc.types, depth)
+    save_changes!(sc.vars_count, depth)
+    save_changes!(sc.branches_count, depth)
+    save_changes!(sc.branch_is_explained, depth)
+    save_changes!(sc.branch_is_not_copy, depth)
+    save_changes!(sc.branch_is_unknown, depth)
+    save_changes!(sc.branch_entries, depth)
+    save_changes!(sc.branch_vars, depth)
+    save_changes!(sc.branch_types, depth)
+    save_changes!(sc.blocks, depth)
+    save_changes!(sc.block_copies_count, depth)
+    save_changes!(sc.constraints_count, depth)
+    save_changes!(sc.constraint_contexts, depth)
+    save_changes!(sc.branch_children, depth)
+    save_changes!(sc.branch_incoming_blocks, depth)
+    save_changes!(sc.branch_outgoing_blocks, depth)
+    save_changes!(sc.constrained_vars, depth)
+    save_changes!(sc.constrained_branches, depth)
+    save_changes!(sc.constrained_contexts, depth)
+    save_changes!(sc.related_explained_complexity_branches, depth)
+    save_changes!(sc.related_unknown_complexity_branches, depth)
+    save_changes!(sc.incoming_paths, depth)
+    save_changes!(sc.unknown_min_path_costs, depth)
+    save_changes!(sc.explained_min_path_costs, depth)
+    save_changes!(sc.unknown_complexity_factors, depth)
+    save_changes!(sc.explained_complexity_factors, depth)
+    save_changes!(sc.complexities, depth)
+    save_changes!(sc.added_upstream_complexities, depth)
+    save_changes!(sc.unused_explained_complexities, depth)
+    save_changes!(sc.unmatched_complexities, depth)
+    save_changes!(sc.previous_vars, depth)
+    save_changes!(sc.branch_unknown_from_output, depth)
+    save_changes!(sc.branch_known_from_input, depth)
+    sc.transaction_depth = depth
     nothing
 end
 
-function drop_changes!(sc::SolutionContext)
-    drop_changes!(sc.entries)
-    drop_changes!(sc.types)
-    drop_changes!(sc.vars_count)
-    drop_changes!(sc.branches_count)
-    drop_changes!(sc.branch_is_explained)
-    drop_changes!(sc.branch_is_not_copy)
-    drop_changes!(sc.branch_is_unknown)
-    drop_changes!(sc.branch_entries)
-    drop_changes!(sc.branch_vars)
-    drop_changes!(sc.branch_types)
-    drop_changes!(sc.blocks)
-    drop_changes!(sc.block_copies_count)
-    drop_changes!(sc.constraints_count)
-    drop_changes!(sc.constraint_contexts)
-    drop_changes!(sc.branch_children)
-    drop_changes!(sc.branch_incoming_blocks)
-    drop_changes!(sc.branch_outgoing_blocks)
-    drop_changes!(sc.constrained_vars)
-    drop_changes!(sc.constrained_branches)
-    drop_changes!(sc.constrained_contexts)
-    drop_changes!(sc.related_explained_complexity_branches)
-    drop_changes!(sc.related_unknown_complexity_branches)
-    drop_changes!(sc.incoming_paths)
-    drop_changes!(sc.unknown_min_path_costs)
-    drop_changes!(sc.explained_min_path_costs)
-    drop_changes!(sc.unknown_complexity_factors)
-    drop_changes!(sc.explained_complexity_factors)
-    drop_changes!(sc.complexities)
-    drop_changes!(sc.added_upstream_complexities)
-    drop_changes!(sc.unused_explained_complexities)
-    drop_changes!(sc.unmatched_complexities)
-    drop_changes!(sc.previous_vars)
-    drop_changes!(sc.branch_unknown_from_output)
-    drop_changes!(sc.branch_known_from_input)
+function drop_changes!(sc::SolutionContext, depth)
+    drop_changes!(sc.entries, depth)
+    drop_changes!(sc.types, depth)
+    drop_changes!(sc.vars_count, depth)
+    drop_changes!(sc.branches_count, depth)
+    drop_changes!(sc.branch_is_explained, depth)
+    drop_changes!(sc.branch_is_not_copy, depth)
+    drop_changes!(sc.branch_is_unknown, depth)
+    drop_changes!(sc.branch_entries, depth)
+    drop_changes!(sc.branch_vars, depth)
+    drop_changes!(sc.branch_types, depth)
+    drop_changes!(sc.blocks, depth)
+    drop_changes!(sc.block_copies_count, depth)
+    drop_changes!(sc.constraints_count, depth)
+    drop_changes!(sc.constraint_contexts, depth)
+    drop_changes!(sc.branch_children, depth)
+    drop_changes!(sc.branch_incoming_blocks, depth)
+    drop_changes!(sc.branch_outgoing_blocks, depth)
+    drop_changes!(sc.constrained_vars, depth)
+    drop_changes!(sc.constrained_branches, depth)
+    drop_changes!(sc.constrained_contexts, depth)
+    drop_changes!(sc.related_explained_complexity_branches, depth)
+    drop_changes!(sc.related_unknown_complexity_branches, depth)
+    drop_changes!(sc.incoming_paths, depth)
+    drop_changes!(sc.unknown_min_path_costs, depth)
+    drop_changes!(sc.explained_min_path_costs, depth)
+    drop_changes!(sc.unknown_complexity_factors, depth)
+    drop_changes!(sc.explained_complexity_factors, depth)
+    drop_changes!(sc.complexities, depth)
+    drop_changes!(sc.added_upstream_complexities, depth)
+    drop_changes!(sc.unused_explained_complexities, depth)
+    drop_changes!(sc.unmatched_complexities, depth)
+    drop_changes!(sc.previous_vars, depth)
+    drop_changes!(sc.branch_unknown_from_output, depth)
+    drop_changes!(sc.branch_known_from_input, depth)
+    sc.transaction_depth = depth
     nothing
 end
 

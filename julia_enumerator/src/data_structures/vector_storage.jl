@@ -6,26 +6,26 @@ end
 
 VectorStorage{T}() where {T} = VectorStorage{T}(0, [Dict{UInt64,T}()])
 
-function start_transaction!(storage::VectorStorage)
-    storage.transaction_depth += 1
+function start_transaction!(storage::VectorStorage, depth)
+    storage.transaction_depth = depth
+    for d in depth+1:length(storage.values_stack)
+        empty!(storage.values_stack[d])
+    end
 end
 
-function save_changes!(storage::VectorStorage)
-    if storage.transaction_depth + 1 <= length(storage.values_stack)
-        new_values = storage.values_stack[storage.transaction_depth+1]
-        values = storage.values_stack[storage.transaction_depth]
-        if !isempty(new_values)
-            merge!(values, new_values)
-        end
+function save_changes!(storage::VectorStorage{T}, depth) where {T}
+    for d in (length(storage.values_stack)-1):-1:(depth+1)
+        new_vals = storage.values_stack[d+1]
+        storage.values_stack[d:d+1] = [merge(storage.values_stack[d], new_vals), Dict{UInt64,T}()]
     end
-    drop_changes!(storage)
+    storage.transaction_depth = depth
 end
 
-function drop_changes!(storage::VectorStorage)
-    if storage.transaction_depth < length(storage.values_stack)
-        empty!(storage.values_stack[storage.transaction_depth+1])
+function drop_changes!(storage::VectorStorage, depth)
+    for d in (length(storage.values_stack)-1):-1:(depth+1)
+        empty!(storage.values_stack[d+1])
     end
-    storage.transaction_depth -= 1
+    storage.transaction_depth = depth
 end
 
 function Base.setindex!(storage::VectorStorage{T}, value, ind::UInt64) where {T}

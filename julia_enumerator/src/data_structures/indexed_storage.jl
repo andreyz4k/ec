@@ -44,28 +44,31 @@ function get_index(storage::IndexedStorage, value)::UInt64
     throw(KeyError(value))
 end
 
-function start_transaction!(storage::IndexedStorage)
-    storage.transaction_depth += 1
+function start_transaction!(storage::IndexedStorage, depth)
+    storage.transaction_depth = depth
+    for d in depth+1:length(storage.values_stack)
+        empty!(storage.values_stack[d][1])
+        empty!(storage.values_stack[d][2])
+    end
 end
 
-function save_changes!(storage::IndexedStorage)
-    if storage.transaction_depth + 1 <= length(storage.values_stack)
-        new_vals, new_vals_to_ind = storage.values_stack[storage.transaction_depth+1]
-        append!(storage.values_stack[storage.transaction_depth][1], new_vals)
-        storage.total_length += length(new_vals)
-        merge!(storage.values_stack[storage.transaction_depth][2], new_vals_to_ind)
+function save_changes!(storage::IndexedStorage{T}, depth) where {T}
+    for d in (length(storage.values_stack)-1):-1:(depth+1)
+        new_vals, new_vals_to_ind = storage.values_stack[d+1]
+        added_vars = vcat(storage.values_stack[d][1], new_vals)
+        merged_vars = merge(storage.values_stack[d][2], new_vals_to_ind)
+        storage.values_stack[d:d+1] = [(added_vars, merged_vars), (Vector{T}(), Dict{T,UInt64}())]
     end
-    drop_changes!(storage)
+    storage.transaction_depth = depth
 end
 
-function drop_changes!(storage::IndexedStorage)
-    if storage.transaction_depth + 1 <= length(storage.values_stack)
-        new_vals, new_vals_to_ind = storage.values_stack[storage.transaction_depth+1]
-        storage.total_length -= length(new_vals)
-        empty!(new_vals)
-        empty!(new_vals_to_ind)
+function drop_changes!(storage::IndexedStorage{T}, depth) where {T}
+    for d in (length(storage.values_stack)-1):-1:(depth+1)
+        new_vals = storage.values_stack[d+1][1]
+        new_length = storage.total_length - length(new_vals)
+        storage.total_length, storage.values_stack[d+1] = new_length, (Vector{T}(), Dict{T,UInt64}())
     end
-    storage.transaction_depth -= 1
+    storage.transaction_depth = depth
 end
 
 function get_new_values(storage::IndexedStorage)

@@ -1083,7 +1083,7 @@ using DataStructures
         if verbose_test
             @info branches
         end
-        save_changes!(sc)
+        save_changes!(sc, 0)
 
         start_time = time()
         hits = PriorityQueue{HitResult,Float64}()

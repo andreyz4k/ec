@@ -8,35 +8,45 @@ end
 
 ValueGraphStorage() = ValueGraphStorage(0, Dict{UInt64,Dict{UInt64,UInt64}}(), Dict{UInt64,Dict{UInt64,UInt64}}(), [])
 
-function start_transaction!(storage::ValueGraphStorage)
-    storage.transaction_depth += 1
+function start_transaction!(storage::ValueGraphStorage, depth)
+    storage.transaction_depth = depth
+    for d in depth:length(storage.updates_stack)
+        empty!(storage.updates_stack[d][1])
+        empty!(storage.updates_stack[d][2])
+    end
 end
 
-function save_changes!(storage::ValueGraphStorage)
-    if storage.transaction_depth <= length(storage.updates_stack)
-        new_rows, new_columns = storage.updates_stack[storage.transaction_depth]
-        if storage.transaction_depth == 1
+function save_changes!(storage::ValueGraphStorage, depth)
+    for d in (length(storage.updates_stack)-1):-1:(depth)
+        new_rows, new_columns = storage.updates_stack[d+1]
+        if d == 0
             rows = storage.rows
             columns = storage.columns
         else
-            rows = storage.updates_stack[storage.transaction_depth-1][1]
-            columns = storage.updates_stack[storage.transaction_depth-1][2]
+            rows = storage.updates_stack[d][1]
+            columns = storage.updates_stack[d][2]
         end
-
         if !isempty(new_rows)
-            merge!(merge, rows, new_rows)
-            merge!(merge, columns, new_columns)
+            rows = merge(merge, rows, new_rows)
+            columns = merge(merge, columns, new_columns)
+            if d == 0
+                storage.rows, storage.columns, storage.updates_stack[d+1] =
+                    rows, columns, (Dict{UInt64,Dict{UInt64,UInt64}}(), Dict{UInt64,Dict{UInt64,UInt64}}())
+            else
+                storage.updates_stack[d:d+1] =
+                    [(rows, columns), (Dict{UInt64,Dict{UInt64,UInt64}}(), Dict{UInt64,Dict{UInt64,UInt64}}())]
+            end
         end
     end
-    drop_changes!(storage)
+    storage.transaction_depth = depth
 end
 
-function drop_changes!(storage::ValueGraphStorage)
-    if storage.transaction_depth <= length(storage.updates_stack)
-        empty!(storage.updates_stack[storage.transaction_depth][1])
-        empty!(storage.updates_stack[storage.transaction_depth][2])
+function drop_changes!(storage::ValueGraphStorage, depth)
+    for d in (length(storage.updates_stack)):-1:(depth+1)
+        empty!(storage.updates_stack[d][1])
+        empty!(storage.updates_stack[d][2])
     end
-    storage.transaction_depth -= 1
+    storage.transaction_depth = depth
 end
 
 function ensure_stack_depth(storage::ValueGraphStorage)
