@@ -1,5 +1,12 @@
 from cProfile import label
-from dreamcoder.program import Primitive, Program
+from dreamcoder.program import (
+    Abstraction,
+    FreeVariable,
+    Index,
+    Invented,
+    Primitive,
+    Program,
+)
 from dreamcoder.grammar import Grammar
 from dreamcoder.type import tlist, tint, tbool, arrow, t0, t1, t2
 
@@ -134,7 +141,9 @@ def _index(j):
 
 
 def _replace(f):
-    return lambda lnew: lambda lin: _flatten(lnew if f(i)(x) else [x] for i, x in enumerate(lin))
+    return lambda lnew: lambda lin: _flatten(
+        lnew if f(i)(x) else [x] for i, x in enumerate(lin)
+    )
 
 
 def _isPrime(n):
@@ -258,7 +267,9 @@ def curry(f):
 
 
 def _fix2(a1):
-    return lambda a2: lambda body: _fix((a1, a2))(lambda r: lambda n_l: body(curry(r))(n_l[0])(n_l[1]))
+    return lambda a2: lambda body: _fix((a1, a2))(
+        lambda r: lambda n_l: body(curry(r))(n_l[0])(n_l[1])
+    )
 
 
 def _repeat(x):
@@ -269,9 +280,13 @@ def _concat(a):
     return lambda b: a + b
 
 
-primitiveRecursion1 = Primitive("fix1", arrow(t0, arrow(arrow(t0, t1), t0, t1), t1), _fix)
+primitiveRecursion1 = Primitive(
+    "fix1", arrow(t0, arrow(arrow(t0, t1), t0, t1), t1), _fix
+)
 
-primitiveRecursion2 = Primitive("fix2", arrow(t0, t1, arrow(arrow(t0, t1, t2), t0, t1, t2), t2), _fix2)
+primitiveRecursion2 = Primitive(
+    "fix2", arrow(t0, t1, arrow(arrow(t0, t1, t2), t0, t1, t2), t2), _fix2
+)
 
 
 def _match(l):
@@ -287,7 +302,9 @@ def primitives():
         # Primitive("map", arrow(arrow(t0, t1), tlist(t0), tlist(t1)), _map),
         Primitive("mapi", arrow(arrow(tint, t0, t1), tlist(t0), tlist(t1)), _mapi),
         # Primitive("reduce", arrow(arrow(t1, t0, t1), t1, tlist(t0), t1), _reduce),
-        Primitive("reducei", arrow(arrow(tint, t1, t0, t1), t1, tlist(t0), t1), _reducei),
+        Primitive(
+            "reducei", arrow(arrow(tint, t1, t0, t1), t1, tlist(t0), t1), _reducei
+        ),
         Primitive("true", tbool, True),
         Primitive("not", arrow(tbool, tbool), _not),
         Primitive("and", arrow(tbool, tbool, tbool), _and),
@@ -343,18 +360,46 @@ def basePrimitives():
     ]
 
 
-zip_primitive = Primitive("zip", arrow(tlist(t0), tlist(t1), arrow(t0, t1, t2), tlist(t2)), _zip)
+zip_primitive = Primitive(
+    "zip", arrow(tlist(t0), tlist(t1), arrow(t0, t1, t2), tlist(t2)), _zip
+)
+
+
+def _is_possible_subfunction(p, from_input, path):
+    if isinstance(p, Index):
+        return p.i != 0 or not isinstance(path[-1][0], Abstraction)
+    if isinstance(p, FreeVariable):
+        return True
+    if isinstance(p, Primitive) or isinstance(p, Invented):
+        return not from_input or p.is_reversible
+    assert False
 
 
 def bootstrapTarget():
     """These are the primitives that we hope to learn from the bootstrapping procedure"""
     return [
         # learned primitives
-        Primitive("map", arrow(arrow(t0, t1), tlist(t0), tlist(t1)), _map, is_reversible=True),
-        Primitive("unfold", arrow(arrow(t0, tbool), arrow(t0, t1), arrow(t0, t0), t0, tlist(t1)), _unfold),
+        Primitive(
+            "map",
+            arrow(arrow(t0, t1), tlist(t0), tlist(t1)),
+            _map,
+            is_reversible=True,
+            custom_args_checkers=[_is_possible_subfunction],
+        ),
+        Primitive(
+            "unfold",
+            arrow(arrow(t0, tbool), arrow(t0, t1), arrow(t0, t0), t0, tlist(t1)),
+            _unfold,
+        ),
         Primitive("range", arrow(tint, tlist(tint)), _range, is_reversible=True),
         Primitive("index", arrow(tint, tlist(t0), t0), _index),
-        Primitive("fold", arrow(arrow(t0, t1, t1), tlist(t0), t1, t1), _fold, is_reversible=True),
+        Primitive(
+            "fold",
+            arrow(arrow(t0, t1, t1), tlist(t0), t1, t1),
+            _fold,
+            is_reversible=True,
+            custom_args_checkers=[_is_possible_subfunction],
+        ),
         Primitive("length", arrow(tlist(t0), tint), len),
         # built-ins
         Primitive("if", arrow(tbool, t0, t0, t0), _if),
@@ -383,7 +428,12 @@ def bootstrapTarget_extra():
 def julia():
     return bootstrapTarget_extra() + [
         Primitive("repeat", arrow(t0, tint, tlist(t0)), _repeat, is_reversible=True),
-        Primitive("concat", arrow(tlist(t0), tlist(t0), tlist(t0)), _concat, is_reversible=True),
+        Primitive(
+            "concat",
+            arrow(tlist(t0), tlist(t0), tlist(t0)),
+            _concat,
+            is_reversible=True,
+        ),
     ]
 
 
@@ -469,7 +519,9 @@ if __name__ == "__main__":
     print()
 
     print("multiply")
-    p = Program.parse("(lambda (lambda (lambda (if (eq? $0 0) 0 (+ $1 ($2 $1 (- $0 1)))))))")
+    p = Program.parse(
+        "(lambda (lambda (lambda (if (eq? $0 0) 0 (+ $1 ($2 $1 (- $0 1)))))))"
+    )
     print(g.logLikelihood(arrow(arrow(tint, tint, tint), tint, tint, tint), p))
     print()
 
@@ -479,29 +531,48 @@ if __name__ == "__main__":
     print()
 
     print("countdown primitive")
-    p = Program.parse("(lambda (lambda (if (eq? $0 0) empty (cons (+ $0 1) ($1 (- $0 1))))))")
+    p = Program.parse(
+        "(lambda (lambda (if (eq? $0 0) empty (cons (+ $0 1) ($1 (- $0 1))))))"
+    )
     print(g.logLikelihood(arrow(arrow(tint, tlist(tint)), arrow(tint, tlist(tint))), p))
     print(_fix(9)(p.evaluate([])))
     print("countdown w/ better primitives")
-    p = Program.parse("(lambda (lambda (if (eq0 $0) empty (cons (+1 $0) ($1 (-1 $0))))))")
+    p = Program.parse(
+        "(lambda (lambda (if (eq0 $0) empty (cons (+1 $0) ($1 (-1 $0))))))"
+    )
     print(g.logLikelihood(arrow(arrow(tint, tlist(tint)), arrow(tint, tlist(tint))), p))
 
     print()
 
     print("prepend zeros")
-    p = Program.parse("(lambda (lambda (lambda (if (eq? $1 0) $0 (cons 0 ($2 (- $1 1) $0))))))")
-    print(g.logLikelihood(arrow(arrow(tint, tlist(tint), tlist(tint)), tint, tlist(tint), tlist(tint)), p))
+    p = Program.parse(
+        "(lambda (lambda (lambda (if (eq? $1 0) $0 (cons 0 ($2 (- $1 1) $0))))))"
+    )
+    print(
+        g.logLikelihood(
+            arrow(
+                arrow(tint, tlist(tint), tlist(tint)), tint, tlist(tint), tlist(tint)
+            ),
+            p,
+        )
+    )
     print()
     assert False
 
-    p = Program.parse("(lambda (fix1 $0 (lambda (lambda (if (empty? $0) 0 (+ 1 ($1 (cdr $0))))))))")
+    p = Program.parse(
+        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) 0 (+ 1 ($1 (cdr $0))))))))"
+    )
     print(p.evaluate([])(list(range(17))))
     print(g.logLikelihood(arrow(tlist(tbool), tint), p))
 
     p = Program.parse("(lambda (lambda (if (empty? $0) 0 (+ 1 ($1 (cdr $0))))))")
-    print(g.logLikelihood(arrow(arrow(tlist(tbool), tint), arrow(tlist(tbool), tint)), p))
+    print(
+        g.logLikelihood(arrow(arrow(tlist(tbool), tint), arrow(tlist(tbool), tint)), p)
+    )
 
-    p = Program.parse("(lambda (fix1 $0 (lambda (lambda (if (empty? $0) 0 (+ (car $0) ($1 (cdr $0))))))))")
+    p = Program.parse(
+        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) 0 (+ (car $0) ($1 (cdr $0))))))))"
+    )
 
     print(p.evaluate([])(list(range(4))))
     print(g.logLikelihood(arrow(tlist(tint), tint), p))
@@ -511,14 +582,25 @@ if __name__ == "__main__":
     print(g.logLikelihood(arrow(arrow(tlist(tint), tint), tlist(tint), tint), p))
 
     print("take")
-    p = Program.parse("(lambda (lambda (lambda (if (eq? $1 0) empty (cons (car $0) ($2 (- $1 1) (cdr $0)))))))")
+    p = Program.parse(
+        "(lambda (lambda (lambda (if (eq? $1 0) empty (cons (car $0) ($2 (- $1 1) (cdr $0)))))))"
+    )
     print(p)
-    print(g.logLikelihood(arrow(arrow(tint, tlist(tint), tlist(tint)), tint, tlist(tint), tlist(tint)), p))
+    print(
+        g.logLikelihood(
+            arrow(
+                arrow(tint, tlist(tint), tlist(tint)), tint, tlist(tint), tlist(tint)
+            ),
+            p,
+        )
+    )
     assert False
 
     print(p.evaluate([])(list(range(4))))
     print(g.logLikelihood(arrow(tlist(tint), tlist(tint)), p))
 
-    p = Program.parse("""(lambda (fix (lambda (lambda (match $0 0 (lambda (lambda (+ $1 ($3 $0))))))) $0))""")
+    p = Program.parse(
+        """(lambda (fix (lambda (lambda (match $0 0 (lambda (lambda (+ $1 ($3 $0))))))) $0))"""
+    )
     print(p.evaluate([])(list(range(4))))
     print(g.logLikelihood(arrow(tlist(tint), tint), p))

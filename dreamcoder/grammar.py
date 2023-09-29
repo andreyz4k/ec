@@ -42,14 +42,18 @@ class Grammar(object):
     def strip_primitive_values(self):
         return Grammar(
             logVariable=self.logVariable,
-            productions=[(l, t, strip_primitive_values(p)) for l, t, p in self.productions],
+            productions=[
+                (l, t, strip_primitive_values(p)) for l, t, p in self.productions
+            ],
             continuationType=self.continuationType,
         )
 
     def unstrip_primitive_values(self):
         return Grammar(
             logVariable=self.logVariable,
-            productions=[(l, t, unstrip_primitive_values(p)) for l, t, p in self.productions],
+            productions=[
+                (l, t, unstrip_primitive_values(p)) for l, t, p in self.productions
+            ],
             continuationType=self.continuationType,
         )
 
@@ -123,7 +127,12 @@ class Grammar(object):
         j = {
             "logVariable": self.logVariable,
             "productions": [
-                {"expression": str(p), "logProbability": l, "type": str(t), "is_reversible": p.is_reversible}
+                {
+                    "expression": str(p),
+                    "logProbability": l,
+                    "type": str(t),
+                    "is_reversible": p.is_reversible,
+                }
                 for l, t, p in self.productions
             ],
         }
@@ -168,7 +177,8 @@ class Grammar(object):
         returnProbabilities=False,
         # Must be a leaf (have no arguments)?
         mustBeLeaf=False,
-        reversible_only=False,
+        from_input=False,
+        path=[],
     ):
         """Primitives that are candidates for being used given a requested type
         If returnTable is false (default): returns [((log)likelihood, tp, primitive, context)]
@@ -180,12 +190,27 @@ class Grammar(object):
         variableCandidates = []
         for l, t, p in self.productions:
             try:
+                if path:
+                    for f, i in reversed(path):
+                        if (
+                            not isinstance(f, Abstraction)
+                            and f.custom_args_checkers
+                            and i + 1 >= len(f.custom_args_checkers)
+                        ):
+                            checker = f.custom_args_checkers[i]
+                            if not checker(p, from_input, path):
+                                continue
+                            break
+                    else:
+                        if from_input and not p.is_reversible:
+                            continue
+                else:
+                    if from_input and not p.is_reversible:
+                        continue
                 newContext, t = t.instantiate(context)
                 newContext = newContext.unify(t.returns(), request)
                 t = t.apply(newContext)
                 if mustBeLeaf and t.isArrow():
-                    continue
-                if reversible_only and not p.is_reversible:
                     continue
                 candidates.append((l, t, p, newContext))
             except UnificationFailure:
@@ -196,6 +221,23 @@ class Grammar(object):
                 t = t.apply(newContext)
                 if mustBeLeaf and t.isArrow():
                     continue
+                if path:
+                    for f, i in reversed(path):
+                        if (
+                            not isinstance(f, Abstraction)
+                            and f.custom_args_checkers
+                            and i + 1 >= len(f.custom_args_checkers)
+                        ):
+                            checker = f.custom_args_checkers[i]
+                            if not checker(Index(j), from_input, path):
+                                continue
+                            break
+                    else:
+                        if from_input:
+                            continue
+                else:
+                    if from_input and not p.is_reversible:
+                        continue
                 variableCandidates.append((t, Index(j), newContext))
             except UnificationFailure:
                 continue
@@ -204,10 +246,16 @@ class Grammar(object):
             terminalIndices = [v.i for t, v, k in variableCandidates if not t.isArrow()]
             if terminalIndices:
                 smallestIndex = Index(min(terminalIndices))
-                variableCandidates = [(t, v, k) for t, v, k in variableCandidates if t.isArrow() or v == smallestIndex]
+                variableCandidates = [
+                    (t, v, k)
+                    for t, v, k in variableCandidates
+                    if t.isArrow() or v == smallestIndex
+                ]
 
-        if not reversible_only:
-            candidates += [(self.logVariable - log(len(variableCandidates)), t, p, k) for t, p, k in variableCandidates]
+        candidates += [
+            (self.logVariable - log(len(variableCandidates)), t, p, k)
+            for t, p, k in variableCandidates
+        ]
         if candidates == []:
             raise NoCandidates()
         # eprint("candidates inside buildCandidates before norm:")
@@ -233,7 +281,9 @@ class Grammar(object):
 
         while True:
             try:
-                _, e = self._sample(request, Context.EMPTY, [], maximumDepth=maximumDepth)
+                _, e = self._sample(
+                    request, Context.EMPTY, [], maximumDepth=maximumDepth
+                )
                 return e
             except NoCandidates:
                 if maxAttempts is not None:
@@ -279,7 +329,15 @@ class Grammar(object):
         return context, returnValue
 
     def likelihoodSummary(
-        self, context, environment, workspace, request, expression, silent=False, reversible_only=False
+        self,
+        context,
+        environment,
+        workspace,
+        request,
+        expression,
+        silent=False,
+        from_input=False,
+        path=[],
     ):
         if isinstance(request, TypeNamedArgsConstructor) and request.isArrow():
             merged_workspace = dict(workspace, **request.arguments)
@@ -290,7 +348,8 @@ class Grammar(object):
                 request.output,
                 expression,
                 silent=silent,
-                reversible_only=reversible_only,
+                from_input=from_input,
+                path=path,
             )
             for var_name, var_type in request.arguments.items():
                 if var_name in var_requests:
@@ -298,7 +357,9 @@ class Grammar(object):
                         context.unify(var_requests[var_name], var_type)
                     except UnificationFailure:
                         if not silent:
-                            eprint(f"Expected {var_name} to be {var_requests[var_name]} but got {var_type}")
+                            eprint(
+                                f"Expected {var_name} to be {var_requests[var_name]} but got {var_type}"
+                            )
                         assert False
             return context, var_requests, summary
         if request.isArrow():
@@ -313,10 +374,13 @@ class Grammar(object):
                 request.arguments[1],
                 expression.body,
                 silent=silent,
-                reversible_only=reversible_only,
+                from_input=from_input,
+                path=path + [(expression, 0)],
             )
         if expression.isLetClause:
-            merged_workspace = dict(workspace, **{expression.var_name: expression.var_type})
+            merged_workspace = dict(
+                workspace, **{expression.var_name: expression.var_type}
+            )
             context, var_requests, summary = self.likelihoodSummary(
                 context,
                 environment,
@@ -324,7 +388,8 @@ class Grammar(object):
                 request,
                 expression.body,
                 silent=silent,
-                reversible_only=reversible_only,
+                from_input=from_input,
+                path=path,
             )
             context, var_def_requests, def_summary = self.likelihoodSummary(
                 context,
@@ -333,7 +398,8 @@ class Grammar(object):
                 expression.var_type,
                 expression.var_def,
                 silent=silent,
-                reversible_only=reversible_only,
+                from_input=from_input,
+                path=path,
             )
             var_requests.update(var_def_requests)
             var_requests.pop(expression.var_name)
@@ -349,7 +415,8 @@ class Grammar(object):
                 workspace[expression.inp_var_name],
                 expression.vars_def,
                 silent=silent,
-                reversible_only=True,
+                from_input=True,
+                path=path,
             )
             merged_workspace = dict(workspace, **var_requests)
             context, var_body_requests, body_summary = self.likelihoodSummary(
@@ -359,10 +426,13 @@ class Grammar(object):
                 request,
                 expression.body,
                 silent=silent,
-                reversible_only=reversible_only,
+                from_input=from_input,
+                path=path,
             )
             summary.join(body_summary)
-            var_body_requests[expression.inp_var_name] = workspace[expression.inp_var_name]
+            var_body_requests[expression.inp_var_name] = workspace[
+                expression.inp_var_name
+            ]
 
             return context, var_body_requests, summary
 
@@ -374,7 +444,8 @@ class Grammar(object):
                 workspace[expression.inp_var_name],
                 expression.vars_def,
                 silent=silent,
-                reversible_only=True,
+                from_input=True,
+                path=path,
             )
             merged_workspace = dict(workspace, **var_requests)
             context, var_body_requests, body_summary = self.likelihoodSummary(
@@ -384,7 +455,8 @@ class Grammar(object):
                 request,
                 expression.body,
                 silent=silent,
-                reversible_only=reversible_only,
+                from_input=from_input,
+                path=path,
             )
             summary.join(body_summary)
             context, var_fixer_requests, fixer_summary = self.likelihoodSummary(
@@ -394,11 +466,14 @@ class Grammar(object):
                 var_requests[expression.fixer_var_name],
                 expression.fixer_var,
                 silent=silent,
-                reversible_only=reversible_only,
+                from_input=from_input,
+                path=path,
             )
             summary.join(fixer_summary)
             var_body_requests.update(var_fixer_requests)
-            var_body_requests[expression.inp_var_name] = workspace[expression.inp_var_name]
+            var_body_requests[expression.inp_var_name] = workspace[
+                expression.inp_var_name
+            ]
 
             return context, var_body_requests, summary
 
@@ -412,7 +487,13 @@ class Grammar(object):
 
         # Build the candidates
         candidates = self.buildCandidates(
-            request, context, environment, normalize=False, returnTable=True, reversible_only=reversible_only
+            request,
+            context,
+            environment,
+            normalize=False,
+            returnTable=True,
+            from_input=from_input,
+            path=path,
         )
 
         # A list of everything that would have been possible to use here
@@ -440,7 +521,9 @@ class Grammar(object):
                 assert False
             return context, {}, None
 
-        thisSummary.record(f, possibles, constant=-math.log(numberOfVariables) if f.isIndex else 0)
+        thisSummary.record(
+            f, possibles, constant=-math.log(numberOfVariables) if f.isIndex else 0
+        )
 
         _, tp, context = candidates[f]
         argumentTypes = tp.functionArguments()
@@ -456,7 +539,7 @@ class Grammar(object):
 
         var_requests = {}
 
-        for argumentType, argument in zip(argumentTypes, xs):
+        for i, (argumentType, argument) in enumerate(zip(argumentTypes, xs)):
             argumentType = argumentType.apply(context)
             context, new_var_requests, newSummary = self.likelihoodSummary(
                 context,
@@ -465,7 +548,8 @@ class Grammar(object):
                 argumentType,
                 argument,
                 silent=silent,
-                reversible_only=reversible_only,
+                from_input=from_input,
+                path=path + [(f, i)],
             )
             if newSummary is None:
                 return context, {}, None
@@ -528,7 +612,9 @@ class Grammar(object):
                     ],
                 )
 
-        def ga(costSoFar, f, argumentTypes, _=None, context=None, environment=None, k=None):
+        def ga(
+            costSoFar, f, argumentTypes, _=None, context=None, environment=None, k=None
+        ):
             if argumentTypes == []:
                 k(costSoFar, context, f)
             else:
@@ -553,7 +639,7 @@ class Grammar(object):
 
         g(0.0, request, context=Context.EMPTY, environment=[], k=receiveResult)
         frontier = []
-        while len(frontier) < 10 ** 3:
+        while len(frontier) < 10**3:
             MDL, action = heappop(pq)
             if isinstance(action, Program):
                 expression = action
@@ -564,9 +650,13 @@ class Grammar(object):
 
     def closedLikelihoodSummary(self, request, expression, silent=False):
         try:
-            _, _, summary = self.likelihoodSummary(Context.EMPTY, [], {}, request, expression, silent=silent)
+            _, _, summary = self.likelihoodSummary(
+                Context.EMPTY, [], {}, request, expression, silent=silent
+            )
         except GrammarFailure as e:
-            failureExport = "failures/grammarFailure%s.pickle" % (time.time() + getPID())
+            failureExport = "failures/grammarFailure%s.pickle" % (
+                time.time() + getPID()
+            )
             eprint("PANIC: Grammar failure, exporting to ", failureExport)
             with open(failureExport, "wb") as handle:
                 pickle.dump((e, self, request, expression), handle)
@@ -578,7 +668,8 @@ class Grammar(object):
         summary = self.closedLikelihoodSummary(request, expression)
         if summary is None:
             eprint(
-                "FATAL: program [ %s ] does not have a likelihood summary." % expression,
+                "FATAL: program [ %s ] does not have a likelihood summary."
+                % expression,
                 "r = ",
                 request,
                 "\n",
@@ -602,7 +693,9 @@ class Grammar(object):
 
     def productionUses(self, frontiers):
         """Returns the expected number of times that each production was used. {production: expectedUses}"""
-        frontiers = [self.rescoreFrontier(f).normalize() for f in frontiers if not f.empty]
+        frontiers = [
+            self.rescoreFrontier(f).normalize() for f in frontiers if not f.empty
+        ]
         uses = {p: 0.0 for p in self.primitives}
         for f in frontiers:
             for e in f:
@@ -622,7 +715,9 @@ class Grammar(object):
                         logLikelihood=e.logLikelihood,
                     )
                     for e in f
-                    for summary in [self.closedLikelihoodSummary(f.task.request, e.program)]
+                    for summary in [
+                        self.closedLikelihoodSummary(f.task.request, e.program)
+                    ]
                 ],
                 task=f.task,
             )
@@ -638,7 +733,9 @@ class Grammar(object):
                     _, eu = e.program
                     u += math.exp(e.logPosterior) * eu
 
-            lv = math.log(u.actualVariables + pseudoCounts) - math.log(u.possibleVariables + pseudoCounts)
+            lv = math.log(u.actualVariables + pseudoCounts) - math.log(
+                u.possibleVariables + pseudoCounts
+            )
             g = Grammar(
                 lv,
                 [
@@ -671,9 +768,14 @@ class Grammar(object):
         return g
 
     def frontierMDL(self, frontier):
-        return max(e.logLikelihood + self.logLikelihood(frontier.task.request, e.program) for e in frontier)
+        return max(
+            e.logLikelihood + self.logLikelihood(frontier.task.request, e.program)
+            for e in frontier
+        )
 
-    def enumeration(self, context, environment, request, upperBound, maximumDepth=20, lowerBound=0.0):
+    def enumeration(
+        self, context, environment, request, upperBound, maximumDepth=20, lowerBound=0.0
+    ):
         """Enumerates all programs whose MDL satisfies: lowerBound <= MDL < upperBound"""
         if upperBound < 0 or maximumDepth == 1:
             return
@@ -691,7 +793,9 @@ class Grammar(object):
                 yield l, newContext, Abstraction(b)
 
         else:
-            candidates = self.buildCandidates(request, context, environment, normalize=True)
+            candidates = self.buildCandidates(
+                request, context, environment, normalize=True
+            )
 
             for l, t, p, newContext in candidates:
                 mdl = -l
@@ -875,7 +979,6 @@ class Grammar(object):
                 lowerBound=0.0,
                 maximumDepth=maximumDepth,
             ):
-
                 newFunction = Application(function, arg)
                 for resultL, resultK, result in self.sketchApplication(
                     newContext,
@@ -887,15 +990,18 @@ class Grammar(object):
                     lowerBound=lowerBound + argL,
                     maximumDepth=maximumDepth,
                 ):
-
                     yield resultL + argL, resultK, result
 
-    def sketchLogLikelihood(self, request, full, sk, context=Context.EMPTY, environment=[], workspace={}):
+    def sketchLogLikelihood(
+        self, request, full, sk, context=Context.EMPTY, environment=[], workspace={}
+    ):
         """
         calculates mdl of full program 'full' from sketch 'sk'
         """
         if sk.isHole:
-            _, _, summary = self.likelihoodSummary(context, environment, workspace, request, full)
+            _, _, summary = self.likelihoodSummary(
+                context, environment, workspace, request, full
+            )
             if summary is None:
                 eprint(
                     "FATAL: program [ %s ] does not have a likelihood summary." % full,
@@ -927,7 +1033,9 @@ class Grammar(object):
                 assert sk_f == full_f, "sketch and full program don't match on an index"
                 ft = environment[sk_f.i].apply(context)
             elif sk_f.isInvented or sk_f.isPrimitive:
-                assert sk_f == full_f, "sketch and full program don't match on a primitive"
+                assert (
+                    sk_f == full_f
+                ), "sketch and full program don't match on a primitive"
                 context, ft = sk_f.tp.instantiate(context)
             elif sk_f.isAbstraction:
                 assert False, "sketch is not in beta longform"
@@ -945,10 +1053,19 @@ class Grammar(object):
             ft = ft.apply(context)
             argumentRequests = ft.functionArguments()
 
-            assert len(argumentRequests) == len(sk_xs) == len(full_xs)  # this might not be true if holes??
+            assert (
+                len(argumentRequests) == len(sk_xs) == len(full_xs)
+            )  # this might not be true if holes??
 
             return self.sketchllApplication(
-                context, environment, workspace, sk_f, sk_xs, full_f, full_xs, argumentRequests
+                context,
+                environment,
+                workspace,
+                sk_f,
+                sk_xs,
+                full_f,
+                full_xs,
+                argumentRequests,
             )
 
     def sketchllApplication(
@@ -983,7 +1100,9 @@ class Grammar(object):
             )
 
             # finish this...
-            sk_newFunction = Application(sk_function, sk_firstSketch)  # is this redundant? maybe
+            sk_newFunction = Application(
+                sk_function, sk_firstSketch
+            )  # is this redundant? maybe
             full_newFunction = Application(full_function, full_firstSketch)
 
             resultL, context = self.sketchllApplication(
@@ -1006,13 +1125,16 @@ class Grammar(object):
         else:
 
             def mutations(tp, loss):
-                for l, _, expr in self.enumeration(Context.EMPTY, [], tp, distance - loss):
+                for l, _, expr in self.enumeration(
+                    Context.EMPTY, [], tp, distance - loss
+                ):
                     yield expr, l
 
             yield from Mutator(self, mutations).execute(expr, request)
 
     def enumerateHoles(self, request, expr, k=3, return_obj=Hole):
         """Enumerate programs with a single hole within mdl distance"""
+
         # TODO: make it possible to enumerate sketches with multiple holes
         def mutations(tp, loss, is_left_application=False):
             """
@@ -1084,37 +1206,60 @@ normalizers = {%s})""" % (
     def logLikelihood(self, grammar):
         return (
             self.constant
-            + sum(count * grammar.expression2likelihood[p] for p, count in self.uses.items())
-            - sum(count * lse([grammar.expression2likelihood[p] for p in ps]) for ps, count in self.normalizers.items())
+            + sum(
+                count * grammar.expression2likelihood[p]
+                for p, count in self.uses.items()
+            )
+            - sum(
+                count * lse([grammar.expression2likelihood[p] for p in ps])
+                for ps, count in self.normalizers.items()
+            )
         )
 
     def logLikelihood_overlyGeneral(self, grammar):
         """Calculates log likelihood of this summary, given that the summary might refer to productions that don't occur in the grammar"""
         return (
             self.constant
-            + sum(count * grammar.expression2likelihood[p] for p, count in self.uses.items())
+            + sum(
+                count * grammar.expression2likelihood[p]
+                for p, count in self.uses.items()
+            )
             - sum(
-                count * lse([grammar.expression2likelihood.get(p, NEGATIVEINFINITY) for p in ps])
+                count
+                * lse(
+                    [grammar.expression2likelihood.get(p, NEGATIVEINFINITY) for p in ps]
+                )
                 for ps, count in self.normalizers.items()
             )
         )
 
     def numerator(self, grammar):
-        return self.constant + sum(count * grammar.expression2likelihood[p] for p, count in self.uses.items())
+        return self.constant + sum(
+            count * grammar.expression2likelihood[p] for p, count in self.uses.items()
+        )
 
     def denominator(self, grammar):
         return sum(
-            count * lse([grammar.expression2likelihood[p] for p in ps]) for ps, count in self.normalizers.items()
+            count * lse([grammar.expression2likelihood[p] for p in ps])
+            for ps, count in self.normalizers.items()
         )
 
     def toUses(self):
         from collections import Counter
 
-        possibleVariables = sum(count if Index(0) in ps else 0 for ps, count in self.normalizers.items())
+        possibleVariables = sum(
+            count if Index(0) in ps else 0 for ps, count in self.normalizers.items()
+        )
         actualVariables = self.uses.get(Index(0), 0.0)
         actualUses = {k: v for k, v in self.uses.items() if not k.isIndex}
         possibleUses = dict(
-            Counter(p for ps, count in self.normalizers.items() for p_ in ps if not p_.isIndex for p in [p_] * count)
+            Counter(
+                p
+                for ps, count in self.normalizers.items()
+                for p_ in ps
+                if not p_.isIndex
+                for p in [p_] * count
+            )
         )
         return Uses(possibleVariables, actualVariables, possibleUses, actualUses)
 
@@ -1122,18 +1267,23 @@ normalizers = {%s})""" % (
 class Uses(object):
     """Tracks uses of different grammar productions"""
 
-    def __init__(self, possibleVariables=0.0, actualVariables=0.0, possibleUses={}, actualUses={}):
+    def __init__(
+        self, possibleVariables=0.0, actualVariables=0.0, possibleUses={}, actualUses={}
+    ):
         self.actualVariables = actualVariables
         self.possibleVariables = possibleVariables
         self.possibleUses = possibleUses
         self.actualUses = actualUses
 
     def __str__(self):
-        return "Uses(actualVariables = %f, possibleVariables = %f, actualUses = %s, possibleUses = %s)" % (
-            self.actualVariables,
-            self.possibleVariables,
-            self.actualUses,
-            self.possibleUses,
+        return (
+            "Uses(actualVariables = %f, possibleVariables = %f, actualUses = %s, possibleUses = %s)"
+            % (
+                self.actualVariables,
+                self.possibleVariables,
+                self.actualUses,
+                self.possibleUses,
+            )
         )
 
     def __repr__(self):
@@ -1272,19 +1422,24 @@ class ContextualGrammar:
             "noParent": self.noParent.json(),
             "variableParent": self.variableParent.json(),
             "productions": [
-                {"program": str(e), "arguments": [gp.json() for gp in gs]} for e, gs in self.library.items()
+                {"program": str(e), "arguments": [gp.json() for gp in gs]}
+                for e, gs in self.library.items()
             ],
         }
 
     @staticmethod
     def fromGrammar(g):
-        return ContextualGrammar(g, g, {e: [g] * len(e.infer().functionArguments()) for e in g.primitives})
+        return ContextualGrammar(
+            g, g, {e: [g] * len(e.infer().functionArguments()) for e in g.primitives}
+        )
 
     class LS:  # likelihood summary
         def __init__(self, owner):
             self.noParent = LikelihoodSummary()
             self.variableParent = LikelihoodSummary()
-            self.library = {e: [LikelihoodSummary() for _ in gs] for e, gs in owner.library.items()}
+            self.library = {
+                e: [LikelihoodSummary() for _ in gs] for e, gs in owner.library.items()
+            }
 
         def record(self, parent, parentIndex, actual, possibles, constant):
             if parent is None:
@@ -1306,24 +1461,38 @@ class ContextualGrammar:
             return (
                 self.noParent.logLikelihood(owner.noParent)
                 + self.variableParent.logLikelihood(owner.variableParent)
-                + sum(r.logLikelihood(g) for e, rs in self.library.items() for r, g in zip(rs, owner.library[e]))
+                + sum(
+                    r.logLikelihood(g)
+                    for e, rs in self.library.items()
+                    for r, g in zip(rs, owner.library[e])
+                )
             )
 
         def numerator(self, owner):
             return (
                 self.noParent.numerator(owner.noParent)
                 + self.variableParent.numerator(owner.variableParent)
-                + sum(r.numerator(g) for e, rs in self.library.items() for r, g in zip(rs, owner.library[e]))
+                + sum(
+                    r.numerator(g)
+                    for e, rs in self.library.items()
+                    for r, g in zip(rs, owner.library[e])
+                )
             )
 
         def denominator(self, owner):
             return (
                 self.noParent.denominator(owner.noParent)
                 + self.variableParent.denominator(owner.variableParent)
-                + sum(r.denominator(g) for e, rs in self.library.items() for r, g in zip(rs, owner.library[e]))
+                + sum(
+                    r.denominator(g)
+                    for e, rs in self.library.items()
+                    for r, g in zip(rs, owner.library[e])
+                )
             )
 
-    def likelihoodSummary(self, parent, parentIndex, context, environment, request, expression):
+    def likelihoodSummary(
+        self, parent, parentIndex, context, environment, request, expression
+    ):
         if request.isArrow():
             assert expression.isAbstraction
             return self.likelihoodSummary(
@@ -1340,7 +1509,9 @@ class ContextualGrammar:
             g = self.variableParent
         else:
             g = self.library[parent][parentIndex]
-        candidates = g.buildCandidates(request, context, environment, normalize=False, returnTable=True)
+        candidates = g.buildCandidates(
+            request, context, environment, normalize=False, returnTable=True
+        )
 
         # A list of everything that would have been possible to use here
         possibles = [p for p in candidates.keys() if not p.isIndex]
@@ -1367,13 +1538,17 @@ class ContextualGrammar:
 
         for i, (argumentType, argument) in enumerate(zip(argumentTypes, xs)):
             argumentType = argumentType.apply(context)
-            context, newSummary = self.likelihoodSummary(f, i, context, environment, argumentType, argument)
+            context, newSummary = self.likelihoodSummary(
+                f, i, context, environment, argumentType, argument
+            )
             thisSummary.join(newSummary)
 
         return context, thisSummary
 
     def closedLikelihoodSummary(self, request, expression):
-        return self.likelihoodSummary(None, None, Context.EMPTY, [], request, expression)[1]
+        return self.likelihoodSummary(
+            None, None, Context.EMPTY, [], request, expression
+        )[1]
 
     def logLikelihood(self, request, expression):
         return self.closedLikelihoodSummary(request, expression).logLikelihood(self)
@@ -1382,7 +1557,9 @@ class ContextualGrammar:
         attempts = 0
         while True:
             try:
-                _, e = self._sample(None, None, Context.EMPTY, [], request, maximumDepth)
+                _, e = self._sample(
+                    None, None, Context.EMPTY, [], request, maximumDepth
+                )
                 return e
             except NoCandidates:
                 if maxAttempts is not None:
@@ -1423,7 +1600,9 @@ class ContextualGrammar:
 
         for j, x in enumerate(xs):
             x = x.apply(context)
-            context, x = self._sample(chosenPrimitive, j, context, environment, x, maximumDepth - 1)
+            context, x = self._sample(
+                chosenPrimitive, j, context, environment, x, maximumDepth - 1
+            )
             returnValue = Application(returnValue, x)
 
         return context, returnValue
@@ -1436,11 +1615,15 @@ class ContextualGrammar:
         primitives = list(sorted(self.primitives, key=str))
         noInventions = all(not p.isInvented for p in primitives)
         primitive2index = {
-            primitive: i for i, primitive in enumerate(primitives) if primitive.isInvented or noInventions
+            primitive: i
+            for i, primitive in enumerate(primitives)
+            if primitive.isInvented or noInventions
         }
         eprint(primitive2index)
         ns = 10000
-        with timing(f"calculated expected uses using Monte Carlo simulation w/ {ns} samples"):
+        with timing(
+            f"calculated expected uses using Monte Carlo simulation w/ {ns} samples"
+        ):
             for _ in range(ns):
                 p = self.sample(request, maxAttempts=0)
                 if p is None:
@@ -1455,8 +1638,12 @@ class ContextualGrammar:
         u = np.array(u) / n
         if debug:
             eprint(f"Got {n} samples. Feature vector:\n{u}")
-            eprint(f"Likely used primitives: {[p for p,i in primitive2index.items() if u[i] > 0.5]}")
-            eprint(f"Likely used primitive indices: {[i for p,i in primitive2index.items() if u[i] > 0.5]}")
+            eprint(
+                f"Likely used primitives: {[p for p,i in primitive2index.items() if u[i] > 0.5]}"
+            )
+            eprint(
+                f"Likely used primitive indices: {[i for p,i in primitive2index.items() if u[i] > 0.5]}"
+            )
         return u
 
     def featureVector(self, _=None, requests=None, onlyInventions=True, normalize=True):
@@ -1500,7 +1687,12 @@ class ContextualGrammar:
                 features.append(logWeights)
 
         if normalize:
-            features = [[math.exp(w - z) for w in lw] for lw in features if lw for z in [lse(lw)]]
+            features = [
+                [math.exp(w - z) for w in lw]
+                for lw in features
+                if lw
+                for z in [lse(lw)]
+            ]
         import numpy as np
 
         return np.array([f for lw in features for f in lw])
@@ -1541,7 +1733,9 @@ class ContextualGrammar:
             else:
                 g = self.library[parent][parentIndex]
 
-            candidates = g.buildCandidates(request, context, environment, normalize=True)
+            candidates = g.buildCandidates(
+                request, context, environment, normalize=True
+            )
 
             for l, t, p, newContext in candidates:
                 mdl = -l

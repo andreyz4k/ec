@@ -153,8 +153,12 @@ def sample_programs():
     return programs
 
 
-@pytest.mark.parametrize("program, complexities, expected_likelihood", sample_programs())
-def test_program_likelihood(base_grammar, base_task, program, complexities, expected_likelihood):
+@pytest.mark.parametrize(
+    "program, complexities, expected_likelihood", sample_programs()
+)
+def test_program_likelihood(
+    base_grammar, base_task, program, complexities, expected_likelihood
+):
     p = Program.parse(program)
     print(base_task.request)
     print(p)
@@ -236,6 +240,12 @@ def sample_wrapper_programs():
             "time": 12.727571964263916,
             "logLikelihood": 0.0,
             "logPrior": -14.966859498877648,
+        },
+        {
+            "program": "let $v1::int = Const(int, -5) in let $v2::int = Const(int, -1) in let $v3, $v4 = wrap(let $v3, $v4 = rev($inp0 = (map (lambda (* $v3 $0)) $v4)); let $v3 = $v2) in let $v5::int = (* $v1 $v3) in let $v6, $v7 = rev($inp0 = (cons $v6 $v7)) in let $v8, $v9 = wrap(let $v8, $v9 = rev($inp0 = (concat $v8 $v9)); let $v9 = $v7) in let $v10::int = (- $v5 (length $v8)) in (cons $v10 $inp0)",
+            "time": 1.8824760913848877,
+            "logLikelihood": 0.0,
+            "logPrior": -17.538777525655277,
         },
     ]
     return programs

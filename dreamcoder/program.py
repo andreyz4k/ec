@@ -74,7 +74,9 @@ class Program(object):
         for _ in range(a):
             e = Abstraction(e)
 
-        assert self.infer() == e.infer(), "FATAL: uncurry has a bug. %s : %s, but uncurried to %s : %s" % (
+        assert (
+            self.infer() == e.infer()
+        ), "FATAL: uncurry has a bug. %s : %s, but uncurried to %s : %s" % (
             self,
             self.infer(),
             e,
@@ -179,6 +181,7 @@ class Program(object):
     @staticmethod
     def parse(s):
         s = parseSExpression(s)
+
         # eprint(s)
         def p(e):
             if isinstance(e, list):
@@ -206,7 +209,9 @@ class Program(object):
                             p(e[-1]),
                         )
                     else:
-                        return LetClause(e[1][0][1:], Type.fromstring(e[1][1]), p(e[3]), p(e[5]))
+                        return LetClause(
+                            e[1][0][1:], Type.fromstring(e[1][1]), p(e[3]), p(e[5])
+                        )
                 if e[0] == "Const":
                     return Constant(Type.fromstring(e[1]), e[2])
                 f = p(e[0])
@@ -235,7 +240,15 @@ class Program(object):
     def _parse(s, n):
         while n < len(s) and s[n].isspace():
             n += 1
-        for p in [Application, Abstraction, Index, Invented, FragmentVariable, Hole, Primitive]:
+        for p in [
+            Application,
+            Abstraction,
+            Index,
+            Invented,
+            FragmentVariable,
+            Hole,
+            Primitive,
+        ]:
             try:
                 return p._parse(s, n)
             except ParseFailure:
@@ -335,7 +348,9 @@ class Application(Program):
         return b.substitute(Index(0), v.shift(1)).shift(-1)
 
     def isBetaLong(self):
-        return (not self.f.isAbstraction) and self.f.isBetaLong() and self.x.isBetaLong()
+        return (
+            (not self.f.isAbstraction) and self.f.isBetaLong() and self.x.isBetaLong()
+        )
 
     def freeVariables(self):
         return self.f.freeVariables() | self.x.freeVariables()
@@ -355,7 +370,9 @@ class Application(Program):
         return True
 
     def __eq__(self, other):
-        return isinstance(other, Application) and self.f == other.f and self.x == other.x
+        return (
+            isinstance(other, Application) and self.f == other.f and self.x == other.x
+        )
 
     def __hash__(self):
         if self.hashCode is None:
@@ -365,11 +382,25 @@ class Application(Program):
     """Because Python3 randomizes the hash function, we need to never pickle the hash"""
 
     def __getstate__(self):
-        return self.f, self.x, self.isConditional, self.falseBranch, self.trueBranch, self.branch
+        return (
+            self.f,
+            self.x,
+            self.isConditional,
+            self.falseBranch,
+            self.trueBranch,
+            self.branch,
+        )
 
     def __setstate__(self, state):
         try:
-            self.f, self.x, self.isConditional, self.falseBranch, self.trueBranch, self.branch = state
+            (
+                self.f,
+                self.x,
+                self.isConditional,
+                self.falseBranch,
+                self.trueBranch,
+                self.branch,
+            ) = state
         except ValueError:
             # backward compatibility
             assert "x" in state
@@ -644,7 +675,9 @@ class Abstraction(Program):
 
     def inferType(self, context, environment, freeVariables):
         (context, argumentType) = context.makeVariable()
-        (context, returnType) = self.body.inferType(context, [argumentType] + environment, freeVariables)
+        (context, returnType) = self.body.inferType(
+            context, [argumentType] + environment, freeVariables
+        )
         return (context, arrow(argumentType, returnType).apply(context))
 
     def shift(self, offset, depth=0):
@@ -685,11 +718,12 @@ class Abstraction(Program):
 class Primitive(Program):
     GLOBALS = {}
 
-    def __init__(self, name, ty, value, is_reversible=False):
+    def __init__(self, name, ty, value, is_reversible=False, custom_args_checkers=None):
         self.tp = ty
         self.name = name
         self.value = value
         self.isreversible = is_reversible
+        self.custom_args_checkers = custom_args_checkers or []
         if name not in Primitive.GLOBALS:
             Primitive.GLOBALS[name] = self
 
@@ -1007,7 +1041,14 @@ class LetClause(Program):
 
     def __hash__(self):
         if self.hashCode is None:
-            self.hashCode = hash((hash(self.var_name), hash(self.var_type), hash(self.var_def), hash(self.body)))
+            self.hashCode = hash(
+                (
+                    hash(self.var_name),
+                    hash(self.var_type),
+                    hash(self.var_def),
+                    hash(self.body),
+                )
+            )
         return self.hashCode
 
     """Because Python3 randomizes the hash function, we need to never pickle the hash"""
@@ -1052,7 +1093,12 @@ class LetRevClause(Program):
     def __hash__(self):
         if self.hashCode is None:
             self.hashCode = hash(
-                (hash(tuple(self.var_names)), hash(self.inp_var_name), hash(self.vars_def), hash(self.body))
+                (
+                    hash(tuple(self.var_names)),
+                    hash(self.inp_var_name),
+                    hash(self.vars_def),
+                    hash(self.body),
+                )
             )
         return self.hashCode
 
@@ -1071,7 +1117,9 @@ class LetRevClause(Program):
 
 
 class WrapEither(Program):
-    def __init__(self, var_names, inp_var_name, fixer_var_name, vars_def, fixer_var, body):
+    def __init__(
+        self, var_names, inp_var_name, fixer_var_name, vars_def, fixer_var, body
+    ):
         self.var_names = var_names
         self.inp_var_name = inp_var_name
         self.fixer_var_name = fixer_var_name
@@ -1115,10 +1163,24 @@ class WrapEither(Program):
     """Because Python3 randomizes the hash function, we need to never pickle the hash"""
 
     def __getstate__(self):
-        return self.var_names, self.inp_var_name, self.fixer_var_name, self.vars_def, self.fixer_var, self.body
+        return (
+            self.var_names,
+            self.inp_var_name,
+            self.fixer_var_name,
+            self.vars_def,
+            self.fixer_var,
+            self.body,
+        )
 
     def __setstate__(self, state):
-        self.var_names, self.inp_var_name, self.fixer_var_name, self.vars_def, self.fixer_var, self.body = state
+        (
+            self.var_names,
+            self.inp_var_name,
+            self.fixer_var_name,
+            self.vars_def,
+            self.fixer_var,
+            self.body,
+        ) = state
         self.hashCode = None
 
     @property
@@ -1157,7 +1219,9 @@ class Constant(Program):
         return f"Const({self.tp.show(False)}, {self.value})"
 
     def __eq__(self, __o) -> bool:
-        return isinstance(__o, Constant) and self.tp == __o.tp and self.value == __o.value
+        return (
+            isinstance(__o, Constant) and self.tp == __o.tp and self.value == __o.value
+        )
 
     def __hash__(self):
         if self.hashCode is None:
@@ -1291,7 +1355,9 @@ class Mutator:
     def logLikelihood(self, tp, e, env):
         summary = None
         try:
-            _, summary = self.grammar.likelihoodSummary(Context.EMPTY, env, tp, e, silent=True)
+            _, summary = self.grammar.likelihoodSummary(
+                Context.EMPTY, env, tp, e, silent=True
+            )
         except AssertionError as err:
             # print(f"closedLikelihoodSummary failed on tp={tp}, e={e}, error={err}")
             pass
@@ -1372,7 +1438,10 @@ class PrettyVisitor(object):
 
     def application(self, e, environment, isFunction, isAbstraction):
         self.toplevel = False
-        s = "%s %s" % (e.f.visit(self, environment, True, False), e.x.visit(self, environment, False, False))
+        s = "%s %s" % (
+            e.f.visit(self, environment, True, False),
+            e.x.visit(self, environment, False, False),
+        )
         if isFunction:
             return s
         else:
@@ -1429,7 +1498,11 @@ class EtaLongVisitor(object):
         if not request.isArrow():
             raise EtaExpandFailure()
 
-        return Abstraction(e.body.visit(self, request.arguments[1], [request.arguments[0]] + environment))
+        return Abstraction(
+            e.body.visit(
+                self, request.arguments[1], [request.arguments[0]] + environment
+            )
+        )
 
     def _application(self, e, request, environment):
         l = self.makeLong(e, request)
@@ -1508,7 +1581,8 @@ class StripPrimitiveVisitor:
 
 class ReplacePrimitiveValueVisitor:
     """Intended to be used after StripPrimitiveVisitor.
-    Replaces all primitive.value's with their corresponding entry in Primitive.GLOBALS"""
+    Replaces all primitive.value's with their corresponding entry in Primitive.GLOBALS
+    """
 
     def invented(self, e):
         return Invented(e.body.visit(self))
@@ -1565,5 +1639,7 @@ def untokeniseProgram(l):
 if __name__ == "__main__":
     from dreamcoder.domains.arithmetic.arithmeticPrimitives import *
 
-    e = Program.parse("(#(lambda (?? (+ 1 $0))) (lambda (?? (+ 1 $0))) (lambda (?? (+ 1 $0))) - * (+ +))")
+    e = Program.parse(
+        "(#(lambda (?? (+ 1 $0))) (lambda (?? (+ 1 $0))) (lambda (?? (+ 1 $0))) - * (+ +))"
+    )
     eprint(e)

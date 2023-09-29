@@ -1,7 +1,23 @@
 from functools import reduce
 import math
-from dreamcoder.program import Primitive
-from dreamcoder.type import TypeConstructor, arrow, baseType, tlist, t0, t1, t2, tint, tbool
+from dreamcoder.program import (
+    Primitive,
+    Invented,
+    Index,
+    FreeVariable,
+    Abstraction,
+)
+from dreamcoder.type import (
+    TypeConstructor,
+    arrow,
+    baseType,
+    tlist,
+    t0,
+    t1,
+    t2,
+    tint,
+    tbool,
+)
 
 
 tcolor = baseType("color")
@@ -37,11 +53,15 @@ def _fold(f):
 
 
 def _fold_h(f):
-    return lambda g: lambda xs0: [reduce(lambda a, x: f(x)(a), l[::-1], x0) for (l, x0) in zip(g, xs0)]
+    return lambda g: lambda xs0: [
+        reduce(lambda a, x: f(x)(a), l[::-1], x0) for (l, x0) in zip(g, xs0)
+    ]
 
 
 def _fold_v(f):
-    return lambda g: lambda xs0: [reduce(lambda a, x: f(x)(a), l[::-1], x0) for (l, x0) in zip(zip(*g), xs0)]
+    return lambda g: lambda xs0: [
+        reduce(lambda a, x: f(x)(a), l[::-1], x0) for (l, x0) in zip(zip(*g), xs0)
+    ]
 
 
 def _range(n):
@@ -221,29 +241,133 @@ def _all(f):
     return lambda l: all(f(x) for x in l)
 
 
+def _is_possible_selector(p, from_input, path):
+    if isinstance(p, Primitive) or isinstance(p, Invented):
+        return True
+    if isinstance(p, Index):
+        return p.i != 0 or not isinstance(path[-1][0], Abstraction)
+    if isinstance(p, FreeVariable):
+        if path[-1] == (Primitive.GLOBALS["eq?"], 1) and isinstance(
+            path[-2][0], Abstraction
+        ):
+            return True
+        return False
+    assert False
+
+
+def _is_possible_subfunction(p, from_input, path):
+    if isinstance(p, Index):
+        return p.i != 0 or not isinstance(path[-1][0], Abstraction)
+    if isinstance(p, FreeVariable):
+        return True
+    if isinstance(p, Primitive) or isinstance(p, Invented):
+        return not from_input or p.is_reversible
+    assert False
+
+
+def _is_possible_init(p, from_input, path):
+    if isinstance(p, FreeVariable):
+        return False
+    if isinstance(p, Primitive) or isinstance(p, Invented) or isinstance(p, Index):
+        return True
+    assert False
+
+
+def _is_possible_folder(p, from_input, path):
+    if isinstance(p, FreeVariable):
+        return False
+    if isinstance(p, Index):
+        return True
+    if isinstance(p, Primitive) or isinstance(p, Invented):
+        return p.is_reversible
+    assert False
+
+
+def _is_possible_key_extractor(p, from_input, path):
+    if isinstance(p, FreeVariable):
+        return False
+    if isinstance(p, Index) or isinstance(p, Primitive) or isinstance(p, Invented):
+        return True
+    assert False
+
+
 def basePrimitives():
     """These are the primitives that we hope to learn from the bootstrapping procedure"""
     return [
-        Primitive("map", arrow(arrow(t0, t1), tlist(t0), tlist(t1)), _map, is_reversible=True),
-        Primitive("map_set", arrow(arrow(t0, t1), tset(t0), tset(t1)), _map, is_reversible=True),
-        Primitive("map_grid", arrow(arrow(t0, t1), tgrid(t0), tgrid(t1)), _map_grid, is_reversible=True),
-        Primitive("map2", arrow(arrow(t0, t1, t2), tlist(t0), tlist(t1), tlist(t2)), _map, is_reversible=True),
         Primitive(
-            "map2_grid", arrow(arrow(t0, t1, t2), tgrid(t0), tgrid(t1), tgrid(t2)), _map_grid, is_reversible=True
+            "map",
+            arrow(arrow(t0, t1), tlist(t0), tlist(t1)),
+            _map,
+            is_reversible=True,
+            custom_args_checkers=[_is_possible_subfunction],
         ),
-        Primitive("unfold", arrow(arrow(t0, tbool), arrow(t0, t1), arrow(t0, t0), t0, tlist(t1)), _unfold),
+        Primitive(
+            "map_set",
+            arrow(arrow(t0, t1), tset(t0), tset(t1)),
+            _map,
+            is_reversible=True,
+            custom_args_checkers=[_is_possible_subfunction],
+        ),
+        Primitive(
+            "map_grid",
+            arrow(arrow(t0, t1), tgrid(t0), tgrid(t1)),
+            _map_grid,
+            is_reversible=True,
+            custom_args_checkers=[_is_possible_subfunction],
+        ),
+        Primitive(
+            "map2",
+            arrow(arrow(t0, t1, t2), tlist(t0), tlist(t1), tlist(t2)),
+            _map,
+            is_reversible=True,
+            custom_args_checkers=[_is_possible_subfunction],
+        ),
+        Primitive(
+            "map2_grid",
+            arrow(arrow(t0, t1, t2), tgrid(t0), tgrid(t1), tgrid(t2)),
+            _map_grid,
+            is_reversible=True,
+            custom_args_checkers=[_is_possible_subfunction],
+        ),
+        Primitive(
+            "unfold",
+            arrow(arrow(t0, tbool), arrow(t0, t1), arrow(t0, t0), t0, tlist(t1)),
+            _unfold,
+        ),
         Primitive("range", arrow(tint, tlist(tint)), _range, is_reversible=True),
         Primitive("index", arrow(tint, tlist(t0), t0), _index),
         Primitive("index2", arrow(tint, tint, tgrid(t0), t0), _index2),
-        Primitive("fold", arrow(arrow(t0, t1, t1), tlist(t0), t1, t1), _fold, is_reversible=True),
+        Primitive(
+            "fold",
+            arrow(arrow(t0, t1, t1), tlist(t0), t1, t1),
+            _fold,
+            is_reversible=True,
+            custom_args_checkers=[_is_possible_subfunction],
+        ),
         # Primitive("fold_set", arrow(arrow(t0, t1, t1), tset(t0), t1, t1), _fold, is_reversible=True),
         # TODO: this is temporary type fix to preserve reversibility of fold_set because we don't know how to
         # detect which folder function won't depend on the insertion order of the set
         Primitive(
-            "fold_set", arrow(arrow(t0, tset(t1), tset(t1)), tset(t0), tset(t1), tset(t1)), _fold, is_reversible=True
+            "fold_set",
+            arrow(arrow(t0, tset(t1), tset(t1)), tset(t0), tset(t1), tset(t1)),
+            _fold,
+            is_reversible=True,
+            custom_args_checkers=[_is_possible_subfunction],
         ),
-        Primitive("fold_h", arrow(arrow(t0, t1, t1), tgrid(t0), tlist(t1), tlist(t1)), _fold_h, is_reversible=True),
-        Primitive("fold_v", arrow(arrow(t0, t1, t1), tgrid(t0), tlist(t1), tlist(t1)), _fold_v, is_reversible=True),
+        Primitive(
+            "fold_h",
+            arrow(arrow(t0, t1, t1), tgrid(t0), tlist(t1), tlist(t1)),
+            _fold_h,
+            is_reversible=True,
+            custom_args_checkers=[_is_possible_subfunction],
+        ),
+        Primitive(
+            "fold_v",
+            arrow(arrow(t0, t1, t1), tgrid(t0), tlist(t1), tlist(t1)),
+            _fold_v,
+            is_reversible=True,
+            custom_args_checkers=[_is_possible_subfunction],
+        ),
         Primitive("length", arrow(tlist(t0), tint), len),
         Primitive("height", arrow(tgrid(t0), tint), len),
         Primitive("width", arrow(tgrid(t0), tint), _width),
@@ -262,26 +386,78 @@ def basePrimitives():
         Primitive("is-prime", arrow(tint, tbool), _isPrime),
         Primitive("is-square", arrow(tint, tbool), _isSquare),
         Primitive("repeat", arrow(t0, tint, tlist(t0)), _repeat, is_reversible=True),
-        Primitive("repeat_grid", arrow(t0, tint, tint, tgrid(t0)), None, is_reversible=True),
-        Primitive("concat", arrow(tlist(t0), tlist(t0), tlist(t0)), _concat, is_reversible=True),
-        Primitive("rows", arrow(tgrid(t0), tlist(tlist(t0))), _rows, is_reversible=True),
-        Primitive("columns", arrow(tgrid(t0), tlist(tlist(t0))), _columns, is_reversible=True),
-        Primitive("rows_to_grid", arrow(tlist(tlist(t0)), tgrid(t0)), _rows_to_grid, is_reversible=True),
-        Primitive("columns_to_grid", arrow(tlist(tlist(t0)), tgrid(t0)), _columns_to_grid, is_reversible=True),
-        Primitive("rev_select", arrow(arrow(t0, tbool), tlist(t0), tlist(t0), tlist(t0)), None, is_reversible=True),
-        Primitive("rev_select_set", arrow(arrow(t0, tbool), tset(t0), tset(t0), tset(t0)), None, is_reversible=True),
         Primitive(
-            "rev_select_grid", arrow(arrow(t0, tbool), tgrid(t0), tgrid(t0), tgrid(t0)), None, is_reversible=True
+            "repeat_grid", arrow(t0, tint, tint, tgrid(t0)), None, is_reversible=True
         ),
-        Primitive("rev_list_elements", arrow(tset(ttuple2(tint, t0)), tint, tlist(t0)), None, is_reversible=True),
+        Primitive(
+            "concat",
+            arrow(tlist(t0), tlist(t0), tlist(t0)),
+            _concat,
+            is_reversible=True,
+        ),
+        Primitive(
+            "rows", arrow(tgrid(t0), tlist(tlist(t0))), _rows, is_reversible=True
+        ),
+        Primitive(
+            "columns", arrow(tgrid(t0), tlist(tlist(t0))), _columns, is_reversible=True
+        ),
+        Primitive(
+            "rows_to_grid",
+            arrow(tlist(tlist(t0)), tgrid(t0)),
+            _rows_to_grid,
+            is_reversible=True,
+        ),
+        Primitive(
+            "columns_to_grid",
+            arrow(tlist(tlist(t0)), tgrid(t0)),
+            _columns_to_grid,
+            is_reversible=True,
+        ),
+        Primitive(
+            "rev_select",
+            arrow(arrow(t0, tbool), tlist(t0), tlist(t0), tlist(t0)),
+            None,
+            is_reversible=True,
+            custom_args_checkers=[_is_possible_selector],
+        ),
+        Primitive(
+            "rev_select_set",
+            arrow(arrow(t0, tbool), tset(t0), tset(t0), tset(t0)),
+            None,
+            is_reversible=True,
+            custom_args_checkers=[_is_possible_selector],
+        ),
+        Primitive(
+            "rev_select_grid",
+            arrow(arrow(t0, tbool), tgrid(t0), tgrid(t0), tgrid(t0)),
+            None,
+            is_reversible=True,
+            custom_args_checkers=[_is_possible_selector],
+        ),
+        Primitive(
+            "rev_list_elements",
+            arrow(tset(ttuple2(tint, t0)), tint, tlist(t0)),
+            None,
+            is_reversible=True,
+        ),
         Primitive(
             "rev_grid_elements",
             arrow(tset(ttuple2(ttuple2(tint, tint), t0)), tint, tint, tgrid(t0)),
             None,
             is_reversible=True,
         ),
-        Primitive("zip2", arrow(tlist(t0), tlist(t1), tlist(ttuple2(t0, t1))), None, is_reversible=True),
-        Primitive("zip_grid2", arrow(tlist(t0), tlist(t1), tlist(ttuple2(t0, t1))), None, is_reversible=True),
+        Primitive(
+            "zip2",
+            arrow(tlist(t0), tlist(t1), tlist(ttuple2(t0, t1))),
+            None,
+            is_reversible=True,
+        ),
+        Primitive(
+            "zip_grid2",
+            arrow(tlist(t0), tlist(t1), tlist(ttuple2(t0, t1))),
+            None,
+            is_reversible=True,
+        ),
         Primitive("tuple2", arrow(t0, t1, ttuple2(t0, t1)), None, is_reversible=True),
         Primitive("tuple2_first", arrow(ttuple2(t0, t1), t0), None),
         Primitive("tuple2_second", arrow(ttuple2(t0, t1), t1), None),
@@ -291,27 +467,36 @@ def basePrimitives():
             arrow(arrow(t0, t1, t1), t1, t1, tlist(t0)),
             None,
             is_reversible=True,
+            custom_args_checkers=[_is_possible_init, _is_possible_folder],
         ),
         Primitive(
             "rev_fold_set",
             arrow(arrow(t0, t1, t1), t1, t1, tset(t0)),
             None,
             is_reversible=True,
+            custom_args_checkers=[_is_possible_init, _is_possible_folder],
         ),
         Primitive("list_to_set", arrow(tlist(t0), tset(t0)), None),
         Primitive("adjoin", arrow(t0, tset(t0), tset(t0)), None, is_reversible=True),
         Primitive("empty_set", tset(t0), None),
         Primitive(
             "rev_groupby",
-            arrow(arrow(t0, t1), t0, tset(ttuple2(t1, tset(t0))), tset(ttuple2(t1, tset(t0)))),
+            arrow(
+                arrow(t0, t1),
+                t0,
+                tset(ttuple2(t1, tset(t0))),
+                tset(ttuple2(t1, tset(t0))),
+            ),
             None,
             is_reversible=True,
+            custom_args_checkers=[_is_possible_key_extractor],
         ),
         Primitive(
             "rev_greedy_cluster",
             arrow(arrow(t0, tset(t0), tbool), t0, tset(tset(t0)), tset(tset(t0))),
             None,
             is_reversible=True,
+            custom_args_checkers=[_is_possible_key_extractor],
         ),
         Primitive("not", arrow(tbool, tbool), _not, is_reversible=True),
         Primitive("and", arrow(tbool, tbool, tbool), _and, is_reversible=True),
