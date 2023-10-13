@@ -55,13 +55,11 @@ end
 function __get_custom_arg_chekers(p::Apply, checker, indices_checkers::Dict)
     checkers, indices_checkers = __get_custom_arg_chekers(p.f, checker, indices_checkers)
     if !isempty(checkers)
-        arg_checkers, indices_checkers = __get_custom_arg_chekers(p.x, checkers[1], indices_checkers)
+        _, indices_checkers = __get_custom_arg_chekers(p.x, checkers[1], indices_checkers)
     else
-        arg_checkers, indices_checkers = __get_custom_arg_chekers(p.x, nothing, indices_checkers)
+        _, indices_checkers = __get_custom_arg_chekers(p.x, nothing, indices_checkers)
     end
-    @assert isempty(arg_checkers)
-    out_checkers = checkers[2:end]
-    return out_checkers, indices_checkers
+    return checkers[2:end], indices_checkers
 end
 
 function __get_custom_arg_chekers(p::Index, checker::Nothing, indices_checkers::Dict)
