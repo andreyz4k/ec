@@ -118,51 +118,45 @@ function unifying_expressions(
     #    Yields a sequence of:
     #    (leaf, argument types, context with leaf return type unified with requested type, normalized log likelihood)
 
-    if from_input && isnothing(candidates_filter)
-        variable_candidates = Tuple{Program,Vector{Tp},Context,Float64}[]
-    else
-        variable_candidates = collect(
-            skipmissing(map(enumerate(environment)) do (j, t)
-                p = Index(j - 1)
-                if !isnothing(candidates_filter) && !candidates_filter(p, from_input, skeleton, path)
-                    return missing
-                end
-                ll = g.log_variable
-                (new_context, t) = apply_context(context, t)
-                return_type = return_of_type(t)
-                if might_unify(return_type, request)
-                    try
-                        new_context = unify(new_context, return_type, request)
-                        (new_context, t) = apply_context(new_context, t)
-                        return (p, arguments_of_type(t), new_context, ll)
-                    catch e
-                        if isa(e, UnificationFailure)
-                            return missing
-                        else
-                            rethrow()
-                        end
-                    end
-                else
-                    return missing
-                end
-            end),
-        )
-
-        if !isnothing(g.continuation_type) && !isempty(variable_candidates)
-            terminal_indices = [get_index_value(p) for (p, t, _, _) in variable_candidates if isempty(t)]
-            if !isempty(terminal_indices)
-                smallest_terminal_index = minimum(terminal_indices)
-                filter!(
-                    ((p, t, _, _) -> !is_index(p) || !isempty(t) || get_index_value(p) == smallest_terminal_index),
-                    variable_candidates,
-                )
-            end
+    variable_candidates = collect(skipmissing(map(enumerate(environment)) do (j, t)
+        p = Index(j - 1)
+        if !isnothing(candidates_filter) && !candidates_filter(p, from_input, skeleton, path)
+            return missing
         end
+        ll = g.log_variable
+        (new_context, t) = apply_context(context, t)
+        return_type = return_of_type(t)
+        if might_unify(return_type, request)
+            try
+                new_context = unify(new_context, return_type, request)
+                (new_context, t) = apply_context(new_context, t)
+                return (p, arguments_of_type(t), new_context, ll)
+            catch e
+                if isa(e, UnificationFailure)
+                    return missing
+                else
+                    rethrow()
+                end
+            end
+        else
+            return missing
+        end
+    end))
 
-        nv = log(length(variable_candidates))
-        variable_candidates =
-            Tuple{Program,Vector{Tp},Context,Float64}[(p, t, k, ll - nv) for (p, t, k, ll) in variable_candidates]
+    if !isnothing(g.continuation_type) && !isempty(variable_candidates)
+        terminal_indices = [get_index_value(p) for (p, t, _, _) in variable_candidates if isempty(t)]
+        if !isempty(terminal_indices)
+            smallest_terminal_index = minimum(terminal_indices)
+            filter!(
+                ((p, t, _, _) -> !is_index(p) || !isempty(t) || get_index_value(p) == smallest_terminal_index),
+                variable_candidates,
+            )
+        end
     end
+
+    nv = log(length(variable_candidates))
+    variable_candidates =
+        Tuple{Program,Vector{Tp},Context,Float64}[(p, t, k, ll - nv) for (p, t, k, ll) in variable_candidates]
 
     grammar_candidates = collect(
         Tuple{Program,Vector{Tp},Context,Float64},
@@ -201,7 +195,15 @@ function unifying_expressions(
         return Tuple{Program,Vector{Tp},Context,Float64}[]
     end
     z = lse([ll for (_, _, _, ll) in candidates])
-    return Tuple{Program,Vector{Tp},Context,Float64}[(p, t, k, z - ll) for (p, t, k, ll) in candidates]
+    candidates = Tuple{Program,Vector{Tp},Context,Float64}[(p, t, k, z - ll) for (p, t, k, ll) in candidates]
+
+    if !isa(skeleton, Hole)
+        p = FreeVar(request, nothing)
+        if isnothing(candidates_filter) || candidates_filter(p, from_input, skeleton, path)
+            push!(candidates, (p, [], context, 0.001))
+        end
+    end
+    return candidates
 end
 
 function following_expressions(g::Grammar, request)

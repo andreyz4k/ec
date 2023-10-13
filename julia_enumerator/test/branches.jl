@@ -373,7 +373,7 @@ end
         @test sc.branch_is_unknown[out_branch_id] == true
         @test sc.branch_is_explained[out_branch_id] == true
         @test sc.branch_is_not_copy[out_branch_id] == true
-        @test sc.explained_min_path_costs[out_branch_id] == 2.4849066497880004
+        @test sc.explained_min_path_costs[out_branch_id] == 2.4859066497880002
         @test sc.unknown_min_path_costs[out_branch_id] == 0.0
         @test sc.explained_complexity_factors[out_branch_id] == 13.0
         @test sc.unknown_complexity_factors[out_branch_id] == 13.0

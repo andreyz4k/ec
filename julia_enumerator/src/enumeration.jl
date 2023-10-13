@@ -192,13 +192,6 @@ function block_state_successors(
             state.skeleton,
             state.path,
         )
-        if !isa(state.skeleton, Hole)
-            p = FreeVar(request, nothing)
-            if isnothing(current_hole.candidates_filter) ||
-               current_hole.candidates_filter(p, current_hole.from_input, state.skeleton, state.path)
-                push!(candidates, (p, [], context, g.log_variable))
-            end
-        end
 
         states = map(candidates) do (candidate, argument_types, context, ll)
             new_free_parameters = number_of_free_parameters(candidate)
@@ -209,10 +202,8 @@ function block_state_successors(
                 new_path = unwind_path(state.path, new_skeleton)
             else
                 application_template = candidate
-                custom_checkers_args_count = 0
-                if haskey(all_abstractors, candidate)
-                    custom_checkers_args_count = length(all_abstractors[candidate][1])
-                end
+                custom_arg_checkers = _get_custom_arg_checkers(candidate)
+                custom_checkers_args_count = length(custom_arg_checkers)
                 for i in 1:length(argument_types)
                     application_template = Apply(
                         application_template,
@@ -220,10 +211,10 @@ function block_state_successors(
                             argument_types[i],
                             argument_requests[i],
                             current_hole.from_input,
-                            if i > custom_checkers_args_count || isnothing(all_abstractors[candidate][1][i][2])
+                            if i > custom_checkers_args_count || isnothing(custom_arg_checkers[i])
                                 current_hole.candidates_filter
                             else
-                                all_abstractors[candidate][1][i][2]
+                                custom_arg_checkers[i]
                             end,
                         ),
                     )
@@ -331,6 +322,7 @@ function try_get_reversed_values(sc::SolutionContext, p::Program, context, path,
     end
 
     new_entries = []
+    has_abductibles = false
 
     for (var_id, t) in new_vars
         vals = calculated_values[var_id]
@@ -341,6 +333,7 @@ function try_get_reversed_values(sc::SolutionContext, p::Program, context, path,
         elseif any(isa(value, PatternWrapper) for value in vals)
             new_entry = PatternEntry(t_id, vals, complexity_summary, get_complexity(sc, complexity_summary))
         elseif any(isa(value, AbductibleValue) for value in vals)
+            has_abductibles = true
             new_entry = AbductibleEntry(t_id, vals, complexity_summary, get_complexity(sc, complexity_summary))
         else
             new_entry = ValueEntry(t_id, vals, complexity_summary, get_complexity(sc, complexity_summary))
@@ -351,9 +344,10 @@ function try_get_reversed_values(sc::SolutionContext, p::Program, context, path,
         push!(new_entries, (var_id, new_entry))
     end
 
-    complexity_factor =
-        (is_known ? sc.explained_complexity_factors : sc.unknown_complexity_factors)[output_branch_id] -
-        out_entry.complexity + sum(entry.complexity for (_, entry) in new_entries)
+    complexity_factor = (is_known ? sc.explained_complexity_factors : sc.unknown_complexity_factors)[output_branch_id]
+    if !has_abductibles
+        complexity_factor -= out_entry.complexity - sum(entry.complexity for (_, entry) in new_entries)
+    end
 
     new_branches = []
     either_branch_ids = UInt64[]
@@ -462,7 +456,6 @@ function create_wrapping_block(
     sc.unknown_min_path_costs[new_branch_id] = sc.explained_min_path_costs[branch_id]
     sc.unknown_complexity_factors[new_branch_id] = sc.explained_complexity_factors[branch_id]
     sc.unmatched_complexities[new_branch_id] = sc.complexities[branch_id]
-    # sc.related_unknown_complexity_branches[new_branch_id, :] = out_related_complexity_branches
 
     wrapper_block = WrapEitherBlock(block, var_id, cost, [input_var, new_var], [v_id for (v_id, _, _) in output_vars])
     wrapper_block_id = push!(sc.blocks, wrapper_block)
@@ -1074,11 +1067,11 @@ function log_results(sc, hits)
     @info(collect(keys(hits)))
 
     if sc.verbose
-        @info "Branches with incoming paths $(length(sc.incoming_paths.values[1]))"
-        @info "Total incoming paths $(sum(length(v) for v in values(sc.incoming_paths.values[1])))"
-        @info "Incoming paths counts $([length(v) for v in values(sc.incoming_paths.values[1])])"
+        @info "Branches with incoming paths $(length(sc.incoming_paths.values_stack[1]))"
+        @info "Total incoming paths $(sum(length(v) for v in values(sc.incoming_paths.values_stack[1])))"
+        @info "Incoming paths counts $([length(v) for v in values(sc.incoming_paths.values_stack[1])])"
         @info "Entries for incoming paths "
-        for (br_id, v) in sc.incoming_paths.values[1]
+        for (br_id, v) in sc.incoming_paths.values_stack[1]
             @info (
                 length(v),
                 length(unique(v)),
@@ -1093,7 +1086,7 @@ function log_results(sc, hits)
                 @warn v
             end
         end
-        @info "Total incoming paths length $(sum(sum(length(path.main_path) + length(path.side_vars) for path in paths; init=0) for paths in values(sc.incoming_paths.values[1]); init=0))"
+        @info "Total incoming paths length $(sum(sum(length(path.main_path) + length(path.side_vars) for path in paths; init=0) for paths in values(sc.incoming_paths.values_stack[1]); init=0))"
     end
 
     @info "Total number of enumerated programs $(sc.total_number_of_enumerated_programs)"

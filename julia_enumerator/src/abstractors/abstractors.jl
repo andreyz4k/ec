@@ -1,6 +1,100 @@
 
 all_abstractors = Dict{Program,Tuple{Vector,Any}}()
 
+function _get_custom_arg_checkers(p::Primitive)
+    if haskey(all_abstractors, p)
+        [c[2] for c in all_abstractors[p][1]]
+    else
+        []
+    end
+end
+
+_get_custom_arg_checkers(p::Index) = []
+_get_custom_arg_checkers(p::FreeVar) = []
+
+function _get_custom_arg_checkers(p::Invented)
+    checkers, indices_checkers = __get_custom_arg_chekers(p, nothing, Dict())
+    @assert isempty(indices_checkers)
+    return checkers
+end
+
+function __get_custom_arg_chekers(p::Primitive, checker::Nothing, indices_checkers::Dict)
+    if haskey(all_abstractors, p)
+        all_abstractors[p][1], indices_checkers
+    else
+        [], indices_checkers
+    end
+end
+
+function __get_custom_arg_chekers(p::Primitive, checker, indices_checkers::Dict)
+    arg_count = length(arguments_of_type(p.t))
+    if haskey(all_abstractors, p)
+        custom_checkers = all_abstractors[p][1]
+        out_checkers = []
+        for c in custom_checkers
+            if c[2] == checker
+                push!(out_checkers, c[2])
+            else
+                combined = (args...) -> c[2](args...) && checker(args...)
+                push!(out_checkers, combined)
+            end
+        end
+        for _ in 1:arg_count-length(custom_checkers)
+            push!(out_checkers, checker)
+        end
+        out_checkers, indices_checkers
+    else
+        [checker for _ in 1:arg_count], indices_checkers
+    end
+end
+
+function __get_custom_arg_chekers(p::Invented, checker, indices_checkers::Dict)
+    return __get_custom_arg_chekers(p.b, checker, indices_checkers)
+end
+
+function __get_custom_arg_chekers(p::Apply, checker, indices_checkers::Dict)
+    checkers, indices_checkers = __get_custom_arg_chekers(p.f, checker, indices_checkers)
+    if !isempty(checkers)
+        arg_checkers, indices_checkers = __get_custom_arg_chekers(p.x, checkers[1], indices_checkers)
+    else
+        arg_checkers, indices_checkers = __get_custom_arg_chekers(p.x, nothing, indices_checkers)
+    end
+    @assert isempty(arg_checkers)
+    out_checkers = checkers[2:end]
+    return out_checkers, indices_checkers
+end
+
+function __get_custom_arg_chekers(p::Index, checker::Nothing, indices_checkers::Dict)
+    return [], indices_checkers
+end
+
+function __get_custom_arg_chekers(p::Index, checker, indices_checkers::Dict)
+    if haskey(indices_checkers, p.n)
+        if indices_checkers[p.n] == checker
+            return [], indices_checkers
+        else
+            combined = (args...) -> indices_checkers[p.n](args...) && checker(args...)
+            indices_checkers[p.n] = combined
+            return [], indices_checkers
+        end
+    else
+        indices_checkers[p.n] = checker
+        return [], indices_checkers
+    end
+end
+
+function __get_custom_arg_chekers(p::Abstraction, checker::Nothing, indices_checkers::Dict)
+    chekers, indices_checkers = __get_custom_arg_chekers(p.b, checker, Dict(i + 1 => c for (i, c) in indices_checkers))
+    if haskey(indices_checkers, 0)
+        out_checkers = vcat([indices_checkers[0]], chekers)
+    elseif !isempty(chekers)
+        out_checkers = vcat([nothing], chekers)
+    else
+        out_checkers = []
+    end
+    return out_checkers, Dict(i - 1 => c for (i, c) in indices_checkers if i > 0)
+end
+
 function _is_reversible(p::Primitive)
     if haskey(all_abstractors, p)
         all_abstractors[p][1]
@@ -27,9 +121,9 @@ function _is_reversible(p::Apply)
                 return _is_reversible(p.x)
             end
         else
-            checker = rev_f[end][1]
+            checker = rev_f[1][1]
             if checker(p.x)
-                return view(rev_f, 1:length(rev_f)-1)
+                return view(rev_f, 2:length(rev_f))
             else
                 return nothing
             end
@@ -550,6 +644,8 @@ function _run_in_reverse(p::Primitive, output::Union{Nothing,AnyObject}, context
         return calculated_output, context
     catch e
         # @info e
+        # bt = catch_backtrace()
+        # @error e exception = (e, bt)
         if isa(e, MethodError)
             context.predicted_arguments =
                 vcat(context.predicted_arguments, [output for _ in 1:length(arguments_of_type(p.t))])

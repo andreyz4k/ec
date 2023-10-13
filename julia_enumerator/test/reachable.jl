@@ -449,7 +449,175 @@ using DataStructures
         "shatter" => 10,
     )
 
-    function create_task(task_dict)
+    sample_payload2 = Dict{String,Any}(
+        "DSL" => Dict{String,Any}(
+            "logVariable" => 0.0,
+            "productions" => Any[
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "map",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1) -> list(t0) -> list(t1)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "unfold",
+                    "is_reversible" => false,
+                    "type" => "(t0 -> bool) -> (t0 -> t1) -> (t0 -> t0) -> t0 -> list(t1)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "range",
+                    "is_reversible" => true,
+                    "type" => "int -> list(int)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "index",
+                    "is_reversible" => false,
+                    "type" => "int -> list(t0) -> t0",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "fold",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1 -> t1) -> list(t0) -> t1 -> t1",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "length",
+                    "is_reversible" => false,
+                    "type" => "list(t0) -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "if",
+                    "is_reversible" => false,
+                    "type" => "bool -> t0 -> t0 -> t0",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "+",
+                    "is_reversible" => true,
+                    "type" => "int -> int -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "-",
+                    "is_reversible" => false,
+                    "type" => "int -> int -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "empty",
+                    "is_reversible" => false,
+                    "type" => "list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "cons",
+                    "is_reversible" => true,
+                    "type" => "t0 -> list(t0) -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "car",
+                    "is_reversible" => false,
+                    "type" => "list(t0) -> t0",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "cdr",
+                    "is_reversible" => false,
+                    "type" => "list(t0) -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "empty?",
+                    "is_reversible" => false,
+                    "type" => "list(t0) -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "0",
+                    "is_reversible" => false,
+                    "type" => "int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "1",
+                    "is_reversible" => false,
+                    "type" => "int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "*",
+                    "is_reversible" => true,
+                    "type" => "int -> int -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "mod",
+                    "is_reversible" => false,
+                    "type" => "int -> int -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "gt?",
+                    "is_reversible" => false,
+                    "type" => "int -> int -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "eq?",
+                    "is_reversible" => false,
+                    "type" => "t0 -> t0 -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "is-prime",
+                    "is_reversible" => false,
+                    "type" => "int -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "is-square",
+                    "is_reversible" => false,
+                    "type" => "int -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "repeat",
+                    "is_reversible" => true,
+                    "type" => "t0 -> int -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "concat",
+                    "is_reversible" => true,
+                    "type" => "list(t0) -> list(t0) -> list(t0)",
+                ),
+            ],
+        ),
+        "type_weights" => Dict{String,Any}(
+            "int" => 1.0,
+            "list" => 1.0,
+            "color" => 1.0,
+            "bool" => 1.0,
+            "float" => 1.0,
+            "grid" => 1.0,
+            "tuple2" => 1.0,
+            "tuple3" => 1.0,
+            "coord" => 1.0,
+            "set" => 1.0,
+        ),
+        "programTimeout" => 3.0,
+        "timeout" => 30,
+        "verbose" => false,
+        "shatter" => 10,
+    )
+
+    function create_task(task_dict, sample_payload = sample_payload)
         result = copy(sample_payload)
         result["task"] = task_dict
         result["name"] = task_dict["name"]
@@ -1067,6 +1235,7 @@ using DataStructures
 
     function check_reachable(payload, target_solution, verbose_test = false)
         task, maximum_frontier, g, type_weights, mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        mfp = 2
         run_context = Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout)
         target_program = parse_program(target_solution)
         blocks, vars_mapping = _extract_blocks(task, target_program, verbose_test)
@@ -1385,6 +1554,180 @@ using DataStructures
             ),
         )
         target_solution = "let \$v1::int = Const(int, 11) in (+ \$v1 \$inp0)"
+        check_reachable(payload, target_solution)
+    end
+
+    @testset "prepend-index-k with k=3" begin
+        payload = create_task(
+            Dict{String,Any}(
+                "name" => "prepend-index-k with k=3",
+                "maximumFrontier" => 10,
+                "examples" => Any[
+                    Dict{String,Any}(
+                        "output" => Any[9, 15, 12, 9, 14, 7, 9],
+                        "inputs" => Dict{String,Any}("inp0" => Any[15, 12, 9, 14, 7, 9]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[1, 7, 8, 1, 6, 16, 11],
+                        "inputs" => Dict{String,Any}("inp0" => Any[7, 8, 1, 6, 16, 11]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[1, 11, 3, 1, 8, 15, 7, 7, 14, 1],
+                        "inputs" => Dict{String,Any}("inp0" => Any[11, 3, 1, 8, 15, 7, 7, 14, 1]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[15, 9, 11, 15, 2],
+                        "inputs" => Dict{String,Any}("inp0" => Any[9, 11, 15, 2]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[6, 11, 3, 6],
+                        "inputs" => Dict{String,Any}("inp0" => Any[11, 3, 6]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[5, 6, 8, 5, 6, 10, 3],
+                        "inputs" => Dict{String,Any}("inp0" => Any[6, 8, 5, 6, 10, 3]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[8, 4, 3, 8, 13, 2, 12, 6, 9, 1],
+                        "inputs" => Dict{String,Any}("inp0" => Any[4, 3, 8, 13, 2, 12, 6, 9, 1]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[13, 3, 15, 13, 1, 8, 13, 9, 6],
+                        "inputs" => Dict{String,Any}("inp0" => Any[3, 15, 13, 1, 8, 13, 9, 6]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[0, 6, 3, 0, 5, 4, 2],
+                        "inputs" => Dict{String,Any}("inp0" => Any[6, 3, 0, 5, 4, 2]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[15, 6, 10, 15, 8, 14, 3, 4, 16, 1],
+                        "inputs" => Dict{String,Any}("inp0" => Any[6, 10, 15, 8, 14, 3, 4, 16, 1]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[5, 5, 10, 5, 16],
+                        "inputs" => Dict{String,Any}("inp0" => Any[5, 10, 5, 16]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[3, 8, 14, 3, 5, 11],
+                        "inputs" => Dict{String,Any}("inp0" => Any[8, 14, 3, 5, 11]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[3, 11, 10, 3, 14, 0, 5],
+                        "inputs" => Dict{String,Any}("inp0" => Any[11, 10, 3, 14, 0, 5]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[14, 15, 6, 14, 4, 12, 0, 15],
+                        "inputs" => Dict{String,Any}("inp0" => Any[15, 6, 14, 4, 12, 0, 15]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[6, 13, 16, 6, 9, 16, 6, 10],
+                        "inputs" => Dict{String,Any}("inp0" => Any[13, 16, 6, 9, 16, 6, 10]),
+                    ),
+                ],
+                "test_examples" => Any[],
+                "request" => Dict{String,Any}(
+                    "arguments" => Dict{String,Any}(
+                        "inp0" => Dict{String,Any}(
+                            "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
+                            "constructor" => "list",
+                        ),
+                    ),
+                    "output" => Dict{String,Any}(
+                        "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
+                        "constructor" => "list",
+                    ),
+                    "constructor" => "->",
+                ),
+            ),
+            sample_payload2,
+        )
+        target_solution = "let \$v1, \$v2 = rev(\$inp0 = (cons \$v1 \$v2)) in let \$v3, \$v4 = rev(\$v2 = (cons \$v3 \$v4)) in let \$v5::int = (car \$v4) in let \$v6::list(int) = Const(list(int), Any[]) in let \$v7::list(int) = (cons \$v5 \$v6) in (concat \$v7 \$inp0)"
+        check_reachable(payload, target_solution)
+        target_solution = "let \$v1::int = Const(int, 1) in let \$v2, \$v3 = rev(\$inp0 = (cons \$v2 \$v3)) in let \$v4, \$v5 = rev(\$v3 = (cons \$v4 \$v5)) in let \$v6::int = (index \$v1 \$v5) in let \$v7::list(int) = (repeat \$v6 \$v1) in (concat \$v7 \$inp0)"
+        check_reachable(payload, target_solution)
+    end
+    @testset "drop-k with k=5" begin
+        payload = create_task(
+            Dict{String,Any}(
+                "name" => "drop-k with k=5",
+                "maximumFrontier" => 10,
+                "examples" => Any[
+                    Dict{String,Any}(
+                        "output" => Any[7, 2, 11, 14, 6, 7, 11],
+                        "inputs" => Dict{String,Any}("inp0" => Any[15, 6, 2, 1, 7, 7, 2, 11, 14, 6, 7, 11]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[11, 15, 11, 2, 7, 8],
+                        "inputs" => Dict{String,Any}("inp0" => Any[13, 1, 12, 11, 6, 11, 15, 11, 2, 7, 8]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[5, 6, 0, 6, 3, 16],
+                        "inputs" => Dict{String,Any}("inp0" => Any[5, 10, 1, 4, 3, 5, 6, 0, 6, 3, 16]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[16, 12, 9, 2, 7, 13],
+                        "inputs" => Dict{String,Any}("inp0" => Any[5, 10, 1, 5, 6, 16, 12, 9, 2, 7, 13]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[3, 15, 11, 11, 14],
+                        "inputs" => Dict{String,Any}("inp0" => Any[1, 8, 14, 3, 14, 3, 15, 11, 11, 14]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[9, 9, 4],
+                        "inputs" => Dict{String,Any}("inp0" => Any[14, 2, 8, 4, 1, 9, 9, 4]),
+                    ),
+                    Dict{String,Any}("output" => Any[], "inputs" => Dict{String,Any}("inp0" => Any[4, 14, 0, 12, 7])),
+                    Dict{String,Any}(
+                        "output" => Any[12],
+                        "inputs" => Dict{String,Any}("inp0" => Any[2, 9, 16, 2, 7, 12]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[3, 8, 0, 13],
+                        "inputs" => Dict{String,Any}("inp0" => Any[0, 8, 7, 16, 13, 3, 8, 0, 13]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[6, 2, 11, 4, 11],
+                        "inputs" => Dict{String,Any}("inp0" => Any[9, 15, 0, 1, 8, 6, 2, 11, 4, 11]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[0, 4, 7],
+                        "inputs" => Dict{String,Any}("inp0" => Any[15, 16, 16, 16, 6, 0, 4, 7]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[9, 1, 13, 4, 8, 6],
+                        "inputs" => Dict{String,Any}("inp0" => Any[16, 7, 3, 14, 4, 9, 1, 13, 4, 8, 6]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[5],
+                        "inputs" => Dict{String,Any}("inp0" => Any[7, 13, 16, 12, 4, 5]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[11, 9],
+                        "inputs" => Dict{String,Any}("inp0" => Any[13, 11, 10, 7, 13, 11, 9]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[7, 11],
+                        "inputs" => Dict{String,Any}("inp0" => Any[7, 15, 3, 15, 7, 7, 11]),
+                    ),
+                ],
+                "test_examples" => Any[],
+                "request" => Dict{String,Any}(
+                    "arguments" => Dict{String,Any}(
+                        "inp0" => Dict{String,Any}(
+                            "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
+                            "constructor" => "list",
+                        ),
+                    ),
+                    "output" => Dict{String,Any}(
+                        "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
+                        "constructor" => "list",
+                    ),
+                    "constructor" => "->",
+                ),
+            ),
+            sample_payload2,
+        )
+        target_solution = "let \$v1, \$v2 = rev(\$inp0 = (cons \$v1 \$v2)) in let \$v3, \$v4 = rev(\$v2 = (cons \$v3 \$v4)) in let \$v5, \$v6 = rev(\$v4 = (cons \$v5 \$v6)) in (cdr (cdr \$v6))"
         check_reachable(payload, target_solution)
     end
 end

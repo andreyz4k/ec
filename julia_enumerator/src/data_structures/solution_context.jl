@@ -578,8 +578,8 @@ function _update_complexity_factor_unknown(sc::SolutionContext, branch_id)
         for out_block_copy_id in keys(get_connected_from(sc.branch_outgoing_blocks, branch_id))
             out_branches = keys(get_connected_to(sc.branch_incoming_blocks, out_block_copy_id))
             for out_branch_id in out_branches
-                if sc.complexity_factors[branch_id] > sc.complexity_factors[out_branch_id]
-                    sc.complexity_factors[branch_id] = sc.complexity_factors[out_branch_id]
+                if sc.unknown_complexity_factors[branch_id] > sc.unknown_complexity_factors[out_branch_id]
+                    sc.unknown_complexity_factors[branch_id] = sc.unknown_complexity_factors[out_branch_id]
                 end
             end
         end

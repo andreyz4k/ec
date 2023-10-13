@@ -89,7 +89,7 @@ function reverse_rev_fold()
         return value,
         ReverseRunContext(context.arguments, [SkipArg(), SkipArg(), acc], context.calculated_arguments, Dict(), Dict())
     end
-    return [(_has_no_holes, _is_possible_init), (_is_reversible_subfunction, _is_possible_folder)], _reverse_rev_fold
+    return [(_is_reversible_subfunction, _is_possible_folder), (_has_no_holes, _is_possible_init)], _reverse_rev_fold
 end
 
 @define_custom_reverse_primitive(

@@ -187,7 +187,6 @@ class Grammar(object):
             assert normalize
 
         candidates = []
-        variableCandidates = []
         for l, t, p in self.productions:
             try:
                 if path:
@@ -215,6 +214,8 @@ class Grammar(object):
                 candidates.append((l, t, p, newContext))
             except UnificationFailure:
                 continue
+
+        variableCandidates = []
         for j, t in enumerate(environment):
             try:
                 newContext = context.unify(t.returns(), request)
