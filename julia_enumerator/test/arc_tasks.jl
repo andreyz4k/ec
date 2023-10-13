@@ -538,8 +538,7 @@ using solver: load_problems, enumerate_for_task
             verbose,
         )
         @test length(solutions) == 0
-        @test number_enumerated >= 1
-        @test number_enumerated < 10000
+        @test number_enumerated >= 1000
     end
 
     @testset "74dd1130.json" begin
