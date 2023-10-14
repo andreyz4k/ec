@@ -128,6 +128,9 @@ function _is_reversible(p::Apply, environment, args)
                 return nothing
             end
         end
+        if isa(filled_x, Index) || isa(filled_x, FreeVar)
+            return checkers
+        end
         checker = is_reversible
     else
         checker = checkers[1]
@@ -143,8 +146,6 @@ function _is_reversible(p::Apply, environment, args)
 end
 
 _is_reversible(p::Invented, environment, args) = _is_reversible(p.b, environment, args)
-_is_reversible(p::FreeVar, environment, args) = []
-_is_reversible(p::Index, environment, args) = []
 
 function _is_reversible(p::Abstraction, environment, args)
     environment = Dict(i + 1 => c for (i, c) in environment)
