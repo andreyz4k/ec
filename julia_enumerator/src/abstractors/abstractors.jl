@@ -93,49 +93,70 @@ function __get_custom_arg_chekers(p::Abstraction, checker::Nothing, indices_chec
     return out_checkers, Dict(i - 1 => c for (i, c) in indices_checkers if i > 0)
 end
 
-function _is_reversible(p::Primitive)
+_fill_args(p::Program, environment) = p
+_fill_args(p::Invented, environment) = _fill_args(p.b, environment)
+_fill_args(p::Apply, environment) = Apply(_fill_args(p.f, environment), _fill_args(p.x, environment))
+_fill_args(p::Abstraction, environment) = Abstraction(_fill_args(p.b, Dict(i + 1 => c for (i, c) in environment)))
+
+function _fill_args(p::Index, environment)
+    if haskey(environment, p.n)
+        return environment[p.n]
+    else
+        return p
+    end
+end
+
+function _is_reversible(p::Primitive, environment, args)
     if haskey(all_abstractors, p)
-        all_abstractors[p][1]
+        [c[1] for c in all_abstractors[p][1]]
     else
         nothing
     end
 end
 
-function _is_reversible(p::Apply)
-    rev_f = _is_reversible(p.f)
-    if !isnothing(rev_f)
-        if isempty(rev_f)
-            if isa(p.x, Hole)
-                if !isarrow(p.x.t)
-                    return rev_f
-                else
-                    return nothing
-                end
-            end
-            if isa(p.x, Index) || isa(p.x, FreeVar)
-                return rev_f
-            end
-            if isa(p.x, Abstraction) || isa(p.x, Apply)
-                return _is_reversible(p.x)
-            end
-        else
-            checker = rev_f[1][1]
-            if checker(p.x)
-                return view(rev_f, 2:length(rev_f))
+function _is_reversible(p::Apply, environment, args)
+    checkers = _is_reversible(p.f, environment, vcat(args, [p.x]))
+    if isnothing(checkers)
+        return nothing
+    end
+    filled_x = _fill_args(p.x, environment)
+    if isempty(checkers)
+        if isa(filled_x, Hole)
+            if !isarrow(filled_x.t)
+                return checkers
             else
                 return nothing
             end
         end
+        checker = is_reversible
+    else
+        checker = checkers[1]
+        if isnothing(checker)
+            checker = is_reversible
+        end
     end
-    nothing
+    if !checker(filled_x)
+        return nothing
+    else
+        return view(checkers, 2:length(checkers))
+    end
 end
 
-_is_reversible(p::Invented) = _is_reversible(p.b)
-_is_reversible(p::Abstraction) = _is_reversible(p.b)
+_is_reversible(p::Invented, environment, args) = _is_reversible(p.b, environment, args)
+_is_reversible(p::FreeVar, environment, args) = []
+_is_reversible(p::Index, environment, args) = []
 
-_is_reversible(p::Program) = nothing
+function _is_reversible(p::Abstraction, environment, args)
+    environment = Dict(i + 1 => c for (i, c) in environment)
+    if !isempty(args)
+        environment[0] = args[end]
+    end
+    return _is_reversible(p.b, environment, view(args, 1:length(args)-1))
+end
 
-is_reversible(p::Program)::Bool = !isnothing(_is_reversible(p))
+_is_reversible(p::Program, environment, args) = nothing
+
+is_reversible(p::Program)::Bool = !isnothing(_is_reversible(p, Dict(), []))
 
 struct SkipArg end
 
