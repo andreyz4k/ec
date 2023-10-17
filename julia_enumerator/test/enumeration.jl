@@ -1283,6 +1283,223 @@ using solver: load_problems, enumerate_for_task
         "shatter" => 10,
     )
 
+    payload14 = Dict{String,Any}(
+        "DSL" => Dict{String,Any}(
+            "logVariable" => -0.16180989146232605,
+            "productions" => Any[
+                Dict{String,Any}(
+                    "logProbability" => -0.17757169902324677,
+                    "expression" => "map",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1) -> list(t0) -> list(t1)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.20333440601825714,
+                    "expression" => "unfold",
+                    "is_reversible" => false,
+                    "type" => "(t0 -> bool) -> (t0 -> t1) -> (t0 -> t0) -> t0 -> list(t1)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.37100377678871155,
+                    "expression" => "range",
+                    "is_reversible" => true,
+                    "type" => "int -> list(int)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.12165754288434982,
+                    "expression" => "index",
+                    "is_reversible" => false,
+                    "type" => "int -> list(t0) -> t0",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.11216159164905548,
+                    "expression" => "fold",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1 -> t1) -> list(t0) -> t1 -> t1",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.2667142450809479,
+                    "expression" => "length",
+                    "is_reversible" => false,
+                    "type" => "list(t0) -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.08669699728488922,
+                    "expression" => "if",
+                    "is_reversible" => false,
+                    "type" => "bool -> t0 -> t0 -> t0",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.06585580110549927,
+                    "expression" => "+",
+                    "is_reversible" => true,
+                    "type" => "int -> int -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.3420185148715973,
+                    "expression" => "-",
+                    "is_reversible" => false,
+                    "type" => "int -> int -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.043512050062417984,
+                    "expression" => "empty",
+                    "is_reversible" => false,
+                    "type" => "list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.456709623336792,
+                    "expression" => "cons",
+                    "is_reversible" => true,
+                    "type" => "t0 -> list(t0) -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.374737411737442,
+                    "expression" => "car",
+                    "is_reversible" => false,
+                    "type" => "list(t0) -> t0",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.12529146671295166,
+                    "expression" => "cdr",
+                    "is_reversible" => false,
+                    "type" => "list(t0) -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.6556612849235535,
+                    "expression" => "empty?",
+                    "is_reversible" => false,
+                    "type" => "list(t0) -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.09510736167430878,
+                    "expression" => "0",
+                    "is_reversible" => false,
+                    "type" => "int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.20059284567832947,
+                    "expression" => "1",
+                    "is_reversible" => false,
+                    "type" => "int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.1867990344762802,
+                    "expression" => "*",
+                    "is_reversible" => true,
+                    "type" => "int -> int -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.17349091172218323,
+                    "expression" => "mod",
+                    "is_reversible" => false,
+                    "type" => "int -> int -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.02229311130940914,
+                    "expression" => "gt?",
+                    "is_reversible" => false,
+                    "type" => "int -> int -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.20750512182712555,
+                    "expression" => "eq?",
+                    "is_reversible" => false,
+                    "type" => "t0 -> t0 -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.32782310247421265,
+                    "expression" => "is-prime",
+                    "is_reversible" => false,
+                    "type" => "int -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.03512703627347946,
+                    "expression" => "is-square",
+                    "is_reversible" => false,
+                    "type" => "int -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.13425014913082123,
+                    "expression" => "repeat",
+                    "is_reversible" => true,
+                    "type" => "t0 -> int -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0797867625951767,
+                    "expression" => "concat",
+                    "is_reversible" => true,
+                    "type" => "list(t0) -> list(t0) -> list(t0)",
+                ),
+            ],
+        ),
+        "type_weights" => Dict{String,Any}("int" => 1.0, "list" => 1.0, "bool" => 1.0, "float" => 1.0),
+        "task" => Dict{String,Any}(
+            "name" => "prepend-k with k=3",
+            "maximumFrontier" => 10,
+            "examples" => Any[
+                Dict{String,Any}(
+                    "output" => Any[3, 16, 4, 10, 12, 5, 11],
+                    "inputs" => Dict{String,Any}("inp0" => Any[16, 4, 10, 12, 5, 11]),
+                ),
+                Dict{String,Any}(
+                    "output" => Any[3, 13, 8, 9, 4, 0],
+                    "inputs" => Dict{String,Any}("inp0" => Any[13, 8, 9, 4, 0]),
+                ),
+                Dict{String,Any}("output" => Any[3, 0, 6], "inputs" => Dict{String,Any}("inp0" => Any[0, 6])),
+                Dict{String,Any}(
+                    "output" => Any[3, 5, 3, 0, 3, 7],
+                    "inputs" => Dict{String,Any}("inp0" => Any[5, 3, 0, 3, 7]),
+                ),
+                Dict{String,Any}("output" => Any[3, 6, 0], "inputs" => Dict{String,Any}("inp0" => Any[6, 0])),
+                Dict{String,Any}("output" => Any[3], "inputs" => Dict{String,Any}("inp0" => Any[])),
+                Dict{String,Any}(
+                    "output" => Any[3, 2, 5, 9, 14, 14],
+                    "inputs" => Dict{String,Any}("inp0" => Any[2, 5, 9, 14, 14]),
+                ),
+                Dict{String,Any}("output" => Any[3, 7], "inputs" => Dict{String,Any}("inp0" => Any[7])),
+                Dict{String,Any}("output" => Any[3], "inputs" => Dict{String,Any}("inp0" => Any[])),
+                Dict{String,Any}(
+                    "output" => Any[3, 13, 14, 10, 10, 14, 14],
+                    "inputs" => Dict{String,Any}("inp0" => Any[13, 14, 10, 10, 14, 14]),
+                ),
+                Dict{String,Any}(
+                    "output" => Any[3, 0, 2, 11, 9, 3],
+                    "inputs" => Dict{String,Any}("inp0" => Any[0, 2, 11, 9, 3]),
+                ),
+                Dict{String,Any}("output" => Any[3, 11, 14, 7], "inputs" => Dict{String,Any}("inp0" => Any[11, 14, 7])),
+                Dict{String,Any}(
+                    "output" => Any[3, 9, 14, 2, 5, 12, 10, 3],
+                    "inputs" => Dict{String,Any}("inp0" => Any[9, 14, 2, 5, 12, 10, 3]),
+                ),
+                Dict{String,Any}(
+                    "output" => Any[3, 10, 0, 8, 0],
+                    "inputs" => Dict{String,Any}("inp0" => Any[10, 0, 8, 0]),
+                ),
+                Dict{String,Any}("output" => Any[3, 14, 11], "inputs" => Dict{String,Any}("inp0" => Any[14, 11])),
+            ],
+            "test_examples" => Any[],
+            "request" => Dict{String,Any}(
+                "arguments" => Dict{String,Any}(
+                    "inp0" => Dict{String,Any}(
+                        "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
+                        "constructor" => "list",
+                    ),
+                ),
+                "output" => Dict{String,Any}(
+                    "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
+                    "constructor" => "list",
+                ),
+                "constructor" => "->",
+            ),
+        ),
+        "name" => "prepend-k with k=3",
+        "programTimeout" => 3.0,
+        "timeout" => 20,
+        "verbose" => false,
+        "shatter" => 10,
+    )
+
     @testset "try_enumerate add-k with k=1" begin
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload1)
         solutions, number_enumerated = @time enumerate_for_task(
@@ -1476,5 +1693,20 @@ using solver: load_problems, enumerate_for_task
         )
         @test length(solutions) == 0
         @test number_enumerated >= 600
+    end
+
+    @testset "prepend-k with k=3" begin
+        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload14)
+        solutions, number_enumerated = @time enumerate_for_task(
+            Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
+            g,
+            type_weights,
+            task,
+            maximum_frontier,
+            timeout,
+            verbose,
+        )
+        @test length(solutions) > 0
+        @test number_enumerated < 6000
     end
 end

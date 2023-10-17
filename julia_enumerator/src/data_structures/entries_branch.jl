@@ -133,6 +133,9 @@ function updated_branches(
     block_created_paths =
         get_new_paths_for_block(sc, block_id, is_new_block, created_paths, var_id, branch_id, fixed_branches)
     if isempty(block_created_paths)
+        if is_new_block
+            throw(EnumerationException("No valid paths for new block"))
+        end
         allow_fails = false
         next_blocks = Set()
     else
@@ -196,8 +199,12 @@ function updated_branches(
         block_created_paths =
             get_new_paths_for_block(sc, block_id, is_new_block, created_paths, var_id, possible_result, fixed_branches)
         if isempty(block_created_paths)
-            allow_fails = false
-            next_blocks = Set()
+            if is_new_block
+                throw(EnumerationException("No valid paths for new block"))
+            else
+                allow_fails = false
+                next_blocks = Set()
+            end
         else
             allow_fails, next_blocks = _downstream_blocks_existing_branch(sc, var_id, possible_result, fixed_branches)
         end
@@ -219,6 +226,9 @@ function updated_branches(
 
     block_created_paths =
         get_new_paths_for_block(sc, block_id, is_new_block, created_paths, var_id, new_branch_id, fixed_branches)
+    if is_new_block && isempty(block_created_paths)
+        throw(EnumerationException("No valid paths for new block"))
+    end
     if !isempty(parent_constraints)
         for constraint_id in parent_constraints
             tighten_constraint(sc, constraint_id, new_branch_id, branch_id)
@@ -269,8 +279,12 @@ function updated_branches(
         block_created_paths =
             get_new_paths_for_block(sc, block_id, is_new_block, created_paths, var_id, possible_result, fixed_branches)
         if isempty(block_created_paths)
-            allow_fails = false
-            next_blocks = Set()
+            if is_new_block
+                throw(EnumerationException("No valid paths for new block"))
+            else
+                allow_fails = false
+                next_blocks = Set()
+            end
         else
             allow_fails, next_blocks = _downstream_blocks_existing_branch(sc, var_id, possible_result, fixed_branches)
         end
@@ -299,6 +313,9 @@ function updated_branches(
     end
     block_created_paths =
         get_new_paths_for_block(sc, block_id, is_new_block, created_paths, var_id, new_branch_id, fixed_branches)
+    if is_new_block && isempty(block_created_paths)
+        throw(EnumerationException("No valid paths for new block"))
+    end
     if isempty(block_created_paths)
         allow_fails = false
         next_blocks = Set()
@@ -342,8 +359,12 @@ function updated_branches(
         block_created_paths =
             get_new_paths_for_block(sc, block_id, is_new_block, created_paths, var_id, possible_result, fixed_branches)
         if isempty(block_created_paths)
-            allow_fails = false
-            next_blocks = Set()
+            if is_new_block
+                throw(EnumerationException("No valid paths for new block"))
+            else
+                allow_fails = false
+                next_blocks = Set()
+            end
         else
             allow_fails, next_blocks = _downstream_blocks_existing_branch(sc, var_id, possible_result, fixed_branches)
         end
@@ -366,6 +387,9 @@ function updated_branches(
 
     block_created_paths =
         get_new_paths_for_block(sc, block_id, is_new_block, created_paths, var_id, new_branch_id, fixed_branches)
+    if is_new_block && isempty(block_created_paths)
+        throw(EnumerationException("No valid paths for new block"))
+    end
     if !isempty(parent_constraints)
         for constraint_id in parent_constraints
             tighten_constraint(sc, constraint_id, new_branch_id, branch_id)
@@ -658,8 +682,12 @@ function updated_branches(
         block_created_paths =
             get_new_paths_for_block(sc, block_id, is_new_block, created_paths, var_id, possible_result, fixed_branches)
         if isempty(block_created_paths)
-            allow_fails = false
-            next_blocks = Set()
+            if is_new_block
+                throw(EnumerationException("No valid paths for new block"))
+            else
+                allow_fails = false
+                next_blocks = Set()
+            end
         else
             allow_fails, next_blocks = _downstream_blocks_existing_branch(sc, var_id, possible_result, fixed_branches)
         end
@@ -689,8 +717,12 @@ function updated_branches(
     block_created_paths =
         get_new_paths_for_block(sc, block_id, is_new_block, created_paths, var_id, new_branch_id, fixed_branches)
     if isempty(block_created_paths)
-        allow_fails = false
-        next_blocks = Set()
+        if is_new_block
+            throw(EnumerationException("No valid paths for new block"))
+        else
+            allow_fails = false
+            next_blocks = Set()
+        end
     else
         allow_fails, next_blocks = _downstream_blocks_existing_branch(sc, var_id, new_branch_id, fixed_branches)
     end
