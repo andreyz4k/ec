@@ -1,7 +1,9 @@
 from cProfile import label
 from dreamcoder.program import (
     Abstraction,
+    Application,
     FreeVariable,
+    Hole,
     Index,
     Invented,
     Primitive,
@@ -365,6 +367,20 @@ zip_primitive = Primitive(
 )
 
 
+def _has_no_holes(p):
+    if isinstance(p, Hole):
+        return False
+    if isinstance(p, Application):
+        return _has_no_holes(p.f) and _has_no_holes(p.x)
+    if isinstance(p, Abstraction):
+        return _has_no_holes(p.body)
+    return True
+
+
+def _is_reversible_subfunction(p):
+    return p.is_reversible and _has_no_holes(p)
+
+
 def _is_possible_subfunction(p, from_input, path):
     if isinstance(p, Index):
         return p.i != 0 or not isinstance(path[-1][0], Abstraction)
@@ -384,7 +400,9 @@ def bootstrapTarget():
             arrow(arrow(t0, t1), tlist(t0), tlist(t1)),
             _map,
             is_reversible=True,
-            custom_args_checkers=[_is_possible_subfunction],
+            custom_args_checkers=[
+                (_is_reversible_subfunction, _is_possible_subfunction)
+            ],
         ),
         Primitive(
             "unfold",
@@ -398,7 +416,9 @@ def bootstrapTarget():
             arrow(arrow(t0, t1, t1), tlist(t0), t1, t1),
             _fold,
             is_reversible=True,
-            custom_args_checkers=[_is_possible_subfunction],
+            custom_args_checkers=[
+                (_is_reversible_subfunction, _is_possible_subfunction)
+            ],
         ),
         Primitive("length", arrow(tlist(t0), tint), len),
         # built-ins

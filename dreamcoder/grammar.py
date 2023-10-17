@@ -189,23 +189,21 @@ class Grammar(object):
         candidates = []
         for l, t, p in self.productions:
             try:
-                if path:
-                    for f, i in reversed(path):
-                        if (
-                            not isinstance(f, Abstraction)
-                            and f.custom_args_checkers
-                            and i + 1 >= len(f.custom_args_checkers)
-                        ):
-                            checker = f.custom_args_checkers[i]
+                bad_option = False
+                for f, i in reversed(path):
+                    if not isinstance(f, Abstraction):
+                        custom_checkers = f.get_custom_args_checkers()
+                        if i < len(custom_checkers):
+                            checker = custom_checkers[i]
                             if not checker(p, from_input, path):
-                                continue
+                                bad_option = True
                             break
-                    else:
-                        if from_input and not p.is_reversible:
-                            continue
                 else:
                     if from_input and not p.is_reversible:
                         continue
+                if bad_option:
+                    continue
+
                 newContext, t = t.instantiate(context)
                 newContext = newContext.unify(t.returns(), request)
                 t = t.apply(newContext)
@@ -222,23 +220,18 @@ class Grammar(object):
                 t = t.apply(newContext)
                 if mustBeLeaf and t.isArrow():
                     continue
-                if path:
-                    for f, i in reversed(path):
-                        if (
-                            not isinstance(f, Abstraction)
-                            and f.custom_args_checkers
-                            and i + 1 >= len(f.custom_args_checkers)
-                        ):
-                            checker = f.custom_args_checkers[i]
+                bad_option = False
+                for f, i in reversed(path):
+                    if not isinstance(f, Abstraction):
+                        custom_checkers = f.get_custom_args_checkers()
+                        if i < len(custom_checkers):
+                            checker = custom_checkers[i]
                             if not checker(Index(j), from_input, path):
-                                continue
+                                bad_option = True
                             break
-                    else:
-                        if from_input:
-                            continue
-                else:
-                    if from_input and not p.is_reversible:
-                        continue
+                if bad_option:
+                    continue
+
                 variableCandidates.append((t, Index(j), newContext))
             except UnificationFailure:
                 continue

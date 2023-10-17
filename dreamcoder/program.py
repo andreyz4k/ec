@@ -128,7 +128,13 @@ class Program(object):
 
     @property
     def is_reversible(self):
-        return False
+        return self._is_reversible({}, []) is not None
+
+    def _is_reversible(self, environment, args):
+        return None
+
+    def fill_args(self, environment):
+        return self
 
     @property
     def isIndex(self):
@@ -318,16 +324,46 @@ class Application(Program):
             self.trueBranch = None
             self.branch = None
 
-    @property
-    def is_reversible(self):
-        if self.f.is_reversible:
-            if isinstance(self.x, Hole):
-                return self.x.t.isArrow()
-            elif isinstance(self.x, Index):
-                return True
-            elif isinstance(self.x, Abstraction) or isinstance(self.x, Application):
-                return self.x.is_reversible
-        return False
+    def fill_args(self, environment):
+        return Application(self.f.fill_args(environment), self.x.fill_args(environment))
+
+    def _is_reversible(self, environment, args):
+        checkers = self.f._is_reversible(environment, args + [self.x])
+        if checkers is None:
+            return None
+        filled_x = self.x.fill_args(environment)
+        if checkers.isempty():
+            if isinstance(filled_x, Hole):
+                if filled_x.t.isArrow():
+                    return checkers
+                return None
+            elif isinstance(filled_x, Index) or isinstance(filled_x, FreeVariable):
+                return checkers
+            checker = None
+        else:
+            checker = checkers[0]
+
+        if checker is None:
+            res = filled_x.is_reversible
+        else:
+            res = checker(filled_x)
+        if res:
+            return checkers[1:]
+        return None
+
+    def _get_custom_arg_checkers(self, checker, indices_checkers):
+        checkers, indices_checkers = self.f._get_custom_arg_checkers(
+            checker, indices_checkers
+        )
+        if not checkers.isempty():
+            _, indices_checkers = self.x._get_custom_arg_checkers(
+                checkers[0], indices_checkers
+            )
+        else:
+            _, indices_checkers = self.x._get_custom_arg_checkers(
+                None, indices_checkers
+            )
+        return checkers[1:], indices_checkers
 
     def betaReduce(self):
         # See if either the function or the argument can be reduced
@@ -527,6 +563,25 @@ class Index(Program):
     def __hash__(self):
         return self.i
 
+    def _get_custom_arg_checkers(self, checker, indices_checkers):
+        if checker is None:
+            return [], indices_checkers
+        if self.i in indices_checkers:
+            if checker == indices_checkers[self.i]:
+                return [], indices_checkers
+            combined = lambda p, from_input, path: checker(
+                p, from_input, path
+            ) and indices_checkers[self.i](p, from_input, path)
+            indices_checkers[self.i] = combined
+            return [], indices_checkers
+        indices_checkers[self.i] = checker
+        return [], indices_checkers
+
+    def fill_args(self, environment):
+        if self.i in environment:
+            return environment[self.i]
+        return self
+
     def visit(self, visitor, *arguments, **keywords):
         return visitor.index(self, *arguments, **keywords)
 
@@ -619,9 +674,28 @@ class Abstraction(Program):
         self.body = body
         self.hashCode = None
 
-    @property
-    def is_reversible(self):
-        return self.body.is_reversible
+    def _is_reversible(self, environment, args):
+        environment = {i + 1: c for (i, c) in environment.items()}
+        if not args.isempty():
+            environment[0] = args[-1]
+        return self.body._is_reversible(environment, args[:-1])
+
+    def fill_args(self, environment):
+        return Abstraction(
+            self.body.fill_args({i + 1: c for (i, c) in environment.items()})
+        )
+
+    def _get_custom_arg_checkers(self, checker, indices_checkers):
+        checkers, indices_checkers = self.body._get_custom_arg_checkers(
+            checker, {i + 1: c for (i, c) in indices_checkers.items()}
+        )
+        if 0 in indices_checkers:
+            out_checkers = [indices_checkers[0]] + checkers
+        elif not checkers.isempty():
+            out_checkers = [None] + checkers
+        else:
+            out_checkers = []
+        return out_checkers, {i - 1: c for (i, c) in indices_checkers.items() if i > 0}
 
     @property
     def isAbstraction(self):
@@ -727,9 +801,33 @@ class Primitive(Program):
         if name not in Primitive.GLOBALS:
             Primitive.GLOBALS[name] = self
 
-    @property
-    def is_reversible(self):
-        return self.isreversible
+    def get_custom_args_checkers(self):
+        return [c[1] for c in self.custom_args_checkers]
+
+    def _get_custom_args_checkers(self, checker, indices_checkers):
+        if checker is None:
+            return self.custom_args_checkers, indices_checkers
+        arg_count = len(self.tp.functionArguments())
+        if self.isreversible:
+            custom_checkers = self.custom_args_checkers
+            out_checkers = []
+            for c in custom_checkers:
+                if c[1] == checker:
+                    out_checkers.append(c[1])
+                else:
+                    combined = lambda p, from_input, path: checker(
+                        p, from_input, path
+                    ) and c[1](p, from_input, path)
+                    out_checkers.append(combined)
+            for _ in range(arg_count - len(custom_checkers)):
+                out_checkers.append(checker)
+            return out_checkers, indices_checkers
+        return [checker] * arg_count, indices_checkers
+
+    def _is_reversible(self, environment, args):
+        if self.isreversible:
+            return [c[0] for c in self.custom_args_checkers]
+        return None
 
     @property
     def isPrimitive(self):
@@ -820,9 +918,17 @@ class Invented(Program):
         self.tp = self.body.infer()
         self.hashCode = None
 
-    @property
-    def is_reversible(self):
-        return self.body.is_reversible
+    def _is_reversible(self, environment, args):
+        return self.body._is_reversible(environment, args)
+
+    def fill_args(self, environment):
+        return self.body.fill_args(environment)
+
+    def get_custom_arg_checkers(self):
+        return self._get_custom_arg_checkers(None, {})
+
+    def _get_custom_arg_checkers(self, checker, indices_checkers):
+        return self.body.get_custom_args_checkers(checker, indices_checkers)
 
     @property
     def isInvented(self):
