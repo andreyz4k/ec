@@ -928,7 +928,7 @@ class Invented(Program):
         return self._get_custom_arg_checkers(None, {})
 
     def _get_custom_arg_checkers(self, checker, indices_checkers):
-        return self.body.get_custom_args_checkers(checker, indices_checkers)
+        return self.body._get_custom_arg_checkers(checker, indices_checkers)
 
     @property
     def isInvented(self):
