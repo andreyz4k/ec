@@ -400,9 +400,6 @@ def bootstrapTarget():
             arrow(arrow(t0, t1), tlist(t0), tlist(t1)),
             _map,
             is_reversible=True,
-            custom_args_checkers=[
-                (_is_reversible_subfunction, _is_possible_subfunction)
-            ],
         ),
         Primitive(
             "unfold",
@@ -416,9 +413,6 @@ def bootstrapTarget():
             arrow(arrow(t0, t1, t1), tlist(t0), t1, t1),
             _fold,
             is_reversible=True,
-            custom_args_checkers=[
-                (_is_reversible_subfunction, _is_possible_subfunction)
-            ],
         ),
         Primitive("length", arrow(tlist(t0), tint), len),
         # built-ins
@@ -446,6 +440,12 @@ def bootstrapTarget_extra():
 
 
 def julia():
+    Primitive.GLOBALS["map"].custom_args_checkers = [
+        (_is_reversible_subfunction, _is_possible_subfunction)
+    ]
+    Primitive.GLOBALS["fold"].custom_args_checkers = [
+        (_is_reversible_subfunction, _is_possible_subfunction)
+    ]
     return bootstrapTarget_extra() + [
         Primitive("repeat", arrow(t0, tint, tlist(t0)), _repeat, is_reversible=True),
         Primitive(
