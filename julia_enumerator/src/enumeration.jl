@@ -733,9 +733,8 @@ function try_run_block_with_downstream(
     # @info target_output
     # @info out_branches
 
-    # @info "Is new block $is_new_block is new next block $is_new_next_block set explained $set_explained"
-
     if sc.verbose
+        @info "Is new block $is_new_block is new next block $is_new_next_block set explained $set_explained"
         @info "Created paths for $block_id: $block_created_paths"
         @info "Next blocks: $next_blocks"
     end
