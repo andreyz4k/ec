@@ -925,7 +925,7 @@ class Invented(Program):
         return self.body.fill_args(environment)
 
     def get_custom_arg_checkers(self):
-        return self._get_custom_arg_checkers(None, {})
+        return self._get_custom_arg_checkers(None, {})[0]
 
     def _get_custom_arg_checkers(self, checker, indices_checkers):
         return self.body._get_custom_arg_checkers(checker, indices_checkers)
