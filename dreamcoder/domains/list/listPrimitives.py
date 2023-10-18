@@ -466,7 +466,7 @@ def julia():
                 (_is_reversible_subfunction, _is_possible_subfunction)
             ],
         ),
-    ] + bootstrapTarget_extra()
+    ] + [p for p in bootstrapTarget_extra() if p.name != "map" and p.name != "fold"]
 
 
 def no_length():
