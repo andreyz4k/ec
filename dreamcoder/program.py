@@ -332,7 +332,7 @@ class Application(Program):
         if checkers is None:
             return None
         filled_x = self.x.fill_args(environment)
-        if checkers.isempty():
+        if not checkers:
             if isinstance(filled_x, Hole):
                 if filled_x.t.isArrow():
                     return checkers
@@ -355,7 +355,7 @@ class Application(Program):
         checkers, indices_checkers = self.f._get_custom_arg_checkers(
             checker, indices_checkers
         )
-        if not checkers.isempty():
+        if checkers:
             _, indices_checkers = self.x._get_custom_arg_checkers(
                 checkers[0], indices_checkers
             )
@@ -676,7 +676,7 @@ class Abstraction(Program):
 
     def _is_reversible(self, environment, args):
         environment = {i + 1: c for (i, c) in environment.items()}
-        if not args.isempty():
+        if args:
             environment[0] = args[-1]
         return self.body._is_reversible(environment, args[:-1])
 
@@ -691,7 +691,7 @@ class Abstraction(Program):
         )
         if 0 in indices_checkers:
             out_checkers = [indices_checkers[0]] + checkers
-        elif not checkers.isempty():
+        elif checkers:
             out_checkers = [None] + checkers
         else:
             out_checkers = []
@@ -801,10 +801,10 @@ class Primitive(Program):
         if name not in Primitive.GLOBALS:
             Primitive.GLOBALS[name] = self
 
-    def get_custom_args_checkers(self):
+    def get_custom_arg_checkers(self):
         return [c[1] for c in self.custom_args_checkers]
 
-    def _get_custom_args_checkers(self, checker, indices_checkers):
+    def _get_custom_arg_checkers(self, checker, indices_checkers):
         if checker is None:
             return self.custom_args_checkers, indices_checkers
         arg_count = len(self.tp.functionArguments())

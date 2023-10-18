@@ -192,7 +192,7 @@ class Grammar(object):
                 bad_option = False
                 for f, i in reversed(path):
                     if not isinstance(f, Abstraction):
-                        custom_checkers = f.get_custom_args_checkers()
+                        custom_checkers = f.get_custom_arg_checkers()
                         if i < len(custom_checkers):
                             checker = custom_checkers[i]
                             if not checker(p, from_input, path):
@@ -223,7 +223,7 @@ class Grammar(object):
                 bad_option = False
                 for f, i in reversed(path):
                     if not isinstance(f, Abstraction):
-                        custom_checkers = f.get_custom_args_checkers()
+                        custom_checkers = f.get_custom_arg_checkers()
                         if i < len(custom_checkers):
                             checker = custom_checkers[i]
                             if not checker(Index(j), from_input, path):
