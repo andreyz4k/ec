@@ -65,7 +65,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.7'
+          python-version: '3.11'
       - uses: syphar/restore-virtualenv@v1
         id: cache-virtualenv
 
@@ -85,7 +85,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.7'
+          python-version: '3.11'
 
       - uses: syphar/restore-virtualenv@v1
         id: cache-virtualenv
@@ -166,7 +166,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.7'
+          python-version: '3.11'
 
       - uses: syphar/restore-virtualenv@v1
         id: cache-virtualenv
@@ -223,7 +223,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.7'
+          python-version: '3.11'
 
       - uses: syphar/restore-virtualenv@v1
         id: cache-virtualenv
@@ -284,7 +284,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.7'
+          python-version: '3.11'
 
       - uses: syphar/restore-virtualenv@v1
         id: cache-virtualenv
@@ -328,7 +328,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.7'
+          python-version: '3.11'
 
       - uses: syphar/restore-virtualenv@v1
         id: cache-virtualenv
@@ -360,7 +360,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.7'
+          python-version: '3.11'
 
       - uses: syphar/restore-virtualenv@v1
         id: cache-virtualenv
@@ -392,7 +392,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.7'
+          python-version: '3.11'
 
       - uses: syphar/restore-virtualenv@v1
         id: cache-virtualenv
@@ -425,7 +425,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.7'
+          python-version: '3.11'
 
       - uses: syphar/restore-virtualenv@v1
         id: cache-virtualenv
@@ -457,7 +457,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.7'
+          python-version: '3.11'
 
       - uses: syphar/restore-virtualenv@v1
         id: cache-virtualenv
@@ -491,7 +491,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.7'
+          python-version: '3.11'
 
       - uses: syphar/restore-virtualenv@v1
         id: cache-virtualenv
@@ -524,7 +524,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.7'
+          python-version: '3.11'
 
       - uses: syphar/restore-virtualenv@v1
         id: cache-virtualenv
@@ -560,7 +560,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.7'
+          python-version: '3.11'
 
       - uses: syphar/restore-virtualenv@v1
         id: cache-virtualenv
