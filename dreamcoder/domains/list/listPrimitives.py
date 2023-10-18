@@ -440,13 +440,7 @@ def bootstrapTarget_extra():
 
 
 def julia():
-    Primitive.GLOBALS["map"].custom_args_checkers = [
-        (_is_reversible_subfunction, _is_possible_subfunction)
-    ]
-    Primitive.GLOBALS["fold"].custom_args_checkers = [
-        (_is_reversible_subfunction, _is_possible_subfunction)
-    ]
-    return bootstrapTarget_extra() + [
+    return [
         Primitive("repeat", arrow(t0, tint, tlist(t0)), _repeat, is_reversible=True),
         Primitive(
             "concat",
@@ -454,7 +448,25 @@ def julia():
             _concat,
             is_reversible=True,
         ),
-    ]
+        Primitive(
+            "map",
+            arrow(arrow(t0, t1), tlist(t0), tlist(t1)),
+            _map,
+            is_reversible=True,
+            custom_args_checkers=[
+                (_is_reversible_subfunction, _is_possible_subfunction)
+            ],
+        ),
+        Primitive(
+            "fold",
+            arrow(arrow(t0, t1, t1), tlist(t0), t1, t1),
+            _fold,
+            is_reversible=True,
+            custom_args_checkers=[
+                (_is_reversible_subfunction, _is_possible_subfunction)
+            ],
+        ),
+    ] + bootstrapTarget_extra()
 
 
 def no_length():
