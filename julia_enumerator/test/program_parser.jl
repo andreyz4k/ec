@@ -44,6 +44,8 @@ using solver: parse_program, parse_type, TypeVariable
                           let \$v2, \$v3 = rev(\$inp0 = (cons \$v2 \$v3)) in let \$v4::list(color) = (car \$v3) in \
                           let \$v5::int = Const(int, 1) in let \$v6::list(list(color)) = (repeat \$v4 \$v5) in \
                           let \$v7::list(list(color)) = (cons \$v2 \$v6) in (concat \$v1 \$v7)")
+
+    parsing_test_case("(+ 1 ??(int))")
 end
 
 @testset "Type parser" begin

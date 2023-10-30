@@ -381,6 +381,8 @@ parse_wrap_either_clause =
     P"\) in " +
     _parse_program |> (v -> WrapEither(v[1], v[3], v[5], v[4], v[6], v[7]))
 
+parse_hole = P"\?\?\(" + type_parser + P"\)" > (t -> Hole(t, nothing, false, nothing))
+
 _parse_program.matcher =
     parse_application |
     parse_variable |
@@ -392,7 +394,8 @@ _parse_program.matcher =
     parse_let_clause |
     parse_let_rev_clause |
     parse_const_clause |
-    parse_wrap_either_clause
+    parse_wrap_either_clause |
+    parse_hole
 
 function parse_program(s)
     parse_one(s, _parse_program)[1]

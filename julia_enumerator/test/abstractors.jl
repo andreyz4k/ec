@@ -88,12 +88,7 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Check reversible simple" begin
-        @test is_reversible(
-            Apply(
-                Apply(every_primitive["repeat"], Hole(tint, nothing, true, nothing)),
-                Hole(tint, nothing, true, nothing),
-            ),
-        )
+        @test is_reversible(parse_program("(repeat ??(int) ??(int))"))
     end
 
     @testset "Check reversible map" begin
@@ -111,12 +106,7 @@ using DataStructures: OrderedDict, Accumulator
                 Hole(tlist(ttuple2(tint, tint)), nothing, true, nothing),
             ),
         )
-        @test is_reversible(
-            Apply(
-                Apply(every_primitive["map"], Abstraction(Apply(Apply(every_primitive["repeat"], Index(0)), Index(0)))),
-                Hole(tlist(tint), nothing, true, nothing),
-            ),
-        )
+        @test is_reversible(parse_program("(map (lambda (repeat \$0 \$0)) ??(list(int)))"))
         @test !is_reversible(
             Apply(
                 Apply(
@@ -139,30 +129,8 @@ using DataStructures: OrderedDict, Accumulator
                 Hole(tlist(tint), nothing, true, nothing),
             ),
         )
-        @test is_reversible(
-            Apply(
-                Apply(
-                    Apply(
-                        every_primitive["map2"],
-                        Abstraction(Abstraction(Apply(Apply(every_primitive["repeat"], Index(0)), Index(1)))),
-                    ),
-                    Hole(tlist(tint), nothing, true, nothing),
-                ),
-                Hole(tlist(tint), nothing, true, nothing),
-            ),
-        )
-        @test is_reversible(
-            Apply(
-                Apply(
-                    Apply(
-                        every_primitive["map2"],
-                        Abstraction(Abstraction(Apply(Apply(every_primitive["repeat"], Index(1)), Index(0)))),
-                    ),
-                    Hole(tlist(tint), nothing, true, nothing),
-                ),
-                Hole(tlist(tint), nothing, true, nothing),
-            ),
-        )
+        @test is_reversible(parse_program("(map2 (lambda (repeat \$0 \$1)) ??(list(int)) ??(list(int)))"))
+        @test is_reversible(parse_program("(map2 (lambda (repeat \$1 \$0)) ??(list(int)) ??(list(int)))"))
         @test !is_reversible(
             Apply(
                 Apply(
@@ -253,32 +221,8 @@ using DataStructures: OrderedDict, Accumulator
             ),
         )
         @test is_reversible(
-            Apply(
-                Apply(
-                    Apply(
-                        every_primitive["map2"],
-                        Abstraction(
-                            Abstraction(
-                                Apply(
-                                    Apply(
-                                        Apply(
-                                            every_primitive["map2"],
-                                            Abstraction(
-                                                Abstraction(
-                                                    Apply(Apply(every_primitive["repeat"], Index(0)), Index(1)),
-                                                ),
-                                            ),
-                                        ),
-                                        Index(1),
-                                    ),
-                                    Index(0),
-                                ),
-                            ),
-                        ),
-                    ),
-                    Hole(tlist(tlist(tint)), nothing, true, nothing),
-                ),
-                Hole(tlist(tlist(tint)), nothing, true, nothing),
+            parse_program(
+                "(map2 (lambda (map2 (lambda (repeat \$0 \$1)) \$1 \$0)) ??(list(list(int))) ??(list(list(int))))",
             ),
         )
         @test !is_reversible(
@@ -323,23 +267,7 @@ using DataStructures: OrderedDict, Accumulator
                 Hole(tlist(tlist(tint)), nothing, true, nothing),
             ),
         )
-        @test is_reversible(
-            Apply(
-                Apply(
-                    every_primitive["map"],
-                    Abstraction(
-                        Apply(
-                            Apply(
-                                every_primitive["map"],
-                                Abstraction(Apply(Apply(every_primitive["repeat"], Index(0)), Index(0))),
-                            ),
-                            Index(0),
-                        ),
-                    ),
-                ),
-                Hole(tlist(tlist(tint)), nothing, true, nothing),
-            ),
-        )
+        @test is_reversible(parse_program("(map (lambda (map (lambda (repeat \$0 \$0)) \$0)) ??(list(list(int))))"))
     end
 
     @testset "Check reversible select" begin
@@ -392,15 +320,7 @@ using DataStructures: OrderedDict, Accumulator
             ),
         )
 
-        @test is_reversible(
-            Apply(
-                Apply(
-                    Apply(every_primitive["rev_select"], Abstraction(Apply(every_primitive["empty?"], Index(0)))),
-                    Hole(tlist(tint), nothing, true, nothing),
-                ),
-                Hole(tlist(tint), nothing, true, nothing),
-            ),
-        )
+        @test is_reversible(parse_program("(rev_select (lambda (empty? \$0)) ??(list(int)) ??(list(int)))"))
         @test is_reversible_selector(Abstraction(Apply(every_primitive["empty?"], Index(0))))
         @test !is_reversible_selector(Abstraction(Apply(every_primitive["empty?"], Index(1))))
 
@@ -421,10 +341,7 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse repeat" begin
-        skeleton = Apply(
-            Apply(every_primitive["repeat"], Hole(tint, nothing, true, nothing)),
-            Hole(tint, nothing, true, nothing),
-        )
+        skeleton = parse_program("(repeat ??(int) ??(int))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
         @test compare_options(run_in_reverse(p, [[1, 2, 3], [1, 2, 3]]), Dict(UInt64(1) => [1, 2, 3], UInt64(2) => 2))
@@ -449,13 +366,7 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse repeat grid" begin
-        skeleton = Apply(
-            Apply(
-                Apply(every_primitive["repeat_grid"], Hole(tint, nothing, true, nothing)),
-                Hole(tint, nothing, true, nothing),
-            ),
-            Hole(tint, nothing, true, nothing),
-        )
+        skeleton = parse_program("(repeat_grid ??(int) ??(int) ??(int))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
 
@@ -479,20 +390,14 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse cons" begin
-        skeleton = Apply(
-            Apply(every_primitive["cons"], Hole(tint, nothing, true, nothing)),
-            Hole(tlist(tint), nothing, true, nothing),
-        )
+        skeleton = parse_program("(cons ??(int) ??(list(int)))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
         @test compare_options(run_in_reverse(p, [1, 2, 3]), Dict(UInt64(1) => 1, UInt64(2) => [2, 3]))
     end
 
     @testset "Reverse adjoin" begin
-        skeleton = Apply(
-            Apply(every_primitive["adjoin"], Hole(tint, nothing, true, nothing)),
-            Hole(tset(tint), nothing, true, nothing),
-        )
+        skeleton = parse_program("(adjoin ??(int) ??(set(int)))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
 
@@ -516,18 +421,14 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse tuple2" begin
-        skeleton = Apply(
-            Apply(every_primitive["tuple2"], Hole(tcolor, nothing, true, nothing)),
-            Hole(tlist(tint), nothing, true, nothing),
-        )
+        skeleton = parse_program("(tuple2 ??(color) ??(list(int)))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
         @test compare_options(run_in_reverse(p, (1, [2, 3])), Dict(UInt64(1) => 1, UInt64(2) => [2, 3]))
     end
 
     @testset "Reverse plus" begin
-        skeleton =
-            Apply(Apply(every_primitive["+"], Hole(tint, nothing, true, nothing)), Hole(tint, nothing, true, nothing))
+        skeleton = parse_program("(+ ??(int) ??(int))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
         @test compare_options(
@@ -552,16 +453,7 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse plus with plus" begin
-        skeleton = Apply(
-            Apply(
-                every_primitive["+"],
-                Apply(
-                    Apply(every_primitive["+"], Hole(tint, nothing, true, nothing)),
-                    Hole(tint, nothing, true, nothing),
-                ),
-            ),
-            Hole(tint, nothing, true, nothing),
-        )
+        skeleton = parse_program("(+ (+ ??(int) ??(int)) ??(int))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
         @test compare_options(
@@ -580,16 +472,7 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse repeat with plus" begin
-        skeleton = Apply(
-            Apply(
-                every_primitive["repeat"],
-                Apply(
-                    Apply(every_primitive["+"], Hole(tint, nothing, true, nothing)),
-                    Hole(tint, nothing, true, nothing),
-                ),
-            ),
-            Hole(tint, nothing, true, nothing),
-        )
+        skeleton = parse_program("(repeat (+ ??(int) ??(int)) ??(int))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
         @test compare_options(
@@ -602,10 +485,7 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse abs with plus" begin
-        skeleton = Apply(
-            every_primitive["abs"],
-            Apply(Apply(every_primitive["+"], Hole(tint, nothing, true, nothing)), Hole(tint, nothing, true, nothing)),
-        )
+        skeleton = parse_program("(abs (+ ??(int) ??(int)))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
         @test compare_options(
@@ -620,10 +500,7 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse plus with abs" begin
-        skeleton = Apply(
-            Apply(every_primitive["+"], Apply(every_primitive["abs"], Hole(tint, nothing, true, nothing))),
-            Hole(tint, nothing, true, nothing),
-        )
+        skeleton = parse_program("(+ (abs ??(int)) ??(int))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
         @test compare_options(
@@ -638,8 +515,7 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse mult" begin
-        skeleton =
-            Apply(Apply(every_primitive["*"], Hole(tint, nothing, true, nothing)), Hole(tint, nothing, true, nothing))
+        skeleton = parse_program("(* ??(int) ??(int))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
         @test compare_options(
@@ -767,16 +643,7 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse combined abstractors" begin
-        skeleton = Apply(
-            Apply(
-                every_primitive["repeat"],
-                Apply(
-                    Apply(every_primitive["cons"], Hole(tint, nothing, true, nothing)),
-                    Hole(tlist(tint), nothing, true, nothing),
-                ),
-            ),
-            Hole(tint, nothing, true, nothing),
-        )
+        skeleton = parse_program("(repeat (cons ??(int) ??(list(int))) ??(int))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
 
@@ -812,16 +679,7 @@ using DataStructures: OrderedDict, Accumulator
         end
 
         @testset "repeat indices 1 0" begin
-            skeleton = Apply(
-                Apply(
-                    Apply(
-                        every_primitive["map2"],
-                        Abstraction(Abstraction(Apply(Apply(every_primitive["repeat"], Index(1)), Index(0)))),
-                    ),
-                    Hole(tlist(t0), nothing, true, nothing),
-                ),
-                Hole(tlist(t1), nothing, true, nothing),
-            )
+            skeleton = parse_program("(map2 (lambda (lambda (repeat \$1 \$0))) ??(list(t0)) ??(list(t1)))")
             @test is_reversible(skeleton)
 
             p, _ = capture_free_vars(skeleton)
@@ -836,16 +694,7 @@ using DataStructures: OrderedDict, Accumulator
         end
 
         @testset "repeat indices 0 1" begin
-            skeleton = Apply(
-                Apply(
-                    Apply(
-                        every_primitive["map2"],
-                        Abstraction(Abstraction(Apply(Apply(every_primitive["repeat"], Index(0)), Index(1)))),
-                    ),
-                    Hole(tlist(t0), nothing, true, nothing),
-                ),
-                Hole(tlist(t1), nothing, true, nothing),
-            )
+            skeleton = parse_program("(map2 (lambda (lambda (repeat \$0 \$1))) ??(list(t0)) ??(list(t1)))")
             @test is_reversible(skeleton)
 
             p, _ = capture_free_vars(skeleton)
@@ -860,16 +709,7 @@ using DataStructures: OrderedDict, Accumulator
         end
 
         @testset "cons indices 1 0" begin
-            skeleton = Apply(
-                Apply(
-                    Apply(
-                        every_primitive["map2"],
-                        Abstraction(Abstraction(Apply(Apply(every_primitive["cons"], Index(1)), Index(0)))),
-                    ),
-                    Hole(tlist(t0), nothing, true, nothing),
-                ),
-                Hole(tlist(t1), nothing, true, nothing),
-            )
+            skeleton = parse_program("(map2 (lambda (lambda (cons \$1 \$0))) ??(list(t0)) ??(list(t1)))")
             @test is_reversible(skeleton)
             p, _ = capture_free_vars(skeleton)
 
@@ -883,16 +723,7 @@ using DataStructures: OrderedDict, Accumulator
         end
 
         @testset "cons indices 0 1" begin
-            skeleton = Apply(
-                Apply(
-                    Apply(
-                        every_primitive["map2"],
-                        Abstraction(Abstraction(Apply(Apply(every_primitive["cons"], Index(0)), Index(1)))),
-                    ),
-                    Hole(tlist(t0), nothing, true, nothing),
-                ),
-                Hole(tlist(t1), nothing, true, nothing),
-            )
+            skeleton = parse_program("(map2 (lambda (lambda (cons \$0 \$1))) ??(list(t0)) ??(list(t1)))")
             @test is_reversible(skeleton)
             p, _ = capture_free_vars(skeleton)
 
@@ -907,30 +738,8 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse nested map2" begin
-        skeleton = Apply(
-            Apply(
-                Apply(
-                    every_primitive["map2"],
-                    Abstraction(
-                        Abstraction(
-                            Apply(
-                                Apply(
-                                    Apply(
-                                        every_primitive["map2"],
-                                        Abstraction(
-                                            Abstraction(Apply(Apply(every_primitive["repeat"], Index(1)), Index(0))),
-                                        ),
-                                    ),
-                                    Index(1),
-                                ),
-                                Index(0),
-                            ),
-                        ),
-                    ),
-                ),
-                Hole(tlist(t0), nothing, true, nothing),
-            ),
-            Hole(tlist(t1), nothing, true, nothing),
+        skeleton = parse_program(
+            "(map2 (lambda (lambda (map2 (lambda (lambda (repeat \$1 \$0))) \$1 \$0))) ??(list(t0)) ??(list(t1)))",
         )
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
@@ -948,7 +757,7 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse range" begin
-        skeleton = Apply(every_primitive["range"], Hole(tint, nothing, true, nothing))
+        skeleton = parse_program("(range ??(int))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
 
@@ -966,10 +775,7 @@ using DataStructures: OrderedDict, Accumulator
         )
         @test !is_reversible(skeleton)
 
-        skeleton = Apply(
-            Apply(every_primitive["map"], Abstraction(Apply(every_primitive["range"], Index(0)))),
-            Hole(tlist(t0), nothing, true, nothing),
-        )
+        skeleton = parse_program("(map (lambda (range \$0)) ??(list(t0)))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
 
@@ -986,10 +792,7 @@ using DataStructures: OrderedDict, Accumulator
         )
         @test !is_reversible(skeleton)
 
-        skeleton = Apply(
-            Apply(every_primitive["map_set"], Abstraction(Apply(every_primitive["range"], Index(0)))),
-            Hole(tset(t0), nothing, true, nothing),
-        )
+        skeleton = parse_program("(map_set (lambda (range \$0)) ??(set(t0)))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
 
@@ -1000,10 +803,7 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse map with repeat" begin
-        skeleton = Apply(
-            Apply(every_primitive["map"], Abstraction(Apply(Apply(every_primitive["repeat"], Index(0)), Index(0)))),
-            Hole(tlist(t0), nothing, true, nothing),
-        )
+        skeleton = parse_program("(map (lambda (repeat \$0 \$0)) ??(list(t0)))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
 
@@ -1035,16 +835,7 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse map2 with either options" begin
-        skeleton = Apply(
-            Apply(
-                Apply(
-                    every_primitive["map2"],
-                    Abstraction(Abstraction(Apply(Apply(every_primitive["concat"], Index(1)), Index(0)))),
-                ),
-                Hole(tlist(t0), nothing, true, nothing),
-            ),
-            Hole(tlist(t1), nothing, true, nothing),
-        )
+        skeleton = parse_program("(map2 (lambda (lambda (concat \$1 \$0))) ??(list(t0)) ??(list(t1)))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
 
@@ -1192,10 +983,7 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse map with either options" begin
-        skeleton = Apply(
-            Apply(every_primitive["map"], Abstraction(Apply(Apply(every_primitive["concat"], Index(0)), Index(0)))),
-            Hole(tlist(t0), nothing, true, nothing),
-        )
+        skeleton = parse_program("(map (lambda (concat \$0 \$0)) ??(list(t0)))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
 
@@ -1374,19 +1162,7 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse map with either options with free var with plus and mult 4" begin
-        # (map (lambda (* $0 (+ $0 $0))) $v2102)
-        skeleton = Apply(
-            Apply(
-                every_primitive["map"],
-                Abstraction(
-                    Apply(
-                        Apply(every_primitive["*"], Index(0)),
-                        Apply(Apply(every_primitive["+"], Index(0)), Index(0)),
-                    ),
-                ),
-            ),
-            Hole(tlist(t0), nothing, true, nothing),
-        )
+        skeleton = parse_program("(map (lambda (* \$0 (+ \$0 \$0))) ??(list(t0)))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
 
@@ -1436,16 +1212,7 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse map2 with plus" begin
-        skeleton = Apply(
-            Apply(
-                Apply(
-                    every_primitive["map2"],
-                    Abstraction(Abstraction(Apply(Apply(every_primitive["+"], Index(0)), Index(1)))),
-                ),
-                Hole(tlist(t0), nothing, true, nothing),
-            ),
-            Hole(tlist(tint), nothing, true, nothing),
-        )
+        skeleton = parse_program("(map2 (lambda (lambda (+ \$0 \$1))) ??(list(t0)) ??(list(int)))")
         @test is_reversible(skeleton)
 
         p, _ = capture_free_vars(skeleton)
@@ -1643,13 +1410,7 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse rev select with empty" begin
-        skeleton = Apply(
-            Apply(
-                Apply(every_primitive["rev_select"], Abstraction(Apply(every_primitive["empty?"], Index(0)))),
-                Hole(tlist(tlist(tint)), nothing, true, nothing),
-            ),
-            Hole(tlist(tlist(tint)), nothing, true, nothing),
-        )
+        skeleton = parse_program("(rev_select (lambda (empty? \$0)) ??(list(list(int))) ??(list(list(int))))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
 
@@ -1667,10 +1428,7 @@ using DataStructures: OrderedDict, Accumulator
         expression = parse_program(source)
         tp = closed_inference(expression)
         @test is_reversible(expression)
-        skeleton = Apply(
-            Apply(Apply(expression, Hole(t0, nothing, true, nothing)), Hole(tlist(t0), nothing, true, nothing)),
-            Hole(tint, nothing, true, nothing),
-        )
+        skeleton = parse_program("(#(lambda (lambda (repeat (cons \$1 \$0)))) ??(t0) ??(list(t0)) ??(int))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
 
@@ -1688,7 +1446,7 @@ using DataStructures: OrderedDict, Accumulator
         expression = parse_program(source)
         tp = closed_inference(expression)
         @test is_reversible(expression)
-        skeleton = Apply(expression, Hole(tint, nothing, true, nothing))
+        skeleton = parse_program("(#(lambda (* \$0 \$0)) ??(int))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
 
@@ -1703,7 +1461,7 @@ using DataStructures: OrderedDict, Accumulator
         expression = parse_program(source)
         tp = closed_inference(expression)
         @test is_reversible(expression)
-        skeleton = Apply(expression, Hole(tint, nothing, true, nothing))
+        skeleton = parse_program("(#(lambda (* \$0 (* \$0 \$0))) ??(int))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
 
@@ -1715,7 +1473,7 @@ using DataStructures: OrderedDict, Accumulator
         expression = parse_program(source)
         tp = closed_inference(expression)
         @test is_reversible(expression)
-        skeleton = Apply(expression, Hole(tint, nothing, true, nothing))
+        skeleton = parse_program("(#(lambda (* (* \$0 \$0) \$0)) ??(int))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
 
@@ -1727,7 +1485,7 @@ using DataStructures: OrderedDict, Accumulator
         expression = parse_program(source)
         tp = closed_inference(expression)
         @test is_reversible(expression)
-        skeleton = Apply(expression, Hole(tint, nothing, true, nothing))
+        skeleton = parse_program("(#(lambda (* (* \$0 \$0) (* \$0 \$0))) ??(int))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
 
@@ -1742,7 +1500,7 @@ using DataStructures: OrderedDict, Accumulator
         expression = parse_program(source)
         tp = closed_inference(expression)
         @test is_reversible(expression)
-        skeleton = Apply(Apply(expression, Hole(tint, nothing, true, nothing)), Hole(tint, nothing, true, nothing))
+        skeleton = parse_program("(#(lambda (repeat (range \$0))) ??(int) ??(int))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
 
@@ -1757,13 +1515,8 @@ using DataStructures: OrderedDict, Accumulator
         expression = parse_program(source)
         tp = closed_inference(expression)
         @test is_reversible(expression)
-        skeleton = Apply(
-            Apply(
-                Apply(every_primitive["map2"], Abstraction(Abstraction(Apply(Apply(expression, Index(1)), Index(0))))),
-                Hole(tlist(t0), nothing, true, nothing),
-            ),
-            Hole(tlist(t1), nothing, true, nothing),
-        )
+        skeleton =
+            parse_program("(map2 (lambda (lambda (#(lambda (repeat (range \$0))) \$1 \$0))) ??(list(t0)) ??(list(t1)))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
 
@@ -1802,10 +1555,7 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse list elements" begin
-        skeleton = Apply(
-            Apply(every_primitive["rev_list_elements"], Hole(tlist(ttuple2(tint, tint)), nothing, true, nothing)),
-            Hole(tint, nothing, true, nothing),
-        )
+        skeleton = parse_program("(rev_list_elements ??(list(tuple2(int, int))) ??(int))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
 
@@ -1828,16 +1578,7 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse grid elements" begin
-        skeleton = Apply(
-            Apply(
-                Apply(
-                    every_primitive["rev_grid_elements"],
-                    Hole(tlist(ttuple2(ttuple2(tint, tint), tint)), nothing, true, nothing),
-                ),
-                Hole(tint, nothing, true, nothing),
-            ),
-            Hole(tint, nothing, true, nothing),
-        )
+        skeleton = parse_program("(rev_grid_elements ??(list(tuple2(tuple2(int, int), int))) ??(int) ??(int))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
 
@@ -1888,10 +1629,7 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse zip2" begin
-        skeleton = Apply(
-            Apply(every_primitive["zip2"], Hole(tlist(tint), nothing, true, nothing)),
-            Hole(tlist(tcolor), nothing, true, nothing),
-        )
+        skeleton = parse_program("(zip2 ??(list(int)) ??(list(color)))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
 
@@ -1904,10 +1642,7 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse zip_grid2" begin
-        skeleton = Apply(
-            Apply(every_primitive["zip2"], Hole(tgrid(tint), nothing, true, nothing)),
-            Hole(tgrid(tcolor), nothing, true, nothing),
-        )
+        skeleton = parse_program("(zip_grid2 ??(grid(int)) ??(grid(color)))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
 
@@ -1920,16 +1655,7 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse rev_fold" begin
-        skeleton = Apply(
-            Apply(
-                Apply(
-                    every_primitive["rev_fold"],
-                    Abstraction(Abstraction(Apply(Apply(every_primitive["cons"], Index(1)), Index(0)))),
-                ),
-                every_primitive["empty"],
-            ),
-            Hole(tlist(tint), nothing, true, nothing),
-        )
+        skeleton = parse_program("(rev_fold (lambda (lambda (cons \$1 \$0))) empty ??(list(int)))")
         @test is_reversible(skeleton)
 
         p, _ = capture_free_vars(skeleton)
@@ -1940,16 +1666,7 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse fold" begin
-        skeleton = Apply(
-            Apply(
-                Apply(
-                    every_primitive["fold"],
-                    Abstraction(Abstraction(Apply(Apply(every_primitive["cons"], Index(1)), Index(0)))),
-                ),
-                Hole(tlist(tint), nothing, true, nothing),
-            ),
-            Hole(tlist(tint), nothing, true, nothing),
-        )
+        skeleton = parse_program("(fold (lambda (lambda (cons \$1 \$0))) ??(list(int)) ??(list(int)))")
         @test is_reversible(skeleton)
 
         p, _ = capture_free_vars(skeleton)
@@ -1984,16 +1701,7 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse fold with plus" begin
-        skeleton = Apply(
-            Apply(
-                Apply(
-                    every_primitive["fold"],
-                    Abstraction(Abstraction(Apply(Apply(every_primitive["+"], Index(0)), Index(1)))),
-                ),
-                Hole(tlist(t0), nothing, true, nothing),
-            ),
-            Hole(tint, nothing, true, nothing),
-        )
+        skeleton = parse_program("(fold (lambda (lambda (+ \$0 \$1))) ??(list(t0)) ??(int))")
         @test is_reversible(skeleton)
 
         p, _ = capture_free_vars(skeleton)
@@ -2629,16 +2337,7 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse fold_set" begin
-        skeleton = Apply(
-            Apply(
-                Apply(
-                    every_primitive["fold_set"],
-                    Abstraction(Abstraction(Apply(Apply(every_primitive["adjoin"], Index(1)), Index(0)))),
-                ),
-                Hole(tset(tint), nothing, true, nothing),
-            ),
-            Hole(tset(tint), nothing, true, nothing),
-        )
+        skeleton = parse_program("(fold_set (lambda (lambda (adjoin \$1 \$0))) ??(set(int)) ??(set(int)))")
         @test is_reversible(skeleton)
 
         p, _ = capture_free_vars(skeleton)
@@ -2726,16 +2425,7 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse fold with concat" begin
-        skeleton = Apply(
-            Apply(
-                Apply(
-                    every_primitive["fold"],
-                    Abstraction(Abstraction(Apply(Apply(every_primitive["concat"], Index(1)), Index(0)))),
-                ),
-                Hole(tlist(tlist(tint)), nothing, true, nothing),
-            ),
-            Hole(tlist(tint), nothing, true, nothing),
-        )
+        skeleton = parse_program("(fold (lambda (lambda (concat \$1 \$0))) ??(list(list(int))) ??(list(int)))")
         @test is_reversible(skeleton)
 
         p, _ = capture_free_vars(skeleton)
@@ -2823,16 +2513,7 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse fold_h" begin
-        skeleton = Apply(
-            Apply(
-                Apply(
-                    every_primitive["fold_h"],
-                    Abstraction(Abstraction(Apply(Apply(every_primitive["cons"], Index(1)), Index(0)))),
-                ),
-                Hole(tgrid(tint), nothing, true, nothing),
-            ),
-            Hole(tlist(tlist(tint)), nothing, true, nothing),
-        )
+        skeleton = parse_program("(fold_h (lambda (lambda (cons \$1 \$0))) ??(grid(int)) ??(list(list(int))))")
         @test is_reversible(skeleton)
 
         p, _ = capture_free_vars(skeleton)
@@ -2867,16 +2548,7 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse fold_h with plus" begin
-        skeleton = Apply(
-            Apply(
-                Apply(
-                    every_primitive["fold_h"],
-                    Abstraction(Abstraction(Apply(Apply(every_primitive["+"], Index(0)), Index(1)))),
-                ),
-                Hole(tgrid(tint), nothing, true, nothing),
-            ),
-            Hole(tlist(tint), nothing, true, nothing),
-        )
+        skeleton = parse_program("(fold_h (lambda (lambda (+ \$0 \$1))) ??(grid(int)) ??(list(int)))")
         @test is_reversible(skeleton)
 
         p, _ = capture_free_vars(skeleton)
@@ -2902,16 +2574,7 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse fold_v" begin
-        skeleton = Apply(
-            Apply(
-                Apply(
-                    every_primitive["fold_v"],
-                    Abstraction(Abstraction(Apply(Apply(every_primitive["cons"], Index(1)), Index(0)))),
-                ),
-                Hole(tgrid(tint), nothing, true, nothing),
-            ),
-            Hole(tlist(tlist(tint)), nothing, true, nothing),
-        )
+        skeleton = parse_program("(fold_v (lambda (lambda (cons \$1 \$0))) ??(grid(int)) ??(list(list(int))))")
         @test is_reversible(skeleton)
 
         p, _ = capture_free_vars(skeleton)
@@ -2950,16 +2613,7 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse fold_v with plus" begin
-        skeleton = Apply(
-            Apply(
-                Apply(
-                    every_primitive["fold_v"],
-                    Abstraction(Abstraction(Apply(Apply(every_primitive["+"], Index(0)), Index(1)))),
-                ),
-                Hole(tgrid(tint), nothing, true, nothing),
-            ),
-            Hole(tlist(tint), nothing, true, nothing),
-        )
+        skeleton = parse_program("(fold_v (lambda (lambda (+ \$0 \$1))) ??(grid(int)) ??(list(int)))")
         @test is_reversible(skeleton)
 
         p, _ = capture_free_vars(skeleton)
@@ -2984,13 +2638,7 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse rev_groupby" begin
-        skeleton = Apply(
-            Apply(
-                Apply(every_primitive["rev_groupby"], Abstraction(Apply(every_primitive["car"], Index(0)))),
-                Hole(tlist(tint), nothing, true, nothing),
-            ),
-            Hole(tset(ttuple2(tint, tset(tlist(tint)))), nothing, true, nothing),
-        )
+        skeleton = parse_program("(rev_groupby (lambda (car \$0)) ??(list(int)) ??(set(tuple2(int, set(list(int))))))")
         @test is_reversible(skeleton)
 
         p, _ = capture_free_vars(skeleton)
@@ -3025,28 +2673,8 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse rev_fold with rev_groupby" begin
-        skeleton = Apply(
-            Apply(
-                Apply(
-                    every_primitive["rev_fold_set"],
-                    Abstraction(
-                        Abstraction(
-                            Apply(
-                                Apply(
-                                    Apply(
-                                        every_primitive["rev_groupby"],
-                                        Abstraction(Apply(every_primitive["car"], Index(0))),
-                                    ),
-                                    Index(1),
-                                ),
-                                Index(0),
-                            ),
-                        ),
-                    ),
-                ),
-                every_primitive["empty_set"],
-            ),
-            Hole(tset(tlist(tint)), nothing, true, nothing),
+        skeleton = parse_program(
+            "(rev_fold_set (lambda (lambda (rev_groupby (lambda (car \$0)) \$1 \$0))) empty_set ??(set(list(int))))",
         )
         @test is_reversible(skeleton)
 
@@ -3062,30 +2690,8 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse rev_greedy_cluster" begin
-        skeleton = Apply(
-            Apply(
-                Apply(
-                    every_primitive["rev_greedy_cluster"],
-                    Abstraction(
-                        Abstraction(
-                            Apply(
-                                Apply(
-                                    every_primitive["all_set"],
-                                    Abstraction(
-                                        Apply(
-                                            Apply(every_primitive["eq?"], Apply(every_primitive["car"], Index(0))),
-                                            Apply(every_primitive["car"], Index(2)),
-                                        ),
-                                    ),
-                                ),
-                                Index(0),
-                            ),
-                        ),
-                    ),
-                ),
-                Hole(tlist(tint), nothing, true, nothing),
-            ),
-            Hole(tset(tset(tlist(tint))), nothing, true, nothing),
+        skeleton = parse_program(
+            "(rev_greedy_cluster (lambda (lambda (all_set (lambda (eq? (car \$0) (car \$2))) \$0))) ??(list(list(int))) ??(set(set(list(int)))))",
         )
         @test is_reversible(skeleton)
 
@@ -3122,45 +2728,8 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse rev_greedy_cluster by length" begin
-        skeleton = Apply(
-            Apply(
-                Apply(
-                    every_primitive["rev_greedy_cluster"],
-                    Abstraction(
-                        Abstraction(
-                            Apply(
-                                Apply(
-                                    every_primitive["any_set"],
-                                    Abstraction(
-                                        Apply(
-                                            every_primitive["not"],
-                                            Apply(
-                                                Apply(
-                                                    every_primitive["gt?"],
-                                                    Apply(
-                                                        every_primitive["abs"],
-                                                        Apply(
-                                                            Apply(
-                                                                every_primitive["-"],
-                                                                Apply(every_primitive["length"], Index(0)),
-                                                            ),
-                                                            Apply(every_primitive["length"], Index(2)),
-                                                        ),
-                                                    ),
-                                                ),
-                                                every_primitive["1"],
-                                            ),
-                                        ),
-                                    ),
-                                ),
-                                Index(0),
-                            ),
-                        ),
-                    ),
-                ),
-                Hole(tlist(tint), nothing, true, nothing),
-            ),
-            Hole(tset(tset(tlist(tint))), nothing, true, nothing),
+        skeleton = parse_program(
+            "(rev_greedy_cluster (lambda (lambda (any_set (lambda (not (gt? (abs (- (length \$0) (length \$2))) 1))) \$0))) ??(list(list(int))) ??(set(set(list(int)))))",
         )
         @test is_reversible(skeleton)
 
@@ -3205,64 +2774,8 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse rev_fold_set with rev_greedy_cluster" begin
-        skeleton = Apply(
-            Apply(
-                Apply(
-                    every_primitive["rev_fold_set"],
-                    Abstraction(
-                        Abstraction(
-                            Apply(
-                                Apply(
-                                    Apply(
-                                        every_primitive["rev_greedy_cluster"],
-                                        Abstraction(
-                                            Abstraction(
-                                                Apply(
-                                                    Apply(
-                                                        every_primitive["any_set"],
-                                                        Abstraction(
-                                                            Apply(
-                                                                every_primitive["not"],
-                                                                Apply(
-                                                                    Apply(
-                                                                        every_primitive["gt?"],
-                                                                        Apply(
-                                                                            every_primitive["abs"],
-                                                                            Apply(
-                                                                                Apply(
-                                                                                    every_primitive["-"],
-                                                                                    Apply(
-                                                                                        every_primitive["length"],
-                                                                                        Index(0),
-                                                                                    ),
-                                                                                ),
-                                                                                Apply(
-                                                                                    every_primitive["length"],
-                                                                                    Index(2),
-                                                                                ),
-                                                                            ),
-                                                                        ),
-                                                                    ),
-                                                                    every_primitive["1"],
-                                                                ),
-                                                            ),
-                                                        ),
-                                                    ),
-                                                    Index(0),
-                                                ),
-                                            ),
-                                        ),
-                                    ),
-                                    Index(1),
-                                ),
-                                Index(0),
-                            ),
-                        ),
-                    ),
-                ),
-                every_primitive["empty_set"],
-            ),
-            Hole(tset(tlist(tint)), nothing, true, nothing),
+        skeleton = parse_program(
+            "(rev_fold_set (lambda (lambda (rev_greedy_cluster (lambda (lambda (any_set (lambda (not (gt? (abs (- (length \$0) (length \$2))) 1))) \$0))) \$1 \$0))) empty_set ??(set(list(int))))",
         )
         @test is_reversible(skeleton)
 
