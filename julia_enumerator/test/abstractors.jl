@@ -39,7 +39,8 @@ using solver:
     PatternWrapper,
     AbductibleValue,
     calculate_dependent_vars,
-    run_in_reverse
+    run_in_reverse,
+    UnifyError
 using DataStructures: OrderedDict, Accumulator
 
 @testset "Abstractors" begin
@@ -808,7 +809,7 @@ using DataStructures: OrderedDict, Accumulator
         p, _ = capture_free_vars(skeleton)
 
         @test compare_options(run_in_reverse(p, [[1], [2, 2], [4, 4, 4, 4]]), Dict(UInt64(1) => [1, 2, 4]))
-        @test_throws ErrorException run_in_reverse(p, [[1, 1], [2, 2], [4, 4, 4, 4]])
+        @test_throws UnifyError run_in_reverse(p, [[1, 1], [2, 2], [4, 4, 4, 4]])
 
         @test run_with_arguments(p, [], Dict(UInt64(1) => [1, 2, 4])) == [[1], [2, 2], [4, 4, 4, 4]]
     end
@@ -828,7 +829,7 @@ using DataStructures: OrderedDict, Accumulator
             run_in_reverse(p, Set([(3, 2), (1, 2), (6, 2)])),
             Dict(UInt64(1) => 2, UInt64(2) => Set([3, 1, 6])),
         )
-        @test_throws ErrorException run_in_reverse(p, Set([(3, 2), (1, 2), (6, 3)]))
+        @test_throws UnifyError run_in_reverse(p, Set([(3, 2), (1, 2), (6, 3)]))
 
         @test run_with_arguments(p, [], Dict(UInt64(1) => 2, UInt64(2) => Set([3, 1, 6]))) ==
               Set([(3, 2), (1, 2), (6, 2)])
@@ -1054,7 +1055,7 @@ using DataStructures: OrderedDict, Accumulator
             Dict(UInt64(1) => 3),
         )
 
-        @test_throws ErrorException compare_options(
+        @test_throws UnifyError compare_options(
             calculate_dependent_vars(p, Dict(UInt64(2) => [9, -3, 37, -1]), [12, 0, 36, 2]),
             Dict(UInt64(1) => 3),
         )
@@ -1146,12 +1147,8 @@ using DataStructures: OrderedDict, Accumulator
             Dict(
                 0x0000000000000002 => EitherOptions(
                     Dict{UInt64,Any}(
-                        0xa27eae52c3b98d6b => Any[any_object, -1, 2],
                         0xa053df3c4db3e4d3 => Any[0, -1, -2],
-                        0x3fff5855fea46fa8 => Any[any_object, 1, -2],
                         0x5d2bb9255b9c58d5 => Any[0, 1, 2],
-                        0x9f7e82c41d14214f => Any[any_object, -1, -2],
-                        0x386f7e49e9148fce => Any[any_object, 1, 2],
                         0x5ba8072154451d21 => Any[0, -1, 2],
                         0x97d800ee965ba928 => Any[0, 1, -2],
                     ),
@@ -1254,74 +1251,86 @@ using DataStructures: OrderedDict, Accumulator
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
 
-        @test_throws ArgumentError run_in_reverse(
-            p,
-            EitherOptions(
-                Dict{UInt64,Any}(
-                    0x46747a050c3da14d => Any[Any[], Any[0, 0, 0], Any[3, 0, 0]],
-                    0x96b63758bb6f2f0b => Any[Any[], Any[0], Any[3]],
-                    0x83e3ae72ee56d307 => Any[Any[1, 1, 1], Any[0, 0], Any[3, 0]],
-                    0x96ad706bdffc3737 => Any[Any[], Any[0, 0], Any[3]],
-                    0x7d67dcff3642e41d => Any[Any[1, 1, 1], Any[], Any[3, 0, 0]],
-                    0x1c6caff0063cbea3 => Any[Any[1], Any[0, 0, 0], Any[3, 0]],
-                    0x564dd102fdddd0cb => Any[Any[1], Any[], Any[3, 0]],
-                    0x92876fbb2f369411 => Any[Any[], Any[], Any[]],
-                    0x30ec40ac72825976 => Any[Any[1, 1], Any[0, 0, 0], Any[3, 0, 0]],
-                    0x1af6dcc07bf6c7e6 => Any[Any[], Any[], Any[3]],
-                    0x16d70977726635b6 => Any[Any[], Any[0], Any[3, 0, 0]],
-                    0x2546b0a52616f299 => Any[Any[1, 1, 1], Any[0, 0, 0], Any[]],
-                    0xc17d6ba201ce8953 => Any[Any[1], Any[0, 0], Any[]],
-                    0x883c711013d62e1a => Any[Any[1, 1, 1], Any[], Any[3]],
-                    0xe068d4da7cf8aa2b => Any[Any[1], Any[0], Any[3, 0, 0]],
-                    0x7852c6b58b30cd84 => Any[Any[1, 1], Any[0, 0], Any[3]],
-                    0xca38cc2b2e4e1cba => Any[Any[1, 1, 1], Any[], Any[3, 0]],
-                    0x9db664d29a9e8cf7 => Any[Any[1, 1], Any[0, 0], Any[]],
-                    0x6d221685d9c292b2 => Any[Any[1, 1], Any[0, 0, 0], Any[]],
-                    0xc1de4c753cf31b7b => Any[Any[1], Any[], Any[3]],
-                    0xe584794cd7f2f556 => Any[Any[1, 1, 1], Any[0, 0], Any[3, 0, 0]],
-                    0x104d6e2ff7fe3adf => Any[Any[1, 1, 1], Any[0], Any[3, 0]],
-                    0x1db98e0c1aed18d2 => Any[Any[], Any[0, 0, 0], Any[3, 0]],
-                    0x8b93c58bfc4bb95e => Any[Any[], Any[0, 0], Any[3, 0, 0]],
-                    0x40a01147e668e215 => Any[Any[], Any[0, 0, 0], Any[]],
-                    0xb5b7bd276ad64956 => Any[Any[1, 1, 1], Any[0, 0, 0], Any[3]],
-                    0xfa571018db6b0c60 => Any[Any[1, 1], Any[0, 0], Any[3, 0]],
-                    0xdb3ed675876f55cf => Any[Any[1], Any[0, 0], Any[3, 0, 0]],
-                    0x029b206ec0b47b46 => Any[Any[], Any[0, 0], Any[]],
-                    0x96927b2ba8872ddb => Any[Any[1, 1], Any[0], Any[]],
-                    0xfb6ed84453190134 => Any[Any[1], Any[0, 0], Any[3]],
-                    0xae66724471f06c8d => Any[Any[1, 1, 1], Any[], Any[]],
-                    0xbad1f7d92b7bacff => Any[Any[1, 1], Any[0], Any[3, 0, 0]],
-                    0xefe28afb1fe50242 => Any[Any[1, 1, 1], Any[0], Any[3, 0, 0]],
-                    0xb96f2353f661d494 => Any[Any[1, 1], Any[0], Any[3]],
-                    0x1c277604e2641a1f => Any[Any[1], Any[0], Any[]],
-                    0x55a45a5e395b5a0b => Any[Any[1, 1, 1], Any[0], Any[3]],
-                    0xcdfbffee4d6bf9ca => Any[Any[1, 1, 1], Any[0, 0], Any[]],
-                    0x48f8eeda86de1a1f => Any[Any[1, 1], Any[0, 0, 0], Any[3, 0]],
-                    0xcda9647d6dea1da3 => Any[Any[1, 1], Any[], Any[3, 0]],
-                    0x5e7a642a2d1b628d => Any[Any[], Any[], Any[3, 0, 0]],
-                    0x95ac7f8ec5bd538a => Any[Any[1], Any[0, 0, 0], Any[]],
-                    0xfc0a18fbbf73f1e3 => Any[Any[1, 1], Any[0, 0, 0], Any[3]],
-                    0x1d620ec2886f5db8 => Any[Any[1], Any[0, 0], Any[3, 0]],
-                    0x68d354ad42789e5a => Any[Any[], Any[], Any[3, 0]],
-                    0xa6407d4c86f11d55 => Any[Any[1, 1, 1], Any[0, 0, 0], Any[3, 0, 0]],
-                    0xa03b597ef9b4fa7e => Any[Any[], Any[0], Any[]],
-                    0x38b087e5087db16a => Any[Any[1, 1, 1], Any[0, 0, 0], Any[3, 0]],
-                    0xd55627c8129d95ea => Any[Any[1, 1], Any[], Any[]],
-                    0x3c60c45fbc886d7a => Any[Any[], Any[0, 0, 0], Any[3]],
-                    0xaf78291a35dbf59f => Any[Any[1], Any[0, 0, 0], Any[3]],
-                    0x1587ae9a953d6420 => Any[Any[1], Any[0], Any[3, 0]],
-                    0xd8a035e1bafc733b => Any[Any[1, 1], Any[], Any[3]],
-                    0x4798c578c6551c36 => Any[Any[1], Any[], Any[3, 0, 0]],
-                    0x2104fdef0e161adc => Any[Any[1], Any[0], Any[3]],
-                    0x985db617f1b898a2 => Any[Any[1, 1], Any[], Any[3, 0, 0]],
-                    0xa2bf418f40b96d43 => Any[Any[], Any[0], Any[3, 0]],
-                    0x24f657c69402ff66 => Any[Any[1, 1, 1], Any[0], Any[]],
-                    0xc093510f28398df6 => Any[Any[1], Any[0, 0, 0], Any[3, 0, 0]],
-                    0x6496dda12e1a4c36 => Any[Any[1], Any[], Any[]],
-                    0x5b73de666b46ecbf => Any[Any[], Any[0, 0], Any[3, 0]],
-                    0x8dbe9b502cdd76d0 => Any[Any[1, 1], Any[0], Any[3, 0]],
-                    0xeccdc5b37d74b46b => Any[Any[1, 1], Any[0, 0], Any[3, 0, 0]],
-                    0xa3fd43ac20d453b3 => Any[Any[1, 1, 1], Any[0, 0], Any[3]],
+        @test compare_options(
+            run_in_reverse(
+                p,
+                EitherOptions(
+                    Dict{UInt64,Any}(
+                        0x46747a050c3da14d => Any[Any[], Any[0, 0, 0], Any[3, 0, 0]],
+                        0x96b63758bb6f2f0b => Any[Any[], Any[0], Any[3]],
+                        0x83e3ae72ee56d307 => Any[Any[1, 1, 1], Any[0, 0], Any[3, 0]],
+                        0x96ad706bdffc3737 => Any[Any[], Any[0, 0], Any[3]],
+                        0x7d67dcff3642e41d => Any[Any[1, 1, 1], Any[], Any[3, 0, 0]],
+                        0x1c6caff0063cbea3 => Any[Any[1], Any[0, 0, 0], Any[3, 0]],
+                        0x564dd102fdddd0cb => Any[Any[1], Any[], Any[3, 0]],
+                        0x92876fbb2f369411 => Any[Any[], Any[], Any[]],
+                        0x30ec40ac72825976 => Any[Any[1, 1], Any[0, 0, 0], Any[3, 0, 0]],
+                        0x1af6dcc07bf6c7e6 => Any[Any[], Any[], Any[3]],
+                        0x16d70977726635b6 => Any[Any[], Any[0], Any[3, 0, 0]],
+                        0x2546b0a52616f299 => Any[Any[1, 1, 1], Any[0, 0, 0], Any[]],
+                        0xc17d6ba201ce8953 => Any[Any[1], Any[0, 0], Any[]],
+                        0x883c711013d62e1a => Any[Any[1, 1, 1], Any[], Any[3]],
+                        0xe068d4da7cf8aa2b => Any[Any[1], Any[0], Any[3, 0, 0]],
+                        0x7852c6b58b30cd84 => Any[Any[1, 1], Any[0, 0], Any[3]],
+                        0xca38cc2b2e4e1cba => Any[Any[1, 1, 1], Any[], Any[3, 0]],
+                        0x9db664d29a9e8cf7 => Any[Any[1, 1], Any[0, 0], Any[]],
+                        0x6d221685d9c292b2 => Any[Any[1, 1], Any[0, 0, 0], Any[]],
+                        0xc1de4c753cf31b7b => Any[Any[1], Any[], Any[3]],
+                        0xe584794cd7f2f556 => Any[Any[1, 1, 1], Any[0, 0], Any[3, 0, 0]],
+                        0x104d6e2ff7fe3adf => Any[Any[1, 1, 1], Any[0], Any[3, 0]],
+                        0x1db98e0c1aed18d2 => Any[Any[], Any[0, 0, 0], Any[3, 0]],
+                        0x8b93c58bfc4bb95e => Any[Any[], Any[0, 0], Any[3, 0, 0]],
+                        0x40a01147e668e215 => Any[Any[], Any[0, 0, 0], Any[]],
+                        0xb5b7bd276ad64956 => Any[Any[1, 1, 1], Any[0, 0, 0], Any[3]],
+                        0xfa571018db6b0c60 => Any[Any[1, 1], Any[0, 0], Any[3, 0]],
+                        0xdb3ed675876f55cf => Any[Any[1], Any[0, 0], Any[3, 0, 0]],
+                        0x029b206ec0b47b46 => Any[Any[], Any[0, 0], Any[]],
+                        0x96927b2ba8872ddb => Any[Any[1, 1], Any[0], Any[]],
+                        0xfb6ed84453190134 => Any[Any[1], Any[0, 0], Any[3]],
+                        0xae66724471f06c8d => Any[Any[1, 1, 1], Any[], Any[]],
+                        0xbad1f7d92b7bacff => Any[Any[1, 1], Any[0], Any[3, 0, 0]],
+                        0xefe28afb1fe50242 => Any[Any[1, 1, 1], Any[0], Any[3, 0, 0]],
+                        0xb96f2353f661d494 => Any[Any[1, 1], Any[0], Any[3]],
+                        0x1c277604e2641a1f => Any[Any[1], Any[0], Any[]],
+                        0x55a45a5e395b5a0b => Any[Any[1, 1, 1], Any[0], Any[3]],
+                        0xcdfbffee4d6bf9ca => Any[Any[1, 1, 1], Any[0, 0], Any[]],
+                        0x48f8eeda86de1a1f => Any[Any[1, 1], Any[0, 0, 0], Any[3, 0]],
+                        0xcda9647d6dea1da3 => Any[Any[1, 1], Any[], Any[3, 0]],
+                        0x5e7a642a2d1b628d => Any[Any[], Any[], Any[3, 0, 0]],
+                        0x95ac7f8ec5bd538a => Any[Any[1], Any[0, 0, 0], Any[]],
+                        0xfc0a18fbbf73f1e3 => Any[Any[1, 1], Any[0, 0, 0], Any[3]],
+                        0x1d620ec2886f5db8 => Any[Any[1], Any[0, 0], Any[3, 0]],
+                        0x68d354ad42789e5a => Any[Any[], Any[], Any[3, 0]],
+                        0xa6407d4c86f11d55 => Any[Any[1, 1, 1], Any[0, 0, 0], Any[3, 0, 0]],
+                        0xa03b597ef9b4fa7e => Any[Any[], Any[0], Any[]],
+                        0x38b087e5087db16a => Any[Any[1, 1, 1], Any[0, 0, 0], Any[3, 0]],
+                        0xd55627c8129d95ea => Any[Any[1, 1], Any[], Any[]],
+                        0x3c60c45fbc886d7a => Any[Any[], Any[0, 0, 0], Any[3]],
+                        0xaf78291a35dbf59f => Any[Any[1], Any[0, 0, 0], Any[3]],
+                        0x1587ae9a953d6420 => Any[Any[1], Any[0], Any[3, 0]],
+                        0xd8a035e1bafc733b => Any[Any[1, 1], Any[], Any[3]],
+                        0x4798c578c6551c36 => Any[Any[1], Any[], Any[3, 0, 0]],
+                        0x2104fdef0e161adc => Any[Any[1], Any[0], Any[3]],
+                        0x985db617f1b898a2 => Any[Any[1, 1], Any[], Any[3, 0, 0]],
+                        0xa2bf418f40b96d43 => Any[Any[], Any[0], Any[3, 0]],
+                        0x24f657c69402ff66 => Any[Any[1, 1, 1], Any[0], Any[]],
+                        0xc093510f28398df6 => Any[Any[1], Any[0, 0, 0], Any[3, 0, 0]],
+                        0x6496dda12e1a4c36 => Any[Any[1], Any[], Any[]],
+                        0x5b73de666b46ecbf => Any[Any[], Any[0, 0], Any[3, 0]],
+                        0x8dbe9b502cdd76d0 => Any[Any[1, 1], Any[0], Any[3, 0]],
+                        0xeccdc5b37d74b46b => Any[Any[1, 1], Any[0, 0], Any[3, 0, 0]],
+                        0xa3fd43ac20d453b3 => Any[Any[1, 1, 1], Any[0, 0], Any[3]],
+                    ),
+                ),
+            ),
+            Dict{UInt64,Any}(
+                0x0000000000000001 => EitherOptions(
+                    Dict{UInt64,Any}(
+                        0xa6407d4c86f11d55 => Any[1 1 1; 0 0 0; 3 0 0],
+                        0xfa571018db6b0c60 => Any[1 1; 0 0; 3 0],
+                        0x2104fdef0e161adc => Any[1; 0; 3;;],
+                        0x92876fbb2f369411 => Matrix{Any}(undef, 3, 0),
+                    ),
                 ),
             ),
         )

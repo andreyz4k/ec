@@ -113,6 +113,9 @@ end
 struct EitherOptions
     options::Dict{UInt64,Any}
     function EitherOptions(options)
+        if isempty(options)
+            error("No options")
+        end
         first_value = first(values(options))
         if all(v -> v == first_value, values(options))
             return first_value
@@ -137,7 +140,7 @@ function _get_fixed_hashes(options::EitherOptions, value)
 end
 
 function _get_fixed_hashes(options, value)
-    _match_value(options, value), Set()
+    _match_value(options, value) || _match_value(value, options), Set()
 end
 
 function get_fixed_hashes(options, value)
@@ -363,6 +366,9 @@ function matching_with_unknown_candidates(sc, entry::EitherEntry, var_id)
 
     results
 end
+
+all_options(entry::EitherOptions) = union([all_options(op) for (_, op) in entry.options]...)
+all_options(value) = Set([value])
 
 function _const_options(options::EitherOptions)
     return vcat([_const_options(op) for (_, op) in options.options]...)

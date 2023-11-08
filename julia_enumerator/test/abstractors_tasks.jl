@@ -299,13 +299,13 @@ using solver: load_problems, enumerate_for_task
                 Dict{String,Any}(
                     "logProbability" => 0.0,
                     "expression" => "tuple2_first",
-                    "is_reversible" => false,
+                    "is_reversible" => true,
                     "type" => "tuple2(t0, t1) -> t0",
                 ),
                 Dict{String,Any}(
                     "logProbability" => 0.0,
                     "expression" => "tuple2_second",
-                    "is_reversible" => false,
+                    "is_reversible" => true,
                     "type" => "tuple2(t0, t1) -> t1",
                 ),
                 Dict{String,Any}(

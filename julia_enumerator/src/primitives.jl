@@ -76,8 +76,6 @@ _is_prime(n) = in(
 )
 @define_primitive("index", arrow(tint, tlist(t0), t0), (j -> (l -> l[j])))
 @define_primitive("index2", arrow(tint, tint, tgrid(t0), t0), (i -> (j -> (l -> l[i, j]))))
-@define_primitive("tuple2_first", arrow(ttuple2(t0, t1), t0), (t -> t[1]))
-@define_primitive("tuple2_second", arrow(ttuple2(t0, t1), t1), (t -> t[2]))
 @define_primitive("length", arrow(tlist(t0), tint), length)
 @define_primitive("height", arrow(tgrid(t0), tint), (g -> size(g, 1)))
 @define_primitive("width", arrow(tgrid(t0), tint), (g -> size(g, 2)))

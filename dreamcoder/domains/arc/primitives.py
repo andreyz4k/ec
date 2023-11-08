@@ -531,8 +531,10 @@ def basePrimitives():
             is_reversible=True,
         ),
         Primitive("tuple2", arrow(t0, t1, ttuple2(t0, t1)), None, is_reversible=True),
-        Primitive("tuple2_first", arrow(ttuple2(t0, t1), t0), None),
-        Primitive("tuple2_second", arrow(ttuple2(t0, t1), t1), None),
+        Primitive("tuple2_first", arrow(ttuple2(t0, t1), t0), None, is_reversible=True),
+        Primitive(
+            "tuple2_second", arrow(ttuple2(t0, t1), t1), None, is_reversible=True
+        ),
         Primitive("reverse", arrow(tlist(t0), tlist(t0)), None, is_reversible=True),
         Primitive(
             "rev_fold",

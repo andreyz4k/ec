@@ -171,349 +171,162 @@ end
 
 ReverseRunContext() = ReverseRunContext([], [], [], Dict(), Dict())
 
-function _merge_options_paths(path1, path2)
-    i = 1
-    j = 1
-    result = []
-    while i <= length(path1) || j <= length(path2)
-        if i > length(path1)
-            push!(result, path2[j])
-            j += 1
-        elseif j > length(path2)
-            push!(result, path1[i])
-            i += 1
-        elseif path1[i] == path2[j]
-            push!(result, path1[i])
-            i += 1
-            j += 1
-        else
-            push!(result, path1[i])
-            i += 1
-        end
-    end
-    return result
+struct UnifyError <: Exception end
+
+_unify_values(v1, v2::AnyObject, check_pattern) = v1
+_unify_values(v1::AnyObject, v2, check_pattern) = v2
+_unify_values(v1::AnyObject, v2::AnyObject, check_pattern) = v2
+
+_unify_values(v1::PatternWrapper, v2, check_pattern) = _wrap_wildcard(_unify_values(v1.value, v2, true))
+_unify_values(v1, v2::PatternWrapper, check_pattern) = _wrap_wildcard(_unify_values(v1, v2.value, true))
+_unify_values(v1::PatternWrapper, v2::PatternWrapper, check_pattern) =
+    _wrap_wildcard(_unify_values(v1.value, v2.value, true))
+
+_unify_values(v1::AbductibleValue, v2, check_pattern) = _wrap_abductible(_unify_values(v1.value, v2, true))
+_unify_values(v1, v2::AbductibleValue, check_pattern) = _wrap_abductible(_unify_values(v1, v2.value, true))
+_unify_values(v1::AbductibleValue, v2::AbductibleValue, check_pattern) =
+    _wrap_abductible(_unify_values(v1.value, v2.value, true))
+
+_unify_values(v1::AbductibleValue, v2::PatternWrapper, check_pattern) =
+    _wrap_abductible(_unify_values(v1.value, v2.value, true))
+_unify_values(v1::PatternWrapper, v2::AbductibleValue, check_pattern) =
+    _wrap_abductible(_unify_values(v1.value, v2.value, true))
+
+function _unify_values(v1::EitherOptions, v2::PatternWrapper, check_pattern)
+    @invoke _unify_values(v1::EitherOptions, v2::Any, check_pattern)
 end
 
-function _intersect_values(
-    old_v,
-    v,
-    predicted_arguments,
-    filled_indices,
-    filled_vars,
-    new_args,
-    new_filled_indices,
-    new_filled_vars,
-)
-    if old_v != v
-        error("Can't intersect values $old_v and $v")
-    end
-    return v, predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars
+function _unify_values(v1::EitherOptions, v2::AbductibleValue, check_pattern)
+    @invoke _unify_values(v1::EitherOptions, v2::Any, check_pattern)
 end
 
-function _intersect_values(
-    old_v::Union{AbductibleValue,AnyObject},
-    v,
-    predicted_arguments,
-    filled_indices,
-    filled_vars,
-    new_args,
-    new_filled_indices,
-    new_filled_vars,
-)
-    return v, predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars
-end
-
-function _intersect_values(
-    old_v,
-    v::Union{AbductibleValue,AnyObject},
-    predicted_arguments,
-    filled_indices,
-    filled_vars,
-    new_args,
-    new_filled_indices,
-    new_filled_vars,
-)
-    return old_v, predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars
-end
-
-function _intersect_values(
-    old_v::AbductibleValue,
-    v::Union{AbductibleValue,AnyObject},
-    predicted_arguments,
-    filled_indices,
-    filled_vars,
-    new_args,
-    new_filled_indices,
-    new_filled_vars,
-)
-    return old_v, predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars
-end
-
-function _intersect_values(
-    old_v::Union{AbductibleValue,AnyObject},
-    v::AbductibleValue,
-    predicted_arguments,
-    filled_indices,
-    filled_vars,
-    new_args,
-    new_filled_indices,
-    new_filled_vars,
-)
-    return v, predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars
-end
-
-function _intersect_values(
-    old_v::Union{AbductibleValue,AnyObject},
-    v::EitherOptions,
-    predicted_arguments,
-    filled_indices,
-    filled_vars,
-    new_args,
-    new_filled_indices,
-    new_filled_vars,
-)
-    return v, predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars
-end
-
-function _intersect_values(
-    old_v::EitherOptions,
-    v::Union{AbductibleValue,AnyObject},
-    predicted_arguments,
-    filled_indices,
-    filled_vars,
-    new_args,
-    new_filled_indices,
-    new_filled_vars,
-)
-    return old_v, predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars
-end
-
-_unify_values(v1, v2::AnyObject) = v1
-_unify_values(v1::AnyObject, v2) = v2
-_unify_values(v1::AnyObject, v2::AnyObject) = v2
-
-function _unify_values(v1::EitherOptions, v2::EitherOptions)
+function _unify_values(v1::EitherOptions, v2, check_pattern)
     options = Dict()
     for (h, v) in v1.options
-        if haskey(v2.options, h)
-            options[h] = _unify_values(v, v2.options[h])
-        end
-    end
-    return EitherOptions(options)
-end
-
-function _unify_values(v1, v2)
-    if v1 == v2
-        return v1
-    end
-    error("Incompatible values")
-end
-
-function _intersect_values(
-    old_v::EitherOptions,
-    v::EitherOptions,
-    predicted_arguments,
-    filled_indices,
-    filled_vars,
-    new_args,
-    new_filled_indices,
-    new_filled_vars,
-)
-    if old_v == v
-        return predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars
-    end
-    # @info old_v
-    # @info v
-    old_options = Set(_const_options(old_v))
-    new_options = Set(_const_options(v))
-    common_options = intersect(old_options, new_options)
-    paths = Set()
-    # @info common_options
-    for op in common_options
-        # @info op
-        old_op_fixed_hashes = Set()
-        new_op_fixed_hashes = Set()
         try
-            while true
-                old_op_fixed_hashes_ = get_intersecting_hashes(old_v, op, new_op_fixed_hashes)
-
-                new_op_fixed_hashes_ = get_intersecting_hashes(v, op, old_op_fixed_hashes_)
-                if old_op_fixed_hashes_ == old_op_fixed_hashes && new_op_fixed_hashes_ == new_op_fixed_hashes
-                    break
-                end
-                old_op_fixed_hashes = old_op_fixed_hashes_
-                new_op_fixed_hashes = new_op_fixed_hashes_
-            end
-            # @info old_op_fixed_hashes
-            # @info new_op_fixed_hashes
-            old_op_hashes_paths = get_hashes_paths(old_v, op, new_op_fixed_hashes)
-            # @info old_op_hashes_paths
-
-            for old_path in old_op_hashes_paths
-                # @info old_path
-                new_op_hashes_paths = get_hashes_paths(v, op, old_path)
-                # @info new_op_hashes_paths
-                for new_path in new_op_hashes_paths
-                    push!(paths, _merge_options_paths(old_path, new_path))
-                end
-            end
+            options[h] = _unify_values(v, v2, check_pattern)
         catch e
             if isa(e, InterruptException)
                 rethrow()
             end
         end
     end
-    if isempty(common_options) || isempty(paths)
-        error("No common options")
-    end
-    # @info paths
-    # @info predicted_arguments
-    predicted_arguments = [remap_options_hashes(paths, arg) for arg in predicted_arguments]
-    filled_indices = Dict{Int64,Any}(i => remap_options_hashes(paths, v) for (i, v) in filled_indices)
-    filled_vars = Dict{UInt64,Any}(k => remap_options_hashes(paths, v) for (k, v) in filled_vars)
-
-    new_args = [remap_options_hashes(paths, arg) for arg in new_args]
-    new_filled_indices = Dict{Int64,Any}(i => remap_options_hashes(paths, v) for (i, v) in new_filled_indices)
-    new_filled_vars = Dict{UInt64,Any}(k => remap_options_hashes(paths, v) for (k, v) in new_filled_vars)
-
-    r1 = remap_options_hashes(paths, v)
-    r2 = remap_options_hashes(paths, old_v)
-    # @info r1
-    # @info r2
-    # @info _unify_values(r1, r2)
-
-    return _unify_values(r1, r2),
-    predicted_arguments,
-    filled_indices,
-    filled_vars,
-    new_args,
-    new_filled_indices,
-    new_filled_vars
+    return EitherOptions(options)
 end
 
-function _intersect_values(
-    old_v::EitherOptions,
-    v,
-    predicted_arguments,
-    filled_indices,
-    filled_vars,
-    new_args,
-    new_filled_indices,
-    new_filled_vars,
-)
-    fixed_hashes = get_fixed_hashes(old_v, v)
-
-    predicted_arguments = [fix_option_hashes(fixed_hashes, arg) for arg in predicted_arguments]
-    filled_indices = Dict{Int64,Any}(i => fix_option_hashes(fixed_hashes, v) for (i, v) in filled_indices)
-    filled_vars = Dict{UInt64,Any}(k => fix_option_hashes(fixed_hashes, v) for (k, v) in filled_vars)
-    new_args = [fix_option_hashes(fixed_hashes, arg) for arg in new_args]
-    new_filled_indices = Dict{Int64,Any}(i => fix_option_hashes(fixed_hashes, v) for (i, v) in new_filled_indices)
-    new_filled_vars = Dict{UInt64,Any}(k => fix_option_hashes(fixed_hashes, v) for (k, v) in new_filled_vars)
-    return v, predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars
+function _unify_values(v1::PatternWrapper, v2::EitherOptions, check_pattern)
+    @invoke _unify_values(v1::Any, v2::EitherOptions, check_pattern)
 end
 
-function _intersect_values(
-    old_v,
-    v::EitherOptions,
-    predicted_arguments,
-    filled_indices,
-    filled_vars,
-    new_args,
-    new_filled_indices,
-    new_filled_vars,
-)
-    new_v, new_args, new_filled_indices, new_filled_vars, predicted_arguments, filled_indices, filled_vars =
-        _intersect_values(
-            v,
-            old_v,
-            new_args,
-            new_filled_indices,
-            new_filled_vars,
-            predicted_arguments,
-            filled_indices,
-            filled_vars,
-        )
-    return new_v, predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars
+function _unify_values(v1::AbductibleValue, v2::EitherOptions, check_pattern)
+    @invoke _unify_values(v1::Any, v2::EitherOptions, check_pattern)
 end
 
-function _intersect_values(
-    predicted_arguments,
-    filled_indices,
-    filled_vars,
-    new_args,
-    new_filled_indices,
-    new_filled_vars,
-)
-    for (i, v) in new_filled_indices
-        if haskey(filled_indices, i) && filled_indices[i] != v
-            new_v, predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars =
-                _intersect_values(
-                    filled_indices[i],
-                    v,
-                    predicted_arguments,
-                    filled_indices,
-                    filled_vars,
-                    new_args,
-                    new_filled_indices,
-                    new_filled_vars,
-                )
-            filled_indices[i] = new_v
-            new_filled_indices[i] = new_v
+function _unify_values(v1, v2::EitherOptions, check_pattern)
+    options = Dict()
+    for (h, v) in v2.options
+        try
+            options[h] = _unify_values(v1, v, check_pattern)
+        catch e
+            if isa(e, InterruptException)
+                rethrow()
+            end
         end
     end
-    for (k, v) in new_filled_vars
-        if haskey(filled_vars, k) && filled_vars[k] != v
-            new_v, predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars =
-                _intersect_values(
-                    filled_vars[k],
-                    v,
-                    predicted_arguments,
-                    filled_indices,
-                    filled_vars,
-                    new_args,
-                    new_filled_indices,
-                    new_filled_vars,
-                )
-            filled_vars[k] = new_v
-            new_filled_vars[k] = new_v
+    return EitherOptions(options)
+end
+
+function _unify_values(v1::EitherOptions, v2::EitherOptions, check_pattern)
+    options = Dict()
+    for (h, v) in v1.options
+        if haskey(v2.options, h)
+            options[h] = _unify_values(v, v2.options[h], check_pattern)
         end
     end
-    return predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars
+    return EitherOptions(options)
 end
 
-function _run_in_reverse(p::Primitive, output, context)
-    # @info "Running in reverse $p $output $context"
-    calculated_output, new_context = all_abstractors[p][2](output, context)
-    context.predicted_arguments,
-    context.filled_indices,
-    context.filled_vars,
-    new_args,
-    new_filled_indices,
-    new_filled_vars = _intersect_values(
-        context.predicted_arguments,
-        context.filled_indices,
-        context.filled_vars,
-        new_context.predicted_arguments,
-        new_context.filled_indices,
-        new_context.filled_vars,
-    )
-    if !isempty(new_filled_indices)
-        context.filled_indices = merge(context.filled_indices, new_filled_indices)
+function _unify_values(v1, v2, check_pattern)
+    if v1 == v2
+        return v1
     end
-    if !isempty(new_filled_vars)
-        context.filled_vars = merge(context.filled_vars, new_filled_vars)
-    end
-    context.predicted_arguments = vcat(context.predicted_arguments, reverse(new_args))
-
-    return calculated_output, context
+    throw(UnifyError())
 end
 
-function _run_in_reverse(p::Primitive, output::AbductibleValue, context)
-    # @info "Running in reverse $p $output $context"
-    for _ in 1:length(arguments_of_type(p.t))
-        push!(context.predicted_arguments, output)
+function _unify_values(v1::Array, v2::Array, check_pattern)
+    if length(v1) != length(v2)
+        throw(UnifyError())
     end
-    return output, context
+    if v1 == v2
+        return v1
+    end
+    if !check_pattern
+        throw(UnifyError())
+    end
+    return [_unify_values(v1[i], v2[i], check_pattern) for i in 1:length(v1)]
+end
+
+function _unify_values(v1::Tuple, v2::Tuple, check_pattern)
+    if length(v1) != length(v2)
+        throw(UnifyError())
+    end
+    if v1 == v2
+        return v1
+    end
+    if !check_pattern
+        throw(UnifyError())
+    end
+    return tuple((_unify_values(v1[i], v2[i], check_pattern) for i in 1:length(v1))...)
+end
+
+function _unify_values(v1::Set, v2::Set, check_pattern)
+    if length(v1) != length(v2)
+        throw(UnifyError())
+    end
+    if v1 == v2
+        return v1
+    end
+    if !check_pattern
+        throw(UnifyError())
+    end
+    options = []
+    f_v = first(v1)
+    if in(f_v, v2)
+        rest = _unify_values(v1 - Set([f_v]), v2 - Set([f_v]), check_pattern)
+        if isa(rest, EitherOptions)
+            for (h, v) in rest.options
+                push!(options, union(Set([f_v]), v))
+            end
+        else
+            push!(rest, f_v)
+            return rest
+        end
+    else
+        for v in v2
+            try
+                unified_v = _unify_values(f_v, v, check_pattern)
+                rest = _unify_values(v1 - Set([f_v]), v2 - Set([v]), check_pattern)
+                if isa(rest, EitherOptions)
+                    for (h, val) in rest.options
+                        push!(options, union(Set([unified_v]), val))
+                    end
+                else
+                    push!(options, union(Set([unified_v]), rest))
+                end
+            catch e
+                if isa(e, InterruptException)
+                    rethrow()
+                end
+            end
+        end
+    end
+    if isempty(options)
+        throw(UnifyError())
+    elseif length(options) == 1
+        return options[1]
+    else
+        return EitherOptions(Dict(rand(UInt64) => option for option in options))
+    end
 end
 
 function _preprocess_options(args_options, output)
@@ -525,69 +338,57 @@ function _preprocess_options(args_options, output)
             end
         end
     end
-    if any(out == output for out in values(args_options))
-        return output
-    else
-        return EitherOptions(args_options)
-    end
+    return EitherOptions(args_options)
 end
 
-function _run_in_reverse(p::Primitive, output::EitherOptions, context)
+function _run_in_reverse(p, output, context, splitter::EitherOptions)
     # @info "Running in reverse $p $output $context"
     output_options = Dict()
     arguments_options = Dict[]
     filled_indices_options = DefaultDict(() -> Dict())
     filled_vars_options = DefaultDict(() -> Dict())
-    for (h, val) in output.options
+    for (h, _) in splitter.options
         fixed_hashes = Set([h])
         op_calculated_arguments = [fix_option_hashes(fixed_hashes, v) for v in context.calculated_arguments]
         op_predicted_arguments = [fix_option_hashes(fixed_hashes, v) for v in context.predicted_arguments]
         op_filled_indices = Dict(i => fix_option_hashes(fixed_hashes, v) for (i, v) in context.filled_indices)
         op_filled_vars = Dict(k => fix_option_hashes(fixed_hashes, v) for (k, v) in context.filled_vars)
 
-        calculated_output, new_context = _run_in_reverse(
-            p,
-            val,
-            ReverseRunContext(
-                context.arguments,
-                op_predicted_arguments,
-                op_calculated_arguments,
-                op_filled_indices,
-                op_filled_vars,
-            ),
-        )
-
-        predicted_arguments_op, filled_indices_op, filled_vars_op, new_args, new_filled_indices, new_filled_vars =
-            _intersect_values(
-                op_predicted_arguments,
-                op_filled_indices,
-                op_filled_vars,
-                new_context.predicted_arguments,
-                new_context.filled_indices,
-                new_context.filled_vars,
+        try
+            calculated_output, new_context = _run_in_reverse(
+                p,
+                fix_option_hashes(fixed_hashes, output),
+                ReverseRunContext(
+                    context.arguments,
+                    op_predicted_arguments,
+                    op_calculated_arguments,
+                    op_filled_indices,
+                    op_filled_vars,
+                ),
             )
 
-        if isempty(arguments_options)
-            for _ in 1:(length(new_args))
-                push!(arguments_options, Dict())
+            if isempty(arguments_options)
+                for _ in 1:(length(new_context.predicted_arguments))
+                    push!(arguments_options, Dict())
+                end
             end
-        end
-        output_options[h] = calculated_output
+            output_options[h] = calculated_output
 
-        for i in 1:length(new_args)
-            arguments_options[i][h] = new_args[i]
-        end
-        for (i, v) in filled_indices_op
-            filled_indices_options[i][h] = v
-        end
-        for (k, v) in filled_vars_op
-            filled_vars_options[k][h] = v
-        end
-        for (i, v) in new_filled_indices
-            filled_indices_options[i][h] = v
-        end
-        for (k, v) in new_filled_vars
-            filled_vars_options[k][h] = v
+            for i in 1:length(new_context.predicted_arguments)
+                arguments_options[i][h] = new_context.predicted_arguments[i]
+            end
+            for (i, v) in new_context.filled_indices
+                filled_indices_options[i][h] = v
+            end
+            for (k, v) in new_context.filled_vars
+                filled_vars_options[k][h] = v
+            end
+        catch e
+            if isa(e, InterruptException) || isa(e, MethodError)
+                rethrow()
+            end
+            # bt = catch_backtrace()
+            # @error "Got error" exception = (e, bt)
         end
     end
 
@@ -617,66 +418,70 @@ function _run_in_reverse(p::Primitive, output::EitherOptions, context)
     return EitherOptions(output_options), out_context
 end
 
-function _run_in_reverse(p::Primitive, output::PatternWrapper, context)
-    # @info "Running in reverse $p $output $context"
-    calculated_output, new_context = _run_in_reverse(p, output.value, context)
-
-    predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars = _intersect_values(
-        context.predicted_arguments,
-        context.filled_indices,
-        context.filled_vars,
-        new_context.predicted_arguments,
-        new_context.filled_indices,
-        new_context.filled_vars,
-    )
-    if !isempty(new_filled_indices)
-        context.filled_indices = merge(filled_indices, new_filled_indices)
-    end
-    if !isempty(new_filled_vars)
-        context.filled_vars = merge(filled_vars, new_filled_vars)
-    end
-
-    context.predicted_arguments = [_wrap_wildcard(arg) for arg in new_args]
-
-    return _wrap_wildcard(calculated_output), context
+function _run_in_reverse(p, output::EitherOptions, context)
+    return _run_in_reverse(p, output, context, output)
 end
 
-function _run_in_reverse(p::Primitive, output::Union{Nothing,AnyObject}, context)
+function _run_in_reverse(p, output, context)
+    for (i, v) in context.filled_indices
+        if isa(v, EitherOptions)
+            return _run_in_reverse(p, output, context, v)
+        end
+    end
+    for (k, v) in context.filled_vars
+        if isa(v, EitherOptions)
+            return _run_in_reverse(p, output, context, v)
+        end
+    end
+    return __run_in_reverse(p, output, context)
+end
+
+function __run_in_reverse(p::Primitive, output, context)
+    # @info "Running in reverse $p $output $context"
+    return all_abstractors[p][2](output, context)
+end
+
+function __run_in_reverse(p::Primitive, output::AbductibleValue, context)
+    # @info "Running in reverse $p $output $context"
+    for _ in 1:length(arguments_of_type(p.t))
+        push!(context.predicted_arguments, output)
+    end
+    return output, context
+end
+
+function __run_in_reverse(p::Primitive, output::PatternWrapper, context)
+    # @info "Running in reverse $p $output $context"
+    calculated_output, new_context = __run_in_reverse(p, output.value, context)
+
+    new_context.predicted_arguments = [_wrap_wildcard(arg) for arg in new_context.predicted_arguments]
+
+    return _wrap_wildcard(calculated_output), new_context
+end
+
+function __run_in_reverse(p::Primitive, output::Union{Nothing,AnyObject}, context)
     # @info "Running in reverse $p $output $context"
     try
-        calculated_output, new_context = all_abstractors[p][2](output, context)
-        predicted_arguments, filled_indices, filled_vars, new_args, new_filled_indices, new_filled_vars =
-            _intersect_values(
-                context.predicted_arguments,
-                context.filled_indices,
-                context.filled_vars,
-                new_context.predicted_arguments,
-                new_context.filled_indices,
-                new_context.filled_vars,
-            )
-        if !isempty(new_filled_indices)
-            context.filled_indices = merge(filled_indices, filled_indices)
-        end
-        if !isempty(new_filled_vars)
-            context.filled_vars = merge(filled_vars, filled_vars)
-        end
-        context.predicted_arguments = vcat(predicted_arguments, reverse(new_args))
-        return calculated_output, context
+        return all_abstractors[p][2](output, context)
     catch e
         # @info e
         # bt = catch_backtrace()
         # @error e exception = (e, bt)
         if isa(e, MethodError)
-            context.predicted_arguments =
-                vcat(context.predicted_arguments, [output for _ in 1:length(arguments_of_type(p.t))])
-            return output, context
+            return output,
+            ReverseRunContext(
+                context.arguments,
+                vcat(context.predicted_arguments, [output for _ in 1:length(arguments_of_type(p.t))]),
+                context.calculated_arguments,
+                context.filled_indices,
+                context.filled_vars,
+            )
         else
             rethrow()
         end
     end
 end
 
-function _run_in_reverse(p::Apply, output::AbductibleValue, context)
+function __run_in_reverse(p::Apply, output::AbductibleValue, context)
     # @info "Running in reverse $p $output $context"
     env = Any[nothing for _ in 1:maximum(keys(context.filled_indices); init = 0)]
     for (i, v) in context.filled_indices
@@ -693,61 +498,63 @@ function _run_in_reverse(p::Apply, output::AbductibleValue, context)
         if e isa InterruptException
             rethrow()
         end
-        return @invoke _run_in_reverse(p::Apply, output::Any, context)
+        return @invoke __run_in_reverse(p::Apply, output::Any, context)
     end
 end
 
-function _run_in_reverse(p::Apply, output, context)
+function __run_in_reverse(p::Apply, output, context)
     # @info "Running in reverse $p $output $context"
-    push!(context.arguments, p.x)
-    push!(context.calculated_arguments, missing)
-    original_predicted_arguments = copy(context.predicted_arguments)
-    calculated_output, context = _run_in_reverse(p.f, output, context)
-    pop!(context.arguments)
-    pop!(context.calculated_arguments)
-    arg_target = pop!(context.predicted_arguments)
+    calculated_output, arg_context = _run_in_reverse(
+        p.f,
+        output,
+        ReverseRunContext(
+            vcat(context.arguments, [p.x]),
+            context.predicted_arguments,
+            vcat(context.calculated_arguments, [missing]),
+            context.filled_indices,
+            context.filled_vars,
+        ),
+    )
+    pop!(arg_context.arguments)
+    pop!(arg_context.calculated_arguments)
+    arg_target = pop!(arg_context.predicted_arguments)
     if arg_target isa SkipArg
-        return calculated_output, context
+        return calculated_output, arg_context
     end
-    arg_calculated_output, context = _run_in_reverse(p.x, arg_target, context)
-    # while arg_calculated_output != arg_target
+    arg_calculated_output, out_context = _run_in_reverse(p.x, arg_target, arg_context)
+
     if arg_target isa AbductibleValue && arg_calculated_output != arg_target
         # @info "arg_target $arg_target"
         # @info "arg_calculated_output $arg_calculated_output"
-        push!(context.arguments, p.x)
-        push!(context.calculated_arguments, arg_calculated_output)
-        context.predicted_arguments = original_predicted_arguments
-        calculated_output, context = _run_in_reverse(p.f, output, context)
-        pop!(context.arguments)
-        pop!(context.calculated_arguments)
-        arg_target = pop!(context.predicted_arguments)
+        calculated_output, arg_context = _run_in_reverse(
+            p.f,
+            output,
+            ReverseRunContext(
+                vcat(context.arguments, [p.x]),
+                context.predicted_arguments,
+                vcat(context.calculated_arguments, [arg_calculated_output]),
+                out_context.filled_indices,
+                out_context.filled_vars,
+            ),
+        )
+        pop!(arg_context.arguments)
+        pop!(arg_context.calculated_arguments)
+        arg_target = pop!(arg_context.predicted_arguments)
         if arg_target isa SkipArg
-            return calculated_output, context
+            return calculated_output, arg_context
         end
-        arg_calculated_output, context = _run_in_reverse(p.x, arg_target, context)
+        arg_calculated_output, out_context = _run_in_reverse(p.x, arg_target, arg_context)
         # @info "arg_target2 $arg_target"
         # @info "arg_calculated_output2 $arg_calculated_output"
     end
-    return calculated_output, context
+    # @info "Calculated output for $p $calculated_output"
+    return calculated_output, out_context
 end
 
-function _run_in_reverse(p::FreeVar, output, context)
+function __run_in_reverse(p::FreeVar, output, context)
     # @info "Running in reverse $p $output $context"
     if haskey(context.filled_vars, p.var_id)
-        context.predicted_arguments,
-        context.filled_indices,
-        filled_vars,
-        new_args,
-        new_filled_indices,
-        new_filled_vars = _intersect_values(
-            context.predicted_arguments,
-            context.filled_indices,
-            context.filled_vars,
-            [],
-            Dict(),
-            Dict{UInt64,Any}(p.var_id => output),
-        )
-        context.filled_vars = merge(filled_vars, new_filled_vars)
+        context.filled_vars[p.var_id] = _unify_values(context.filled_vars[p.var_id], output, false)
     else
         context.filled_vars[p.var_id] = output
     end
@@ -755,23 +562,10 @@ function _run_in_reverse(p::FreeVar, output, context)
     return context.filled_vars[p.var_id], context
 end
 
-function _run_in_reverse(p::Index, output, context)
+function __run_in_reverse(p::Index, output, context)
     # @info "Running in reverse $p $output $context"
     if haskey(context.filled_indices, p.n)
-        context.predicted_arguments,
-        filled_indices,
-        context.filled_vars,
-        new_args,
-        new_filled_indices,
-        new_filled_vars = _intersect_values(
-            context.predicted_arguments,
-            context.filled_indices,
-            context.filled_vars,
-            [],
-            Dict{UInt64,Any}(p.n => output),
-            Dict(),
-        )
-        context.filled_indices = merge(filled_indices, new_filled_indices)
+        context.filled_indices[p.n] = _unify_values(context.filled_indices[p.n], output, false)
     else
         context.filled_indices[p.n] = output
     end
@@ -779,27 +573,32 @@ function _run_in_reverse(p::Index, output, context)
     return context.filled_indices[p.n], context
 end
 
-function _run_in_reverse(p::Invented, output, context)
-    return _run_in_reverse(p.b, output, context)
+function __run_in_reverse(p::Invented, output, context)
+    return __run_in_reverse(p.b, output, context)
 end
 
-function _run_in_reverse(p::Abstraction, output, context::ReverseRunContext)
+function __run_in_reverse(p::Abstraction, output, context::ReverseRunContext)
     # @info "Running in reverse $p $output $context"
-    context.filled_indices = Dict{Int64,Any}(i + 1 => v for (i, v) in context.filled_indices)
+    in_filled_indices = Dict{Int64,Any}(i + 1 => v for (i, v) in context.filled_indices)
     if !ismissing(context.calculated_arguments[end])
-        context.filled_indices[0] = context.calculated_arguments[end]
+        in_filled_indices[0] = context.calculated_arguments[end]
     end
-    pop!(context.calculated_arguments)
-    calculated_output, context = _run_in_reverse(p.b, output, context)
-    push!(context.predicted_arguments, context.filled_indices[0])
-    push!(context.calculated_arguments, calculated_output)
+    calculated_output, out_context = _run_in_reverse(
+        p.b,
+        output,
+        ReverseRunContext(
+            context.arguments,
+            context.predicted_arguments,
+            context.calculated_arguments[1:end-1],
+            in_filled_indices,
+            context.filled_vars,
+        ),
+    )
+    push!(out_context.predicted_arguments, out_context.filled_indices[0])
+    push!(out_context.calculated_arguments, calculated_output)
 
-    context.filled_indices = Dict{Int64,Any}(i - 1 => v for (i, v) in context.filled_indices if i > 0)
-    return output, context
-end
-
-function _run_in_reverse(p::Program, output)
-    return _run_in_reverse(p, output, ReverseRunContext())
+    out_context.filled_indices = Dict{Int64,Any}(i - 1 => v for (i, v) in out_context.filled_indices if i > 0)
+    return output, out_context
 end
 
 function run_in_reverse(p::Program, output)
@@ -832,6 +631,24 @@ function _wrap_wildcard(v::EitherOptions)
     return EitherOptions(options)
 end
 
+_wrap_abductible(v::AbductibleValue) = v
+
+function _wrap_abductible(v)
+    if _has_wildcard(v)
+        return AbductibleValue(v)
+    else
+        return v
+    end
+end
+
+function _wrap_abductible(v::EitherOptions)
+    options = Dict()
+    for (h, op) in v.options
+        options[h] = _wrap_abductible(op)
+    end
+    return EitherOptions(options)
+end
+
 macro define_reverse_primitive(name, t, x, reverse_function)
     return quote
         local n = $(esc(name))
@@ -841,7 +658,13 @@ macro define_reverse_primitive(name, t, x, reverse_function)
         (
             (v, ctx) -> (
                 v,
-                ReverseRunContext(ctx.arguments, $(esc(reverse_function))(v), ctx.calculated_arguments, Dict(), Dict()),
+                ReverseRunContext(
+                    ctx.arguments,
+                    vcat(ctx.predicted_arguments, reverse($(esc(reverse_function))(v))),
+                    ctx.calculated_arguments,
+                    ctx.filled_indices,
+                    ctx.filled_vars,
+                ),
             )
         )
     end
@@ -864,6 +687,18 @@ function _generic_abductible_reverse(f, n, value, calculated_arguments, i, calcu
     results = [EitherOptions(Dict(h => v[j] for (h, v) in outputs)) for j in 1:n]
     # @info results
     return results
+end
+
+function _generic_abductible_reverse(f, n, value, calculated_arguments, i, calculated_arg::PatternWrapper)
+    new_args = [j == length(calculated_arguments) - i ? arg.value : arg for (j, arg) in enumerate(calculated_arguments)]
+    results = _generic_abductible_reverse(f, n, value, new_args, i, calculated_arg.value)
+    return [_wrap_wildcard(r) for r in results]
+end
+
+function _generic_abductible_reverse(f, n, value, calculated_arguments, i, calculated_arg::AbductibleValue)
+    new_args = [j == length(calculated_arguments) - i ? arg.value : arg for (j, arg) in enumerate(calculated_arguments)]
+    results = _generic_abductible_reverse(f, n, value, new_args, i, calculated_arg.value)
+    return [_wrap_abductible(r) for r in results]
 end
 
 function _generic_abductible_reverse(f, n, value, calculated_arguments, i, calculated_arg::AnyObject)
@@ -908,15 +743,20 @@ macro define_abductible_reverse_primitive(name, t, x, reverse_function)
                 v,
                 ReverseRunContext(
                     ctx.arguments,
-                    _generic_abductible_reverse(
-                        $(esc(reverse_function)),
-                        length(arguments_of_type($(esc(t)))),
-                        v,
-                        ctx.calculated_arguments,
+                    vcat(
+                        ctx.predicted_arguments,
+                        reverse(
+                            _generic_abductible_reverse(
+                                $(esc(reverse_function)),
+                                length(arguments_of_type($(esc(t)))),
+                                v,
+                                ctx.calculated_arguments,
+                            ),
+                        ),
                     ),
                     ctx.calculated_arguments,
-                    Dict(),
-                    Dict(),
+                    ctx.filled_indices,
+                    ctx.filled_vars,
                 ),
             )
         )

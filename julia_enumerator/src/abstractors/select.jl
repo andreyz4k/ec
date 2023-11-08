@@ -112,22 +112,19 @@ function reverse_rev_select()
             out_base = EitherOptions(options_base)
             out_others = EitherOptions(options_others)
 
-            if isa(f.b.x, FreeVar)
-                result_vars = Dict(f.b.x.var_id => out_selector)
-                result_indices = Dict()
-            else
-                result_vars = Dict()
-                result_indices = Dict(f.b.x.n => out_selector)
-            end
-
-            return value,
-            ReverseRunContext(
-                context.arguments,
-                [SkipArg(), out_base, out_others],
-                context.calculated_arguments,
-                result_indices,
-                result_vars,
+            _, out_context = _run_in_reverse(
+                f.b.x,
+                out_selector,
+                ReverseRunContext(
+                    context.arguments,
+                    vcat(context.predicted_arguments, [out_others, out_base, SkipArg()]),
+                    context.calculated_arguments,
+                    context.filled_indices,
+                    context.filled_vars,
+                ),
             )
+
+            return value, out_context
         else
             results_base = Array{Any}(undef, size(value)...)
             results_others = Array{Any}(undef, size(value)...)
@@ -146,10 +143,10 @@ function reverse_rev_select()
             return value,
             ReverseRunContext(
                 context.arguments,
-                [SkipArg(), PatternWrapper(results_base), results_others],
+                vcat(context.predicted_arguments, [results_others, PatternWrapper(results_base), SkipArg()]),
                 context.calculated_arguments,
-                Dict(),
-                Dict(),
+                context.filled_indices,
+                context.filled_vars,
             )
         end
     end
@@ -224,22 +221,19 @@ function reverse_rev_select_set()
             out_base = EitherOptions(options_base)
             out_others = EitherOptions(options_others)
 
-            if isa(f.b.x, FreeVar)
-                result_vars = Dict(f.b.x.var_id => out_selector)
-                result_indices = Dict()
-            else
-                result_vars = Dict()
-                result_indices = Dict(f.b.x.n => out_selector)
-            end
-
-            return value,
-            ReverseRunContext(
-                context.arguments,
-                [SkipArg(), out_base, out_others],
-                context.calculated_arguments,
-                result_indices,
-                result_vars,
+            _, out_context = _run_in_reverse(
+                f.b.x,
+                out_selector,
+                ReverseRunContext(
+                    context.arguments,
+                    vcat(context.predicted_arguments, [out_others, out_base, SkipArg()]),
+                    context.calculated_arguments,
+                    context.filled_indices,
+                    context.filled_vars,
+                ),
             )
+
+            return value, out_context
         else
             results_base = Set()
             results_others = Set()
@@ -256,10 +250,10 @@ function reverse_rev_select_set()
             return value,
             ReverseRunContext(
                 context.arguments,
-                [SkipArg(), results_base, results_others],
+                vcat(context.predicted_arguments, [results_others, results_base, SkipArg()]),
                 context.calculated_arguments,
-                Dict(),
-                Dict(),
+                context.filled_indices,
+                context.filled_vars,
             )
         end
     end

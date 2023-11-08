@@ -1,3 +1,21 @@
+function unfold_options(args::Vector, indices::Dict, vars::Dict)
+    if all(x -> !isa(x, EitherOptions), args)
+        return [(args, indices, vars)]
+    end
+    result = []
+    for item in args
+        if isa(item, EitherOptions)
+            for (h, val) in item.options
+                new_args = [fix_option_hashes([h], v) for v in args]
+                new_indices = Dict(k => fix_option_hashes([h], v) for (k, v) in indices)
+                new_vars = Dict(k => fix_option_hashes([h], v) for (k, v) in vars)
+                append!(result, unfold_options(new_args, new_indices, new_vars))
+            end
+            return result
+        end
+    end
+    return result
+end
 
 function rev_fold(f, init, acc)
     outs = []
@@ -87,7 +105,13 @@ function reverse_rev_fold()
             acc = run_with_arguments(f, [val, acc], Dict())
         end
         return value,
-        ReverseRunContext(context.arguments, [SkipArg(), SkipArg(), acc], context.calculated_arguments, Dict(), Dict())
+        ReverseRunContext(
+            context.arguments,
+            vcat(context.predicted_arguments, [acc, SkipArg(), SkipArg()]),
+            context.calculated_arguments,
+            context.filled_indices,
+            context.filled_vars,
+        )
     end
     return [(_is_reversible_subfunction, _is_possible_folder), (_has_no_holes, _is_possible_init)], _reverse_rev_fold
 end
@@ -235,7 +259,7 @@ function reverse_fold(is_set = false)
         return value,
         ReverseRunContext(
             context.arguments,
-            vcat([SkipArg()], result_arguments),
+            vcat(context.predicted_arguments, reverse(result_arguments), [SkipArg()]),
             context.calculated_arguments,
             result_indices,
             result_vars,
@@ -272,7 +296,7 @@ function reverse_fold_grid(dim)
         end
         acc = value
 
-        op = ([grid, acc], Dict(), Dict())
+        op = ([grid, acc], context.filled_indices, context.filled_vars)
         h = hash(op)
         options[h] = op
 
@@ -437,7 +461,7 @@ function reverse_fold_grid(dim)
         return value,
         ReverseRunContext(
             context.arguments,
-            vcat([SkipArg()], result_arguments),
+            vcat(context.predicted_arguments, reverse(result_arguments), [SkipArg()]),
             context.calculated_arguments,
             result_indices,
             result_vars,

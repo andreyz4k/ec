@@ -1,19 +1,71 @@
-function unfold_options(args::Vector, indices::Dict, vars::Dict)
+
+function unfold_options(args::Vector)
     if all(x -> !isa(x, EitherOptions), args)
-        return [(args, indices, vars)]
+        return [args]
     end
     result = []
     for item in args
         if isa(item, EitherOptions)
             for (h, val) in item.options
                 new_args = [fix_option_hashes([h], v) for v in args]
-                new_indices = Dict(k => fix_option_hashes([h], v) for (k, v) in indices)
-                new_vars = Dict(k => fix_option_hashes([h], v) for (k, v) in vars)
-                append!(result, unfold_options(new_args, new_indices, new_vars))
+                append!(result, unfold_options(new_args))
             end
             return result
         end
     end
+    return result
+end
+
+function reshape_arg(arg, is_set, dims)
+    has_abductible = any(v isa AbductibleValue for v in arg)
+
+    if is_set
+        result = Set([isa(v, AbductibleValue) ? v.value : v for v in arg])
+        if length(result) != length(arg)
+            error("Losing data on map")
+        end
+    else
+        result = reshape([isa(v, AbductibleValue) ? v.value : v for v in arg], dims)
+    end
+    if has_abductible
+        return AbductibleValue(result)
+    else
+        return result
+    end
+end
+
+function unfold_map_options(calculated_arguments, indices, vars, is_set, dims)
+    for (k, item) in Iterators.flatten((indices, vars))
+        if isa(item, EitherOptions)
+            result_options = Dict()
+            for (h, val) in item.options
+                new_args = [[fix_option_hashes([h], v) for v in args] for args in calculated_arguments]
+                new_indices = Dict(k => fix_option_hashes([h], v) for (k, v) in indices)
+                new_vars = Dict(k => fix_option_hashes([h], v) for (k, v) in vars)
+                result_options[h] = unfold_map_options(new_args, new_indices, new_vars, is_set, dims)
+            end
+            return [
+                EitherOptions(Dict(h => op[i] for (h, op) in result_options)) for i in 1:length(calculated_arguments[1])
+            ]
+        end
+    end
+    options = [[[] for _ in 1:length(calculated_arguments[1])]]
+    for args in calculated_arguments
+        new_options = []
+        point_options = unfold_options(args)
+        for option in options
+            for point_option in point_options
+                new_option = [vcat(option[i], [point_option[i]]) for i in 1:length(option)]
+                push!(new_options, new_option)
+            end
+        end
+        options = new_options
+    end
+    hashed_options = Dict(rand(UInt64) => option for option in options)
+    result = [
+        EitherOptions(Dict(h => reshape_arg(option[i], is_set, dims) for (h, option) in hashed_options)) for
+        i in 1:length(calculated_arguments[1])
+    ]
     return result
 end
 
@@ -23,147 +75,90 @@ function reverse_map(n, is_set = false)
 
         external_indices = _get_var_indices(f)
 
-        if is_set
-            output_options = Set{Tuple{Vector{Any},Dict,Dict}}([(
-                Any[Set() for _ in 1:n],
-                context.filled_indices,
-                context.filled_vars,
-            )])
-        else
-            output_options = Set{Tuple{Vector{Any},Dict,Dict}}([(
-                Any[Any[] for _ in 1:n],
-                context.filled_indices,
-                context.filled_vars,
-            )])
-        end
+        filled_indices = context.filled_indices
+        filled_vars = context.filled_vars
 
+        # @info "Reversing map with $f"
+        need_recompute = true
+
+        computed_outputs = Any[]
         calculated_value = []
-        for (i, item) in enumerate(value)
-            calculated_arguments = []
-            for j in 1:n
-                if !ismissing(context.calculated_arguments[end-j])
-                    push!(calculated_arguments, context.calculated_arguments[end-j][i])
-                else
-                    push!(calculated_arguments, missing)
-                end
-            end
 
-            new_options = Set()
-            for output_option in output_options
-                # @info "Output option $output_option"
-                calculated_item, new_context = try
-                    _run_in_reverse(
-                        f,
-                        item,
-                        ReverseRunContext(
-                            [],
-                            [],
-                            reverse(calculated_arguments),
-                            copy(output_option[2]),
-                            copy(output_option[3]),
-                        ),
-                    )
-                catch e
-                    if isa(e, InterruptException) || isa(e, MethodError)
-                        rethrow()
+        while need_recompute
+            need_recompute = false
+            calculated_value = []
+            computed_outputs = Any[]
+
+            for (i, item) in enumerate(value)
+                # @info "Item $item"
+                calculated_arguments = []
+                for j in 1:n
+                    if !ismissing(context.calculated_arguments[end-j])
+                        push!(calculated_arguments, context.calculated_arguments[end-j][i])
+                    else
+                        push!(calculated_arguments, missing)
                     end
-                    # @info e
-                    continue
                 end
+
+                calculated_item, new_context = _run_in_reverse(
+                    f,
+                    item,
+                    ReverseRunContext([], [], reverse(calculated_arguments), copy(filled_indices), copy(filled_vars)),
+                )
+
                 # @info "Calculated item $calculated_item"
                 # @info "New context $new_context"
+
+                if (!isempty(filled_indices) && filled_indices != new_context.filled_indices) ||
+                   (!isempty(filled_vars) && filled_vars != new_context.filled_vars)
+                    need_recompute = true
+                    # @info "Need recompute"
+                    # @info "Filled indices $filled_indices"
+                    # @info "Filled vars $filled_vars"
+                    filled_indices = new_context.filled_indices
+                    filled_vars = new_context.filled_vars
+                    break
+                end
+
+                filled_indices = new_context.filled_indices
+                filled_vars = new_context.filled_vars
+
                 push!(calculated_value, calculated_item)
 
-                child_options =
-                    unfold_options(new_context.predicted_arguments, new_context.filled_indices, new_context.filled_vars)
-
-                for (option_args, option_indices, option_vars) in child_options
-                    # @info output_option
-                    # @info option_args
-                    # @info option_indices
-                    # @info option_vars
-
-                    new_option_args = Any[copy(arg) for arg in output_option[1]]
-                    for (i, v) in enumerate(option_args)
-                        push!(new_option_args[i], v)
-                    end
-
-                    push!(new_options, (new_option_args, option_indices, option_vars))
-                    if length(new_options) > 100
-                        error("Too many options")
-                    end
-                end
+                push!(computed_outputs, new_context.predicted_arguments)
             end
-            if isempty(new_options)
-                error("No valid options found")
-            end
-            output_options = new_options
         end
 
-        # @info "Output options $output_options"
+        # @info "Computed outputs $computed_outputs"
         # @info "External indices $external_indices"
-        filter!(output_options) do option
-            for i in external_indices
-                if i >= 0
-                    if !haskey(option[2], i)
-                        return false
-                    end
-                else
-                    if !haskey(option[3], UInt64(-i))
-                        return false
-                    end
+
+        for i in external_indices
+            if i >= 0
+                if !haskey(filled_indices, i)
+                    error("Missing index $i")
+                end
+            else
+                if !haskey(filled_vars, UInt64(-i))
+                    error("Missing var $(-i)")
                 end
             end
-            return true
-        end
-        # @info "Output options $output_options"
-        if isempty(output_options)
-            error("No valid options found")
         end
 
-        if is_set
-            for option in output_options
-                for val in option[1]
-                    if length(val) != length(value)
-                        error("Losing data on map")
-                    end
-                end
-            end
-        end
-        if length(output_options) == 1
-            result_arguments, result_indices, result_vars = first(output_options)
-        else
-            hashed_options = Dict(rand(UInt64) => option for option in output_options)
-            result_arguments = Any[]
-            result_indices = Dict()
-            result_vars = Dict()
-            for i in 1:n
-                push!(result_arguments, EitherOptions(Dict(h => option[1][i] for (h, option) in hashed_options)))
-            end
-            for (k, v) in first(output_options)[2]
-                result_indices[k] = EitherOptions(Dict(h => option[2][k] for (h, option) in hashed_options))
-            end
-            for (k, v) in first(output_options)[3]
-                result_vars[k] = EitherOptions(Dict(h => option[3][k] for (h, option) in hashed_options))
-            end
-        end
-        for i in 1:n
-            if !isa(result_arguments[i], EitherOptions) && any(v isa AbductibleValue for v in result_arguments[i])
-                if is_set
-                    error("Abducting values for sets is not supported")
-                else
-                    result_arguments[i] = AbductibleValue([v.value for v in result_arguments[i]],)
-                end
-            end
-        end
+        computed_outputs =
+            unfold_map_options(computed_outputs, filled_indices, filled_vars, is_set, is_set ? nothing : size(value))
+        # @info "Computed outputs $computed_outputs"
+        # @info "filled_indices $filled_indices"
+        # @info "filled_vars $filled_vars"
+
+        # @info "Calculated value $calculated_value"
 
         return calculated_value,
         ReverseRunContext(
             context.arguments,
-            vcat([SkipArg()], reverse(result_arguments)),
+            vcat(context.predicted_arguments, computed_outputs, [SkipArg()]),
             context.calculated_arguments,
-            result_indices,
-            result_vars,
+            filled_indices,
+            filled_vars,
         )
     end
 

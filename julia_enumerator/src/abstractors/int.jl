@@ -46,8 +46,8 @@ function reverse_mult(value)
         end
     end
     if value == 0
-        push!(options, [0, any_object])
-        push!(options, [any_object, 0])
+        push!(options, [0, PatternWrapper(any_object)])
+        push!(options, [PatternWrapper(any_object), 0])
     end
     if length(options) == 0
         # @info "No options for rev mult for value $value"

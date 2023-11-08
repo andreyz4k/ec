@@ -49,11 +49,19 @@ function reverse_rev_groupby()
                 push!(result, EitherOptions(Dict(h => option[i] for (h, option) in hashed_options)))
             end
         end
-        return groups, ReverseRunContext(context.arguments, result, context.calculated_arguments, Dict(), Dict())
+        return groups,
+        ReverseRunContext(
+            context.arguments,
+            vcat(context.predicted_arguments, reverse(result)),
+            context.calculated_arguments,
+            context.filled_indices,
+            context.filled_vars,
+        )
     end
     return [(_has_no_holes, _is_possible_key_extractor)], _reverse_rev_groupby
 end
 
+# This function is meant to be used with fold
 @define_custom_reverse_primitive(
     "rev_groupby",
     arrow(arrow(t0, t1), t0, tset(ttuple2(t1, tset(t0))), tset(ttuple2(t1, tset(t0)))),
