@@ -869,8 +869,10 @@ using DataStructures
             return Set(), Set([(_get_entries(sc, vars_mapping, branches), bl)])
         end
         q = (is_explained ? sc.branch_queues_explained : sc.branch_queues_unknown)[branch_id]
+        not_on_path = Set()
         @test !isempty(q)
         while !isempty(q)
+            (bp, p) = peek(q)
             bp = dequeue!(q)
             if verbose
                 @info bp
@@ -882,16 +884,33 @@ using DataStructures
                 end
                 out_branch_id = branches[vars_mapping[bl.output_var]]
                 while !isempty(get_connected_from(sc.branch_children, out_branch_id))
+                    if verbose
+                        @info "Out branch id $out_branch_id"
+                        @info "Children $(get_connected_from(sc.branch_children, out_branch_id))"
+                    end
                     out_branch_id = first(get_connected_from(sc.branch_children, out_branch_id))
                 end
                 enumeration_iteration(run_context, sc, finalizer, mfp, g, q, bp, branch_id, is_explained)
                 if is_reversible(bp.state.skeleton) || state_finished(bp.state)
                     if verbose
                         @info "found end"
+                        @info "Out branch id $out_branch_id"
                     end
+
+                    for (bp_, p_) in not_on_path
+                        q[bp_] = p_
+                    end
+
                     in_blocks = get_connected_from(sc.branch_incoming_blocks, out_branch_id)
+                    if verbose
+                        @info "in_blocks: $in_blocks"
+                    end
                     if isempty(in_blocks)
                         children = get_connected_from(sc.branch_children, out_branch_id)
+                        if verbose
+                            @info "children: $children"
+                            @info sc.branch_children
+                        end
                         if isempty(children)
                             if verbose
                                 @info "Can't add block"
@@ -951,6 +970,7 @@ using DataStructures
                     )
                 end
             else
+                push!(not_on_path, (bp, p))
                 if verbose
                     @info "not on path"
                 end

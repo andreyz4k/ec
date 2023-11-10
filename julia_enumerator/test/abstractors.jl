@@ -1251,7 +1251,7 @@ using DataStructures: OrderedDict, Accumulator
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
 
-        @test compare_options(
+        @test_throws ErrorException compare_options(
             run_in_reverse(
                 p,
                 EitherOptions(

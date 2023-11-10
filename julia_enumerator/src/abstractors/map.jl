@@ -151,6 +151,11 @@ function reverse_map(n, is_set = false)
         # @info "filled_vars $filled_vars"
 
         # @info "Calculated value $calculated_value"
+        if is_set
+            calculated_value = Set(calculated_value)
+        else
+            calculated_value = reshape(calculated_value, size(value))
+        end
 
         return calculated_value,
         ReverseRunContext(

@@ -606,7 +606,11 @@ end
 
 function run_in_reverse(p::Program, output)
     # @info p
-    return _run_in_reverse(p, output, ReverseRunContext())[2].filled_vars
+    computed_output, context = _run_in_reverse(p, output, ReverseRunContext())
+    if computed_output != output
+        error("Output mismatch $computed_output != $output")
+    end
+    return context.filled_vars
 end
 
 _has_wildcard(v::PatternWrapper) = true
