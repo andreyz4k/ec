@@ -116,6 +116,9 @@ struct EitherOptions
         if isempty(options)
             error("No options")
         end
+        if length(options) > 100
+            error("Too many options")
+        end
         first_value = first(values(options))
         if all(v -> v == first_value, values(options))
             return first_value
