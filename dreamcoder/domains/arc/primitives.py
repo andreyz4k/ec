@@ -526,7 +526,7 @@ def basePrimitives():
         ),
         Primitive(
             "zip_grid2",
-            arrow(tlist(t0), tlist(t1), tlist(ttuple2(t0, t1))),
+            arrow(tgrid(t0), tgrid(t1), tgrid(ttuple2(t0, t1))),
             None,
             is_reversible=True,
         ),
