@@ -485,11 +485,11 @@ function wrap_any_object_call(f)
             if r isa Function
                 return wrap_any_object_call(r)
             else
-                return r
+                return _wrap_wildcard(r)
             end
         catch e
-            if e isa MethodError
-                return any_object
+            if e isa MethodError && any(arg === any_object for arg in e.args)
+                return PatternWrapper(any_object)
             else
                 rethrow()
             end
@@ -515,12 +515,24 @@ function (p::Apply)(environment, workspace)
             if x.value === any_object
                 return wrap_any_object_call(f)(x.value)
             else
-                return f(x.value)
+                try
+                    return _wrap_wildcard(f(x.value))
+                catch e
+                    if e isa MethodError && any(arg === any_object for arg in e.args)
+                        error("MethodError with any_object")
+                    end
+                    rethrow()
+                end
             end
-        elseif x === any_object
-            return wrap_any_object_call(f)(x)
         else
-            return f(x)
+            try
+                return f(x)
+            catch e
+                if e isa MethodError && any(arg === any_object for arg in e.args)
+                    error("MethodError with any_object")
+                end
+                rethrow()
+            end
         end
     end
 end

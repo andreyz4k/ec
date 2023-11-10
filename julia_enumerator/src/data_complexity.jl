@@ -1,5 +1,5 @@
 
-function get_complexity_summary(values, t::TypeConstructor)
+function get_complexity_summary(values, t)
     accum = Accumulator{String,Int64}()
     for value in values
         get_complexity_summary(value, t, accum)
@@ -32,9 +32,8 @@ function get_complexity_summary(values::AnyObject, t::TypeConstructor, accum)
     end
 end
 
-function get_complexity_summary(values::Nothing, t::TypeConstructor, accum)
-    return
-end
+function get_complexity_summary(values::Nothing, t::TypeConstructor, accum) end
+function get_complexity_summary(values::Nothing, t::TypeVariable, accum) end
 
 function get_complexity_summary(values::EitherOptions, t::TypeConstructor, accum)
     result = Accumulator{String,Int64}()
@@ -48,6 +47,7 @@ end
 
 get_complexity_summary(values::PatternWrapper, t::TypeConstructor, accum) =
     get_complexity_summary(values.value, t, accum)
+get_complexity_summary(values::PatternWrapper, t::TypeVariable, accum) = get_complexity_summary(values.value, t, accum)
 
 function get_complexity_summary_max(values::EitherOptions, t::TypeConstructor)
     result = Accumulator{String,Int64}()
@@ -64,6 +64,7 @@ end
 
 get_complexity_summary(values::AbductibleValue, t::TypeConstructor, accum) =
     get_complexity_summary(values.value, t, accum)
+get_complexity_summary(values::AbductibleValue, t::TypeVariable, accum) = get_complexity_summary(values.value, t, accum)
 
 function get_complexity(sc::SolutionContext, summary::Accumulator)
     return sum(sc.type_weights[tname] * count for (tname, count) in summary; init = 0.0)

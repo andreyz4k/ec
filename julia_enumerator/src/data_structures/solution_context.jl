@@ -672,6 +672,8 @@ function update_complexity_factors_known(sc::SolutionContext, bl::ProgramBlock, 
     # if sc.verbose
     #     @info "Updating known complexity factors for $bl with input branches $input_branches and output branches $output_branches"
     #     @info "Current known complexity factor is $(sc.explained_complexity_factors[out_branch_id])"
+    #     @info parents
+    #     @info [sc.unknown_complexity_factors[parent] for parent in parents]
     # end
     if isempty(bl.input_vars)
         if isnothing(sc.explained_complexity_factors[out_branch_id])

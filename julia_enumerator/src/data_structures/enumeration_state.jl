@@ -81,7 +81,17 @@ function get_candidates_for_unknown_var(sc, branch_id, g)::Vector{BlockPrototype
     entry = sc.entries[sc.branch_entries[branch_id]]
     prototypes = []
     if !isa(entry, NoDataEntry)
-        push!(prototypes, block_prototype(Hole(type, g.no_context, false, nothing), nothing, var_id, branch_id, type))
+        context, type = instantiate(type, empty_context)
+        push!(
+            prototypes,
+            BlockPrototype(
+                EnumerationState(Hole(type, g.no_context, false, nothing), context, [], EPSILON, 0),
+                type,
+                nothing,
+                (var_id, branch_id),
+                false,
+            ),
+        )
     end
     for (pr, inputs, out_type) in matching_with_unknown_candidates(sc, entry, var_id)
         push!(prototypes, block_prototype(pr, inputs, var_id, branch_id, out_type))
@@ -96,13 +106,17 @@ end
 function get_candidates_for_known_var(sc, branch_id, g)
     prototypes = []
     var_id = sc.branch_vars[branch_id]
+    entry = sc.entries[sc.branch_entries[branch_id]]
     if !isnothing(sc.explained_min_path_costs[branch_id])
+        # &&
+        # !(isa(entry, PatternEntry) && all(v == PatternWrapper(any_object) for v in entry.values))
         type_id = first(get_connected_from(sc.branch_types, branch_id))
         type = sc.types[type_id]
+        context, type = instantiate(type, empty_context)
         push!(
             prototypes,
             BlockPrototype(
-                EnumerationState(Hole(type, g.no_context, true, nothing), empty_context, [], EPSILON, 0),
+                EnumerationState(Hole(type, g.no_context, true, nothing), context, [], EPSILON, 0),
                 type,
                 nothing,
                 (var_id, branch_id),
@@ -110,7 +124,6 @@ function get_candidates_for_known_var(sc, branch_id, g)
             ),
         )
     end
-    entry = sc.entries[sc.branch_entries[branch_id]]
     for (pr, output_var_id, output_br_id, out_type) in matching_with_known_candidates(sc, entry, branch_id)
         push!(prototypes, block_prototype(pr, Dict(var_id => branch_id), output_var_id, output_br_id, out_type))
     end

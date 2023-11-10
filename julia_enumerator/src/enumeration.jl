@@ -527,6 +527,19 @@ function try_evaluate_program(p, xs, workspace)
     try_run_function(run_with_arguments, [p, xs, workspace])
 end
 
+function _update_block_type(block_type, input_types)
+    if !is_polymorphic(block_type)
+        return block_type
+    end
+    context, block_type = instantiate(block_type, empty_context)
+    for (arg_type, inp_type) in zip(arguments_of_type(block_type), input_types)
+        context, inp_type = instantiate(inp_type, context)
+        context = unify(context, arg_type, inp_type)
+    end
+    context, block_type = apply_context(context, block_type)
+    return block_type
+end
+
 function try_run_block(
     sc::SolutionContext,
     block::ProgramBlock,
@@ -540,9 +553,11 @@ function try_run_block(
     for _ in 1:sc.example_count
         push!(inputs, Dict())
     end
+    input_types = []
     for var_id in block.input_vars
         fixed_branch_id = fixed_branches[var_id]
         entry = sc.entries[sc.branch_entries[fixed_branch_id]]
+        push!(input_types, sc.types[entry.type_id])
         for i in 1:sc.example_count
             inputs[i][var_id] = entry.values[i]
         end
@@ -569,7 +584,17 @@ function try_run_block(
         end
         push!(outs, out_value)
     end
-    return value_updates(sc, block, block_id, target_output, outs, fixed_branches, is_new_block, created_paths)
+    return value_updates(
+        sc,
+        block,
+        block_id,
+        _update_block_type(block.type, input_types),
+        target_output,
+        outs,
+        fixed_branches,
+        is_new_block,
+        created_paths,
+    )
 end
 
 function try_run_block(
@@ -874,7 +899,9 @@ function enumeration_iteration_finished_output(sc::SolutionContext, bp::BlockPro
     is_reverse = is_reversible(state.skeleton)
     output_branch_id = bp.output_var[2]
     output_entry = sc.entries[sc.branch_entries[output_branch_id]]
-    if is_reverse && !isa(output_entry, AbductibleEntry)
+    if is_reverse &&
+       !isa(output_entry, AbductibleEntry) &&
+       !(isa(output_entry, PatternEntry) && all(v == PatternWrapper(any_object) for v in output_entry.values))
         # @info "Try get reversed for $bp"
         p, input_vars =
             try_get_reversed_inputs(sc, state.skeleton, state.context, state.path, bp.output_var[2], state.cost)

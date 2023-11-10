@@ -187,6 +187,9 @@ _unify_values(v1, v2::AbductibleValue, check_pattern) = _wrap_abductible(_unify_
 _unify_values(v1::AbductibleValue, v2::AbductibleValue, check_pattern) =
     _wrap_abductible(_unify_values(v1.value, v2.value, true))
 
+_unify_values(v1::AbductibleValue, v2::AnyObject, check_pattern) = v1
+_unify_values(v1::AnyObject, v2::AbductibleValue, check_pattern) = v2
+
 _unify_values(v1::AbductibleValue, v2::PatternWrapper, check_pattern) =
     _wrap_abductible(_unify_values(v1.value, v2.value, true))
 _unify_values(v1::PatternWrapper, v2::AbductibleValue, check_pattern) =

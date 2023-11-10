@@ -3,8 +3,12 @@ function _find_relatives_for_type(sc, t, branch_id, branch_type)
     if branch_type == t && sc.branch_is_unknown[branch_id]
         return branch_id, UInt64[], UInt64[]
     end
-    if sc.branch_is_explained[branch_id] && is_subtype(t, branch_type)
-        return nothing, get_connected_to(sc.branch_children, branch_id), Int[branch_id]
+    if sc.branch_is_explained[branch_id]
+        if is_subtype(branch_type, t)
+            return nothing, get_connected_to(sc.branch_children, branch_id), Int[branch_id]
+        else
+            return nothing, UInt64[], UInt64[]
+        end
     end
     parents = UInt64[]
     children = UInt64[]
@@ -42,6 +46,7 @@ function _tighten_constraint(
     out_constrained_branches = Dict()
 
     new_type = sc.types[first(get_connected_from(sc.branch_types, new_branch_id))]
+    context, new_type = instantiate(new_type, context)
     context = unify(context, new_type, sc.types[old_entry.type_id])
 
     for (var_id, branch_id) in constrained_branches

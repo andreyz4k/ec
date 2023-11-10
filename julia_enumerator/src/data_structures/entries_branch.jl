@@ -20,6 +20,7 @@ function value_updates(
     sc,
     block::ProgramBlock,
     block_id,
+    block_type,
     target_output::Dict{UInt64,UInt64},
     new_values,
     fixed_branches::Dict{UInt64,UInt64},
@@ -28,7 +29,7 @@ function value_updates(
 )
     branch_id = target_output[block.output_var]
     entry = sc.entries[sc.branch_entries[branch_id]]
-    t_id = push!(sc.types, return_of_type(block.type))
+    t_id = push!(sc.types, return_of_type(block_type))
     out_branch_id, is_new_next_block, allow_fails, next_blocks, set_explained, bl_created_paths = updated_branches(
         sc,
         entry,
@@ -149,7 +150,7 @@ function find_related_branches(sc, branch_id, new_entry, new_entry_index)::Tuple
     for child_id in get_connected_from(sc.branch_children, branch_id)
         if sc.branch_entries[child_id] == new_entry_index
             return UInt64[], child_id
-        else
+        elseif sc.branch_is_unknown[child_id]
             child_entry = sc.entries[sc.branch_entries[child_id]]
             if match_with_entry(sc, child_entry, new_entry)
                 parents, possible_result = find_related_branches(sc, child_id, new_entry, new_entry_index)

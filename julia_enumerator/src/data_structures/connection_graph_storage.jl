@@ -52,7 +52,7 @@ function save_changes!(storage::ConnectionGraphStorage, depth)
             elseif storage.transaction_depth > 1
                 push!(prev_deleted, (r, c))
             else
-                error("Trying to delete non-existing edge")
+                error("Trying to delete non-existing edge $((r, c))")
             end
         end
         if d == 0
