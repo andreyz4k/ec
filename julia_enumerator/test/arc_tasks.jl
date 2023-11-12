@@ -688,6 +688,27 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated >= 3000
     end
 
+    @testset "017c7c7b.json" begin
+        payload = create_arc_task("017c7c7b.json")
+        @info payload["name"]
+        payload["DSL"]["logVariable"] = 0.0
+        for d in payload["DSL"]["productions"]
+            d["logProbability"] = 0.0
+        end
+        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        solutions, number_enumerated = @time enumerate_for_task(
+            Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
+            g,
+            type_weights,
+            task,
+            maximum_frontier,
+            timeout,
+            verbose,
+        )
+        @test length(solutions) == 0
+        @test number_enumerated >= 3000
+    end
+
     # @testset "8731374e.json" begin
     #     payload = create_arc_task("8731374e.json")
     #     @info payload["name"]

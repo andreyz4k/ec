@@ -741,12 +741,17 @@ function try_run_block_with_downstream(
             var_id => (
                 fixed_branches[var_id],
                 sc.branch_entries[fixed_branches[var_id]],
+                sc.types[sc.entries[sc.branch_entries[fixed_branches[var_id]]].type_id],
                 sc.entries[sc.branch_entries[fixed_branches[var_id]]],
             ) for var_id in sc.blocks[block_id].input_vars
         )
         outputs = Dict(
-            var_id => (br_id, sc.branch_entries[br_id], sc.entries[sc.branch_entries[br_id]]) for
-            (var_id, br_id) in target_output
+            var_id => (
+                br_id,
+                sc.branch_entries[br_id],
+                sc.types[sc.entries[sc.branch_entries[br_id]].type_id],
+                sc.entries[sc.branch_entries[br_id]],
+            ) for (var_id, br_id) in target_output
         )
         @info "Running $block_id $(sc.blocks[block_id]) with inputs $inputs and output $outputs"
     end

@@ -53,12 +53,14 @@ Base.:(==)(v1::NoDataEntry, v2::NoDataEntry) = v1.type_id == v2.type_id
 match_at_index(entry::NoDataEntry, index::Int, value) = true
 
 match_with_entry(sc, entry::NoDataEntry, other::ValueEntry) =
-    might_unify(sc.types[entry.type_id], sc.types[other.type_id])
+    in(sc.types[other.type_id], get_sub_types(sc.types, entry.type_id))
 
 function matching_with_unknown_candidates(sc, entry::NoDataEntry, var_id)
     results = []
     types = get_sub_types(sc.types, entry.type_id)
-
+    if sc.verbose
+        @info "Sub types for $(sc.types[entry.type_id]) are $([sc.types[t] for t in types])"
+    end
     for tp_id in types
         for known_branch_id in get_connected_to(sc.branch_types, tp_id)
             if !sc.branch_is_not_copy[known_branch_id]
@@ -85,6 +87,9 @@ const_options(entry::NoDataEntry) = []
 function matching_with_known_candidates(sc, entry::ValueEntry, known_branch_id)
     results = []
     types = get_super_types(sc.types, entry.type_id)
+    if sc.verbose
+        @info "Super types for $(sc.types[entry.type_id]) are $([sc.types[t] for t in types])"
+    end
     entry_type = sc.types[entry.type_id]
 
     known_var_id = sc.branch_vars[known_branch_id]
@@ -471,7 +476,7 @@ function match_with_entry(sc, entry::EitherEntry, other::PatternEntry)
 end
 
 match_with_entry(sc, entry::NoDataEntry, other::PatternEntry) =
-    might_unify(sc.types[entry.type_id], sc.types[other.type_id])
+    in(sc.types[other.type_id], get_sub_types(sc.types, entry.type_id))
 
 function matching_with_unknown_candidates(sc, entry::PatternEntry, var_id)
     results = []
