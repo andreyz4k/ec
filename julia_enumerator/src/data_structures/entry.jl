@@ -52,8 +52,7 @@ Base.:(==)(v1::NoDataEntry, v2::NoDataEntry) = v1.type_id == v2.type_id
 
 match_at_index(entry::NoDataEntry, index::Int, value) = true
 
-match_with_entry(sc, entry::NoDataEntry, other::ValueEntry) =
-    in(sc.types[other.type_id], get_sub_types(sc.types, entry.type_id))
+match_with_entry(sc, entry::NoDataEntry, other::ValueEntry) = in(other.type_id, get_sub_types(sc.types, entry.type_id))
 
 function matching_with_unknown_candidates(sc, entry::NoDataEntry, var_id)
     results = []
@@ -476,7 +475,7 @@ function match_with_entry(sc, entry::EitherEntry, other::PatternEntry)
 end
 
 match_with_entry(sc, entry::NoDataEntry, other::PatternEntry) =
-    in(sc.types[other.type_id], get_sub_types(sc.types, entry.type_id))
+    in(other.type_id, get_sub_types(sc.types, entry.type_id))
 
 function matching_with_unknown_candidates(sc, entry::PatternEntry, var_id)
     results = []

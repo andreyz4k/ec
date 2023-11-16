@@ -796,8 +796,8 @@ using DataStructures
         if verbose
             @info "Check on path"
             @info bl.output_var
-            @info bp.output_var
             @info vars_mapping[bl.output_var]
+            @info bp.output_var
         end
         if vars_mapping[bl.output_var] != bp.output_var[1]
             return false
@@ -1224,6 +1224,9 @@ using DataStructures
         end
         successful = Set()
         failed = Set()
+        if verbose
+            @info "Checking blocks $blocks"
+        end
         for bl in blocks
             if _block_can_be_next(bl, vars_mapping)
                 checked_any = true
@@ -1666,6 +1669,7 @@ using DataStructures
         target_solution = "let \$v1::int = Const(int, 1) in let \$v2, \$v3 = rev(\$inp0 = (cons \$v2 \$v3)) in let \$v4, \$v5 = rev(\$v3 = (cons \$v4 \$v5)) in let \$v6::int = (index \$v1 \$v5) in let \$v7::list(int) = (repeat \$v6 \$v1) in (concat \$v7 \$inp0)"
         check_reachable(payload, target_solution)
     end
+
     @testset "drop-k with k=5" begin
         payload = create_task(
             Dict{String,Any}(
