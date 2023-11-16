@@ -212,6 +212,9 @@ class Grammar(object):
                 candidates.append((l, t, p, newContext))
             except UnificationFailure:
                 continue
+            except:
+                eprint("path:", path)
+                raise
 
         variableCandidates = []
         for j, t in enumerate(environment):

@@ -814,8 +814,22 @@ function _save_block_branch_connections(sc, block_id, block, fixed_branches, out
     sc.branch_outgoing_blocks[input_br_ids, block_copy_id] = block_id
     sc.branch_incoming_blocks[out_branches, block_copy_id] = block_id
     if sc.verbose
-        inputs = [(br_id, sc.branch_entries[br_id], sc.entries[sc.branch_entries[br_id]]) for br_id in input_br_ids]
-        outputs = [(br_id, sc.branch_entries[br_id], sc.entries[sc.branch_entries[br_id]]) for br_id in out_branches]
+        inputs = [
+            (
+                br_id,
+                sc.branch_entries[br_id],
+                sc.types[sc.entries[sc.branch_entries[br_id]].type_id],
+                sc.entries[sc.branch_entries[br_id]],
+            ) for br_id in input_br_ids
+        ]
+        outputs = [
+            (
+                br_id,
+                sc.branch_entries[br_id],
+                sc.types[sc.entries[sc.branch_entries[br_id]].type_id],
+                sc.entries[sc.branch_entries[br_id]],
+            ) for br_id in out_branches
+        ]
 
         @info "Created new block copy $block_copy_id for block $block_id $block with inputs $inputs and outputs $outputs"
     end

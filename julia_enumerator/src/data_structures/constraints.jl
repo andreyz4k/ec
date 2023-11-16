@@ -4,7 +4,7 @@ function _find_relatives_for_type(sc, t, branch_id, branch_type)
         return branch_id, UInt64[], UInt64[]
     end
     if sc.branch_is_explained[branch_id]
-        if is_subtype(branch_type, t)
+        if is_subtype(t, branch_type)
             return nothing, get_connected_to(sc.branch_children, branch_id), Int[branch_id]
         else
             return nothing, UInt64[], UInt64[]
