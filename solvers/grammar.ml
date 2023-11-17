@@ -244,7 +244,9 @@ let summary_likelihood (g : grammar) (s : likelihood_summary) =
 let merge_workspaces context ws1 ws2 =
   Hashtbl.merge ws1 ws2 ~f:(fun ~key:_ -> function
     | `Both (a, b) ->
-        let new_context = unify !context a b in
+        let new_context, a = instantiate_type !context a in
+        let new_context, b = instantiate_type new_context b in
+        let new_context = unify new_context a b in
         context := new_context;
         Some (applyContext new_context a |> snd)
     | `Left a -> Some a
