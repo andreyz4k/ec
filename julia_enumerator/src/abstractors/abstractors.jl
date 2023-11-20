@@ -446,10 +446,19 @@ end
 
 function __run_in_reverse(p::Primitive, output::AbductibleValue, context)
     # @info "Running in reverse $p $output $context"
-    for _ in 1:length(arguments_of_type(p.t))
-        push!(context.predicted_arguments, output)
+    try
+        calculated_output, new_context = all_abstractors[p][2](output, context)
+        new_context.predicted_arguments = [_wrap_abductible(arg) for arg in new_context.predicted_arguments]
+        return _wrap_abductible(calculated_output), new_context
+    catch e
+        if isa(e, InterruptException)
+            rethrow()
+        end
+        for _ in 1:length(arguments_of_type(p.t))
+            push!(context.predicted_arguments, output)
+        end
+        return output, context
     end
-    return output, context
 end
 
 function __run_in_reverse(p::Primitive, output::PatternWrapper, context)
@@ -486,7 +495,7 @@ end
 
 function __run_in_reverse(p::Apply, output::AbductibleValue, context)
     # @info "Running in reverse $p $output $context"
-    env = Any[nothing for _ in 1:maximum(keys(context.filled_indices); init = 0)]
+    env = Any[nothing for _ in 1:maximum(keys(context.filled_indices); init = -1)+1]
     for (i, v) in context.filled_indices
         env[end-i] = v
     end
@@ -638,11 +647,21 @@ function _wrap_wildcard(v::EitherOptions)
     return EitherOptions(options)
 end
 
+_unwrap_abductible(v::AbductibleValue) = _unwrap_abductible(v.value)
+_unwrap_abductible(v::PatternWrapper) = _unwrap_abductible(v.value)
+function _unwrap_abductible(v::Array)
+    res = [_unwrap_abductible(v) for v in v]
+    return reshape(res, size(v))
+end
+_unwrap_abductible(v::Tuple) = tuple((_unwrap_abductible(v) for v in v)...)
+_unwrap_abductible(v::Set) = Set([_unwrap_abductible(v) for v in v])
+_unwrap_abductible(v) = v
+
 _wrap_abductible(v::AbductibleValue) = v
 
 function _wrap_abductible(v)
     if _has_wildcard(v)
-        return AbductibleValue(v)
+        return AbductibleValue(_unwrap_abductible(v))
     else
         return v
     end
