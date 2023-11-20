@@ -22,7 +22,11 @@ function reshape_arg(arg, is_set, dims)
     if is_set
         result = Set([isa(v, AbductibleValue) ? v.value : v for v in arg])
         if length(result) != length(arg)
-            error("Losing data on map with $arg and $result")
+            if has_abductible
+                result = any_object
+            else
+                error("Losing data on map with $arg and $result")
+            end
         end
     else
         result = reshape([isa(v, AbductibleValue) ? v.value : v for v in arg], dims)

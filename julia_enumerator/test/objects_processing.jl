@@ -511,7 +511,7 @@ using solver:
             ],
         )
         extract_coordinates = parse_program(
-            "(map_set (lambda (tuple2 (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first (tuple2_first \$1))) (+ (tuple2_second \$0) (tuple2_second (tuple2_first \$1))))) (tuple2_second (tuple2_first \$0))) (tuple2_second \$0))) ??(set(tuple2(tuple2(tuple2(int, int), set(tuple2(int, int))), color))))",
+            "(map_set (lambda (tuple2 (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first (tuple2_first (tuple2_first \$1)))) (+ (tuple2_second \$0) (tuple2_second (tuple2_first (tuple2_first \$1)))))) (tuple2_second (tuple2_first \$0))) (tuple2_second \$0))) ??(set(tuple2(tuple2(tuple2(int, int), set(tuple2(int, int))), color))))",
         )
         @test is_reversible(extract_coordinates)
         extract_coordinates, _ = capture_free_vars(extract_coordinates)
