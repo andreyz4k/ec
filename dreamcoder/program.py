@@ -806,7 +806,7 @@ class Primitive(Program):
 
     def _get_custom_arg_checkers(self, checker, indices_checkers):
         if checker is None:
-            return self.custom_args_checkers, indices_checkers
+            return [c[1] for c in self.custom_args_checkers], indices_checkers
         arg_count = len(self.tp.functionArguments())
         if self.isreversible:
             custom_checkers = self.custom_args_checkers
