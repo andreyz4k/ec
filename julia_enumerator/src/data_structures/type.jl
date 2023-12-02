@@ -291,7 +291,7 @@ is_subtype(parent::TypeConstructor, child::TypeConstructor) =
 is_subtype(parent::TypeNamedArgsConstructor, child::TypeNamedArgsConstructor) =
     parent.name == child.name &&
     keys(parent.arguments) == keys(child.arguments) &&
-    all(is_subtype(as1, t2.arguments[k]) for (k, as1) in parent.arguments) &&
+    all(is_subtype(as1, child.arguments[k]) for (k, as1) in parent.arguments) &&
     is_subtype(parent.output, child.output)
 is_subtype(::TypeNamedArgsConstructor, ::TypeConstructor) = false
 is_subtype(::TypeConstructor, ::TypeNamedArgsConstructor) = false

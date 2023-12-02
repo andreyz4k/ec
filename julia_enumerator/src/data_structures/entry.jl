@@ -114,6 +114,8 @@ function matching_with_known_candidates(sc, entry::ValueEntry, known_branch_id)
     results
 end
 
+struct TooManyOptionsException <: Exception end
+
 struct EitherOptions
     options::Dict{UInt64,Any}
     function EitherOptions(options)
@@ -121,7 +123,7 @@ struct EitherOptions
             error("No options")
         end
         if length(options) > 100
-            error("Too many options")
+            throw(TooManyOptionsException())
         end
         first_value = first(values(options))
         if all(v -> v == first_value, values(options))
@@ -323,6 +325,8 @@ end
 
 struct AnyObject end
 any_object = AnyObject()
+
+Base.show(io::IO, ::AnyObject) = print(io, "any_object")
 
 struct PatternWrapper
     value::Any

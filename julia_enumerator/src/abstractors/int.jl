@@ -14,12 +14,30 @@ function reverse_plus(value, calculated_arguments)
     # @info "Reverse plus"
     # @info value
     # @info calculated_arguments
-    if calculated_arguments[end] !== missing
-        results = [calculated_arguments[end], value - calculated_arguments[end]]
-    elseif calculated_arguments[end-1] !== missing
-        results = [value - calculated_arguments[end-1], calculated_arguments[end-1]]
-    else
-        results = [AbductibleValue(any_object), AbductibleValue(any_object)]
+    if calculated_arguments[end] !== missing && calculated_arguments[end] !== any_object
+        if calculated_arguments[end-1] !== missing && calculated_arguments[end-1] !== any_object
+            if value - calculated_arguments[end] != calculated_arguments[end-1]
+                error("Calculated arguments $(calculated_arguments[end-1:end]) don't add up to value $value")
+            else
+                return [calculated_arguments[end], calculated_arguments[end-1]]
+            end
+        else
+            return [calculated_arguments[end], value - calculated_arguments[end]]
+        end
+    elseif calculated_arguments[end-1] !== missing && calculated_arguments[end-1] !== any_object
+        return [value - calculated_arguments[end-1], calculated_arguments[end-1]]
+    end
+
+    options = Set()
+    push!(options, [AbductibleValue(any_object), AbductibleValue(any_object)])
+    for i in -3:3
+        push!(options, [i, value - i])
+        push!(options, [value - i, i])
+    end
+    hashed_options = Dict(rand(UInt64) => option for option in options)
+    results = []
+    for i in 1:2
+        push!(results, EitherOptions(Dict(h => option[i] for (h, option) in hashed_options)))
     end
     # @info results
     return results

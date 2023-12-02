@@ -207,7 +207,7 @@ function unifying_expressions(
 end
 
 function following_expressions(g::Grammar, request)
-    candidates = collect(flatten(map(g.library) do (p, t, ll)
+    candidates = collect(Iterators.flatten(map(g.library) do (p, t, ll)
         output = []
         for (i, a_type) in enumerate(arguments_of_type(t))
             if might_unify(a_type, request)

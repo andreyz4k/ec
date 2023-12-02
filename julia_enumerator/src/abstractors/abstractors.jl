@@ -454,10 +454,22 @@ function __run_in_reverse(p::Primitive, output::AbductibleValue, context)
         if isa(e, InterruptException)
             rethrow()
         end
-        for _ in 1:length(arguments_of_type(p.t))
-            push!(context.predicted_arguments, output)
+        results = []
+        for i in length(arguments_of_type(p.t))-1:-1:0
+            if ismissing(context.calculated_arguments[end-i])
+                push!(results, AbductibleValue(any_object))
+            else
+                push!(results, context.calculated_arguments[end-i])
+            end
         end
-        return output, context
+        return output,
+        ReverseRunContext(
+            context.arguments,
+            vcat(context.predicted_arguments, results),
+            context.calculated_arguments,
+            context.filled_indices,
+            context.filled_vars,
+        )
     end
 end
 
@@ -514,15 +526,40 @@ function __run_in_reverse(p::Apply, output::AbductibleValue, context)
     end
 end
 
+function _precalculate_arg(p, context)
+    env = Any[missing for _ in 1:maximum(keys(context.filled_indices); init = -1)+1]
+    for (i, v) in context.filled_indices
+        env[end-i] = v
+    end
+    try
+        # @info "Precalculating $p with $env and $(context.filled_vars)"
+        calculated_output = p(env, context.filled_vars)
+        # @info calculated_output
+        if isa(calculated_output, Function) ||
+           isa(calculated_output, AbductibleValue) ||
+           isa(calculated_output, PatternWrapper)
+            return missing
+        end
+        return calculated_output
+    catch e
+        if e isa InterruptException
+            rethrow()
+        end
+        return missing
+    end
+end
+
 function __run_in_reverse(p::Apply, output, context)
     # @info "Running in reverse $p $output $context"
+    precalculated_arg = _precalculate_arg(p.x, context)
+    # @info "Precalculated arg for $(p.x) is $precalculated_arg"
     calculated_output, arg_context = _run_in_reverse(
         p.f,
         output,
         ReverseRunContext(
             vcat(context.arguments, [p.x]),
             context.predicted_arguments,
-            vcat(context.calculated_arguments, [missing]),
+            vcat(context.calculated_arguments, [precalculated_arg]),
             context.filled_indices,
             context.filled_vars,
         ),
@@ -535,12 +572,13 @@ function __run_in_reverse(p::Apply, output, context)
     end
     arg_calculated_output, out_context = _run_in_reverse(p.x, arg_target, arg_context)
 
-    if arg_target isa AbductibleValue && arg_calculated_output != arg_target
-        # @info "arg_target $arg_target"
-        # @info "arg_calculated_output $arg_calculated_output"
+    # @info "arg_target $arg_target"
+    # @info "arg_calculated_output $arg_calculated_output"
+    if arg_calculated_output != arg_target
+        # if arg_target isa AbductibleValue && arg_calculated_output != arg_target
         calculated_output, arg_context = _run_in_reverse(
             p.f,
-            output,
+            calculated_output,
             ReverseRunContext(
                 vcat(context.arguments, [p.x]),
                 context.predicted_arguments,
@@ -716,13 +754,15 @@ function _generic_abductible_reverse(f, n, value, calculated_arguments, i, calcu
 end
 
 function _generic_abductible_reverse(f, n, value, calculated_arguments, i, calculated_arg::PatternWrapper)
-    new_args = [j == length(calculated_arguments) - i ? arg.value : arg for (j, arg) in enumerate(calculated_arguments)]
+    new_args =
+        [j == length(calculated_arguments) - i + 1 ? arg.value : arg for (j, arg) in enumerate(calculated_arguments)]
     results = _generic_abductible_reverse(f, n, value, new_args, i, calculated_arg.value)
     return [_wrap_wildcard(r) for r in results]
 end
 
 function _generic_abductible_reverse(f, n, value, calculated_arguments, i, calculated_arg::AbductibleValue)
-    new_args = [j == length(calculated_arguments) - i ? arg.value : arg for (j, arg) in enumerate(calculated_arguments)]
+    new_args =
+        [j == length(calculated_arguments) - i + 1 ? arg.value : arg for (j, arg) in enumerate(calculated_arguments)]
     results = _generic_abductible_reverse(f, n, value, new_args, i, calculated_arg.value)
     return [_wrap_abductible(r) for r in results]
 end
@@ -743,6 +783,8 @@ function _generic_abductible_reverse(f, n, value, calculated_arguments, i, calcu
             j == (length(calculated_arguments) - i + 1) ? missing : calculated_arguments[j] for
             j in 1:length(calculated_arguments)
         ]
+        # @info calculated_arguments
+        # @info new_args
         if i == n
             return f(value, new_args)
         else

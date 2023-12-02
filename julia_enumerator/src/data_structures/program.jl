@@ -277,6 +277,37 @@ function lookup_primitive(name)
     end
 end
 
+function infer_program_type(context, environment, p::Index)::Tuple{Context,Tp}
+    t = environment[p.n+1]
+    if isnothing(t)
+        throw(UnboundVariable())
+    else
+        apply_context(context, t)
+    end
+end
+
+infer_program_type(context, environment, p::Primitive)::Tuple{Context,Tp} = instantiate(p.t, context)
+
+infer_program_type(context, environment, p::Invented)::Tuple{Context,Tp} = instantiate(p.t, context)
+
+function infer_program_type(context, environment, p::Abstraction)::Tuple{Context,Tp}
+    (xt, context) = makeTID(context)
+    (context, rt) = infer_program_type(context, vcat([xt], environment), p.b)
+    apply_context(context, arrow(xt, rt))
+end
+
+function infer_program_type(context, environment, p::Apply)::Tuple{Context,Tp}
+    (rt, context) = makeTID(context)
+    (context, xt) = infer_program_type(context, environment, p.x)
+    (context, ft) = infer_program_type(context, environment, p.f)
+    context = unify(context, ft, arrow(xt, rt))
+    apply_context(context, rt)
+end
+
+infer_program_type(context, environment, p::FreeVar) = instantiate(p.t, context)
+
+closed_inference(p) = infer_program_type(empty_context, [], p)[2]
+
 using ParserCombinator
 
 parse_token = p"([a-zA-Z0-9_\-+*/'.<>|@?])+"
@@ -320,6 +351,8 @@ parse_free_variable = P"\$" + parse_var_name > (v -> FreeVar(t0, v))
 parse_fixed_real = P"real" + parse_token > (v -> Primitive(treal, "real", parse(Float64, v)))
 
 _parse_program = Delayed()
+
+struct UnboundVariable <: Exception end
 
 parse_invented = P"#" + _parse_program > (p -> begin
     t = try
@@ -400,37 +433,6 @@ _parse_program.matcher =
 function parse_program(s)
     parse_one(s, _parse_program)[1]
 end
-
-function infer_program_type(context, environment, p::Index)::Tuple{Context,Tp}
-    t = environment[p.n+1]
-    if isnothing(t)
-        throw(UnboundVariable())
-    else
-        apply_context(context, t)
-    end
-end
-
-infer_program_type(context, environment, p::Primitive)::Tuple{Context,Tp} = instantiate(p.t, context)
-
-infer_program_type(context, environment, p::Invented)::Tuple{Context,Tp} = instantiate(p.t, context)
-
-function infer_program_type(context, environment, p::Abstraction)::Tuple{Context,Tp}
-    (xt, context) = makeTID(context)
-    (context, rt) = infer_program_type(context, vcat([xt], environment), p.b)
-    apply_context(context, arrow(xt, rt))
-end
-
-function infer_program_type(context, environment, p::Apply)::Tuple{Context,Tp}
-    (rt, context) = makeTID(context)
-    (context, xt) = infer_program_type(context, environment, p.x)
-    (context, ft) = infer_program_type(context, environment, p.f)
-    context = unify(context, ft, arrow(xt, rt))
-    apply_context(context, rt)
-end
-
-infer_program_type(context, environment, p::FreeVar) = instantiate(p.t, context)
-
-closed_inference(p) = infer_program_type(empty_context, [], p)[2]
 
 number_of_free_parameters(p::Invented) = number_of_free_parameters(p.b)
 number_of_free_parameters(p::Abstraction) = number_of_free_parameters(p.b)

@@ -1,19 +1,31 @@
 
-function unfold_options(args::Vector)
+function unfold_options(args::Vector, out, need_simplify::Bool)
     if all(x -> !isa(x, EitherOptions), args)
-        return [args]
+        return [(args, out)], need_simplify
     end
     result = []
     for item in args
         if isa(item, EitherOptions)
+            if need_simplify
+                for (h, val) in item.options
+                    if all(_match_value(val, v) for (_, v) in item.options)
+                        new_args = [fix_option_hashes([h], v) for v in args]
+                        new_out = fix_option_hashes([h], out)
+                        # @info "Simplified $args to $new_args"
+                        return unfold_options(new_args, new_out, false)
+                    end
+                end
+            end
             for (h, val) in item.options
                 new_args = [fix_option_hashes([h], v) for v in args]
-                append!(result, unfold_options(new_args))
+                new_out = fix_option_hashes([h], out)
+                res, need_simplify = unfold_options(new_args, new_out, need_simplify)
+                append!(result, res)
             end
-            return result
+            return result, need_simplify
         end
     end
-    return result
+    return [(result, out)], need_simplify
 end
 
 function reshape_arg(arg, is_set, dims)
@@ -38,63 +50,137 @@ function reshape_arg(arg, is_set, dims)
     end
 end
 
-function unfold_map_options(calculated_arguments, indices, vars, is_set, dims)
-    for (k, item) in Iterators.flatten((indices, vars))
-        if isa(item, EitherOptions)
-            result_options = Dict()
-            for (h, val) in item.options
-                new_args = [[fix_option_hashes([h], v) for v in args] for args in calculated_arguments]
-                new_indices = Dict(k => fix_option_hashes([h], v) for (k, v) in indices)
-                new_vars = Dict(k => fix_option_hashes([h], v) for (k, v) in vars)
-                result_options[h] = unfold_map_options(new_args, new_indices, new_vars, is_set, dims)
+function unfold_map_options(output_options, dims)
+    all_options = Set()
+    for output_option in output_options
+        predicted_arguments = output_option[1]
+        need_recompute = true
+        need_simplify = false
+        while need_recompute
+            need_recompute = false
+            options = [([[] for _ in 1:length(predicted_arguments[1])], [])]
+            for (item_args, item_out) in zip(predicted_arguments, output_option[2])
+                # @info "Item args $item_args"
+                # @info "Item out $item_out"
+                # @info "Need simplify $need_simplify"
+                new_options = []
+                item_options, need_simplify = unfold_options(item_args, item_out, need_simplify)
+                # @info "Item options $item_options"
+                # @info "Need simplify $need_simplify"
+                for option in options
+                    for (point_option, out_option) in item_options
+                        new_option = (
+                            [vcat(option[1][i], [point_option[i]]) for i in 1:length(option[1])],
+                            vcat(option[2], [out_option]),
+                        )
+                        push!(new_options, new_option)
+                    end
+                end
+                options = new_options
             end
-            return [
-                EitherOptions(Dict(h => op[i] for (h, op) in result_options)) for i in 1:length(calculated_arguments[1])
-            ]
+            hashed_options = Dict(rand(UInt64) => option for option in options)
+            try
+                option_args = [
+                    EitherOptions(Dict(h => reshape_arg(option[1][i], false, dims) for (h, option) in hashed_options)) for i in 1:length(predicted_arguments[1])
+                ]
+                option_output =
+                    EitherOptions(Dict(h => reshape_arg(option[2], false, dims) for (h, option) in hashed_options))
+                push!(all_options, (option_args, option_output, output_option[3], output_option[4]))
+            catch e
+                if isa(e, TooManyOptionsException)
+                    if !need_simplify
+                        need_simplify = true
+                        need_recompute = true
+                    else
+                        rethrow()
+                    end
+                else
+                    rethrow()
+                end
+            end
         end
     end
-    options = [[[] for _ in 1:length(calculated_arguments[1])]]
-    for args in calculated_arguments
-        new_options = []
-        point_options = unfold_options(args)
-        for option in options
-            for point_option in point_options
-                new_option = [vcat(option[i], [point_option[i]]) for i in 1:length(option)]
-                push!(new_options, new_option)
-            end
-        end
-        options = new_options
+    if length(all_options) == 1
+        return first(all_options)
+    else
+        hashed_out_options = Dict(rand(UInt64) => option for option in all_options)
+        result_args = [
+            EitherOptions(Dict(h => option[1][i] for (h, option) in hashed_out_options)) for
+            i in 1:length(first(all_options)[1])
+        ]
+        result_output = EitherOptions(Dict(h => option[2] for (h, option) in hashed_out_options))
+        result_indices = Dict(
+            k => EitherOptions(Dict(h => option[3][k] for (h, option) in hashed_out_options)) for
+            (k, _) in first(all_options)[3]
+        )
+        result_vars = Dict(
+            k => EitherOptions(Dict(h => option[4][k] for (h, option) in hashed_out_options)) for
+            (k, _) in first(all_options)[4]
+        )
+        return result_args, result_output, result_indices, result_vars
     end
-    hashed_options = Dict(rand(UInt64) => option for option in options)
-    result = [
-        EitherOptions(Dict(h => reshape_arg(option[i], is_set, dims) for (h, option) in hashed_options)) for
-        i in 1:length(calculated_arguments[1])
-    ]
-    return result
 end
 
-function reverse_map(n, is_set = false)
+function _unfold_item_options(calculated_arguments, indices, vars)
+    for (k, item) in Iterators.flatten((indices, vars))
+        if isa(item, EitherOptions)
+            results = Set()
+            for (h, val) in item.options
+                new_args = [fix_option_hashes([h], arg) for arg in calculated_arguments]
+                new_indices = Dict(k => fix_option_hashes([h], v) for (k, v) in indices)
+                new_vars = Dict(k => fix_option_hashes([h], v) for (k, v) in vars)
+                union!(results, _unfold_item_options(new_args, new_indices, new_vars))
+            end
+            return results
+        end
+    end
+    return Set([(calculated_arguments, indices, vars)])
+end
+
+function _can_be_output_map_option(option, context, external_indices)
+    for i in external_indices
+        if i >= 0
+            if !haskey(option[3], i)
+                return false
+            end
+        else
+            if !haskey(option[4], UInt64(-i))
+                return false
+            end
+        end
+    end
+    return true
+end
+
+function reverse_map(n)
     function _reverse_map(value, context)
         f = context.arguments[end]
 
         external_indices = _get_var_indices(f)
 
-        filled_indices = context.filled_indices
-        filled_vars = context.filled_vars
-
         # @info "Reversing map with $f"
-        need_recompute = true
+        options_queue = Queue{UInt64}()
+        options_queue_dict = Dict()
+        visited = Set{UInt64}()
+        output_options = Set()
+        starting_option = ([], [], context.filled_indices, context.filled_vars)
+        h = hash(starting_option)
+        enqueue!(options_queue, h)
+        options_queue_dict[h] = starting_option
 
-        computed_outputs = Any[]
-        calculated_value = []
+        while !isempty(options_queue)
+            try
+                h = dequeue!(options_queue)
+                option = options_queue_dict[h]
+                delete!(options_queue_dict, h)
 
-        while need_recompute
-            need_recompute = false
-            calculated_value = []
-            computed_outputs = Any[]
+                # @info "Option $option"
+                push!(visited, h)
+                i = length(option[1]) + 1
+                item = value[i]
 
-            for (i, item) in enumerate(value)
                 # @info "Item $item"
+
                 calculated_arguments = []
                 for j in 1:n
                     if !ismissing(context.calculated_arguments[end-j])
@@ -107,59 +193,318 @@ function reverse_map(n, is_set = false)
                 calculated_item, new_context = _run_in_reverse(
                     f,
                     item,
-                    ReverseRunContext([], [], reverse(calculated_arguments), copy(filled_indices), copy(filled_vars)),
+                    ReverseRunContext([], [], reverse(calculated_arguments), copy(option[3]), copy(option[4])),
                 )
 
                 # @info "Calculated item $calculated_item"
                 # @info "New context $new_context"
 
-                if (!isempty(filled_indices) && filled_indices != new_context.filled_indices) ||
-                   (!isempty(filled_vars) && filled_vars != new_context.filled_vars)
-                    need_recompute = true
-                    # @info "Need recompute"
-                    # @info "Filled indices $filled_indices"
-                    # @info "Filled vars $filled_vars"
-                    filled_indices = new_context.filled_indices
-                    filled_vars = new_context.filled_vars
-                    break
+                for (option_args, option_indices, option_vars) in _unfold_item_options(
+                    new_context.predicted_arguments,
+                    new_context.filled_indices,
+                    new_context.filled_vars,
+                )
+                    # @info "Unfolded option $option_args"
+                    # @info "Unfolded indices $option_indices"
+                    # @info "Unfolded vars $option_vars"
+                    if !isempty(option[3]) || !isempty(option[4])
+                        need_reset = false
+                        for (k, v) in option_indices
+                            if haskey(option[3], k) && option[3][k] != v
+                                need_reset = true
+                                break
+                            end
+                        end
+                        for (k, v) in option_vars
+                            if haskey(option[4], k) && option[4][k] != v
+                                need_reset = true
+                                break
+                            end
+                        end
+                        if need_reset
+                            # @info "Need reset"
+                            new_option = ([], [], option[3], option[4])
+                            # @info new_option
+                            new_h = hash(new_option)
+                            if !haskey(options_queue_dict, new_h) && !in(new_h, visited)
+                                enqueue!(options_queue, new_h)
+                                options_queue_dict[new_h] = new_option
+                            end
+
+                            continue
+                        end
+                    end
+                    new_option = (
+                        vcat(option[1], [option_args]),
+                        vcat(option[2], [calculated_item]),
+                        option_indices,
+                        option_vars,
+                    )
+                    # @info new_option
+
+                    if i == length(value)
+                        if _can_be_output_map_option(new_option, context, external_indices)
+                            push!(output_options, new_option)
+                            # @info "Inserted output option $new_option"
+                        end
+                    else
+                        new_h = hash(new_option)
+                        if !haskey(options_queue_dict, new_h) && !in(new_h, visited)
+                            enqueue!(options_queue, new_h)
+                            options_queue_dict[new_h] = new_option
+                        end
+                    end
                 end
 
-                filled_indices = new_context.filled_indices
-                filled_vars = new_context.filled_vars
-
-                push!(calculated_value, calculated_item)
-
-                push!(computed_outputs, new_context.predicted_arguments)
+            catch e
+                if isa(e, InterruptException)
+                    rethrow()
+                end
+                # bt = catch_backtrace()
+                # @error "Got error" exception = (e, bt)
+                if isempty(options_queue) && isempty(output_options)
+                    rethrow()
+                else
+                    continue
+                end
             end
         end
-
-        # @info "Computed outputs $computed_outputs"
-        # @info "External indices $external_indices"
-
-        for i in external_indices
-            if i >= 0
-                if !haskey(filled_indices, i)
-                    error("Missing index $i")
-                end
-            else
-                if !haskey(filled_vars, UInt64(-i))
-                    error("Missing var $(-i)")
-                end
-            end
+        # @info "Output options $output_options"
+        if length(output_options) == 0
+            error("No output options")
+        else
+            computed_outputs, calculated_value, filled_indices, filled_vars =
+                unfold_map_options(output_options, size(value))
         end
 
-        computed_outputs =
-            unfold_map_options(computed_outputs, filled_indices, filled_vars, is_set, is_set ? nothing : size(value))
         # @info "Computed outputs $computed_outputs"
         # @info "filled_indices $filled_indices"
         # @info "filled_vars $filled_vars"
 
         # @info "Calculated value $calculated_value"
-        if is_set
-            calculated_value = Set(calculated_value)
-        else
-            calculated_value = reshape(calculated_value, size(value))
+
+        return calculated_value,
+        ReverseRunContext(
+            context.arguments,
+            vcat(context.predicted_arguments, computed_outputs, [SkipArg()]),
+            context.calculated_arguments,
+            filled_indices,
+            filled_vars,
+        )
+    end
+
+    return [(_is_reversible_subfunction, _is_possible_subfunction)], _reverse_map
+end
+
+function unfold_map_set_options(output_options)
+    all_options = Set()
+    for output_option in output_options
+        predicted_arguments = output_option[1]
+        need_recompute = true
+        need_simplify = false
+        while need_recompute
+            need_recompute = false
+            options = [([[]], [])]
+            for (item_args, item_out) in zip(predicted_arguments, output_option[2])
+                # @info "Item args $item_args"
+                # @info "Item out $item_out"
+                # @info "Need simplify $need_simplify"
+                new_options = []
+                item_options, need_simplify = unfold_options([item_args], item_out, need_simplify)
+                # @info "Item options $item_options"
+                # @info "Need simplify $need_simplify"
+                for option in options
+                    for (point_option, out_option) in item_options
+                        new_option = (
+                            [vcat(option[1][i], [point_option[i]]) for i in 1:length(option[1])],
+                            vcat(option[2], [out_option]),
+                        )
+                        push!(new_options, new_option)
+                    end
+                end
+                options = new_options
+            end
+            hashed_options = Dict(rand(UInt64) => option for option in options)
+            try
+                option_args = [
+                    EitherOptions(
+                        Dict(h => reshape_arg(option[1][1], true, nothing) for (h, option) in hashed_options),
+                    ),
+                ]
+                option_output =
+                    EitherOptions(Dict(h => reshape_arg(option[2], true, nothing) for (h, option) in hashed_options))
+                push!(all_options, (option_args, option_output, output_option[3], output_option[4]))
+            catch e
+                if isa(e, TooManyOptionsException)
+                    if !need_simplify
+                        need_simplify = true
+                        need_recompute = true
+                    else
+                        rethrow()
+                    end
+                else
+                    rethrow()
+                end
+            end
         end
+    end
+    if length(all_options) == 1
+        return first(all_options)
+    else
+        hashed_out_options = Dict(rand(UInt64) => option for option in all_options)
+        result_args = [
+            EitherOptions(Dict(h => option[1][i] for (h, option) in hashed_out_options)) for
+            i in 1:length(first(all_options)[1])
+        ]
+        result_output = EitherOptions(Dict(h => option[2] for (h, option) in hashed_out_options))
+        result_indices = Dict(
+            k => EitherOptions(Dict(h => option[3][k] for (h, option) in hashed_out_options)) for
+            (k, _) in first(all_options)[3]
+        )
+        result_vars = Dict(
+            k => EitherOptions(Dict(h => option[4][k] for (h, option) in hashed_out_options)) for
+            (k, _) in first(all_options)[4]
+        )
+        return result_args, result_output, result_indices, result_vars
+    end
+end
+
+function reverse_map_set()
+    function _reverse_map(value, context)
+        f = context.arguments[end]
+
+        external_indices = _get_var_indices(f)
+
+        # @info "Reversing map with $f"
+        options_queue = Queue{UInt64}()
+        options_queue_dict = Dict()
+        visited = Set{UInt64}()
+        output_options = Set()
+        starting_option =
+            (Set(), Set(), context.filled_indices, context.filled_vars, context.calculated_arguments[end-1], value)
+        h = hash(starting_option)
+        enqueue!(options_queue, h)
+        options_queue_dict[h] = starting_option
+        last_error = nothing
+
+        while !isempty(options_queue)
+            h = dequeue!(options_queue)
+            option = options_queue_dict[h]
+            delete!(options_queue_dict, h)
+
+            # @info "Option $option"
+            push!(visited, h)
+            item = first(option[6])
+
+            # @info "Item $item"
+
+            if ismissing(option[5])
+                calculated_argument_options = [missing]
+            else
+                calculated_argument_options = option[5]
+            end
+
+            for calculated_arg_option in calculated_argument_options
+                try
+                    calculated_item, new_context = _run_in_reverse(
+                        f,
+                        item,
+                        ReverseRunContext([], [], [calculated_arg_option], copy(option[3]), copy(option[4])),
+                    )
+
+                    # @info "Calculated item $calculated_item"
+                    # @info "New context $new_context"
+
+                    for (option_args, option_indices, option_vars) in _unfold_item_options(
+                        new_context.predicted_arguments,
+                        new_context.filled_indices,
+                        new_context.filled_vars,
+                    )
+                        # @info "Unfolded option $option_args"
+                        # @info "Unfolded indices $option_indices"
+                        # @info "Unfolded vars $option_vars"
+                        if !isempty(option[3]) || !isempty(option[4])
+                            need_reset = false
+                            for (k, v) in option_indices
+                                if haskey(option[3], k) && option[3][k] != v
+                                    need_reset = true
+                                    break
+                                end
+                            end
+                            for (k, v) in option_vars
+                                if haskey(option[4], k) && option[4][k] != v
+                                    need_reset = true
+                                    break
+                                end
+                            end
+                            if need_reset
+                                # @info "Need reset"
+                                new_option =
+                                    (Set(), Set(), option[3], option[4], context.calculated_arguments[end-1], value)
+                                # @info new_option
+                                new_h = hash(new_option)
+                                if !haskey(options_queue_dict, new_h) && !in(new_h, visited)
+                                    enqueue!(options_queue, new_h)
+                                    options_queue_dict[new_h] = new_option
+                                end
+
+                                continue
+                            end
+                        end
+                        if in(option_args[1], option[1])
+                            continue
+                        end
+
+                        new_option = (
+                            union(option[1], [option_args[1]]),
+                            union(option[2], [calculated_item]),
+                            option_indices,
+                            option_vars,
+                            ismissing(option[5]) ? missing : setdiff(option[5], [calculated_arg_option]),
+                            setdiff(option[6], [item]),
+                        )
+                        # @info new_option
+
+                        if isempty(new_option[6])
+                            if _can_be_output_map_option(new_option, context, external_indices)
+                                push!(output_options, new_option)
+                                # @info "Inserted output option $new_option"
+                            end
+                        else
+                            new_h = hash(new_option)
+                            if !haskey(options_queue_dict, new_h) && !in(new_h, visited)
+                                enqueue!(options_queue, new_h)
+                                options_queue_dict[new_h] = new_option
+                            end
+                        end
+                    end
+
+                catch e
+                    if isa(e, InterruptException)
+                        rethrow()
+                    end
+                    # bt = catch_backtrace()
+                    # @error "Got error" exception = (e, bt)
+                    last_error = e
+                    continue
+                end
+            end
+        end
+        # @info "Output options $output_options"
+        if length(output_options) == 0
+            if !isnothing(last_error)
+                throw(last_error)
+            end
+            error("No output options")
+        else
+            computed_outputs, calculated_value, filled_indices, filled_vars = unfold_map_set_options(output_options)
+        end
+
+        # @info "Computed outputs $computed_outputs"
+        # @info "filled_indices $filled_indices"
+        # @info "filled_vars $filled_vars"
+
+        # @info "Calculated value $calculated_value"
 
         return calculated_value,
         ReverseRunContext(
@@ -242,5 +587,5 @@ end
     "map_set",
     arrow(arrow(t0, t1), tset(t0), tset(t1)),
     (f -> (xs -> map_set(f, xs))),
-    reverse_map(1, true)
+    reverse_map_set()
 )
