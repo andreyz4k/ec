@@ -270,31 +270,34 @@ function unfold_map_set_options(output_options)
     all_options = Set()
     for output_option in output_options
         predicted_arguments = output_option[1]
-
-        options = Set([([[]], [])])
-        for (item_args, item_out) in zip(predicted_arguments, output_option[2])
-            # @info "Item args $item_args"
-            # @info "Item out $item_out"
-            new_options = Set()
-            item_options = unfold_options([item_args], item_out)
-            # @info "Item options $item_options"
-            for option in options
-                for (point_option, out_option) in item_options
-                    new_option = (
-                        [vcat(option[1][i], [point_option[i]]) for i in 1:length(option[1])],
-                        vcat(option[2], [out_option]),
-                    )
-                    push!(new_options, new_option)
+        if isa(predicted_arguments, AbductibleValue)
+            push!(all_options, ([predicted_arguments], output_option[2], output_option[3], output_option[4]))
+        else
+            options = Set([([[]], [])])
+            for (item_args, item_out) in zip(predicted_arguments, output_option[2])
+                # @info "Item args $item_args"
+                # @info "Item out $item_out"
+                new_options = Set()
+                item_options = unfold_options([item_args], item_out)
+                # @info "Item options $item_options"
+                for option in options
+                    for (point_option, out_option) in item_options
+                        new_option = (
+                            [vcat(option[1][i], [point_option[i]]) for i in 1:length(option[1])],
+                            vcat(option[2], [out_option]),
+                        )
+                        push!(new_options, new_option)
+                    end
                 end
+                options = new_options
             end
-            options = new_options
+            hashed_options = Dict(rand(UInt64) => option for option in options)
+            option_args =
+                [EitherOptions(Dict(h => reshape_arg(option[1][1], true, nothing) for (h, option) in hashed_options))]
+            option_output =
+                EitherOptions(Dict(h => reshape_arg(option[2], true, nothing) for (h, option) in hashed_options))
+            push!(all_options, (option_args, option_output, output_option[3], output_option[4]))
         end
-        hashed_options = Dict(rand(UInt64) => option for option in options)
-        option_args =
-            [EitherOptions(Dict(h => reshape_arg(option[1][1], true, nothing) for (h, option) in hashed_options))]
-        option_output =
-            EitherOptions(Dict(h => reshape_arg(option[2], true, nothing) for (h, option) in hashed_options))
-        push!(all_options, (option_args, option_output, output_option[3], output_option[4]))
     end
     if length(all_options) == 1
         return first(all_options)
@@ -406,6 +409,20 @@ function reverse_map_set()
                             end
                         end
                         if in(option_args[1], option[1])
+                            if isa(option_args[1], AbductibleValue)
+                                new_option = (
+                                    AbductibleValue(any_object),
+                                    value,
+                                    option_indices,
+                                    option_vars,
+                                    option[5],
+                                    option[6],
+                                )
+                                if _can_be_output_map_option(new_option, context, external_indices)
+                                    push!(output_options, new_option)
+                                    # @info "Inserted output option $new_option"
+                                end
+                            end
                             continue
                         end
 

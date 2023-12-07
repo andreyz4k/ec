@@ -93,9 +93,18 @@ using DataStructures: OrderedDict, Accumulator
         Abstraction(new_b), max_var
     end
 
-    function capture_free_vars(p::Union{Hole,FreeVar}, max_var = UInt64(0))
+    function capture_free_vars(p::Hole, max_var = UInt64(0))
         var_id = max_var + 1
         FreeVar(t0, var_id), max_var + 1
+    end
+
+    function capture_free_vars(p::FreeVar, max_var = UInt64(0))
+        if isnothing(p.var_id)
+            var_id = max_var + 1
+            FreeVar(t0, var_id), max_var + 1
+        else
+            p, max_var
+        end
     end
 
     @testset "Check reversible simple" begin
