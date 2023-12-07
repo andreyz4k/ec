@@ -55,7 +55,7 @@ end
 
 function value_updates(
     sc,
-    block::Union{ReverseProgramBlock,WrapEitherBlock},
+    block::ReverseProgramBlock,
     block_id,
     target_output::Dict{UInt64,UInt64},
     new_values,
@@ -83,6 +83,64 @@ function value_updates(
             out_var,
             br_id,
             entry.type_id,
+            true,
+            fixed_branches,
+            created_paths,
+        )
+        is_new_next_block |= is_new_nxt_block
+        out_branches[out_var] = out_branch_id
+        allow_fails |= all_fails
+        set_explained |= set_expl
+        union!(next_blocks, n_blocks)
+        block_created_paths[out_branch_id] = bl_created_paths
+    end
+    if set_explained
+        known_from_input = any(sc.branch_known_from_input[fixed_branches[in_var]] for in_var in block.input_vars)
+        for (_, branch_id) in out_branches
+            if length(out_branches) > 1
+                inds = [b_id for (_, b_id) in out_branches if b_id != branch_id]
+                sc.related_explained_complexity_branches[branch_id, inds] = true
+            end
+            if !sc.branch_known_from_input[branch_id]
+                sc.branch_known_from_input[branch_id] = known_from_input
+            end
+        end
+    end
+    return out_branches, is_new_next_block, allow_fails, next_blocks, set_explained, block_created_paths
+end
+
+function value_updates(
+    sc,
+    block::WrapEitherBlock,
+    block_id,
+    output_types,
+    target_output::Dict{UInt64,UInt64},
+    new_values,
+    fixed_branches::Dict{UInt64,UInt64},
+    is_new_block,
+    created_paths,
+)
+    out_branches = Dict{UInt64,UInt64}()
+    is_new_next_block = false
+    allow_fails = false
+    set_explained = false
+    next_blocks = Set()
+    block_created_paths = Dict{UInt64,Vector{Any}}()
+    for i in 1:length(block.output_vars)
+        out_var = block.output_vars[i]
+        values = new_values[i]
+        br_id = target_output[out_var]
+        entry = sc.entries[sc.branch_entries[br_id]]
+        t_id = push!(sc.types, output_types[i])
+        out_branch_id, is_new_nxt_block, all_fails, n_blocks, set_expl, bl_created_paths = updated_branches(
+            sc,
+            entry,
+            values,
+            block_id,
+            is_new_block,
+            out_var,
+            br_id,
+            t_id,
             true,
             fixed_branches,
             created_paths,

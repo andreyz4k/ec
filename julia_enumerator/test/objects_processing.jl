@@ -502,6 +502,19 @@ using solver:
         )
     end
 
+    @testset "Single object coordinates extraction" begin
+        cells = Set([(19, 10), (18, 9), (19, 11), (17, 9), (18, 10), (18, 11), (17, 10)])
+        extract_coordinates = parse_program(
+            "(map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$v2)) (+ (tuple2_second \$0) (tuple2_second \$v2)))) ??(set(tuple2(int, int))))",
+        )
+        @test is_reversible(extract_coordinates)
+        extract_coordinates, _ = capture_free_vars(extract_coordinates)
+        @test run_in_reverse(extract_coordinates, cells) == Dict(
+            0x0000000000000001 => Set([(2, 1), (1, 0), (2, 2), (0, 0), (1, 1), (1, 2), (0, 1)]),
+            0x0000000000000002 => (17, 9),
+        )
+    end
+
     @testset "Get object coordinates" begin
         objects = Set(
             Tuple{Set{Tuple{Int64,Int64}},Int64}[

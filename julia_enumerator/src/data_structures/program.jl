@@ -249,6 +249,7 @@ Base.hash(block::ReverseProgramBlock, h::UInt64) =
 
 struct WrapEitherBlock <: AbstractProgramBlock
     main_block::ReverseProgramBlock
+    type::Tp
     fixer_var::UInt64
     cost::Float64
     input_vars::Vector{UInt64}

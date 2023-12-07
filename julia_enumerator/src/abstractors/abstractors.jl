@@ -767,7 +767,7 @@ function _generic_abductible_reverse(f, n, value, calculated_arguments, i, calcu
     return [_wrap_abductible(r) for r in results]
 end
 
-function _generic_abductible_reverse(f, n, value, calculated_arguments, i, calculated_arg::AnyObject)
+function _generic_abductible_reverse(f, n, value, calculated_arguments, i, calculated_arg::Union{AnyObject,Nothing})
     try
         if i == n
             return f(value, calculated_arguments)
@@ -867,7 +867,7 @@ function calculate_dependent_vars(p, inputs, output)
     context = ReverseRunContext([], [], [], Dict(), copy(inputs))
     updated_inputs = _run_in_reverse(p, output, context)[2].filled_vars
     return Dict(
-        k => v for (k, v) in updated_inputs if (!haskey(inputs, k) || inputs[k] != v) && !isa(v, AbductibleValue)
+        k => v for (k, v) in updated_inputs if (!haskey(inputs, k) || inputs[k] != v) # && !isa(v, AbductibleValue)
     )
 end
 

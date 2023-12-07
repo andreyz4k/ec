@@ -1,31 +1,21 @@
 
-function unfold_options(args::Vector, out, need_simplify::Bool)
+function unfold_options(args::Vector, out)
     if all(x -> !isa(x, EitherOptions), args)
-        return [(args, out)], need_simplify
+        return [(args, out)]
     end
     result = []
     for item in args
         if isa(item, EitherOptions)
-            if need_simplify
-                for (h, val) in item.options
-                    if all(_match_value(val, v) for (_, v) in item.options)
-                        new_args = [fix_option_hashes([h], v) for v in args]
-                        new_out = fix_option_hashes([h], out)
-                        # @info "Simplified $args to $new_args"
-                        return unfold_options(new_args, new_out, false)
-                    end
-                end
-            end
             for (h, val) in item.options
                 new_args = [fix_option_hashes([h], v) for v in args]
                 new_out = fix_option_hashes([h], out)
-                res, need_simplify = unfold_options(new_args, new_out, need_simplify)
+                res = unfold_options(new_args, new_out)
                 append!(result, res)
             end
-            return result, need_simplify
+            return result
         end
     end
-    return [(result, out)], need_simplify
+    return [(result, out)]
 end
 
 function reshape_arg(arg, is_set, dims)
@@ -54,51 +44,32 @@ function unfold_map_options(output_options, dims)
     all_options = Set()
     for output_option in output_options
         predicted_arguments = output_option[1]
-        need_recompute = true
-        need_simplify = false
-        while need_recompute
-            need_recompute = false
-            options = [([[] for _ in 1:length(predicted_arguments[1])], [])]
-            for (item_args, item_out) in zip(predicted_arguments, output_option[2])
-                # @info "Item args $item_args"
-                # @info "Item out $item_out"
-                # @info "Need simplify $need_simplify"
-                new_options = []
-                item_options, need_simplify = unfold_options(item_args, item_out, need_simplify)
-                # @info "Item options $item_options"
-                # @info "Need simplify $need_simplify"
-                for option in options
-                    for (point_option, out_option) in item_options
-                        new_option = (
-                            [vcat(option[1][i], [point_option[i]]) for i in 1:length(option[1])],
-                            vcat(option[2], [out_option]),
-                        )
-                        push!(new_options, new_option)
-                    end
-                end
-                options = new_options
-            end
-            hashed_options = Dict(rand(UInt64) => option for option in options)
-            try
-                option_args = [
-                    EitherOptions(Dict(h => reshape_arg(option[1][i], false, dims) for (h, option) in hashed_options)) for i in 1:length(predicted_arguments[1])
-                ]
-                option_output =
-                    EitherOptions(Dict(h => reshape_arg(option[2], false, dims) for (h, option) in hashed_options))
-                push!(all_options, (option_args, option_output, output_option[3], output_option[4]))
-            catch e
-                if isa(e, TooManyOptionsException)
-                    if !need_simplify
-                        need_simplify = true
-                        need_recompute = true
-                    else
-                        rethrow()
-                    end
-                else
-                    rethrow()
+
+        options = [([[] for _ in 1:length(predicted_arguments[1])], [])]
+        for (item_args, item_out) in zip(predicted_arguments, output_option[2])
+            # @info "Item args $item_args"
+            # @info "Item out $item_out"
+            new_options = []
+            item_options = unfold_options(item_args, item_out)
+            # @info "Item options $item_options"
+            for option in options
+                for (point_option, out_option) in item_options
+                    new_option = (
+                        [vcat(option[1][i], [point_option[i]]) for i in 1:length(option[1])],
+                        vcat(option[2], [out_option]),
+                    )
+                    push!(new_options, new_option)
                 end
             end
+            options = new_options
         end
+        hashed_options = Dict(rand(UInt64) => option for option in options)
+        option_args = [
+            EitherOptions(Dict(h => reshape_arg(option[1][i], false, dims) for (h, option) in hashed_options)) for
+            i in 1:length(predicted_arguments[1])
+        ]
+        option_output = EitherOptions(Dict(h => reshape_arg(option[2], false, dims) for (h, option) in hashed_options))
+        push!(all_options, (option_args, option_output, output_option[3], output_option[4]))
     end
     if length(all_options) == 1
         return first(all_options)
@@ -223,7 +194,7 @@ function reverse_map(n)
                         end
                         if need_reset
                             # @info "Need reset"
-                            new_option = ([], [], option[3], option[4])
+                            new_option = ([], [], option_indices, option_vars)
                             # @info new_option
                             new_h = hash(new_option)
                             if !haskey(options_queue_dict, new_h) && !in(new_h, visited)
@@ -255,7 +226,6 @@ function reverse_map(n)
                         end
                     end
                 end
-
             catch e
                 if isa(e, InterruptException)
                     rethrow()
@@ -300,53 +270,31 @@ function unfold_map_set_options(output_options)
     all_options = Set()
     for output_option in output_options
         predicted_arguments = output_option[1]
-        need_recompute = true
-        need_simplify = false
-        while need_recompute
-            need_recompute = false
-            options = [([[]], [])]
-            for (item_args, item_out) in zip(predicted_arguments, output_option[2])
-                # @info "Item args $item_args"
-                # @info "Item out $item_out"
-                # @info "Need simplify $need_simplify"
-                new_options = []
-                item_options, need_simplify = unfold_options([item_args], item_out, need_simplify)
-                # @info "Item options $item_options"
-                # @info "Need simplify $need_simplify"
-                for option in options
-                    for (point_option, out_option) in item_options
-                        new_option = (
-                            [vcat(option[1][i], [point_option[i]]) for i in 1:length(option[1])],
-                            vcat(option[2], [out_option]),
-                        )
-                        push!(new_options, new_option)
-                    end
-                end
-                options = new_options
-            end
-            hashed_options = Dict(rand(UInt64) => option for option in options)
-            try
-                option_args = [
-                    EitherOptions(
-                        Dict(h => reshape_arg(option[1][1], true, nothing) for (h, option) in hashed_options),
-                    ),
-                ]
-                option_output =
-                    EitherOptions(Dict(h => reshape_arg(option[2], true, nothing) for (h, option) in hashed_options))
-                push!(all_options, (option_args, option_output, output_option[3], output_option[4]))
-            catch e
-                if isa(e, TooManyOptionsException)
-                    if !need_simplify
-                        need_simplify = true
-                        need_recompute = true
-                    else
-                        rethrow()
-                    end
-                else
-                    rethrow()
+
+        options = Set([([[]], [])])
+        for (item_args, item_out) in zip(predicted_arguments, output_option[2])
+            # @info "Item args $item_args"
+            # @info "Item out $item_out"
+            new_options = Set()
+            item_options = unfold_options([item_args], item_out)
+            # @info "Item options $item_options"
+            for option in options
+                for (point_option, out_option) in item_options
+                    new_option = (
+                        [vcat(option[1][i], [point_option[i]]) for i in 1:length(option[1])],
+                        vcat(option[2], [out_option]),
+                    )
+                    push!(new_options, new_option)
                 end
             end
+            options = new_options
         end
+        hashed_options = Dict(rand(UInt64) => option for option in options)
+        option_args =
+            [EitherOptions(Dict(h => reshape_arg(option[1][1], true, nothing) for (h, option) in hashed_options))]
+        option_output =
+            EitherOptions(Dict(h => reshape_arg(option[2], true, nothing) for (h, option) in hashed_options))
+        push!(all_options, (option_args, option_output, output_option[3], output_option[4]))
     end
     if length(all_options) == 1
         return first(all_options)
@@ -439,8 +387,14 @@ function reverse_map_set()
                             end
                             if need_reset
                                 # @info "Need reset"
-                                new_option =
-                                    (Set(), Set(), option[3], option[4], context.calculated_arguments[end-1], value)
+                                new_option = (
+                                    Set(),
+                                    Set(),
+                                    option_indices,
+                                    option_vars,
+                                    context.calculated_arguments[end-1],
+                                    value,
+                                )
                                 # @info new_option
                                 new_h = hash(new_option)
                                 if !haskey(options_queue_dict, new_h) && !in(new_h, visited)
@@ -478,7 +432,6 @@ function reverse_map_set()
                             end
                         end
                     end
-
                 catch e
                     if isa(e, InterruptException)
                         rethrow()

@@ -436,6 +436,7 @@ function create_wrapping_block(
     branch_id::UInt64,
     either_var_ids,
     either_branch_ids,
+    input_type,
 )
     unknown_type_id = [t_id for (v_id, _, t_id) in output_vars if v_id == var_id][1]
     new_var = create_next_var(sc)
@@ -457,14 +458,30 @@ function create_wrapping_block(
     sc.unknown_complexity_factors[new_branch_id] = sc.explained_complexity_factors[branch_id]
     sc.unmatched_complexities[new_branch_id] = sc.complexities[branch_id]
 
-    wrapper_block = WrapEitherBlock(block, var_id, cost, [input_var, new_var], [v_id for (v_id, _, _) in output_vars])
+    arg_types = [sc.types[v[3]] for v in output_vars]
+    if isempty(arg_types)
+        p_type = input_type
+    else
+        p_type = arrow(arg_types..., input_type)
+    end
+
+    wrapper_block =
+        WrapEitherBlock(block, p_type, var_id, cost, [input_var, new_var], [v_id for (v_id, _, _) in output_vars])
     wrapper_block_id = push!(sc.blocks, wrapper_block)
     target_outputs = Dict(v_id => b_id for (v_id, b_id, _) in output_vars)
     input_branches = Dict(input_var => input_branch, new_var => new_branch_id)
     return wrapper_block_id, input_branches, target_outputs
 end
 
-function create_reversed_block(sc::SolutionContext, p::Program, context, path, input_var::Tuple{UInt64,UInt64}, cost)
+function create_reversed_block(
+    sc::SolutionContext,
+    p::Program,
+    context,
+    path,
+    input_var::Tuple{UInt64,UInt64},
+    cost,
+    input_type,
+)
     new_p, output_vars, either_var_ids, abductible_var_ids, either_branch_ids, abductible_branch_ids =
         try_get_reversed_values(sc, p, context, path, input_var[2], cost, true)
     block = ReverseProgramBlock(new_p, cost, [input_var[1]], [v_id for (v_id, _, _) in output_vars])
@@ -492,6 +509,7 @@ function create_reversed_block(sc::SolutionContext, p::Program, context, path, i
                     branch_id,
                     either_var_ids,
                     either_branch_ids,
+                    input_type,
                 ),
             )
         end
@@ -654,6 +672,16 @@ function try_run_block(
     )
 end
 
+function _fix_param_type(block_type, i, param_type)
+    if is_polymorphic(block_type)
+        context, block_type = instantiate(block_type, empty_context)
+        context, param_type = instantiate(param_type, context)
+        context = unify(context, arguments_of_type(block_type)[i], param_type)
+        context, block_type = apply_context(context, block_type)
+    end
+    return arguments_of_type(block_type)
+end
+
 function try_run_block(
     sc::SolutionContext,
     block::WrapEitherBlock,
@@ -703,12 +731,15 @@ function try_run_block(
 
     fixed_hashes = [get_fixed_hashes(outs[block.fixer_var][j], fixer_entry.values[j]) for j in 1:sc.example_count]
 
+    # TODO: rewrite this with calculate_dependent_vars
     outputs = Vector{Any}[]
+    fixer_index = 0
     for i in 1:outputs_count
         var_id = block.output_vars[i]
         target_values = outs[var_id]
         if var_id == block.fixer_var
             fixed_values = fixer_entry.values
+            fixer_index = i
         else
             fixed_values = _fix_option_hashes(fixed_hashes, target_values)
         end
@@ -722,10 +753,22 @@ function try_run_block(
         end
         push!(outputs, fixed_values)
     end
+    output_types = _fix_param_type(block.type, fixer_index, sc.types[fixer_entry.type_id])
     if sc.verbose
         @info "Got outputs for block $block_id: $outputs"
+        @info "Output types: $output_types"
     end
-    return value_updates(sc, block, block_id, target_output, outputs, fixed_branches, is_new_block, created_paths)
+    return value_updates(
+        sc,
+        block,
+        block_id,
+        output_types,
+        target_output,
+        outputs,
+        fixed_branches,
+        is_new_block,
+        created_paths,
+    )
 end
 
 function try_run_block_with_downstream(
@@ -877,8 +920,15 @@ function enumeration_iteration_finished_input(sc, bp)
     state = bp.state
     if bp.reverse
         # @info "Try get reversed for $bp"
-        abstractor_results =
-            create_reversed_block(sc, state.skeleton, state.context, state.path, bp.output_var, state.cost)
+        abstractor_results = create_reversed_block(
+            sc,
+            state.skeleton,
+            state.context,
+            state.path,
+            bp.output_var,
+            state.cost,
+            return_of_type(bp.request),
+        )
         return abstractor_results
     else
         arg_types =

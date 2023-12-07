@@ -28,19 +28,7 @@ function reverse_plus(value, calculated_arguments)
         return [value - calculated_arguments[end-1], calculated_arguments[end-1]]
     end
 
-    options = Set()
-    push!(options, [AbductibleValue(any_object), AbductibleValue(any_object)])
-    for i in -3:3
-        push!(options, [i, value - i])
-        push!(options, [value - i, i])
-    end
-    hashed_options = Dict(rand(UInt64) => option for option in options)
-    results = []
-    for i in 1:2
-        push!(results, EitherOptions(Dict(h => option[i] for (h, option) in hashed_options)))
-    end
-    # @info results
-    return results
+    return [AbductibleValue(any_object), AbductibleValue(any_object)]
 end
 
 @define_abductible_reverse_primitive "+" arrow(tint, tint, tint) (a -> (b -> a + b)) reverse_plus

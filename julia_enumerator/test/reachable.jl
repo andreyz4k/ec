@@ -728,6 +728,7 @@ using DataStructures
 
                 bl = WrapEitherBlock(
                     ReverseProgramBlock(p.v, 0.0, [vars_mapping[p.inp_var_id]], [vars_mapping[v] for v in p.var_ids]),
+                    t0,
                     vars_mapping[p.fixer_var_id],
                     0.0,
                     [vars_mapping[p.inp_var_id], fixer_var],
