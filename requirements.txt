@@ -32,8 +32,8 @@ pyzmq
 requests
 scikit-learn
 scipy
-# sexpdata
-git+https://github.com/jd-boyd/sexpdata.git
+sexpdata == 1.0.0
+# git+https://github.com/jd-boyd/sexpdata.git
 six
 torch
 torchvision
