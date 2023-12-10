@@ -10,21 +10,27 @@ get_argument_requests(candidate, argument_types, cg) = cg.contextual_library[can
 
 struct WrongPath <: Exception end
 
-follow_path(skeleton::Apply, path) =
-    if isa(path[1], LeftTurn)
+function follow_path(skeleton::Apply, path)
+    if isempty(path)
+        skeleton
+    elseif isa(path[1], LeftTurn)
         follow_path(skeleton.f, view(path, 2:length(path)))
     elseif isa(path[1], RightTurn)
         follow_path(skeleton.x, view(path, 2:length(path)))
     else
         throw(WrongPath())
     end
+end
 
-follow_path(skeleton::Abstraction, path) =
-    if isa(path[1], ArgTurn)
+function follow_path(skeleton::Abstraction, path)
+    if isempty(path)
+        skeleton
+    elseif isa(path[1], ArgTurn)
         follow_path(skeleton.b, view(path, 2:length(path)))
     else
         throw(WrongPath())
     end
+end
 
 follow_path(skeleton::Hole, path) =
     if isempty(path)
@@ -33,7 +39,12 @@ follow_path(skeleton::Hole, path) =
         throw(WrongPath())
     end
 
-follow_path(::Any, path) = throw(WrongPath())
+follow_path(skeleton::Program, path) =
+    if isempty(path)
+        skeleton
+    else
+        throw(WrongPath())
+    end
 
 path_environment(path) = reverse(Tp[t.type for t in path if isa(t, ArgTurn)])
 
@@ -109,7 +120,7 @@ const illegal_combinations1 = Set([
     (1, "zero?", "-1"),
     #  bootstrap target
     (2, "map", "empty"),
-    (1, "fold", "empty"),
+    (2, "fold", "empty"),
     (2, "index", "empty"),
 ])
 

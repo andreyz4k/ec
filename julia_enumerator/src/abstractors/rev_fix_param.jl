@@ -3,22 +3,42 @@ _is_fixable_param(p::Index) = true
 _is_fixable_param(p::FreeVar) = true
 _is_fixable_param(p) = false
 
-_is_possible_fixable_param(p::Index, from_input, skeleton, path) = true
+function _is_possible_fixable_param(p::Index, from_input, skeleton, path)
+    return has_index(follow_path(skeleton, vcat(path[begin:end-1], [LeftTurn(), RightTurn()])), p.n)
+end
 _is_possible_fixable_param(p, from_input, skeleton, path) = false
 
-#TODO: filter only used indices and vars
+function _get_free_vars(p::FreeVar)
+    return [p]
+end
+
+function _get_free_vars(p::Apply)
+    return vcat(_get_free_vars(p.f), _get_free_vars(p.x))
+end
+_get_free_vars(p::Abstraction) = _get_free_vars(p.b)
+_get_free_vars(p::Program) = []
+
 function _is_possible_fixable_param(p::FreeVar, from_input, skeleton, path)
     if isnothing(p.var_id)
         return false
     end
-    # @info "Checking if $p is fixable"
-    # @info "skeleton: $skeleton"
-    # @info "path: $path"
-    return true
+    body_free_vars = _get_free_vars(follow_path(skeleton, path[begin:end-1]))
+    unfixed_free_vars = filter(v -> isnothing(v.var_id), body_free_vars)
+    all_free_vars = _get_free_var_types(skeleton)
+    index_shift = length(all_free_vars) - length(unfixed_free_vars)
+    if in(p, body_free_vars)
+        return true
+    end
+    i = parse(Int, p.var_id[2:end])
+    if i > index_shift
+        return true
+    end
+    return false
 end
 
 _is_possible_fixer(p::Primitive, from_input, skeleton, path) = true
 _is_possible_fixer(p::FreeVar, from_input, skeleton, path) = false
+#TODO: allow for bigger indices in inner functions
 _is_possible_fixer(p::Index, from_input, skeleton, path) = p.n == 0
 _is_possible_fixer(p::Invented, from_input, skeleton, path) = true
 
@@ -70,7 +90,7 @@ function reverse_fix_param()
         )
     end
     return [
-        (_is_reversible_subfunction, _is_possible_subfunction),
+        (_is_reversible_subfunction, nothing),
         (_is_fixable_param, _is_possible_fixable_param),
         (_has_no_holes, _is_possible_fixer),
     ],
