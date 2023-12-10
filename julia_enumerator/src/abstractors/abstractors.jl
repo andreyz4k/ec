@@ -182,6 +182,9 @@ _unify_values(v1, v2::PatternWrapper, check_pattern) = _wrap_wildcard(_unify_val
 _unify_values(v1::PatternWrapper, v2::PatternWrapper, check_pattern) =
     _wrap_wildcard(_unify_values(v1.value, v2.value, true))
 
+_unify_values(v1::PatternWrapper, v2::AnyObject, check_pattern) = v1
+_unify_values(v1::AnyObject, v2::PatternWrapper, check_pattern) = v2
+
 _unify_values(v1::AbductibleValue, v2, check_pattern) = _wrap_abductible(_unify_values(v1.value, v2, true))
 _unify_values(v1, v2::AbductibleValue, check_pattern) = _wrap_abductible(_unify_values(v1, v2.value, true))
 _unify_values(v1::AbductibleValue, v2::AbductibleValue, check_pattern) =
@@ -888,3 +891,4 @@ include("groupby.jl")
 include("cluster.jl")
 include("bool.jl")
 include("int.jl")
+include("rev_fix_param.jl")

@@ -429,6 +429,12 @@ using DataStructures
                     "is_reversible" => true,
                     "type" => "int -> int",
                 ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "rev_fix_param",
+                    "is_reversible" => true,
+                    "type" => "t0 -> t1 -> (t0 -> t1) -> t0",
+                ),
             ],
         ),
         "type_weights" => Dict{String,Any}(
@@ -596,6 +602,12 @@ using DataStructures
                     "expression" => "concat",
                     "is_reversible" => true,
                     "type" => "list(t0) -> list(t0) -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "rev_fix_param",
+                    "is_reversible" => true,
+                    "type" => "t0 -> t1 -> (t0 -> t1) -> t0",
                 ),
             ],
         ),

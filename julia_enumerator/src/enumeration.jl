@@ -240,23 +240,38 @@ function block_state_successors(
     end
 end
 
-capture_free_vars(sc::SolutionContext, p::Program, context) = p, []
+capture_free_vars(sc::SolutionContext, p::Program, context) = _capture_free_vars(sc, p, context, [])
 
-function capture_free_vars(sc::SolutionContext, p::Apply, context)
-    new_f, new_vars_f = capture_free_vars(sc, p.f, context)
-    new_x, new_vars_x = capture_free_vars(sc, p.x, context)
-    Apply(new_f, new_x), vcat(new_vars_f, new_vars_x)
+_capture_free_vars(sc::SolutionContext, p::Program, context, captured_vars) = p, captured_vars
+
+function _capture_free_vars(sc::SolutionContext, p::Apply, context, captured_vars)
+    new_f, captured_vars = _capture_free_vars(sc, p.f, context, captured_vars)
+    new_x, captured_vars = _capture_free_vars(sc, p.x, context, captured_vars)
+    Apply(new_f, new_x), captured_vars
 end
 
-function capture_free_vars(sc::SolutionContext, p::Abstraction, context)
-    new_b, new_vars = capture_free_vars(sc, p.b, context)
+function _capture_free_vars(sc::SolutionContext, p::Abstraction, context, captured_vars)
+    new_b, new_vars = _capture_free_vars(sc, p.b, context, captured_vars)
     Abstraction(new_b), new_vars
 end
 
-function capture_free_vars(sc::SolutionContext, p::Union{Hole,FreeVar}, context)
+function _capture_free_vars(sc::SolutionContext, p::Hole, context, captured_vars)
     _, t = apply_context(context, p.t)
     var_id = create_next_var(sc)
-    FreeVar(t, var_id), [(var_id, t)]
+    push!(captured_vars, (var_id, t))
+    FreeVar(t, var_id), captured_vars
+end
+
+function _capture_free_vars(sc::SolutionContext, p::FreeVar, context, captured_vars)
+    if isnothing(p.var_id)
+        _, t = apply_context(context, p.t)
+        var_id = create_next_var(sc)
+        push!(captured_vars, (var_id, t))
+    else
+        i = parse(Int, p.var_id[2:end])
+        var_id, t = captured_vars[i]
+    end
+    FreeVar(t, var_id), captured_vars
 end
 
 function check_reversed_program_forward(p, vars, inputs, expected_output)

@@ -102,6 +102,26 @@ function lse(l::Vector{Float64})::Float64
     return largest + log(sum(exp(z - largest) for z in l))
 end
 
+function _get_free_var_types(p::FreeVar)
+    if isnothing(p.var_id)
+        return [p.t]
+    else
+        return []
+    end
+end
+
+function _get_free_var_types(p::Apply)
+    return vcat(_get_free_var_types(p.f), _get_free_var_types(p.x))
+end
+
+function _get_free_var_types(p::Abstraction)
+    return _get_free_var_types(p.b)
+end
+
+function _get_free_var_types(p::Program)
+    return []
+end
+
 function unifying_expressions(
     g::Grammar,
     environment::Vector{Tp},
@@ -203,6 +223,28 @@ function unifying_expressions(
             push!(candidates, (p, [], context, 0.001))
         end
     end
+
+    for (i, t) in enumerate(_get_free_var_types(skeleton))
+        (new_context, t) = apply_context(context, t)
+        return_type = return_of_type(t)
+        if might_unify(return_type, request)
+            try
+                new_context = unify(new_context, return_type, request)
+                (new_context, t) = apply_context(new_context, t)
+                p = FreeVar(t, "r$i")
+                if isnothing(candidates_filter) || candidates_filter(p, from_input, skeleton, path)
+                    push!(candidates, (p, [], new_context, 0.001))
+                end
+            catch e
+                if isa(e, UnificationFailure)
+                    continue
+                else
+                    rethrow()
+                end
+            end
+        end
+    end
+
     return candidates
 end
 

@@ -399,6 +399,12 @@ using solver: load_problems, enumerate_for_task
                     "is_reversible" => false,
                     "type" => "int",
                 ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "rev_fix_param",
+                    "is_reversible" => true,
+                    "type" => "t0 -> t1 -> (t0 -> t1) -> t0",
+                ),
             ],
         ),
         "type_weights" => Dict{String,Any}(
@@ -1105,6 +1111,12 @@ using solver: load_problems, enumerate_for_task
                     "is_reversible" => false,
                     "type" => "int",
                 ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "rev_fix_param",
+                    "is_reversible" => true,
+                    "type" => "t0 -> t1 -> (t0 -> t1) -> t0",
+                ),
             ],
         )
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
@@ -1516,6 +1528,12 @@ using solver: load_problems, enumerate_for_task
                     "expression" => "1",
                     "is_reversible" => false,
                     "type" => "int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "rev_fix_param",
+                    "is_reversible" => true,
+                    "type" => "t0 -> t1 -> (t0 -> t1) -> t0",
                 ),
             ],
         )

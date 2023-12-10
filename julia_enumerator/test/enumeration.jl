@@ -152,6 +152,12 @@ using solver: load_problems, enumerate_for_task
                     "is_reversible" => true,
                     "type" => "list(t0) -> list(t0) -> list(t0)",
                 ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "rev_fix_param",
+                    "is_reversible" => true,
+                    "type" => "t0 -> t1 -> (t0 -> t1) -> t0",
+                ),
             ],
         ),
         "type_weights" => Dict{String,Any}(
