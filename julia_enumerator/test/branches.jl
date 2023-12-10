@@ -41,7 +41,7 @@ import Redis
 using DataStructures
 
 function initial_state(t, g)
-    EnumerationState(Hole(t, g.no_context, false, nothing), empty_context, [], 0.0, 0)
+    EnumerationState(Hole(t, g.no_context, false, nothing, nothing), empty_context, [], 0.0, 0)
 end
 
 function next_state(state, target_candidate, cg)
@@ -104,6 +104,7 @@ function next_state(state, target_candidate, cg)
                                 else
                                     all_abstractors[candidate][1][i][2]
                                 end,
+                                nothing,
                             ),
                         )
                     end

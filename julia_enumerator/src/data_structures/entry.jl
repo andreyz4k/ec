@@ -42,8 +42,6 @@ function matching_with_unknown_candidates(sc, entry::ValueEntry, var_id)
     results
 end
 
-const_options(entry::ValueEntry) = [entry.values[1]]
-
 struct NoDataEntry <: Entry
     type_id::UInt64
 end
@@ -80,8 +78,6 @@ function matching_with_unknown_candidates(sc, entry::NoDataEntry, var_id)
 
     results
 end
-
-const_options(entry::NoDataEntry) = []
 
 function matching_with_known_candidates(sc, entry::ValueEntry, known_branch_id)
     results = []
@@ -397,10 +393,6 @@ function _const_options(value::AbductibleValue)
     return []
 end
 
-function const_options(entry::EitherEntry)
-    return _const_options(entry.values[1])
-end
-
 match_at_index(entry::EitherEntry, index::Int, value) = _match_value(entry.values[index], value)
 
 function match_with_entry(sc, entry::EitherEntry, other::ValueEntry)
@@ -531,8 +523,6 @@ function matching_with_known_candidates(sc, entry::PatternEntry, known_branch_id
     results
 end
 
-const_options(entry::PatternEntry) = []
-
 struct AbductibleEntry <: Entry
     type_id::UInt64
     values::Vector
@@ -574,5 +564,3 @@ function matching_with_unknown_candidates(sc, entry::AbductibleEntry, var_id)
     end
     results
 end
-
-const_options(entry::AbductibleEntry) = []

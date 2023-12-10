@@ -118,12 +118,15 @@ using DataStructures: OrderedDict, Accumulator
                     every_primitive["map"],
                     Abstraction(
                         Apply(
-                            Apply(every_primitive["repeat"], Hole(tint, nothing, true, _is_possible_subfunction)),
-                            Hole(tint, nothing, true, _is_possible_subfunction),
+                            Apply(
+                                every_primitive["repeat"],
+                                Hole(tint, nothing, true, _is_possible_subfunction, nothing),
+                            ),
+                            Hole(tint, nothing, true, _is_possible_subfunction, nothing),
                         ),
                     ),
                 ),
-                Hole(tlist(ttuple2(tint, tint)), nothing, true, nothing),
+                Hole(tlist(ttuple2(tint, tint)), nothing, true, nothing, nothing),
             ),
         )
         @test is_reversible(parse_program("(map (lambda (repeat \$0 \$0)) ??(list(int)))"))
@@ -137,16 +140,16 @@ using DataStructures: OrderedDict, Accumulator
                                 Apply(
                                     Apply(
                                         every_primitive["repeat"],
-                                        Hole(tint, nothing, true, _is_possible_subfunction),
+                                        Hole(tint, nothing, true, _is_possible_subfunction, nothing),
                                     ),
-                                    Hole(tint, nothing, true, _is_possible_subfunction),
+                                    Hole(tint, nothing, true, _is_possible_subfunction, nothing),
                                 ),
                             ),
                         ),
                     ),
-                    Hole(tlist(tint), nothing, true, nothing),
+                    Hole(tlist(tint), nothing, true, nothing, nothing),
                 ),
-                Hole(tlist(tint), nothing, true, nothing),
+                Hole(tlist(tint), nothing, true, nothing, nothing),
             ),
         )
         @test is_reversible(parse_program("(map2 (lambda (repeat \$0 \$1)) ??(list(int)) ??(list(int)))"))
@@ -158,18 +161,18 @@ using DataStructures: OrderedDict, Accumulator
                     Abstraction(
                         Apply(
                             Apply(every_primitive["cons"], Index(0)),
-                            Hole(tlist(tbool), nothing, true, _is_possible_subfunction),
+                            Hole(tlist(tbool), nothing, true, _is_possible_subfunction, nothing),
                         ),
                     ),
                 ),
-                Hole(tlist(t0), nothing, true, nothing),
+                Hole(tlist(t0), nothing, true, nothing, nothing),
             ),
         )
         @test !_is_reversible_subfunction(
             Abstraction(
                 Apply(
                     Apply(every_primitive["cons"], Index(0)),
-                    Hole(tlist(tbool), nothing, true, _is_possible_subfunction),
+                    Hole(tlist(tbool), nothing, true, _is_possible_subfunction, nothing),
                 ),
             ),
         )
@@ -192,23 +195,29 @@ using DataStructures: OrderedDict, Accumulator
                                                     Apply(
                                                         Apply(
                                                             every_primitive["repeat"],
-                                                            Hole(tint, nothing, true, _is_possible_subfunction),
+                                                            Hole(
+                                                                tint,
+                                                                nothing,
+                                                                true,
+                                                                _is_possible_subfunction,
+                                                                nothing,
+                                                            ),
                                                         ),
-                                                        Hole(tint, nothing, true, _is_possible_subfunction),
+                                                        Hole(tint, nothing, true, _is_possible_subfunction, nothing),
                                                     ),
                                                 ),
                                             ),
                                         ),
-                                        Hole(tlist(tint), nothing, true, _is_possible_subfunction),
+                                        Hole(tlist(tint), nothing, true, _is_possible_subfunction, nothing),
                                     ),
-                                    Hole(tlist(tint), nothing, true, _is_possible_subfunction),
+                                    Hole(tlist(tint), nothing, true, _is_possible_subfunction, nothing),
                                 ),
                             ),
                         ),
                     ),
-                    Hole(tlist(tlist(tint)), nothing, true, nothing),
+                    Hole(tlist(tlist(tint)), nothing, true, nothing, nothing),
                 ),
-                Hole(tlist(tlist(tint)), nothing, true, nothing),
+                Hole(tlist(tlist(tint)), nothing, true, nothing, nothing),
             ),
         )
         @test !is_reversible(
@@ -228,16 +237,16 @@ using DataStructures: OrderedDict, Accumulator
                                                 ),
                                             ),
                                         ),
-                                        Hole(tlist(tint), nothing, true, _is_possible_subfunction),
+                                        Hole(tlist(tint), nothing, true, _is_possible_subfunction, nothing),
                                     ),
-                                    Hole(tlist(tint), nothing, true, _is_possible_subfunction),
+                                    Hole(tlist(tint), nothing, true, _is_possible_subfunction, nothing),
                                 ),
                             ),
                         ),
                     ),
-                    Hole(tlist(tlist(tint)), nothing, true, nothing),
+                    Hole(tlist(tlist(tint)), nothing, true, nothing, nothing),
                 ),
-                Hole(tlist(tlist(tint)), nothing, true, nothing),
+                Hole(tlist(tlist(tint)), nothing, true, nothing, nothing),
             ),
         )
         @test is_reversible(
@@ -257,17 +266,17 @@ using DataStructures: OrderedDict, Accumulator
                                     Apply(
                                         Apply(
                                             every_primitive["repeat"],
-                                            Hole(tint, nothing, true, _is_possible_subfunction),
+                                            Hole(tint, nothing, true, _is_possible_subfunction, nothing),
                                         ),
-                                        Hole(tint, nothing, true, _is_possible_subfunction),
+                                        Hole(tint, nothing, true, _is_possible_subfunction, nothing),
                                     ),
                                 ),
                             ),
-                            Hole(tlist(tlist(tint)), nothing, true, _is_possible_subfunction),
+                            Hole(tlist(tlist(tint)), nothing, true, _is_possible_subfunction, nothing),
                         ),
                     ),
                 ),
-                Hole(tlist(ttuple2(tlist(tint), tlist(tint))), nothing, true, nothing),
+                Hole(tlist(ttuple2(tlist(tint), tlist(tint))), nothing, true, nothing, nothing),
             ),
         )
         @test !is_reversible(
@@ -280,11 +289,11 @@ using DataStructures: OrderedDict, Accumulator
                                 every_primitive["map"],
                                 Abstraction(Apply(Apply(every_primitive["repeat"], Index(0)), Index(0))),
                             ),
-                            Hole(tlist(tint), nothing, true, _is_possible_subfunction),
+                            Hole(tlist(tint), nothing, true, _is_possible_subfunction, nothing),
                         ),
                     ),
                 ),
-                Hole(tlist(tlist(tint)), nothing, true, nothing),
+                Hole(tlist(tlist(tint)), nothing, true, nothing, nothing),
             ),
         )
         @test is_reversible(parse_program("(map (lambda (map (lambda (repeat \$0 \$0)) \$0)) ??(list(list(int))))"))
@@ -299,18 +308,21 @@ using DataStructures: OrderedDict, Accumulator
                         Abstraction(
                             Apply(
                                 Apply(every_primitive["eq?"], Index(0)),
-                                Hole(tint, nothing, true, _is_possible_selector),
+                                Hole(tint, nothing, true, _is_possible_selector, nothing),
                             ),
                         ),
                     ),
-                    Hole(tlist(tint), nothing, true, nothing),
+                    Hole(tlist(tint), nothing, true, nothing, nothing),
                 ),
-                Hole(tlist(tint), nothing, true, nothing),
+                Hole(tlist(tint), nothing, true, nothing, nothing),
             ),
         )
         @test is_reversible_selector(
             Abstraction(
-                Apply(Apply(every_primitive["eq?"], Index(0)), Hole(tint, nothing, true, _is_possible_selector)),
+                Apply(
+                    Apply(every_primitive["eq?"], Index(0)),
+                    Hole(tint, nothing, true, _is_possible_selector, nothing),
+                ),
             ),
         )
 
@@ -321,21 +333,24 @@ using DataStructures: OrderedDict, Accumulator
                         every_primitive["rev_select"],
                         Abstraction(
                             Apply(
-                                Apply(every_primitive["eq?"], Hole(tint, nothing, false, _is_possible_selector)),
-                                Hole(tint, nothing, false, _is_possible_selector),
+                                Apply(
+                                    every_primitive["eq?"],
+                                    Hole(tint, nothing, false, _is_possible_selector, nothing),
+                                ),
+                                Hole(tint, nothing, false, _is_possible_selector, nothing),
                             ),
                         ),
                     ),
-                    Hole(tlist(tint), nothing, true, nothing),
+                    Hole(tlist(tint), nothing, true, nothing, nothing),
                 ),
-                Hole(tlist(tint), nothing, true, nothing),
+                Hole(tlist(tint), nothing, true, nothing, nothing),
             ),
         )
         @test !is_reversible_selector(
             Abstraction(
                 Apply(
-                    Apply(every_primitive["eq?"], Hole(tint, nothing, false, _is_possible_selector)),
-                    Hole(tint, nothing, false, _is_possible_selector),
+                    Apply(every_primitive["eq?"], Hole(tint, nothing, false, _is_possible_selector, nothing)),
+                    Hole(tint, nothing, false, _is_possible_selector, nothing),
                 ),
             ),
         )
@@ -350,12 +365,15 @@ using DataStructures: OrderedDict, Accumulator
                     Apply(
                         every_primitive["rev_select"],
                         Abstraction(
-                            Apply(every_primitive["empty?"], Hole(tint, nothing, false, _is_possible_selector)),
+                            Apply(
+                                every_primitive["empty?"],
+                                Hole(tint, nothing, false, _is_possible_selector, nothing),
+                            ),
                         ),
                     ),
-                    Hole(tlist(tint), nothing, true, nothing),
+                    Hole(tlist(tint), nothing, true, nothing, nothing),
                 ),
-                Hole(tlist(tint), nothing, true, nothing),
+                Hole(tlist(tint), nothing, true, nothing, nothing),
             ),
         )
     end
@@ -691,16 +709,16 @@ using DataStructures: OrderedDict, Accumulator
                                 Apply(
                                     Apply(
                                         every_primitive["repeat"],
-                                        Hole(tint, nothing, true, _is_possible_subfunction),
+                                        Hole(tint, nothing, true, _is_possible_subfunction, nothing),
                                     ),
-                                    Hole(tint, nothing, true, _is_possible_subfunction),
+                                    Hole(tint, nothing, true, _is_possible_subfunction, nothing),
                                 ),
                             ),
                         ),
                     ),
-                    Hole(tlist(t0), nothing, true, nothing),
+                    Hole(tlist(t0), nothing, true, nothing, nothing),
                 ),
-                Hole(tlist(t1), nothing, true, nothing),
+                Hole(tlist(t1), nothing, true, nothing, nothing),
             )
             @test !is_reversible(skeleton)
         end
@@ -796,9 +814,11 @@ using DataStructures: OrderedDict, Accumulator
         skeleton = Apply(
             Apply(
                 every_primitive["map"],
-                Abstraction(Apply(every_primitive["range"], Hole(tint, nothing, true, _is_possible_subfunction))),
+                Abstraction(
+                    Apply(every_primitive["range"], Hole(tint, nothing, true, _is_possible_subfunction, nothing)),
+                ),
             ),
-            Hole(tlist(t0), nothing, true, nothing),
+            Hole(tlist(t0), nothing, true, nothing, nothing),
         )
         @test !is_reversible(skeleton)
 
@@ -813,9 +833,11 @@ using DataStructures: OrderedDict, Accumulator
         skeleton = Apply(
             Apply(
                 every_primitive["map_set"],
-                Abstraction(Apply(every_primitive["range"], Hole(tint, nothing, true, _is_possible_subfunction))),
+                Abstraction(
+                    Apply(every_primitive["range"], Hole(tint, nothing, true, _is_possible_subfunction, nothing)),
+                ),
             ),
-            Hole(tset(t0), nothing, true, nothing),
+            Hole(tset(t0), nothing, true, nothing, nothing),
         )
         @test !is_reversible(skeleton)
 
@@ -846,7 +868,7 @@ using DataStructures: OrderedDict, Accumulator
                 every_primitive["map_set"],
                 Abstraction(Apply(Apply(every_primitive["tuple2"], Index(0)), FreeVar(tint, nothing))),
             ),
-            Hole(tset(t0), nothing, true, nothing),
+            Hole(tset(t0), nothing, true, nothing, nothing),
         )
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
@@ -1031,7 +1053,7 @@ using DataStructures: OrderedDict, Accumulator
                 every_primitive["map"],
                 Abstraction(Apply(Apply(every_primitive["concat"], Index(0)), FreeVar(tlist(tint), nothing))),
             ),
-            Hole(tlist(t0), nothing, true, nothing),
+            Hole(tlist(t0), nothing, true, nothing, nothing),
         )
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
@@ -1063,7 +1085,7 @@ using DataStructures: OrderedDict, Accumulator
                 every_primitive["map"],
                 Abstraction(Apply(Apply(every_primitive["+"], FreeVar(tint, nothing)), Index(0))),
             ),
-            Hole(tlist(t0), nothing, true, nothing),
+            Hole(tlist(t0), nothing, true, nothing, nothing),
         )
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
@@ -1106,7 +1128,7 @@ using DataStructures: OrderedDict, Accumulator
                     ),
                 ),
             ),
-            Hole(tlist(t0), nothing, true, nothing),
+            Hole(tlist(t0), nothing, true, nothing, nothing),
         )
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
@@ -1140,7 +1162,7 @@ using DataStructures: OrderedDict, Accumulator
                     ),
                 ),
             ),
-            Hole(tlist(t0), nothing, true, nothing),
+            Hole(tlist(t0), nothing, true, nothing, nothing),
         )
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
@@ -1168,7 +1190,7 @@ using DataStructures: OrderedDict, Accumulator
                     ),
                 ),
             ),
-            Hole(tlist(t0), nothing, true, nothing),
+            Hole(tlist(t0), nothing, true, nothing, nothing),
         )
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
@@ -1223,7 +1245,7 @@ using DataStructures: OrderedDict, Accumulator
                     ),
                 ),
             ),
-            Hole(tlist(t0), nothing, true, nothing),
+            Hole(tlist(t0), nothing, true, nothing, nothing),
         )
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
@@ -1262,7 +1284,7 @@ using DataStructures: OrderedDict, Accumulator
                 every_primitive["map"],
                 Abstraction(Apply(Apply(every_primitive["+"], FreeVar(tint, nothing)), Index(0))),
             ),
-            Hole(tlist(tint), nothing, true, nothing),
+            Hole(tlist(tint), nothing, true, nothing, nothing),
         )
         @test is_reversible(skeleton)
 
@@ -1281,7 +1303,7 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse rows with either" begin
-        skeleton = Apply(every_primitive["rows"], Hole(tgrid(tcolor), nothing, true, nothing))
+        skeleton = Apply(every_primitive["rows"], Hole(tgrid(tcolor), nothing, true, nothing, nothing))
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
 
@@ -1376,12 +1398,15 @@ using DataStructures: OrderedDict, Accumulator
                 Apply(
                     every_primitive["rev_select"],
                     Abstraction(
-                        Apply(Apply(every_primitive["eq?"], Index(0)), Hole(t0, nothing, false, _is_possible_selector)),
+                        Apply(
+                            Apply(every_primitive["eq?"], Index(0)),
+                            Hole(t0, nothing, false, _is_possible_selector, nothing),
+                        ),
                     ),
                 ),
-                Hole(tlist(tcolor), nothing, true, nothing),
+                Hole(tlist(tcolor), nothing, true, nothing, nothing),
             ),
-            Hole(tlist(tcolor), nothing, true, nothing),
+            Hole(tlist(tcolor), nothing, true, nothing, nothing),
         )
         @test is_reversible(skeleton)
 
@@ -1418,12 +1443,15 @@ using DataStructures: OrderedDict, Accumulator
                 Apply(
                     every_primitive["rev_select_set"],
                     Abstraction(
-                        Apply(Apply(every_primitive["eq?"], Index(0)), Hole(t0, nothing, false, _is_possible_selector)),
+                        Apply(
+                            Apply(every_primitive["eq?"], Index(0)),
+                            Hole(t0, nothing, false, _is_possible_selector, nothing),
+                        ),
                     ),
                 ),
-                Hole(tset(tcolor), nothing, true, nothing),
+                Hole(tset(tcolor), nothing, true, nothing, nothing),
             ),
-            Hole(tset(tcolor), nothing, true, nothing),
+            Hole(tset(tcolor), nothing, true, nothing, nothing),
         )
         @test is_reversible(skeleton)
 
@@ -1581,17 +1609,17 @@ using DataStructures: OrderedDict, Accumulator
                                 Abstraction(
                                     Apply(
                                         Apply(every_primitive["eq?"], Index(0)),
-                                        Hole(t1, nothing, false, _is_possible_selector),
+                                        Hole(t1, nothing, false, _is_possible_selector, nothing),
                                     ),
                                 ),
                             ),
-                            Hole(tlist(tcolor), nothing, true, _is_possible_subfunction),
+                            Hole(tlist(tcolor), nothing, true, _is_possible_subfunction, nothing),
                         ),
-                        Hole(tlist(tcolor), nothing, true, _is_possible_subfunction),
+                        Hole(tlist(tcolor), nothing, true, _is_possible_subfunction, nothing),
                     ),
                 ),
             ),
-            Hole(tlist(t0), nothing, true, nothing),
+            Hole(tlist(t0), nothing, true, nothing, nothing),
         )
 
         @test !is_reversible(skeleton)
@@ -1817,9 +1845,9 @@ using DataStructures: OrderedDict, Accumulator
                         ),
                     ),
                 ),
-                Hole(tlist(t0), nothing, true, nothing),
+                Hole(tlist(t0), nothing, true, nothing, nothing),
             ),
-            Hole(tint, nothing, true, nothing),
+            Hole(tint, nothing, true, nothing, nothing),
         )
         @test is_reversible(skeleton)
 
@@ -1993,9 +2021,9 @@ using DataStructures: OrderedDict, Accumulator
                         ),
                     ),
                 ),
-                Hole(tlist(t0), nothing, true, nothing),
+                Hole(tlist(t0), nothing, true, nothing, nothing),
             ),
-            Hole(tint, nothing, true, nothing),
+            Hole(tint, nothing, true, nothing, nothing),
         )
         @test is_reversible(skeleton)
 
@@ -2365,9 +2393,9 @@ using DataStructures: OrderedDict, Accumulator
                         ),
                     ),
                 ),
-                Hole(tlist(t0), nothing, true, nothing),
+                Hole(tlist(t0), nothing, true, nothing, nothing),
             ),
-            Hole(tlist(tint), nothing, true, nothing),
+            Hole(tlist(tint), nothing, true, nothing, nothing),
         )
         @test is_reversible(skeleton)
 

@@ -107,12 +107,15 @@ using solver:
                 Apply(
                     every_primitive["rev_select_grid"],
                     Abstraction(
-                        Apply(Apply(every_primitive["eq?"], Index(0)), Hole(t0, nothing, false, _is_possible_selector)),
+                        Apply(
+                            Apply(every_primitive["eq?"], Index(0)),
+                            Hole(t0, nothing, false, _is_possible_selector, nothing),
+                        ),
                     ),
                 ),
-                Hole(tgrid(tcolor), nothing, true, nothing),
+                Hole(tgrid(tcolor), nothing, true, nothing, nothing),
             ),
-            Hole(tgrid(tcolor), nothing, true, nothing),
+            Hole(tgrid(tcolor), nothing, true, nothing, nothing),
         )
         @test is_reversible(select_background)
 

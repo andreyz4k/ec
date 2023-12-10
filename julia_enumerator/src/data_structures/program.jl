@@ -58,9 +58,16 @@ struct Hole <: Program
     grammar::Any
     from_input::Bool
     candidates_filter::Any
+    possible_values::Any
     hash_value::UInt64
-    Hole(t::Tp, grammar::Any, from_input::Bool, candidates_filter::Any) =
-        new(t, grammar, from_input, candidates_filter, hash(t, hash(grammar)))
+    Hole(t::Tp, grammar::Any, from_input::Bool, candidates_filter::Any, possible_values) = new(
+        t,
+        grammar,
+        from_input,
+        candidates_filter,
+        possible_values,
+        hash(t, hash(grammar, hash(from_input, hash(candidates_filter, hash(possible_values))))),
+    )
 end
 Base.:(==)(p::Hole, q::Hole) =
     p.t == q.t && p.grammar == q.grammar && p.from_input == q.from_input && p.candidates_filter == q.candidates_filter
@@ -415,7 +422,7 @@ parse_wrap_either_clause =
     P"\) in " +
     _parse_program |> (v -> WrapEither(v[1], v[3], v[5], v[4], v[6], v[7]))
 
-parse_hole = P"\?\?\(" + type_parser + P"\)" > (t -> Hole(t, nothing, false, nothing))
+parse_hole = P"\?\?\(" + type_parser + P"\)" > (t -> Hole(t, nothing, false, nothing, nothing))
 
 _parse_program.matcher =
     parse_application |
@@ -449,6 +456,7 @@ number_of_free_parameters(p::Primitive) =
         0
     end
 number_of_free_parameters(::Index) = 0
+number_of_free_parameters(::SetConst) = 0
 
 application_function(p::Apply) = application_function(p.f)
 application_function(p::Program) = p

@@ -6,6 +6,7 @@ enumeration_timed_out(timeout)::Bool = time() > timeout
 
 get_argument_requests(::Index, argument_types, cg) = [cg.variable_context for at in argument_types]
 get_argument_requests(::FreeVar, argumet_types, cg) = []
+get_argument_requests(::SetConst, argumet_types, cg) = []
 get_argument_requests(candidate, argument_types, cg) = cg.contextual_library[candidate]
 
 struct WrongPath <: Exception end
@@ -181,7 +182,13 @@ function block_state_successors(
                 modify_skeleton(
                     state.skeleton,
                     (Abstraction(
-                        Hole(request.arguments[2], g, current_hole.from_input, current_hole.candidates_filter),
+                        Hole(
+                            request.arguments[2],
+                            g,
+                            current_hole.from_input,
+                            current_hole.candidates_filter,
+                            current_hole.possible_values,
+                        ),
                     )),
                     state.path,
                 ),
@@ -202,6 +209,7 @@ function block_state_successors(
             current_hole.candidates_filter,
             state.skeleton,
             state.path,
+            current_hole.possible_values,
         )
 
         states = map(candidates) do (candidate, argument_types, context, ll)
@@ -227,6 +235,7 @@ function block_state_successors(
                             else
                                 custom_arg_checkers[i]
                             end,
+                            nothing,
                         ),
                     )
                 end

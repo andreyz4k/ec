@@ -131,6 +131,7 @@ function unifying_expressions(
     candidates_filter,
     skeleton,
     path,
+    possible_values,
 )::Vector{Tuple{Program,Vector{Tp},Context,Float64}}
     #  given a grammar environment requested type and typing context,
     #    what are all of the possible leaves that we might use?
@@ -241,6 +242,23 @@ function unifying_expressions(
                 else
                     rethrow()
                 end
+            end
+        end
+    end
+
+    if !isnothing(possible_values)
+        const_candidates = _const_options(possible_values[1])
+        for i in 2:length(possible_values)
+            const_candidates = filter(c -> _match_value(possible_values[i], c), const_candidates)
+            if isempty(const_candidates)
+                break
+            end
+        end
+        for candidate in const_candidates
+            p = SetConst(request, candidate)
+            if (isnothing(candidates_filter) && !from_input) ||
+               (!isnothing(candidates_filter) && candidates_filter(p, from_input, skeleton, path))
+                push!(candidates, (p, [], context, 0.001))
             end
         end
     end

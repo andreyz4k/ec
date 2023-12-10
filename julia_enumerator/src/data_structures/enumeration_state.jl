@@ -59,21 +59,6 @@ function block_prototype(pr, inputs, output_var_id, output_branch_id, output_typ
     )
 end
 
-function get_const_options(sc, unknown_entry)
-    candidates = const_options(unknown_entry)
-    if isempty(candidates)
-        return []
-    end
-    for i in 1:sc.example_count
-        filter!(c -> match_at_index(unknown_entry, i, c), candidates)
-        if isempty(candidates)
-            return []
-        end
-    end
-    t = sc.types[unknown_entry.type_id]
-    return [SetConst(t, candidate) for candidate in candidates]
-end
-
 function get_candidates_for_unknown_var(sc, branch_id, g)::Vector{BlockPrototype}
     var_id = sc.branch_vars[branch_id]
     type_id = first(get_connected_from(sc.branch_types, branch_id))
@@ -85,7 +70,7 @@ function get_candidates_for_unknown_var(sc, branch_id, g)::Vector{BlockPrototype
         push!(
             prototypes,
             BlockPrototype(
-                EnumerationState(Hole(type, g.no_context, false, nothing), context, [], EPSILON, 0),
+                EnumerationState(Hole(type, g.no_context, false, nothing, entry.values), context, [], EPSILON, 0),
                 type,
                 nothing,
                 (var_id, branch_id),
@@ -95,10 +80,6 @@ function get_candidates_for_unknown_var(sc, branch_id, g)::Vector{BlockPrototype
     end
     for (pr, inputs, out_type) in matching_with_unknown_candidates(sc, entry, var_id)
         push!(prototypes, block_prototype(pr, inputs, var_id, branch_id, out_type))
-    end
-    entry_type = sc.types[entry.type_id]
-    for pr in get_const_options(sc, entry)
-        push!(prototypes, block_prototype(pr, Dict(), var_id, branch_id, entry_type))
     end
     prototypes
 end
@@ -116,7 +97,7 @@ function get_candidates_for_known_var(sc, branch_id, g)
         push!(
             prototypes,
             BlockPrototype(
-                EnumerationState(Hole(type, g.no_context, true, nothing), context, [], EPSILON, 0),
+                EnumerationState(Hole(type, g.no_context, true, nothing, entry.values), context, [], EPSILON, 0),
                 type,
                 nothing,
                 (var_id, branch_id),
