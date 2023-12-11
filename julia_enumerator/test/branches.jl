@@ -65,6 +65,7 @@ function next_state(state, target_candidate, cg)
         current_hole.candidates_filter,
         state.skeleton,
         state.path,
+        nothing,
     )
     if !isa(state.skeleton, Hole)
         p = FreeVar(request, nothing)
