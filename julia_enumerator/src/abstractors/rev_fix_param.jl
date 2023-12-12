@@ -1,7 +1,7 @@
 
-_is_fixable_param(p::Index) = true
-_is_fixable_param(p::FreeVar) = true
-_is_fixable_param(p) = false
+# _is_fixable_param(p::Index) = true
+# _is_fixable_param(p::FreeVar) = true
+_is_fixable_param(p) = true
 
 function _is_possible_fixable_param(p::Index, from_input, skeleton, path)
     return has_index(follow_path(skeleton, vcat(path[begin:end-1], [LeftTurn(), RightTurn()])), p.n)
@@ -45,6 +45,7 @@ _is_possible_fixer(p::SetConst, from_input, skeleton, path) = true
 
 function reverse_fix_param()
     function _reverse_fix_param(value, context)
+        # @info "Running reverse fix param for $value in context $context"
         body = context.arguments[end]
         param = context.arguments[end-1]
         fixer = context.arguments[end-2]
@@ -75,7 +76,7 @@ function reverse_fix_param()
             value,
             ReverseRunContext(
                 context.arguments[begin:end-3],
-                context.predicted_arguments[begin:end-3],
+                context.predicted_arguments,
                 context.calculated_arguments[begin:end-3],
                 filled_indices,
                 filled_vars,

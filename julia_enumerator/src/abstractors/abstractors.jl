@@ -567,6 +567,7 @@ function __run_in_reverse(p::Apply, output, context)
             context.filled_vars,
         ),
     )
+    # @info "Arg context for $p $arg_context"
     pop!(arg_context.arguments)
     pop!(arg_context.calculated_arguments)
     arg_target = pop!(arg_context.predicted_arguments)
@@ -601,6 +602,7 @@ function __run_in_reverse(p::Apply, output, context)
         # @info "arg_calculated_output2 $arg_calculated_output"
     end
     # @info "Calculated output for $p $calculated_output"
+    # @info "Out context for $p $out_context"
     return calculated_output, out_context
 end
 
@@ -631,7 +633,6 @@ function __run_in_reverse(p::Invented, output, context)
 end
 
 function __run_in_reverse(p::Abstraction, output, context::ReverseRunContext)
-    # @info "Running in reverse $p $output $context"
     in_filled_indices = Dict{Int64,Any}(i + 1 => v for (i, v) in context.filled_indices)
     if !ismissing(context.calculated_arguments[end])
         in_filled_indices[0] = context.calculated_arguments[end]
@@ -640,7 +641,7 @@ function __run_in_reverse(p::Abstraction, output, context::ReverseRunContext)
         p.b,
         output,
         ReverseRunContext(
-            context.arguments,
+            context.arguments[1:end-1],
             context.predicted_arguments,
             context.calculated_arguments[1:end-1],
             in_filled_indices,
@@ -649,6 +650,9 @@ function __run_in_reverse(p::Abstraction, output, context::ReverseRunContext)
     )
     push!(out_context.predicted_arguments, out_context.filled_indices[0])
     push!(out_context.calculated_arguments, calculated_output)
+    if !isempty(context.arguments)
+        push!(out_context.arguments, context.arguments[end])
+    end
 
     out_context.filled_indices = Dict{Int64,Any}(i - 1 => v for (i, v) in out_context.filled_indices if i > 0)
     return output, out_context

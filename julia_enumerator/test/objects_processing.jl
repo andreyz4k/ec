@@ -517,7 +517,7 @@ using solver:
     @testset "Single object coordinates extraction" begin
         cells = Set([(19, 10), (18, 9), (19, 11), (17, 9), (18, 10), (18, 11), (17, 10)])
         extract_coordinates = parse_program(
-            "(map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$v2)) (+ (tuple2_second \$0) (tuple2_second \$v2)))) ??(set(tuple2(int, int))))",
+            "(rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$v2)) (+ (tuple2_second \$0) (tuple2_second \$v2)))) \$v1) \$v2 (lambda (tuple2 (fold_set (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold_set (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int))))",
         )
         @test is_reversible(extract_coordinates)
         extract_coordinates, _ = capture_free_vars(extract_coordinates)
@@ -525,6 +525,28 @@ using solver:
             0x0000000000000001 => Set([(2, 1), (1, 0), (2, 2), (0, 0), (1, 1), (1, 2), (0, 1)]),
             0x0000000000000002 => (17, 9),
         )
+    end
+
+    @testset "Single object coordinates extraction 2" begin
+        cells = Set([(19, 10), (18, 9), (19, 11), (17, 9), (18, 10), (18, 11), (17, 10)])
+        extract_coordinates = parse_program(
+            "((lambda (lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$2)) (+ (tuple2_second \$0) (tuple2_second \$2)))) \$0) \$1 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int)))))) (tuple2_first \$v1) (tuple2_second \$v1))",
+        )
+        @test is_reversible(extract_coordinates)
+        extract_coordinates, _ = capture_free_vars(extract_coordinates)
+        @test run_in_reverse(extract_coordinates, cells) ==
+              Dict(0x0000000000000001 => ((17, 9), Set([(2, 1), (1, 0), (2, 2), (0, 0), (1, 1), (1, 2), (0, 1)])))
+    end
+
+    @testset "Single object coordinates extraction 3" begin
+        cells = Set([(19, 10), (18, 9), (19, 11), (17, 9), (18, 10), (18, 11), (17, 10)])
+        extract_coordinates = parse_program(
+            "(#(lambda (lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$2)) (+ (tuple2_second \$0) (tuple2_second \$2)))) \$0) \$1 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int)))))) (tuple2_first \$v1) (tuple2_second \$v1))",
+        )
+        @test is_reversible(extract_coordinates)
+        extract_coordinates, _ = capture_free_vars(extract_coordinates)
+        @test run_in_reverse(extract_coordinates, cells) ==
+              Dict(0x0000000000000001 => ((17, 9), Set([(2, 1), (1, 0), (2, 2), (0, 0), (1, 1), (1, 2), (0, 1)])))
     end
 
     @testset "Get object coordinates" begin
@@ -536,7 +558,7 @@ using solver:
             ],
         )
         extract_coordinates = parse_program(
-            "(map_set (lambda (tuple2 (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first (tuple2_first (tuple2_first \$1)))) (+ (tuple2_second \$0) (tuple2_second (tuple2_first (tuple2_first \$1)))))) (tuple2_second (tuple2_first \$0))) (tuple2_second \$0))) ??(set(tuple2(tuple2(tuple2(int, int), set(tuple2(int, int))), color))))",
+            "(map_set (lambda (tuple2 (#(lambda (lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$2)) (+ (tuple2_second \$0) (tuple2_second \$2)))) \$0) \$1 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int)))))) (tuple2_first (tuple2_first \$0)) (tuple2_second (tuple2_first \$0))) (tuple2_second \$0))) ??(set(tuple2(tuple2(tuple2(int, int), set(tuple2(int, int))), color))))",
         )
         @test is_reversible(extract_coordinates)
         extract_coordinates, _ = capture_free_vars(extract_coordinates)

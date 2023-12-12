@@ -423,9 +423,15 @@ end
     (op -> (itr -> (init -> foldr((v, acc) -> op(v)(acc), itr, init = init)))),
     reverse_fold()
 )
+# @define_custom_reverse_primitive(
+#     "fold_set",
+#     arrow(arrow(t0, tset(t1), tset(t1)), tset(t0), tset(t1), tset(t1)),
+#     (op -> (itr -> (init -> reduce((acc, v) -> op(v)(acc), itr, init = init)))),
+#     reverse_fold(true)
+# )
 @define_custom_reverse_primitive(
     "fold_set",
-    arrow(arrow(t0, tset(t1), tset(t1)), tset(t0), tset(t1), tset(t1)),
+    arrow(arrow(t0, t1, t1), tset(t0), t1, t1),
     (op -> (itr -> (init -> reduce((acc, v) -> op(v)(acc), itr, init = init)))),
     reverse_fold(true)
 )

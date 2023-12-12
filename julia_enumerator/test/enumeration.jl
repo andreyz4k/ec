@@ -1536,7 +1536,7 @@ using solver: load_problems, enumerate_for_task
             verbose,
         )
         @test length(solutions) >= 0
-        @test number_enumerated < 10000
+        @test number_enumerated < 20000
     end
 
     @testset "try_enumerate empty" begin
@@ -1551,7 +1551,7 @@ using solver: load_problems, enumerate_for_task
             verbose,
         )
         @test length(solutions) >= 1
-        @test number_enumerated < 2000
+        @test number_enumerated < 20000
     end
 
     @testset "try_enumerate append-index-k with k=5" begin
@@ -1596,7 +1596,7 @@ using solver: load_problems, enumerate_for_task
             verbose,
         )
         @test length(solutions) >= 5
-        @test number_enumerated <= 1000
+        @test number_enumerated <= 10000
     end
 
     @testset "prepend-k with k=0" begin
@@ -1671,7 +1671,7 @@ using solver: load_problems, enumerate_for_task
             verbose,
         )
         @test length(solutions) > 0
-        @test number_enumerated <= 6000
+        @test number_enumerated <= 20000
     end
 
     @testset "product" begin

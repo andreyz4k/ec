@@ -1,5 +1,6 @@
 from functools import reduce
 import math
+import sys
 from dreamcoder.program import (
     Application,
     Hole,
@@ -441,12 +442,9 @@ def basePrimitives():
                 (_is_reversible_subfunction, _is_possible_subfunction)
             ],
         ),
-        # Primitive("fold_set", arrow(arrow(t0, t1, t1), tset(t0), t1, t1), _fold, is_reversible=True),
-        # TODO: this is temporary type fix to preserve reversibility of fold_set because we don't know how to
-        # detect which folder function won't depend on the insertion order of the set
         Primitive(
             "fold_set",
-            arrow(arrow(t0, tset(t1), tset(t1)), tset(t0), tset(t1), tset(t1)),
+            arrow(arrow(t0, t1, t1), tset(t0), t1, t1),
             _fold,
             is_reversible=True,
             custom_args_checkers=[
@@ -617,4 +615,7 @@ def basePrimitives():
         Primitive("all_set", arrow(arrow(t0, tbool), tset(t0), tbool), _all),
         Primitive("any_set", arrow(arrow(t0, tbool), tset(t0), tbool), _any),
         Primitive("abs", arrow(tint, tint), abs, is_reversible=True),
+        Primitive("max_int", tint, sys.maxsize),
+        Primitive("min_int", tint, -sys.maxsize - 1),
+        Primitive("collect", arrow(tset(t0), tlist(t0)), list),
     ] + [Primitive(str(j), tint, j) for j in range(2)]

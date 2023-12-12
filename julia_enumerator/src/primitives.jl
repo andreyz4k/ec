@@ -89,6 +89,8 @@ _is_prime(n) = in(
 @define_primitive("empty?", arrow(tlist(t0), tbool), isempty)
 
 [@define_primitive(string(j), tint, j) for j in 0:1]
+@define_primitive("max_int", tint, typemax(Int64))
+@define_primitive("min_int", tint, typemin(Int64))
 
 @define_primitive("mod", arrow(tint, tint, tint), (a -> (b -> a % b)))
 @define_primitive("gt?", arrow(tint, tint, tbool), (a -> (b -> a > b)))
@@ -103,3 +105,5 @@ _is_prime(n) = in(
 @define_primitive("any", arrow(arrow(t0, tbool), tlist(t0), tbool), (f -> (l -> any(f, l))))
 @define_primitive("all_set", arrow(arrow(t0, tbool), tset(t0), tbool), (f -> (l -> all(f, l))))
 @define_primitive("any_set", arrow(arrow(t0, tbool), tset(t0), tbool), (f -> (l -> any(f, l))))
+
+@define_primitive("collect", arrow(tset(t0), tlist(t0)), collect)

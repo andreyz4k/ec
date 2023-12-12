@@ -73,7 +73,7 @@ using solver: load_problems, enumerate_for_task
                     "logProbability" => -0.043374061584472656,
                     "expression" => "fold_set",
                     "is_reversible" => true,
-                    "type" => "(t0 -> set(t1) -> set(t1)) -> set(t0) -> set(t1) -> set(t1)",
+                    "type" => "(t0 -> t1 -> t1) -> set(t0) -> t1 -> t1",
                 ),
                 Dict{String,Any}(
                     "logProbability" => -0.05344507470726967,
@@ -791,7 +791,7 @@ using solver: load_problems, enumerate_for_task
                     "logProbability" => -0.4513780474662781,
                     "expression" => "fold_set",
                     "is_reversible" => true,
-                    "type" => "(t0 -> set(t1) -> set(t1)) -> set(t0) -> set(t1) -> set(t1)",
+                    "type" => "(t0 -> t1 -> t1) -> set(t0) -> t1 -> t1",
                 ),
                 Dict{String,Any}(
                     "logProbability" => -0.003251451998949051,
@@ -1209,7 +1209,7 @@ using solver: load_problems, enumerate_for_task
                     "logProbability" => -0.4513780474662781,
                     "expression" => "fold_set",
                     "is_reversible" => true,
-                    "type" => "(t0 -> set(t1) -> set(t1)) -> set(t0) -> set(t1) -> set(t1)",
+                    "type" => "(t0 -> t1 -> t1) -> set(t0) -> t1 -> t1",
                 ),
                 Dict{String,Any}(
                     "logProbability" => -0.003251451998949051,

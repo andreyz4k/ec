@@ -19,7 +19,7 @@ using solver: parse_program, parse_type, TypeVariable
     parsing_test_case("(map (+ 1) (\$0 (+ 1) (- 1) (+ -)) \$1)")
     parsing_test_case("(lambda \$0)")
     parsing_test_case("(lambda (+ 1 #(* 0 1)))")
-    parsing_test_case("(lambda (+ 1 #(* 0 map)))")
+    parsing_test_case("(lambda (+ 1 (#(* 0) \$0)))")
     parsing_test_case("\$inp0")
     parsing_test_case("let \$v1::int = 1 in \$v1")
 
@@ -46,6 +46,20 @@ using solver: parse_program, parse_type, TypeVariable
                           let \$v7::list(list(color)) = (cons \$v2 \$v6) in (concat \$v1 \$v7)")
 
     parsing_test_case("(+ 1 ??(int))")
+    parsing_test_case(
+        "((lambda (lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$2)) (+ (tuple2_second \$0) (tuple2_second \$2)))) \$0) \$1 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int)))))) (tuple2_first \$v1) (tuple2_second \$v1))",
+    )
+    parsing_test_case(
+        "#(lambda (lambda (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$2)) (+ (tuple2_second \$0) (tuple2_second \$2)))) \$0)))",
+    )
+
+    parsing_test_case(
+        "#(lambda (lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$2)) (+ (tuple2_second \$0) (tuple2_second \$2)))) \$0) \$1 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int))))))",
+    )
+
+    parsing_test_case(
+        "(#(lambda (lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$2)) (+ (tuple2_second \$0) (tuple2_second \$2)))) \$0) \$1 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int)))))) (tuple2_first \$v1) (tuple2_second \$v1))",
+    )
 end
 
 @testset "Type parser" begin

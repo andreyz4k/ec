@@ -294,20 +294,22 @@ _parse_program = Delayed()
 
 struct UnboundVariable <: Exception end
 
-parse_invented = P"#" + _parse_program > (p -> begin
-    t = try
-        infer_program_type(empty_context, [], p)[2]
-    catch e
-        if isa(e, UnificationFailure) || isa(e, UnboundVariable)
-            @warn "WARNING: Could not type check invented $p"
-            t0
-        else
-            rethrow()
+parse_invented =
+    P"#" + _parse_program > (p -> begin
+        t = try
+            infer_program_type(empty_context, [], p)[2]
+        catch e
+            if isa(e, UnificationFailure) || isa(e, UnboundVariable)
+                bt = catch_backtrace()
+                @warn "WARNING: Could not type check invented $p" exception = (e, bt)
+                t0
+            else
+                rethrow()
+            end
         end
-    end
 
-    Invented(t, p)
-end)
+        Invented(t, p)
+    end)
 
 parse_abstraction = P"\(lambda " + parse_whitespace + _parse_program + P"\)" > Abstraction
 
