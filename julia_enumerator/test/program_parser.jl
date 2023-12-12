@@ -32,8 +32,8 @@ using solver: parse_program, parse_type, TypeVariable
     )
 
     parsing_test_case(
-        "let \$v1::list(int) = Const(list(int), Any[5]) in let \$v2::list(int) = Const(list(int), Any[]) in \
-            let \$v3, \$v4 = wrap(let \$v3, \$v4 = rev(\$inp0 = (concat \$v3 \$v4)); let \$v3 = \$v2) in \
+        "let \$v1::list(int) = Const(list(int), Any[5]) in \
+            let \$v3, \$v4 = rev(\$inp0 = (rev_fix_param (concat \$v3 \$v4) \$v3 (lambda Const(list(int), Any[])))) in \
             (concat \$v1 \$v4)",
     )
 

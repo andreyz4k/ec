@@ -156,6 +156,14 @@ has_index(p::Abstraction, i) = has_index(p.b, i + 1)
 state_violates_symmetry(p::Abstraction)::Bool = state_violates_symmetry(p.b) || !has_index(p.b, 0)
 function state_violates_symmetry(p::Apply)::Bool
     (f, a) = application_parse(p)
+    if f == every_primitive["rev_fix_param"]
+        if isa(a[1], FreeVar) || isa(a[1], Index)
+            return true
+        end
+        if isa(a[3], Abstraction)
+            a[3] = a[3].b
+        end
+    end
     return state_violates_symmetry(f) ||
            any(state_violates_symmetry, a) ||
            any(violates_symmetry(f, x, n) for (n, x) in enumerate(a))
@@ -460,52 +468,78 @@ function try_get_reversed_inputs(sc, p::Program, context, path, output_branch_id
     return new_p, inputs
 end
 
-function create_wrapping_block(
+function _fill_holes(p::Hole, context)
+    new_context, t = apply_context(context, p.t)
+    FreeVar(t, nothing), new_context
+end
+function _fill_holes(p::Apply, context)
+    new_f, new_context = _fill_holes(p.f, context)
+    new_x, new_context = _fill_holes(p.x, new_context)
+    Apply(new_f, new_x), new_context
+end
+function _fill_holes(p::Abstraction, context)
+    new_b, new_context = _fill_holes(p.b, context)
+    Abstraction(new_b), new_context
+end
+_fill_holes(p::Program, context) = p, context
+
+function create_wrapping_program_prototype(
     sc::SolutionContext,
-    block,
+    p,
     cost,
     input_var,
     input_branch,
     output_vars,
     var_id::UInt64,
-    branch_id::UInt64,
-    either_var_ids,
-    either_branch_ids,
+    branch_id,
     input_type,
+    context,
+    cg::ContextualGrammar,
 )
+    var_ind = findfirst(v_info -> v_info[1] == var_id, output_vars)
+
     unknown_type_id = [t_id for (v_id, _, t_id) in output_vars if v_id == var_id][1]
-    new_var = create_next_var(sc)
 
-    new_branch_id = increment!(sc.branches_count)
-    sc.branch_entries[new_branch_id] = sc.branch_entries[branch_id]
-    sc.branch_is_unknown[new_branch_id] = true
-    sc.branch_vars[new_branch_id] = new_var
-    sc.branch_types[new_branch_id, unknown_type_id] = true
-    sc.complexities[new_branch_id] = sc.complexities[branch_id]
+    g = cg.no_context
 
-    new_constraint_id = increment!(sc.constraints_count)
-    sc.constrained_branches[new_branch_id, new_constraint_id] = new_var
-    sc.constrained_vars[new_var, new_constraint_id] = new_branch_id
-    sc.constrained_branches[either_branch_ids, new_constraint_id] = either_var_ids
-    sc.constrained_vars[either_var_ids, new_constraint_id] = either_branch_ids
+    candidate_functions = unifying_expressions(
+        g,
+        Tp[],
+        input_type,
+        context,
+        true,
+        nothing,
+        Hole(input_type, g, true, nothing, nothing),
+        [],
+        nothing,
+    )
 
-    sc.unknown_min_path_costs[new_branch_id] = sc.explained_min_path_costs[branch_id]
-    sc.unknown_complexity_factors[new_branch_id] = sc.explained_complexity_factors[branch_id]
-    sc.unmatched_complexities[new_branch_id] = sc.complexities[branch_id]
+    wrapper, arg_types, new_context, wrap_cost =
+        first(v for v in candidate_functions if v[1] == every_primitive["rev_fix_param"])
 
-    arg_types = [sc.types[v[3]] for v in output_vars]
-    if isempty(arg_types)
-        p_type = input_type
-    else
-        p_type = arrow(arg_types..., input_type)
-    end
+    unknown_type = sc.types[unknown_type_id]
+    new_context = unify(new_context, unknown_type, arg_types[2])
+    new_context, fixer_type = apply_context(new_context, arg_types[3])
 
-    wrapper_block =
-        WrapEitherBlock(block, p_type, var_id, cost, [input_var, new_var], [v_id for (v_id, _, _) in output_vars])
-    wrapper_block_id = push!(sc.blocks, wrapper_block)
-    target_outputs = Dict(v_id => b_id for (v_id, b_id, _) in output_vars)
-    input_branches = Dict(input_var => input_branch, new_var => new_branch_id)
-    return wrapper_block_id, input_branches, target_outputs
+    unknown_entry = sc.entries[sc.branch_entries[branch_id]]
+    custom_arg_checkers = _get_custom_arg_checkers(wrapper)
+    filled_p, new_context = _fill_holes(p, new_context)
+
+    wrapped_p = Apply(
+        Apply(Apply(wrapper, filled_p), FreeVar(unknown_type, "r$var_ind")),
+        Hole(fixer_type, cg.contextual_library[wrapper][3], true, custom_arg_checkers[3], unknown_entry.values),
+    )
+
+    state = EnumerationState(
+        wrapped_p,
+        new_context,
+        [RightTurn()],
+        cost + wrap_cost + 0.001,
+        number_of_free_parameters(filled_p),
+    )
+
+    new_bp = BlockPrototype(state, input_type, nothing, (input_var, input_branch), true)
+    return new_bp
 end
 
 function create_reversed_block(
@@ -516,6 +550,7 @@ function create_reversed_block(
     input_var::Tuple{UInt64,UInt64},
     cost,
     input_type,
+    g,
 )
     new_p, output_vars, either_var_ids, abductible_var_ids, either_branch_ids, abductible_branch_ids =
         try_get_reversed_values(sc, p, context, path, input_var[2], cost, true)
@@ -526,29 +561,30 @@ function create_reversed_block(
             block_id,
             Dict{UInt64,UInt64}(input_var[1] => input_var[2]),
             Dict{UInt64,UInt64}(v_id => b_id for (v_id, b_id, _) in output_vars),
-        )]
+        )],
+        []
     else
-        results = []
+        unfinished_prototypes = []
         for (var_id, branch_id) in
             Iterators.flatten([zip(either_var_ids, either_branch_ids), zip(abductible_var_ids, abductible_branch_ids)])
             push!(
-                results,
-                create_wrapping_block(
+                unfinished_prototypes,
+                create_wrapping_program_prototype(
                     sc,
-                    block,
+                    p,
                     cost,
                     input_var[1],
                     input_var[2],
                     output_vars,
                     var_id,
                     branch_id,
-                    either_var_ids,
-                    either_branch_ids,
                     input_type,
+                    context,
+                    g,
                 ),
             )
         end
-        return results
+        return [], unfinished_prototypes
     end
 end
 
@@ -707,105 +743,6 @@ function try_run_block(
     )
 end
 
-function _fix_param_type(block_type, i, param_type)
-    if is_polymorphic(block_type)
-        context, block_type = instantiate(block_type, empty_context)
-        context, param_type = instantiate(param_type, context)
-        context = unify(context, arguments_of_type(block_type)[i], param_type)
-        context, block_type = apply_context(context, block_type)
-    end
-    return arguments_of_type(block_type)
-end
-
-function try_run_block(
-    sc::SolutionContext,
-    block::WrapEitherBlock,
-    block_id,
-    fixed_branches,
-    target_output,
-    is_new_block,
-    created_paths,
-)
-    inputs = []
-    main_block = block.main_block
-
-    for _ in 1:sc.example_count
-        push!(inputs, [])
-    end
-    for var_id in main_block.input_vars
-        fixed_branch_id = fixed_branches[var_id]
-        entry = sc.entries[sc.branch_entries[fixed_branch_id]]
-        for i in 1:sc.example_count
-            push!(inputs[i], entry.values[i])
-        end
-    end
-
-    outputs_count = length(block.output_vars)
-
-    outs = DefaultDict(() -> [])
-
-    for i in 1:sc.example_count
-        xs = inputs[i]
-        out_values = try
-            try_run_function(run_in_reverse, vcat([main_block.p], xs))
-        catch e
-            @error xs
-            @error main_block.p
-            rethrow()
-        end
-        if isnothing(out_values)
-            throw(EnumerationException())
-        end
-        for (v_id, v) in out_values
-            push!(outs[v_id], v)
-        end
-    end
-
-    fixer_branch_id = fixed_branches[block.input_vars[2]]
-    fixer_entry = sc.entries[sc.branch_entries[fixer_branch_id]]
-
-    fixed_hashes = [get_fixed_hashes(outs[block.fixer_var][j], fixer_entry.values[j]) for j in 1:sc.example_count]
-
-    # TODO: rewrite this with calculate_dependent_vars
-    outputs = Vector{Any}[]
-    fixer_index = 0
-    for i in 1:outputs_count
-        var_id = block.output_vars[i]
-        target_values = outs[var_id]
-        if var_id == block.fixer_var
-            fixed_values = fixer_entry.values
-            fixer_index = i
-        else
-            fixed_values = _fix_option_hashes(fixed_hashes, target_values)
-        end
-        out_branch_id = target_output[var_id]
-        expected_output = sc.entries[sc.branch_entries[out_branch_id]]
-        for j in 1:sc.example_count
-            v = fixed_values[j]
-            if isa(v, AbductibleValue) || isa(v, EitherOptions) || !match_at_index(expected_output, j, v)
-                throw(EnumerationException())
-            end
-        end
-        push!(outputs, fixed_values)
-    end
-    output_types = _fix_param_type(block.type, fixer_index, sc.types[fixer_entry.type_id])
-    if sc.verbose
-        @info "Got outputs for block $block_id: $outputs"
-        @info "Output types: $output_types"
-    end
-    return value_updates(
-        sc,
-        block,
-        block_id,
-        output_types,
-        target_output,
-        outputs,
-        fixed_branches,
-        is_new_block,
-        created_paths,
-    )
-end
-
 function try_run_block_with_downstream(
     sc::SolutionContext,
     block_id,
@@ -951,11 +888,11 @@ function enqueue_updates(sc::SolutionContext, g)
     assert_context_consistency(sc)
 end
 
-function enumeration_iteration_finished_input(sc, bp)
+function enumeration_iteration_finished_input(sc, bp, g)
     state = bp.state
     if bp.reverse
         # @info "Try get reversed for $bp"
-        abstractor_results = create_reversed_block(
+        return create_reversed_block(
             sc,
             state.skeleton,
             state.context,
@@ -963,8 +900,8 @@ function enumeration_iteration_finished_input(sc, bp)
             bp.output_var,
             state.cost,
             return_of_type(bp.request),
+            g,
         )
-        return abstractor_results
     else
         arg_types =
             [sc.types[first(get_connected_from(sc.branch_types, branch_id))] for (_, branch_id) in bp.input_vars]
@@ -980,7 +917,7 @@ function enumeration_iteration_finished_input(sc, bp)
         new_block_id = push!(sc.blocks, new_block)
         input_branches = Dict{UInt64,UInt64}(var_id => branch_id for (var_id, branch_id) in bp.input_vars)
         target_output = Dict{UInt64,UInt64}(bp.output_var[1] => bp.output_var[2])
-        return [(new_block_id, input_branches, target_output)]
+        return [(new_block_id, input_branches, target_output)], []
     end
 end
 
@@ -1042,14 +979,14 @@ function enumeration_iteration_finished_output(sc::SolutionContext, bp::BlockPro
     new_block =
         ProgramBlock(p, p_type, state.cost, [var_id for (var_id, _, _) in input_vars], bp.output_var[1], is_reverse)
     block_id = push!(sc.blocks, new_block)
-    return [(block_id, input_branches, Dict{UInt64,UInt64}(bp.output_var[1] => bp.output_var[2]))]
+    return [(block_id, input_branches, Dict{UInt64,UInt64}(bp.output_var[1] => bp.output_var[2]))], []
 end
 
 function enumeration_iteration_finished(sc::SolutionContext, finalizer, g, bp::BlockPrototype, br_id)
     if sc.branch_is_unknown[br_id]
-        new_block_result = enumeration_iteration_finished_output(sc, bp)
+        new_block_result, unfinished_prototypes = enumeration_iteration_finished_output(sc, bp)
     else
-        new_block_result = enumeration_iteration_finished_input(sc, bp)
+        new_block_result, unfinished_prototypes = enumeration_iteration_finished_input(sc, bp, g)
     end
     for (new_block_id, input_branches, target_output) in new_block_result
         new_solution_paths = add_new_block(sc, new_block_id, input_branches, target_output)
@@ -1061,7 +998,7 @@ function enumeration_iteration_finished(sc::SolutionContext, finalizer, g, bp::B
         end
     end
 
-    return true
+    return unfinished_prototypes
 end
 
 function enumeration_iteration(
@@ -1086,18 +1023,26 @@ function enumeration_iteration(
                 throw(EnumerationException())
             end
             # enumeration_iteration_finished(sc, finalizer, g, bp, br_id)
-            ok = @run_with_timeout run_context "program_timeout" enumeration_iteration_finished(
+            unfinished_prototypes = @run_with_timeout run_context "program_timeout" enumeration_iteration_finished(
                 sc,
                 finalizer,
                 g,
                 bp,
                 br_id,
             )
-            if isnothing(ok)
+            if isnothing(unfinished_prototypes)
                 throw(EnumerationException())
             end
+            for new_bp in unfinished_prototypes
+                if sc.verbose
+                    @info "Enqueing $new_bp"
+                end
+                q[new_bp] = new_bp.state.cost
+            end
             enqueue_updates(sc, g)
-            sc.total_number_of_enumerated_programs += 1
+            if isempty(unfinished_prototypes)
+                sc.total_number_of_enumerated_programs += 1
+            end
         end
     else
         if sc.verbose
@@ -1133,7 +1078,7 @@ function enumerate_for_task(
     # We will only ever maintain maximumFrontier best solutions
     hits = PriorityQueue{HitResult,Float64}()
 
-    maxFreeParameters = 2
+    maxFreeParameters = 10
 
     start_time = time()
 

@@ -134,16 +134,6 @@ let eta_long request e =
         let body', var_body_requests = visit request environment merged_workspace body in
         Hashtbl.set var_body_requests ~key:inp_name ~data:inp_name_request;
         (LetRevClause (var_names, inp_name, def', body'), var_body_requests)
-    | WrapEither (var_names, inp_name, fixer_var_name, def, f, body), _ ->
-        let inp_name_request = Hashtbl.find_exn workspace inp_name in
-        let def', def_var_requests = visit inp_name_request environment workspace def in
-        let merged_workspace = merge_workspaces context workspace def_var_requests in
-        let body', var_body_requests = visit request environment merged_workspace body in
-        let fixer_request = Hashtbl.find_exn def_var_requests fixer_var_name in
-        let f', var_fixer_requests = visit fixer_request environment merged_workspace f in
-        Hashtbl.set var_body_requests ~key:inp_name ~data:inp_name_request;
-        ( WrapEither (var_names, inp_name, fixer_var_name, def', f', body'),
-          merge_workspaces context var_body_requests var_fixer_requests )
     | _ -> (
         match make_long e request with
         | Some e' -> visit request environment workspace e'
@@ -164,7 +154,7 @@ let eta_long request e =
               | Abstraction _ -> assert false (* not in beta long form *)
               | Apply (_, _) -> assert false
               | Const _ | FreeVar _ -> request
-              | LetClause _ | LetRevClause _ | WrapEither _ ->
+              | LetClause _ | LetRevClause _ ->
                   raise (Failure "Eta-expand failure: LetClause or LetRevClause in application")
             in
             let var_requests =
@@ -204,7 +194,7 @@ let normalize_invention i =
     | Abstraction b -> Abstraction (visit (d + 1) b)
     | Apply (f, x) -> Apply (visit d f, visit d x)
     | (Primitive (_, _, _) | Invented (_, _)) as e -> e
-    | Const _ | LetClause _ | LetRevClause _ | WrapEither _ | FreeVar _ -> raise UnificationFailure
+    | Const _ | LetClause _ | LetRevClause _ | FreeVar _ -> raise UnificationFailure
   in
 
   let renamed = visit 0 i in
@@ -233,9 +223,8 @@ let rewrite_with_invention i =
       | Index _ | Primitive (_, _, _) | Invented (_, _) | FreeVar _ | Const _ -> e
       | LetClause (v, dt, d, b) -> LetClause (v, dt, visit d, visit b)
       | LetRevClause (vns, inp_v, d, b) -> LetRevClause (vns, inp_v, visit d, visit b)
-      | WrapEither (vars, inp, fixer, def, f, body) ->
-          WrapEither (vars, inp, fixer, visit def, f, visit body)
   in
+
   fun request e ->
     try
       let e' = visit e |> eta_long request in
@@ -276,7 +265,7 @@ let nontrivial e =
         visit d x
     | Abstraction b -> visit (d + 1) b
     | Primitive (_, _, _) | Invented (_, _) -> incr primitives
-    | Const _ | LetClause _ | LetRevClause _ | WrapEither _ | FreeVar _ -> assert false
+    | Const _ | LetClause _ | LetRevClause _ | FreeVar _ -> assert false
   in
   visit 0 e;
   !primitives > 1 || (!primitives = 1 && !duplicated_indices > 0)
@@ -318,7 +307,6 @@ let compression_worker connection ~inline ~arity ~bs ~topK g frontiers =
               | Index _ | Invented (_, _) | Primitive (_, _, _) | Const _ -> 1
               | LetClause (_, _, d, b) -> 1 + program_size d + program_size b
               | LetRevClause (_, _, d, b) -> 1 + program_size d + program_size b
-              | WrapEither (_, _, _, def, _, body) -> 2 + program_size def + program_size body
               | FreeVar _ -> 1
             in
             let rec program_height = function
@@ -327,8 +315,6 @@ let compression_worker connection ~inline ~arity ~bs ~topK g frontiers =
               | Index _ | Invented (_, _) | Primitive (_, _, _) | Const _ -> 1
               | LetClause (_, _, d, b) -> 1 + max (program_height d) (program_height b)
               | LetRevClause (_, _, d, b) -> 1 + max (program_height d) (program_height b)
-              | WrapEither (_, _, _, def, _, body) ->
-                  2 + max (program_height def) (program_height body)
               | FreeVar _ -> 1
             in
             Printf.eprintf "DATA\t%s\tsize=%d\theight=%d\t|vs|=%d\t|[vs]|=%f\n"

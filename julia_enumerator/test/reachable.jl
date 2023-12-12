@@ -9,10 +9,8 @@ using solver:
     parse_program,
     ProgramBlock,
     ReverseProgramBlock,
-    WrapEitherBlock,
     LetClause,
     LetRevClause,
-    WrapEither,
     t0,
     is_reversible,
     FreeVar,
@@ -30,7 +28,9 @@ using solver:
     get_connected_to,
     show_program,
     HitResult,
-    BlockPrototype
+    BlockPrototype,
+    application_parse,
+    every_primitive
 
 using DataStructures
 
@@ -709,45 +709,6 @@ using DataStructures
                 bl = ReverseProgramBlock(p.v, 0.0, [vars_mapping[p.inp_var_id]], [vars_mapping[v] for v in p.var_ids])
                 push!(blocks, bl)
                 p = p.b
-            elseif p isa WrapEither
-                if !haskey(vars_mapping, p.inp_var_id)
-                    vars_mapping[p.inp_var_id] = length(vars_mapping) + copied_vars + 1
-                end
-
-                for v in p.var_ids
-                    if !haskey(vars_mapping, v)
-                        vars_mapping[v] = length(vars_mapping) + copied_vars + 1
-                    end
-                    if p.inp_var_id in vars_from_input
-                        push!(vars_from_input, v)
-                    end
-                end
-                if p.f.var_id in vars_from_input
-                    copied_vars += 1
-                    fixer_var = length(vars_mapping) + copied_vars
-                    copy_block = ProgramBlock(
-                        FreeVar(t0, vars_mapping[p.f.var_id]),
-                        t0,
-                        0.0,
-                        [vars_mapping[p.f.var_id]],
-                        fixer_var,
-                        false,
-                    )
-                    push!(blocks, copy_block)
-                else
-                    fixer_var = vars_mapping[p.f.var_id]
-                end
-
-                bl = WrapEitherBlock(
-                    ReverseProgramBlock(p.v, 0.0, [vars_mapping[p.inp_var_id]], [vars_mapping[v] for v in p.var_ids]),
-                    t0,
-                    vars_mapping[p.fixer_var_id],
-                    0.0,
-                    [vars_mapping[p.inp_var_id], fixer_var],
-                    [vars_mapping[v] for v in p.var_ids],
-                )
-                push!(blocks, bl)
-                p = p.b
             elseif p isa FreeVar
                 in_var = vars_mapping[p.var_id]
                 bl = ProgramBlock(FreeVar(t0, in_var), t0, 0.0, [in_var], vars_mapping["out"], false)
@@ -792,10 +753,6 @@ using DataStructures
     end
 
     function _block_can_be_next(bl::ReverseProgramBlock, vars_mapping)
-        return haskey(vars_mapping, bl.input_vars[1])
-    end
-
-    function _block_can_be_next(bl::WrapEitherBlock, vars_mapping)
         return haskey(vars_mapping, bl.input_vars[1])
     end
 
@@ -1020,18 +977,32 @@ using DataStructures
             return Set(), Set([(_get_entries(sc, vars_mapping, branches), bl)])
         end
         q = (is_explained ? sc.branch_queues_explained : sc.branch_queues_unknown)[in_branch_id]
+
+        block_main_func, block_main_func_args = application_parse(bl.p)
+        if verbose
+            @info "block_main_func: $block_main_func"
+            @info "block_main_func_args: $block_main_func_args"
+        end
+        if block_main_func == every_primitive["rev_fix_param"]
+            wrapped_func = block_main_func_args[1]
+        else
+            wrapped_func = nothing
+        end
+
         @test !isempty(q)
         while !isempty(q)
             bp = dequeue!(q)
             if verbose
                 @info bp
             end
-            if is_on_path(bp.state.skeleton, bl.p)
+            if is_on_path(bp.state.skeleton, bl.p) ||
+               (wrapped_func !== nothing && is_on_path(bp.state.skeleton, wrapped_func))
                 if verbose
                     @info "on path"
                 end
                 enumeration_iteration(run_context, sc, finalizer, mfp, g, q, bp, in_branch_id, is_explained)
-                if is_reversible(bp.state.skeleton) || state_finished(bp.state)
+                if !(wrapped_func !== nothing && is_on_path(bp.state.skeleton, wrapped_func)) &&
+                   (is_reversible(bp.state.skeleton) || state_finished(bp.state))
                     if verbose
                         @info "found end"
                     end
@@ -1069,124 +1040,6 @@ using DataStructures
                             updated_vars_mapping[original_var] = new_var
                         end
                     end
-                    if verbose
-                        @info "updated_vars_mapping: $updated_vars_mapping"
-                    end
-                    updated_history = vcat(branches_history, [(branches, bl)])
-                    return _check_reachable(
-                        sc,
-                        rem_blocks,
-                        updated_vars_mapping,
-                        updated_branches,
-                        updated_history,
-                        g,
-                        run_context,
-                        finalizer,
-                        mfp,
-                        verbose,
-                    )
-                end
-            else
-                if verbose
-                    @info "not on path"
-                end
-            end
-        end
-        if verbose
-            @info "Failed to find block"
-        end
-        return Set(), Set([(_get_entries(sc, vars_mapping, branches), bl)])
-    end
-
-    function _simulate_block_search(
-        sc,
-        bl::WrapEitherBlock,
-        rem_blocks,
-        branches,
-        branches_history,
-        vars_mapping,
-        g,
-        run_context,
-        finalizer,
-        mfp,
-        verbose,
-    )
-        if verbose
-            @info "Simulating block search for $bl"
-        end
-        in_branch_id = branches[vars_mapping[bl.input_vars[1]]]
-        is_explained = true
-        if !haskey((is_explained ? sc.branch_queues_explained : sc.branch_queues_unknown), in_branch_id)
-            if verbose
-                @info "Queue is empty"
-            end
-            return Set(), Set([(_get_entries(sc, vars_mapping, branches), bl)])
-        end
-        q = (is_explained ? sc.branch_queues_explained : sc.branch_queues_unknown)[in_branch_id]
-        @test !isempty(q)
-        while !isempty(q)
-            bp = dequeue!(q)
-            if verbose
-                @info bp
-            end
-            if is_on_path(bp.state.skeleton, bl.main_block.p)
-                if verbose
-                    @info "on path"
-                end
-                enumeration_iteration(run_context, sc, finalizer, mfp, g, q, bp, in_branch_id, is_explained)
-                if is_reversible(bp.state.skeleton) || state_finished(bp.state)
-                    if verbose
-                        @info "found end"
-                    end
-                    out_blocks = get_connected_from(sc.branch_outgoing_blocks, in_branch_id)
-                    if isempty(out_blocks)
-                        children = get_connected_from(sc.branch_children, in_branch_id)
-                        @test length(children) == 1
-                        child_id = first(children)
-                        out_blocks = get_connected_from(sc.branch_outgoing_blocks, child_id)
-                    end
-                    @test !isempty(out_blocks)
-                    if verbose
-                        @info "out_blocks: $out_blocks"
-                    end
-                    fixer_index = findfirst(isequal(bl.fixer_var), bl.output_vars)
-                    created_block_id = nothing
-                    created_block_copy_id = nothing
-                    created_block = nothing
-                    for (block_copy_id, block_id) in out_blocks
-                        block = sc.blocks[block_id]
-                        if block.output_vars[fixer_index] == block.fixer_var
-                            created_block_id = block_id
-                            created_block_copy_id = block_copy_id
-                            created_block = block
-                            break
-                        end
-                    end
-                    if verbose
-                        @info "created_block: $created_block"
-                    end
-
-                    updated_branches = copy(branches)
-                    in_branches = keys(get_connected_to(sc.branch_outgoing_blocks, created_block_copy_id))
-                    for in_branch in in_branches
-                        updated_branches[sc.branch_vars[in_branch]] = in_branch
-                    end
-                    out_branches = keys(get_connected_to(sc.branch_incoming_blocks, created_block_copy_id))
-                    for out_branch in out_branches
-                        updated_branches[sc.branch_vars[out_branch]] = out_branch
-                    end
-                    updated_branches = _fetch_branches_children(sc, updated_branches)
-                    if verbose
-                        @info "updated_branches: $updated_branches"
-                    end
-
-                    updated_vars_mapping = copy(vars_mapping)
-                    for (original_var, new_var) in zip(bl.output_vars, created_block.output_vars)
-                        if !haskey(updated_vars_mapping, original_var)
-                            updated_vars_mapping[original_var] = new_var
-                        end
-                    end
-                    updated_vars_mapping[bl.input_vars[2]] = created_block.input_vars[2]
                     if verbose
                         @info "updated_vars_mapping: $updated_vars_mapping"
                     end
@@ -1271,7 +1124,7 @@ using DataStructures
 
     function check_reachable(payload, target_solution, verbose_test = false)
         task, maximum_frontier, g, type_weights, mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
-        mfp = 2
+        mfp = 10
         run_context = Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout)
         target_program = parse_program(target_solution)
         blocks, vars_mapping = _extract_blocks(task, target_program, verbose_test)
@@ -1526,7 +1379,7 @@ using DataStructures
                 ),
             ),
         )
-        target_solution = "let \$v1::list(int) = Const(list(int), Any[10, 9, 8, 7]) in let \$v2, \$v3 = wrap(let \$v2, \$v3 = rev(\$inp0 = (concat \$v2 \$v3)); let \$v3 = \$v1) in \$v2"
+        target_solution = "let \$v1, \$v2 = rev(\$inp0 = (rev_fix_param (concat \$v1 \$v2) \$v2 (lambda Const(list(int), Any[10, 9, 8, 7])))) in \$v1"
         check_reachable(payload, target_solution)
     end
 
@@ -1565,7 +1418,7 @@ using DataStructures
                 ),
             ),
         )
-        target_solution = "let \$v1::int = Const(int, 1) in let \$v2::int = Const(int, 1) in let \$v3::int = Const(int, 3) in let \$v4, \$v5, \$v6 = wrap(let \$v4, \$v5, \$v6 = rev(\$inp0 = (rev_select (lambda (eq? \$0 \$v4)) \$v5 \$v6)); let \$v4 = \$v3) in let \$v7, \$v8 = rev(\$v5 = (repeat \$v7 \$v8)) in let \$v9::list(int) = (repeat \$v2 \$v8) in (rev_select (lambda (eq? \$0 \$v1)) \$v9 \$v6)"
+        target_solution = "let \$v1::int = Const(int, 1) in let \$v2::int = Const(int, 1) in let \$v3, \$v4, \$v5 = rev(\$inp0 = (rev_fix_param (rev_select (lambda (eq? \$0 \$v3)) \$v4 \$v5) \$v3 (lambda Const(int, 3)))) in let \$v6, \$v7 = rev(\$v4 = (repeat \$v6 \$v7)) in let \$v8::list(int) = (repeat \$v2 \$v7) in (rev_select (lambda (eq? \$0 \$v1)) \$v8 \$v5)"
         check_reachable(payload, target_solution)
     end
 

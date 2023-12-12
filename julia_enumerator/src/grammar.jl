@@ -212,11 +212,10 @@ function unifying_expressions(
     )
 
     candidates = vcat(variable_candidates, grammar_candidates)
-    if isempty(candidates)
-        return Tuple{Program,Vector{Tp},Context,Float64}[]
+    if !isempty(candidates)
+        z = lse([ll for (_, _, _, ll) in candidates])
+        candidates = Tuple{Program,Vector{Tp},Context,Float64}[(p, t, k, z - ll) for (p, t, k, ll) in candidates]
     end
-    z = lse([ll for (_, _, _, ll) in candidates])
-    candidates = Tuple{Program,Vector{Tp},Context,Float64}[(p, t, k, z - ll) for (p, t, k, ll) in candidates]
 
     if !isa(skeleton, Hole)
         p = FreeVar(request, nothing)

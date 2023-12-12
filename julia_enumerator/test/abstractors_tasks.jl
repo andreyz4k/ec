@@ -6,7 +6,7 @@ using solver: load_problems, enumerate_for_task
 @testset "Abstractors tasks" begin
     sample_payload = Dict{String,Any}(
         "DSL" => Dict{String,Any}(
-            "logVariable" => 3.0,
+            "logVariable" => 0.0,
             "productions" => Any[
                 Dict{String,Any}(
                     "logProbability" => 0.0,
@@ -177,7 +177,7 @@ using solver: load_problems, enumerate_for_task
                     "type" => "int -> int -> bool",
                 ),
                 Dict{String,Any}(
-                    "logProbability" => 3.0,
+                    "logProbability" => 0.0,
                     "expression" => "eq?",
                     "is_reversible" => false,
                     "type" => "t0 -> t0 -> bool",
@@ -195,7 +195,7 @@ using solver: load_problems, enumerate_for_task
                     "type" => "int -> bool",
                 ),
                 Dict{String,Any}(
-                    "logProbability" => 3.0,
+                    "logProbability" => 0.0,
                     "expression" => "repeat",
                     "is_reversible" => true,
                     "type" => "t0 -> int -> list(t0)",
@@ -249,7 +249,7 @@ using solver: load_problems, enumerate_for_task
                     "type" => "int",
                 ),
                 Dict{String,Any}(
-                    "logProbability" => 3.0,
+                    "logProbability" => 0.0,
                     "expression" => "rev_select",
                     "is_reversible" => true,
                     "type" => "(t0 -> bool) -> list(t0) -> list(t0) -> list(t0)",
@@ -399,7 +399,7 @@ using solver: load_problems, enumerate_for_task
                     "type" => "int -> int",
                 ),
                 Dict{String,Any}(
-                    "logProbability" => 0.0,
+                    "logProbability" => 4.0,
                     "expression" => "rev_fix_param",
                     "is_reversible" => true,
                     "type" => "t0 -> t1 -> (t0 -> t1) -> t0",
@@ -460,6 +460,11 @@ using solver: load_problems, enumerate_for_task
                 ),
             ),
         )
+        for prod_dict in payload["DSL"]["productions"]
+            if prod_dict["expression"] == "repeat"
+                prod_dict["logProbability"] = 3.0
+            end
+        end
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
@@ -653,10 +658,6 @@ using solver: load_problems, enumerate_for_task
                 ),
             ),
         )
-        payload["DSL"]["logVariable"] = 0.0
-        for prod_dict in payload["DSL"]["productions"]
-            prod_dict["logProbability"] = 0.0
-        end
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
@@ -706,6 +707,13 @@ using solver: load_problems, enumerate_for_task
                 ),
             ),
         )
+        for prod_dict in payload["DSL"]["productions"]
+            if prod_dict["expression"] == "repeat" ||
+               prod_dict["expression"] == "eq?" ||
+               prod_dict["expression"] == "rev_select"
+                prod_dict["logProbability"] = 2.0
+            end
+        end
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),

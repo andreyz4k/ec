@@ -177,10 +177,6 @@ class Program(object):
         return False
 
     @property
-    def isWrapEither(self):
-        return False
-
-    @property
     def isConst(self):
         return False
 
@@ -203,15 +199,6 @@ class Program(object):
                             [v[1:] for v in e[1:-4]],
                             e[-3][1][1:],
                             p(e[-3][3]),
-                            p(e[-1]),
-                        )
-                    elif e[-3][0] == "wrap":
-                        return WrapEither(
-                            [v[1:] for v in e[1:-4]],
-                            e[-3][1][-3][1][1:],
-                            e[-3][1][-1][1][1:],
-                            p(e[-3][1][-3][-1]),
-                            p(e[-3][1][-1][-1]),
                             p(e[-1]),
                         )
                     else:
@@ -1219,78 +1206,6 @@ class LetRevClause(Program):
 
     @property
     def isLetRevClause(self):
-        return True
-
-
-class WrapEither(Program):
-    def __init__(
-        self, var_names, inp_var_name, fixer_var_name, vars_def, fixer_var, body
-    ):
-        self.var_names = var_names
-        self.inp_var_name = inp_var_name
-        self.fixer_var_name = fixer_var_name
-        self.vars_def = vars_def
-        self.fixer_var = fixer_var
-        self.body = body
-        self.hashCode = None
-
-    def show(self, isFunction):
-        vars_list = ", ".join(f"${v}" for v in self.var_names)
-        return (
-            f"let {vars_list} = wrap(let {vars_list} = rev(${self.inp_var_name} = {self.vars_def.show(False)});"
-            + f" let ${self.fixer_var_name} = {self.fixer_var.show(False)}) in {self.body.show(False)}"
-        )
-
-    def __eq__(self, __o) -> bool:
-        return (
-            isinstance(__o, WrapEither)
-            and self.var_names == __o.var_names
-            and self.inp_var_name == __o.inp_var_name
-            and self.fixer_var_name == __o.fixer_var_name
-            and self.vars_def == __o.vars_def
-            and self.fixer_var == __o.fixer_var
-            and self.body == __o.body
-        )
-
-    def __hash__(self):
-        if self.hashCode is None:
-            self.hashCode = hash(
-                (
-                    hash(tuple(self.var_names)),
-                    hash(self.inp_var_name),
-                    hash(self.fixer_var_name),
-                    hash(self.vars_def),
-                    hash(self.fixer_var),
-                    hash(self.body),
-                )
-            )
-        return self.hashCode
-
-    """Because Python3 randomizes the hash function, we need to never pickle the hash"""
-
-    def __getstate__(self):
-        return (
-            self.var_names,
-            self.inp_var_name,
-            self.fixer_var_name,
-            self.vars_def,
-            self.fixer_var,
-            self.body,
-        )
-
-    def __setstate__(self, state):
-        (
-            self.var_names,
-            self.inp_var_name,
-            self.fixer_var_name,
-            self.vars_def,
-            self.fixer_var,
-            self.body,
-        ) = state
-        self.hashCode = None
-
-    @property
-    def isWrapEither(self):
         return True
 
 

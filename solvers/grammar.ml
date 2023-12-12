@@ -298,23 +298,6 @@ let make_likelihood_summary g request expression =
             in
             Hashtbl.set var_body_requests ~key:inp_name ~data:inp_name_request;
             var_body_requests
-        | WrapEither (_vars, inp_name, fixer, def, f, body) ->
-            let inp_name_request = Hashtbl.find_exn workspace inp_name in
-            let var_requests =
-              summarize ~reversible_only:true inp_name_request environment workspace def
-            in
-            let merged_workspace = merge_workspaces context workspace var_requests in
-            let var_body_requests =
-              summarize ~reversible_only r environment merged_workspace body
-            in
-            let var_fixer_requests =
-              summarize ~reversible_only
-                (Hashtbl.find_exn var_requests fixer)
-                environment merged_workspace f
-            in
-            Hashtbl.set var_body_requests ~key:inp_name ~data:inp_name_request;
-            Hashtbl.merge var_body_requests var_fixer_requests ~f:(fun ~key:_ -> function
-              | `Left x -> Some x | `Right x -> Some x | `Both (_x, y) -> Some y)
         | FreeVar name -> Hashtbl.of_alist_exn (module String) [ (name, r) ]
         | Const _ -> Hashtbl.create (module String)
         | _ -> (

@@ -496,7 +496,7 @@ end
 function set_new_paths_for_block(
     sc::SolutionContext,
     bl_id,
-    bl::Union{ReverseProgramBlock,WrapEitherBlock},
+    bl::ReverseProgramBlock,
     input_paths,
     out_var_id,
     output_branch_id,
@@ -751,12 +751,7 @@ function _update_complexity_factor_known(sc::SolutionContext, branch_id)
     end
 end
 
-function update_complexity_factors_known(
-    sc::SolutionContext,
-    bl::Union{ReverseProgramBlock,WrapEitherBlock},
-    input_branches,
-    output_branches,
-)
+function update_complexity_factors_known(sc::SolutionContext, bl::ReverseProgramBlock, input_branches, output_branches)
     in_branch_id = input_branches[bl.input_vars[1]]
 
     added_upstream_complexity = sc.added_upstream_complexities[in_branch_id]
@@ -827,7 +822,7 @@ function _update_prev_follow_vars(sc::SolutionContext, bl::ProgramBlock)
     sc.previous_vars[inp_prev_vars, out_foll_vars] = true
 end
 
-function _update_prev_follow_vars(sc, bl::Union{ReverseProgramBlock,WrapEitherBlock})
+function _update_prev_follow_vars(sc, bl::ReverseProgramBlock)
     inp_prev_vars = union([get_connected_to(sc.previous_vars, inp_var) for inp_var in bl.input_vars]...)
     out_foll_vars = union([get_connected_from(sc.previous_vars, out_var) for out_var in bl.output_vars]...)
     sc.previous_vars[inp_prev_vars, out_foll_vars] = true

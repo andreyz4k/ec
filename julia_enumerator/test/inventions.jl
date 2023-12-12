@@ -131,7 +131,7 @@ using solver: load_problems, enumerate_for_task
                         "is_reversible" => true,
                     ),
                     Dict{String,Any}(
-                        "logProbability" => 0.0,
+                        "logProbability" => 4.0,
                         "expression" => "rev_fix_param",
                         "is_reversible" => true,
                         "type" => "t0 -> t1 -> (t0 -> t1) -> t0",
@@ -359,7 +359,7 @@ using solver: load_problems, enumerate_for_task
                         "is_reversible" => true,
                     ),
                     Dict{String,Any}(
-                        "logProbability" => 0.0,
+                        "logProbability" => 4.0,
                         "expression" => "rev_fix_param",
                         "is_reversible" => true,
                         "type" => "t0 -> t1 -> (t0 -> t1) -> t0",

@@ -400,7 +400,7 @@ using solver: load_problems, enumerate_for_task
                     "type" => "int",
                 ),
                 Dict{String,Any}(
-                    "logProbability" => 0.0,
+                    "logProbability" => 1.0,
                     "expression" => "rev_fix_param",
                     "is_reversible" => true,
                     "type" => "t0 -> t1 -> (t0 -> t1) -> t0",
@@ -602,7 +602,9 @@ using solver: load_problems, enumerate_for_task
         payload = create_arc_task("c9e6f938.json")
         @info payload["name"]
         for prod in payload["DSL"]["productions"]
-            prod["logProbability"] = 0.0
+            if prod["expression"] != "rev_fix_param"
+                prod["logProbability"] = 0.0
+            end
         end
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
@@ -670,7 +672,7 @@ using solver: load_problems, enumerate_for_task
             verbose,
         )
         @test length(solutions) == 0
-        @test number_enumerated >= 3000
+        @test number_enumerated >= 1000
     end
 
     @testset "d06dbe63.json" begin
@@ -678,7 +680,9 @@ using solver: load_problems, enumerate_for_task
         @info payload["name"]
         payload["DSL"]["logVariable"] = 0.0
         for d in payload["DSL"]["productions"]
-            d["logProbability"] = 0.0
+            if d["expression"] != "rev_fix_param"
+                d["logProbability"] = 0.0
+            end
         end
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
@@ -699,7 +703,9 @@ using solver: load_problems, enumerate_for_task
         @info payload["name"]
         payload["DSL"]["logVariable"] = 0.0
         for d in payload["DSL"]["productions"]
-            d["logProbability"] = 0.0
+            if d["expression"] != "rev_fix_param"
+                d["logProbability"] = 0.0
+            end
         end
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
@@ -1112,7 +1118,7 @@ using solver: load_problems, enumerate_for_task
                     "type" => "int",
                 ),
                 Dict{String,Any}(
-                    "logProbability" => 0.0,
+                    "logProbability" => 1.0,
                     "expression" => "rev_fix_param",
                     "is_reversible" => true,
                     "type" => "t0 -> t1 -> (t0 -> t1) -> t0",
@@ -1130,7 +1136,7 @@ using solver: load_problems, enumerate_for_task
             verbose,
         )
         @test length(solutions) == 0
-        @test number_enumerated >= 3000
+        @test number_enumerated >= 1000
     end
 
     @testset "80af3007.json" begin
@@ -1530,7 +1536,7 @@ using solver: load_problems, enumerate_for_task
                     "type" => "int",
                 ),
                 Dict{String,Any}(
-                    "logProbability" => 0.0,
+                    "logProbability" => 1.0,
                     "expression" => "rev_fix_param",
                     "is_reversible" => true,
                     "type" => "t0 -> t1 -> (t0 -> t1) -> t0",

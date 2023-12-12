@@ -195,6 +195,8 @@ class Grammar(object):
                         custom_checkers = f.get_custom_arg_checkers()
                         if i < len(custom_checkers):
                             checker = custom_checkers[i]
+                            if not checker:
+                                continue
                             if not checker(p, from_input, path):
                                 bad_option = True
                             break
@@ -229,6 +231,8 @@ class Grammar(object):
                         custom_checkers = f.get_custom_arg_checkers()
                         if i < len(custom_checkers):
                             checker = custom_checkers[i]
+                            if not checker:
+                                continue
                             if not checker(Index(j), from_input, path):
                                 bad_option = True
                             break
@@ -427,47 +431,6 @@ class Grammar(object):
                 path=path,
             )
             summary.join(body_summary)
-            var_body_requests[expression.inp_var_name] = workspace[
-                expression.inp_var_name
-            ]
-
-            return context, var_body_requests, summary
-
-        if expression.isWrapEither:
-            context, var_requests, summary = self.likelihoodSummary(
-                context,
-                environment,
-                workspace,
-                workspace[expression.inp_var_name],
-                expression.vars_def,
-                silent=silent,
-                from_input=True,
-                path=path,
-            )
-            merged_workspace = dict(workspace, **var_requests)
-            context, var_body_requests, body_summary = self.likelihoodSummary(
-                context,
-                environment,
-                merged_workspace,
-                request,
-                expression.body,
-                silent=silent,
-                from_input=from_input,
-                path=path,
-            )
-            summary.join(body_summary)
-            context, var_fixer_requests, fixer_summary = self.likelihoodSummary(
-                context,
-                environment,
-                merged_workspace,
-                var_requests[expression.fixer_var_name],
-                expression.fixer_var,
-                silent=silent,
-                from_input=from_input,
-                path=path,
-            )
-            summary.join(fixer_summary)
-            var_body_requests.update(var_fixer_requests)
             var_body_requests[expression.inp_var_name] = workspace[
                 expression.inp_var_name
             ]

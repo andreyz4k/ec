@@ -281,12 +281,7 @@ function _tighten_constraint(
         out_block_branches = keys(get_connected_to(sc.branch_incoming_blocks, b_copy_id))
         target_branches = UInt64[haskey(out_branches, b) ? out_branches[b] : b for b in out_block_branches]
 
-        bl = sc.blocks[b_id]
-        if isa(bl, WrapEitherBlock)
-            input_entries = Set([sc.branch_entries[inputs[bl.input_vars[1]]]])
-        else
-            input_entries = Set(sc.branch_entries[b] for b in values(inputs))
-        end
+        input_entries = Set(sc.branch_entries[b] for b in values(inputs))
         if any(in(sc.branch_entries[b], input_entries) for b in target_branches)
             if sc.verbose
                 @info "Fixing constraint leads to a redundant block"

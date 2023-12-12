@@ -111,39 +111,6 @@ end
 Base.:(==)(p::LetRevClause, q::LetRevClause) =
     p.var_ids == q.var_ids && p.inp_var_id == q.inp_var_id && p.v == q.v && p.b == q.b
 
-struct WrapEither <: Program
-    var_ids::Vector{UInt64}
-    inp_var_id::Union{UInt64,String}
-    fixer_var_id::UInt64
-    v::Program
-    f::FreeVar
-    b::Program
-    hash_value::UInt64
-    WrapEither(
-        var_ids::Vector{UInt64},
-        inp_var_id::Union{UInt64,String},
-        fixer_var_id::UInt64,
-        v::Program,
-        f::FreeVar,
-        b::Program,
-    ) = new(
-        var_ids,
-        inp_var_id,
-        fixer_var_id,
-        v,
-        f,
-        b,
-        hash(var_ids, hash(inp_var_id, hash(fixer_var_id, hash(v, hash(f, hash(b)))))),
-    )
-end
-Base.:(==)(p::WrapEither, q::WrapEither) =
-    p.var_ids == q.var_ids &&
-    p.inp_var_id == q.inp_var_id &&
-    p.fixer_var_id == q.fixer_var_id &&
-    p.v == q.v &&
-    p.f == q.f &&
-    p.b == q.b
-
 Base.show(io::IO, p::Program) = print(io, show_program(p, false)...)
 Base.print(io::IO, p::Program) = print(io, show_program(p, false)...)
 
@@ -179,22 +146,6 @@ show_program(p::LetRevClause, is_function::Bool) = vcat(
         "$(p.inp_var_id) = ",
     ],
     show_program(p.v, false),
-    [") in "],
-    show_program(p.b, false),
-)
-show_program(p::WrapEither, is_function::Bool) = vcat(
-    [
-        "let ",
-        join(["\$v$v" for v in p.var_ids], ", "),
-        " = wrap(let ",
-        join(["\$v$v" for v in p.var_ids], ", "),
-        " = rev(\$",
-        (isa(p.inp_var_id, UInt64) ? "v" : ""),
-        "$(p.inp_var_id) = ",
-    ],
-    show_program(p.v, false),
-    ["); let \$v$(p.fixer_var_id) = "],
-    show_program(p.f, false),
     [") in "],
     show_program(p.b, false),
 )
@@ -253,25 +204,6 @@ Base.:(==)(block::ReverseProgramBlock, other::ReverseProgramBlock) =
 
 Base.hash(block::ReverseProgramBlock, h::UInt64) =
     hash(block.p, hash(block.cost, hash(block.input_vars, hash(block.output_vars, h))))
-
-struct WrapEitherBlock <: AbstractProgramBlock
-    main_block::ReverseProgramBlock
-    type::Tp
-    fixer_var::UInt64
-    cost::Float64
-    input_vars::Vector{UInt64}
-    output_vars::Vector{UInt64}
-end
-
-Base.:(==)(block::WrapEitherBlock, other::WrapEitherBlock) =
-    block.main_block == other.main_block &&
-    block.fixer_var == other.fixer_var &&
-    block.cost == other.cost &&
-    block.input_vars == other.input_vars &&
-    block.output_vars == other.output_vars
-
-Base.hash(block::WrapEitherBlock, h::UInt64) =
-    hash(block.main_block, hash(block.fixer_var, hash(block.cost, hash(block.input_vars, hash(block.output_vars, h)))))
 
 struct UnknownPrimitive <: Exception
     name::String
@@ -406,22 +338,6 @@ parse_object.matcher =
 
 parse_const_clause = P"Const\(" + type_parser + P", " + parse_object + P"\)" |> (v -> SetConst(v[1], v[2]))
 
-parse_wrap_either_clause =
-    P"let " +
-    parse_var_name_list +
-    P" = wrap\(let " +
-    parse_var_name_list +
-    P" = rev\(\$" +
-    parse_var_name +
-    P" = " +
-    _parse_program +
-    P"\); let \$" +
-    parse_var_name +
-    P" = " +
-    _parse_program +
-    P"\) in " +
-    _parse_program |> (v -> WrapEither(v[1], v[3], v[5], v[4], v[6], v[7]))
-
 parse_hole = P"\?\?\(" + type_parser + P"\)" > (t -> Hole(t, nothing, false, nothing, nothing))
 
 _parse_program.matcher =
@@ -435,7 +351,6 @@ _parse_program.matcher =
     parse_let_clause |
     parse_let_rev_clause |
     parse_const_clause |
-    parse_wrap_either_clause |
     parse_hole
 
 function parse_program(s)
@@ -563,33 +478,6 @@ function (p::LetRevClause)(environment, workspace)
     for (k, v) in vals
         workspace[k] = v
     end
-    b = p.b(environment, workspace)
-    for var_id in p.var_ids
-        delete!(workspace, var_id)
-    end
-    return b
-end
-
-function (p::WrapEither)(environment, workspace)
-    vals = run_in_reverse(p.v, workspace[p.inp_var_id])
-    unfixed_vals = Dict()
-    for (k, v) in vals
-        unfixed_vals[k] = v
-    end
-    fixed_val = p.f(environment, workspace)
-
-    fixed_hashes = get_fixed_hashes(unfixed_vals[p.fixer_var_id], fixed_val)
-
-    fixed_values = Dict()
-    for (var_id, target_value) in unfixed_vals
-        if var_id == p.fixer_var_id
-            fixed_values[var_id] = fixed_val
-        else
-            fixed_values[var_id] = fix_option_hashes(fixed_hashes, target_value)
-        end
-    end
-
-    merge!(workspace, fixed_values)
     b = p.b(environment, workspace)
     for var_id in p.var_ids
         delete!(workspace, var_id)

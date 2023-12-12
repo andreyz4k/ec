@@ -439,6 +439,27 @@ def bootstrapTarget_extra():
     ]
 
 
+def _is_fixable_param(p):
+    return isinstance(p, Index) or isinstance(p, FreeVariable)
+
+
+def _is_possible_fixable_param(p, from_input, path):
+    # TODO: implement real algorithm here
+    if isinstance(p, Index):
+        return True
+    if isinstance(p, FreeVariable):
+        return True
+    return False
+
+
+def _is_possible_fixer(p, from_input, path):
+    if isinstance(p, FreeVariable):
+        return False
+    if isinstance(p, Index):
+        return p.i == 0
+    return True
+
+
 def julia():
     return [
         Primitive("repeat", arrow(t0, tint, tlist(t0)), _repeat, is_reversible=True),
@@ -464,6 +485,17 @@ def julia():
             is_reversible=True,
             custom_args_checkers=[
                 (_is_reversible_subfunction, _is_possible_subfunction)
+            ],
+        ),
+        Primitive(
+            "rev_fix_param",
+            arrow(t0, t1, arrow(t0, t1), t0),
+            None,
+            is_reversible=True,
+            custom_args_checkers=[
+                (_is_reversible_subfunction, None),
+                (_is_fixable_param, _is_possible_fixable_param),
+                (_has_no_holes, _is_possible_fixer),
             ],
         ),
     ] + [p for p in bootstrapTarget_extra() if p.name != "map" and p.name != "fold"]

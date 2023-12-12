@@ -41,6 +41,7 @@ _is_possible_fixer(p::FreeVar, from_input, skeleton, path) = false
 #TODO: allow for bigger indices in inner functions
 _is_possible_fixer(p::Index, from_input, skeleton, path) = p.n == 0
 _is_possible_fixer(p::Invented, from_input, skeleton, path) = true
+_is_possible_fixer(p::SetConst, from_input, skeleton, path) = true
 
 function reverse_fix_param()
     function _reverse_fix_param(value, context)

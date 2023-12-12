@@ -345,9 +345,40 @@ def _is_possible_key_extractor(p, from_input, path):
     assert False
 
 
+def _is_fixable_param(p):
+    return isinstance(p, Index) or isinstance(p, FreeVariable)
+
+
+def _is_possible_fixable_param(p, from_input, path):
+    # TODO: implement real algorithm here
+    if isinstance(p, Index):
+        return True
+    if isinstance(p, FreeVariable):
+        return True
+    return False
+
+
+def _is_possible_fixer(p, from_input, path):
+    if isinstance(p, FreeVariable):
+        return False
+    if isinstance(p, Index):
+        return p.i == 0
+    return True
+
+
 def basePrimitives():
-    """These are the primitives that we hope to learn from the bootstrapping procedure"""
     return [
+        Primitive(
+            "rev_fix_param",
+            arrow(t0, t1, arrow(t0, t1), t0),
+            None,
+            is_reversible=True,
+            custom_args_checkers=[
+                (_is_reversible_subfunction, None),
+                (_is_fixable_param, _is_possible_fixable_param),
+                (_has_no_holes, _is_possible_fixer),
+            ],
+        ),
         Primitive(
             "map",
             arrow(arrow(t0, t1), tlist(t0), tlist(t1)),

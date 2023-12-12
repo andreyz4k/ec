@@ -109,64 +109,6 @@ function value_updates(
     return out_branches, is_new_next_block, allow_fails, next_blocks, set_explained, block_created_paths
 end
 
-function value_updates(
-    sc,
-    block::WrapEitherBlock,
-    block_id,
-    output_types,
-    target_output::Dict{UInt64,UInt64},
-    new_values,
-    fixed_branches::Dict{UInt64,UInt64},
-    is_new_block,
-    created_paths,
-)
-    out_branches = Dict{UInt64,UInt64}()
-    is_new_next_block = false
-    allow_fails = false
-    set_explained = false
-    next_blocks = Set()
-    block_created_paths = Dict{UInt64,Vector{Any}}()
-    for i in 1:length(block.output_vars)
-        out_var = block.output_vars[i]
-        values = new_values[i]
-        br_id = target_output[out_var]
-        entry = sc.entries[sc.branch_entries[br_id]]
-        t_id = push!(sc.types, output_types[i])
-        out_branch_id, is_new_nxt_block, all_fails, n_blocks, set_expl, bl_created_paths = updated_branches(
-            sc,
-            entry,
-            values,
-            block_id,
-            is_new_block,
-            out_var,
-            br_id,
-            t_id,
-            true,
-            fixed_branches,
-            created_paths,
-        )
-        is_new_next_block |= is_new_nxt_block
-        out_branches[out_var] = out_branch_id
-        allow_fails |= all_fails
-        set_explained |= set_expl
-        union!(next_blocks, n_blocks)
-        block_created_paths[out_branch_id] = bl_created_paths
-    end
-    if set_explained
-        known_from_input = any(sc.branch_known_from_input[fixed_branches[in_var]] for in_var in block.input_vars)
-        for (_, branch_id) in out_branches
-            if length(out_branches) > 1
-                inds = [b_id for (_, b_id) in out_branches if b_id != branch_id]
-                sc.related_explained_complexity_branches[branch_id, inds] = true
-            end
-            if !sc.branch_known_from_input[branch_id]
-                sc.branch_known_from_input[branch_id] = known_from_input
-            end
-        end
-    end
-    return out_branches, is_new_next_block, allow_fails, next_blocks, set_explained, block_created_paths
-end
-
 function updated_branches(
     sc,
     entry::ValueEntry,
@@ -525,43 +467,6 @@ function _get_abducted_values(sc, out_block::ProgramBlock, branches)
     return updated_branches
 end
 
-function _get_abducted_values(sc, out_block::WrapEitherBlock, branches)
-    out_entries = Dict(var_id => sc.entries[sc.branch_entries[branches[var_id]]] for var_id in out_block.output_vars)
-    in_entry = sc.entries[sc.branch_entries[branches[out_block.input_vars[1]]]]
-    fixer_entry = sc.entries[sc.branch_entries[branches[out_block.input_vars[2]]]]
-
-    updated_branches = DefaultDict{UInt64,Vector}(() -> [])
-
-    for i in 1:sc.example_count
-        out_values = Dict{UInt64,Any}(
-            var_id => entry.values[i] for (var_id, entry) in out_entries if !isa(entry.values[i], AbductibleValue)
-        )
-        out_values[out_block.fixer_var] = fixer_entry.values[i]
-        updated_values =
-            try_run_function(calculate_dependent_vars, [out_block.main_block.p, out_values, in_entry.values[i]])
-        if isnothing(updated_values)
-            throw(EnumerationException())
-        end
-
-        for (var_id, entry) in out_entries
-            if haskey(updated_values, var_id)
-                push!(updated_branches[var_id], updated_values[var_id])
-                # elseif var_id == out_block.fixer_var
-                #     push!(updated_branches[var_id], fixer_entry.values[i])
-            else
-                push!(updated_branches[var_id], entry.values[i])
-            end
-        end
-    end
-    updated_branches[out_block.fixer_var] = fixer_entry.values
-    # @info "Block: $out_block"
-    # @info "Out entries: $out_entries"
-    # @info "In entry: $in_entry"
-    # @info "Fixer entry: $fixer_entry"
-    # @info "Updated branches from wrapper: $updated_branches"
-    return updated_branches
-end
-
 function _find_relatives_for_abductible(sc, new_entry, branch_id, old_entry)
     if old_entry == new_entry
         return branch_id, UInt64[], UInt64[]
@@ -662,12 +567,7 @@ function _abduct_next_block(sc, out_block_copy_id, out_block_id, new_branch_id, 
         out_block_branches = keys(get_connected_to(sc.branch_incoming_blocks, b_copy_id))
         target_branches = UInt64[haskey(out_branches, b) ? out_branches[b] : b for b in out_block_branches]
 
-        bl = sc.blocks[b_id]
-        if isa(bl, WrapEitherBlock)
-            input_entries = Set([sc.branch_entries[inputs[bl.input_vars[1]]]])
-        else
-            input_entries = Set(sc.branch_entries[b] for b in values(inputs))
-        end
+        input_entries = Set(sc.branch_entries[b] for b in values(inputs))
         if any(in(sc.branch_entries[b], input_entries) for b in target_branches)
             if sc.verbose
                 @info "Fixing constraint leads to a redundant block"
