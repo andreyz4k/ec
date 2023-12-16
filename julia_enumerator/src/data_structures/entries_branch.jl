@@ -146,6 +146,14 @@ function updated_branches(
 end
 
 function find_related_branches(sc, branch_id, new_entry, new_entry_index)::Tuple{Vector{UInt64},Union{UInt64,Nothing}}
+    root = branch_id
+    while !isempty(get_connected_to(sc.branch_children, root))
+        root = first(get_connected_to(sc.branch_children, root))
+    end
+    return _find_related_branches(sc, root, new_entry, new_entry_index)
+end
+
+function _find_related_branches(sc, branch_id, new_entry, new_entry_index)::Tuple{Vector{UInt64},Union{UInt64,Nothing}}
     possible_parents = UInt64[]
     for child_id in get_connected_from(sc.branch_children, branch_id)
         if sc.branch_entries[child_id] == new_entry_index
@@ -153,7 +161,7 @@ function find_related_branches(sc, branch_id, new_entry, new_entry_index)::Tuple
         elseif sc.branch_is_unknown[child_id]
             child_entry = sc.entries[sc.branch_entries[child_id]]
             if match_with_entry(sc, child_entry, new_entry)
-                parents, possible_result = find_related_branches(sc, child_id, new_entry, new_entry_index)
+                parents, possible_result = _find_related_branches(sc, child_id, new_entry, new_entry_index)
                 if !isnothing(possible_result)
                     return UInt64[], possible_result
                 else
