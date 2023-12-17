@@ -50,16 +50,28 @@ function should_stop(conn)
     false
 end
 
+using ArgParse
+
 function main()
-    @info "Starting enumeration service"
+    s = ArgParseSettings()
+    @add_arg_table! s begin
+        "-c"
+        help = "number of workers to start"
+        arg_type = Int
+        default = 1
+    end
+
+    parsed_args = parse_args(ARGS, s)
+    num_workers = parsed_args["c"]
+
+    @info "Starting enumeration service with $num_workers workers"
     # @everywhere solver.init_logger()
 
     source_path = get(task_local_storage(), :SOURCE_PATH, nothing)
 
     sleep(1)
 
-    active_workers = add_new_workers(length(Sys.cpu_info()), source_path)
-    num_workers = length(active_workers)
+    active_workers = add_new_workers(num_workers, source_path)
 
     conn = Redis.RedisConnection()
     while true

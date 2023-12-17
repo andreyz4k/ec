@@ -160,7 +160,9 @@ def manage_enumerator_service(f):
             env.update(os.environ)
             eprint("Starting julia enumerator service")
             solver_process = subprocess.Popen(
-                ["julia", solver_file], stdin=subprocess.PIPE, env=env
+                ["julia", "--", solver_file, "-c", kwargs.get("CPUs", 1)],
+                stdin=subprocess.PIPE,
+                env=env,
             )
             try:
                 yield from f(*args, **kwargs)
