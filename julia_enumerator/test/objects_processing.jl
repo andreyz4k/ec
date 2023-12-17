@@ -396,7 +396,7 @@ using solver:
             nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
         ]
 
-        fetch_elements = parse_program("(rev_grid_elements ??(set(tuple2(tuple2(int, int), color))))")
+        fetch_elements = parse_program("(rev_grid_elements ??(set(tuple2(tuple2(int, int), color))) ??(int) ??(int))")
         @test is_reversible(fetch_elements)
         fetch_elements, _ = capture_free_vars(fetch_elements)
         @test run_in_reverse(fetch_elements, grid) == Dict(
@@ -425,6 +425,8 @@ using solver:
                     ((9, 13), 2),
                 ],
             ),
+            UInt64(2) => 20,
+            UInt64(3) => 20,
         )
     end
 
@@ -517,7 +519,7 @@ using solver:
     @testset "Single object coordinates extraction" begin
         cells = Set([(19, 10), (18, 9), (19, 11), (17, 9), (18, 10), (18, 11), (17, 10)])
         extract_coordinates = parse_program(
-            "(rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$v2)) (+ (tuple2_second \$0) (tuple2_second \$v2)))) \$v1) \$v2 (lambda (tuple2 (fold_set (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold_set (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int))))",
+            "(rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$v2)) (+ (tuple2_second \$0) (tuple2_second \$v2)))) \$v1) \$v2 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int))))",
         )
         @test is_reversible(extract_coordinates)
         extract_coordinates, _ = capture_free_vars(extract_coordinates)

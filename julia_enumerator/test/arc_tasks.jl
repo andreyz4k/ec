@@ -420,7 +420,7 @@ using solver: load_problems, enumerate_for_task
                 Dict{String,Any}(
                     "logProbability" => 0.0,
                     "expression" => "collect",
-                    "is_reversible" => false,
+                    "is_reversible" => true,
                     "type" => "set(t0) -> list(t0)",
                 ),
             ],
@@ -1156,7 +1156,7 @@ using solver: load_problems, enumerate_for_task
                 Dict{String,Any}(
                     "logProbability" => 0.0,
                     "expression" => "collect",
-                    "is_reversible" => false,
+                    "is_reversible" => true,
                     "type" => "set(t0) -> list(t0)",
                 ),
             ],
@@ -1592,7 +1592,7 @@ using solver: load_problems, enumerate_for_task
                 Dict{String,Any}(
                     "logProbability" => 0.0,
                     "expression" => "collect",
-                    "is_reversible" => false,
+                    "is_reversible" => true,
                     "type" => "set(t0) -> list(t0)",
                 ),
             ],
@@ -2015,7 +2015,7 @@ using solver: load_problems, enumerate_for_task
                 Dict{String,Any}(
                     "logProbability" => -0.014421507716178894,
                     "expression" => "collect",
-                    "is_reversible" => false,
+                    "is_reversible" => true,
                     "type" => "set(t0) -> list(t0)",
                 ),
                 Dict{String,Any}(

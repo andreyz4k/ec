@@ -617,5 +617,5 @@ def basePrimitives():
         Primitive("abs", arrow(tint, tint), abs, is_reversible=True),
         Primitive("max_int", tint, sys.maxsize),
         Primitive("min_int", tint, -sys.maxsize - 1),
-        Primitive("collect", arrow(tset(t0), tlist(t0)), list),
+        Primitive("collect", arrow(tset(t0), tlist(t0)), list, is_reversible=True),
     ] + [Primitive(str(j), tint, j) for j in range(2)]

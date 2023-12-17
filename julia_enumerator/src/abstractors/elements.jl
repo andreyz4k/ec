@@ -53,3 +53,9 @@ end
     (elements -> (height -> (width -> collect_grid_elements(elements, height, width)))),
     grid_elements
 )
+
+function reverse_collect(value)
+    return [Set(value)]
+end
+
+@define_reverse_primitive("collect", arrow(tset(t0), tlist(t0)), collect, reverse_collect)

@@ -18,39 +18,28 @@ function reverse_rev_greedy_cluster()
         f = context.arguments[end]
         grouper = f([], Dict())
 
-        output_options = []
-        for group in groups
-            for v in group
-                new_groups = copy(groups)
-                delete!(new_groups, group)
-
-                rem_groups = Set()
-                for val in group
-                    if val != v
-                        rem_groups = rev_greedy_cluster(grouper, val, rem_groups)
-                    end
-                end
-
-                union!(new_groups, rem_groups)
-                push!(output_options, (v, new_groups))
-            end
-        end
-        if length(output_options) == 0
+        if isempty(groups)
             error("Groups are empty")
-        elseif length(output_options) == 1
-            r = first(output_options)
-            result = [SkipArg(), r[1], r[2]]
-        else
-            hashed_options = Dict(rand(UInt64) => option for option in output_options)
-            result = Any[SkipArg()]
-            for i in 1:2
-                push!(result, EitherOptions(Dict(h => option[i] for (h, option) in hashed_options)))
+        end
+        group = first(groups)
+        selected_value = first(group)
+
+        new_groups = copy(groups)
+        delete!(new_groups, group)
+
+        rem_groups = Set()
+        for val in group
+            if val != selected_value
+                rem_groups = rev_greedy_cluster(grouper, val, rem_groups)
             end
         end
+
+        union!(new_groups, rem_groups)
+
         return groups,
         ReverseRunContext(
             context.arguments,
-            vcat(context.predicted_arguments, reverse(result)),
+            vcat(context.predicted_arguments, [new_groups, selected_value, SkipArg()]),
             context.calculated_arguments,
             context.filled_indices,
             context.filled_vars,

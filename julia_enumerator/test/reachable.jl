@@ -450,7 +450,7 @@ using DataStructures
                 Dict{String,Any}(
                     "logProbability" => 0.0,
                     "expression" => "collect",
-                    "is_reversible" => false,
+                    "is_reversible" => true,
                     "type" => "set(t0) -> list(t0)",
                 ),
             ],
@@ -735,7 +735,7 @@ using DataStructures
             else
                 vars = _used_vars(p)
                 in_vars = []
-                for v in vars
+                for v in Set(vars)
                     if !haskey(vars_mapping, v)
                         vars_mapping[v] = length(vars_mapping) + copied_vars + 1
                         push!(in_vars, vars_mapping[v])
@@ -958,7 +958,9 @@ using DataStructures
                     )
                 end
             else
-                push!(not_on_path, (bp, p))
+                if is_explained
+                    push!(not_on_path, (bp, p))
+                end
                 if verbose
                     @info "not on path"
                 end
@@ -1798,6 +1800,702 @@ using DataStructures
         )
 
         target_solution = "let \$v1, \$v2, \$v3 = rev(\$inp0 = (rev_fix_param (rev_select_grid (lambda (eq? \$0 \$v1)) \$v2 \$v3) \$v1 (lambda Const(color, 0)))) in let \$v4, \$v5, \$v6 = rev(\$v2 = (repeat_grid \$v4 \$v5 \$v6)) in let \$v7::tuple2(int, int) = (tuple2 \$v5 \$v6) in (tuple2 \$v7 \$v3)"
+        check_reachable(payload, target_solution)
+    end
+
+    @testset "Non-background cells" begin
+        payload = create_task(
+            Dict{String,Any}(
+                "name" => "Non-background cells",
+                "maximumFrontier" => 10,
+                "examples" => Any[Dict{String,Any}(
+                    "output" => [
+                        nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                        nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                        nothing nothing 7 7 7 nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                        nothing nothing nothing 7 nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                        nothing nothing 7 7 7 nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                        nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                        nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                        nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                        nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing 2 2 2 nothing nothing nothing nothing nothing nothing nothing
+                        nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing 2 nothing nothing nothing nothing nothing nothing nothing nothing
+                        nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing 2 2 2 nothing nothing nothing nothing nothing nothing nothing
+                        nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                        nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                        nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                        nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                        nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                        nothing nothing nothing nothing nothing nothing nothing nothing 9 9 nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                        nothing nothing nothing nothing nothing nothing nothing nothing 9 9 9 nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                        nothing nothing nothing nothing nothing nothing nothing nothing nothing 9 9 nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                        nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                    ],
+                    "inputs" => Dict{String,Any}(
+                        "inp0" => Set(
+                            Any[
+                                ((19, 11), 9),
+                                ((5, 3), 7),
+                                ((18, 10), 9),
+                                ((5, 4), 7),
+                                ((11, 11), 2),
+                                ((9, 11), 2),
+                                ((10, 12), 2),
+                                ((5, 5), 7),
+                                ((17, 10), 9),
+                                ((19, 10), 9),
+                                ((18, 9), 9),
+                                ((3, 3), 7),
+                                ((3, 4), 7),
+                                ((18, 11), 9),
+                                ((11, 12), 2),
+                                ((9, 12), 2),
+                                ((11, 13), 2),
+                                ((17, 9), 9),
+                                ((3, 5), 7),
+                                ((4, 4), 7),
+                                ((9, 13), 2),
+                            ],
+                        ),
+                    ),
+                ),],
+                "test_examples" => Any[],
+                "request" => Dict{String,Any}(
+                    "arguments" => Dict{String,Any}(
+                        "inp0" => Dict{String,Any}(
+                            "arguments" => Any[Dict{String,Any}(
+                                "arguments" => Any[
+                                    Dict{String,Any}(
+                                        "arguments" => Any[
+                                            Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                            Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                        ],
+                                        "constructor" => "tuple2",
+                                    ),
+                                    Dict{String,Any}("arguments" => Any[], "constructor" => "color"),
+                                ],
+                                "constructor" => "tuple2",
+                            )],
+                            "constructor" => "set",
+                        ),
+                    ),
+                    "output" => Dict{String,Any}(
+                        "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "color")],
+                        "constructor" => "grid",
+                    ),
+                    "constructor" => "->",
+                ),
+            ),
+        )
+        target_solution = "let \$v1::int = Const(int, 20) in let \$v2::int = Const(int, 20) in (rev_grid_elements \$inp0 \$v1 \$v2)"
+        check_reachable(payload, target_solution)
+    end
+
+    @testset "Non-background cells reverse" begin
+        payload = create_task(
+            Dict{String,Any}(
+                "name" => "Non-background cells",
+                "maximumFrontier" => 10,
+                "examples" => Any[Dict{String,Any}(
+                    "output" => Set(
+                        Any[
+                            ((19, 11), 9),
+                            ((5, 3), 7),
+                            ((18, 10), 9),
+                            ((5, 4), 7),
+                            ((11, 11), 2),
+                            ((9, 11), 2),
+                            ((10, 12), 2),
+                            ((5, 5), 7),
+                            ((17, 10), 9),
+                            ((19, 10), 9),
+                            ((18, 9), 9),
+                            ((3, 3), 7),
+                            ((3, 4), 7),
+                            ((18, 11), 9),
+                            ((11, 12), 2),
+                            ((9, 12), 2),
+                            ((11, 13), 2),
+                            ((17, 9), 9),
+                            ((3, 5), 7),
+                            ((4, 4), 7),
+                            ((9, 13), 2),
+                        ],
+                    ),
+                    "inputs" => Dict{String,Any}(
+                        "inp0" => [
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing 7 7 7 nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing 7 nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing 7 7 7 nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing 2 2 2 nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing 2 nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing 2 2 2 nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing 9 9 nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing 9 9 9 nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing 9 9 nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                        ],
+                    ),
+                ),],
+                "test_examples" => Any[],
+                "request" => Dict{String,Any}(
+                    "arguments" => Dict{String,Any}(
+                        "inp0" => Dict{String,Any}(
+                            "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "color")],
+                            "constructor" => "grid",
+                        ),
+                    ),
+                    "output" => Dict{String,Any}(
+                        "arguments" => Any[Dict{String,Any}(
+                            "arguments" => Any[
+                                Dict{String,Any}(
+                                    "arguments" => Any[
+                                        Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                        Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                    ],
+                                    "constructor" => "tuple2",
+                                ),
+                                Dict{String,Any}("arguments" => Any[], "constructor" => "color"),
+                            ],
+                            "constructor" => "tuple2",
+                        )],
+                        "constructor" => "set",
+                    ),
+                    "constructor" => "->",
+                ),
+            ),
+        )
+        target_solution = "let \$v1, \$v2, \$v3 = rev(\$inp0 = (rev_grid_elements \$v1 \$v2 \$v3)) in \$v1"
+        check_reachable(payload, target_solution)
+    end
+
+    @testset "Cluster nearby cells" begin
+        payload = create_task(
+            Dict{String,Any}(
+                "name" => "Cluster nearby cells",
+                "maximumFrontier" => 10,
+                "examples" => Any[Dict{String,Any}(
+                    "output" => Set(
+                        Any[
+                            ((19, 11), 9),
+                            ((5, 3), 7),
+                            ((18, 10), 9),
+                            ((5, 4), 7),
+                            ((11, 11), 2),
+                            ((9, 11), 2),
+                            ((10, 12), 2),
+                            ((5, 5), 7),
+                            ((17, 10), 9),
+                            ((19, 10), 9),
+                            ((18, 9), 9),
+                            ((3, 3), 7),
+                            ((3, 4), 7),
+                            ((18, 11), 9),
+                            ((11, 12), 2),
+                            ((9, 12), 2),
+                            ((11, 13), 2),
+                            ((17, 9), 9),
+                            ((3, 5), 7),
+                            ((4, 4), 7),
+                            ((9, 13), 2),
+                        ],
+                    ),
+                    "inputs" => Dict{String,Any}(
+                        "inp0" => Set([
+                            Set([
+                                ((18, 9), 9),
+                                ((19, 11), 9),
+                                ((17, 9), 9),
+                                ((18, 10), 9),
+                                ((18, 11), 9),
+                                ((17, 10), 9),
+                                ((19, 10), 9),
+                            ]),
+                            Set([
+                                ((11, 12), 2),
+                                ((10, 12), 2),
+                                ((9, 12), 2),
+                                ((11, 13), 2),
+                                ((9, 13), 2),
+                                ((11, 11), 2),
+                                ((9, 11), 2),
+                            ]),
+                            Set([
+                                ((3, 3), 7),
+                                ((5, 3), 7),
+                                ((3, 4), 7),
+                                ((5, 4), 7),
+                                ((4, 4), 7),
+                                ((3, 5), 7),
+                                ((5, 5), 7),
+                            ]),
+                        ]),
+                    ),
+                ),],
+                "test_examples" => Any[],
+                "request" => Dict{String,Any}(
+                    "arguments" => Dict{String,Any}(
+                        "inp0" => Dict{String,Any}(
+                            "arguments" => Any[Dict{String,Any}(
+                                "arguments" => Any[Dict{String,Any}(
+                                    "arguments" => Any[
+                                        Dict{String,Any}(
+                                            "arguments" => Any[
+                                                Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                                Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                            ],
+                                            "constructor" => "tuple2",
+                                        ),
+                                        Dict{String,Any}("arguments" => Any[], "constructor" => "color"),
+                                    ],
+                                    "constructor" => "tuple2",
+                                )],
+                                "constructor" => "set",
+                            ),],
+                            "constructor" => "set",
+                        ),
+                    ),
+                    "output" => Dict{String,Any}(
+                        "arguments" => Any[Dict{String,Any}(
+                            "arguments" => Any[
+                                Dict{String,Any}(
+                                    "arguments" => Any[
+                                        Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                        Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                    ],
+                                    "constructor" => "tuple2",
+                                ),
+                                Dict{String,Any}("arguments" => Any[], "constructor" => "color"),
+                            ],
+                            "constructor" => "tuple2",
+                        )],
+                        "constructor" => "set",
+                    ),
+                    "constructor" => "->",
+                ),
+            ),
+        )
+        target_solution = "(rev_fold_set (lambda (lambda (rev_greedy_cluster (lambda (lambda (any_set (lambda (and (not (gt? (abs (- (tuple2_first (tuple2_first \$0)) (tuple2_first (tuple2_first \$2)))) 1)) (not (gt? (abs (- (tuple2_second (tuple2_first \$0)) (tuple2_second (tuple2_first \$2)))) 1)))) \$0))) \$1 \$0))) empty_set \$inp0)"
+        check_reachable(payload, target_solution)
+    end
+
+    @testset "Cluster nearby cells reverse" begin
+        payload = create_task(
+            Dict{String,Any}(
+                "name" => "Cluster nearby cells",
+                "maximumFrontier" => 10,
+                "examples" => Any[Dict{String,Any}(
+                    "output" => Set([
+                        Set([
+                            ((18, 9), 9),
+                            ((19, 11), 9),
+                            ((17, 9), 9),
+                            ((18, 10), 9),
+                            ((18, 11), 9),
+                            ((17, 10), 9),
+                            ((19, 10), 9),
+                        ]),
+                        Set([
+                            ((11, 12), 2),
+                            ((10, 12), 2),
+                            ((9, 12), 2),
+                            ((11, 13), 2),
+                            ((9, 13), 2),
+                            ((11, 11), 2),
+                            ((9, 11), 2),
+                        ]),
+                        Set([
+                            ((3, 3), 7),
+                            ((5, 3), 7),
+                            ((3, 4), 7),
+                            ((5, 4), 7),
+                            ((4, 4), 7),
+                            ((3, 5), 7),
+                            ((5, 5), 7),
+                        ]),
+                    ]),
+                    "inputs" => Dict{String,Any}(
+                        "inp0" => Set(
+                            Any[
+                                ((19, 11), 9),
+                                ((5, 3), 7),
+                                ((18, 10), 9),
+                                ((5, 4), 7),
+                                ((11, 11), 2),
+                                ((9, 11), 2),
+                                ((10, 12), 2),
+                                ((5, 5), 7),
+                                ((17, 10), 9),
+                                ((19, 10), 9),
+                                ((18, 9), 9),
+                                ((3, 3), 7),
+                                ((3, 4), 7),
+                                ((18, 11), 9),
+                                ((11, 12), 2),
+                                ((9, 12), 2),
+                                ((11, 13), 2),
+                                ((17, 9), 9),
+                                ((3, 5), 7),
+                                ((4, 4), 7),
+                                ((9, 13), 2),
+                            ],
+                        ),
+                    ),
+                ),],
+                "test_examples" => Any[],
+                "request" => Dict{String,Any}(
+                    "arguments" => Dict{String,Any}(
+                        "inp0" => Dict{String,Any}(
+                            "arguments" => Any[Dict{String,Any}(
+                                "arguments" => Any[
+                                    Dict{String,Any}(
+                                        "arguments" => Any[
+                                            Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                            Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                        ],
+                                        "constructor" => "tuple2",
+                                    ),
+                                    Dict{String,Any}("arguments" => Any[], "constructor" => "color"),
+                                ],
+                                "constructor" => "tuple2",
+                            )],
+                            "constructor" => "set",
+                        ),
+                    ),
+                    "output" => Dict{String,Any}(
+                        "arguments" => Any[Dict{String,Any}(
+                            "arguments" => Any[Dict{String,Any}(
+                                "arguments" => Any[
+                                    Dict{String,Any}(
+                                        "arguments" => Any[
+                                            Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                            Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                        ],
+                                        "constructor" => "tuple2",
+                                    ),
+                                    Dict{String,Any}("arguments" => Any[], "constructor" => "color"),
+                                ],
+                                "constructor" => "tuple2",
+                            )],
+                            "constructor" => "set",
+                        ),],
+                        "constructor" => "set",
+                    ),
+                    "constructor" => "->",
+                ),
+            ),
+        )
+        target_solution = "let \$v1 = rev(\$inp0 = (rev_fold_set (lambda (lambda (rev_greedy_cluster (lambda (lambda (any_set (lambda (and (not (gt? (abs (- (tuple2_first (tuple2_first \$0)) (tuple2_first (tuple2_first \$2)))) 1)) (not (gt? (abs (- (tuple2_second (tuple2_first \$0)) (tuple2_second (tuple2_first \$2)))) 1)))) \$0))) \$1 \$0))) empty_set \$v1)) in \$v1"
+        check_reachable(payload, target_solution)
+    end
+
+    @testset "Separate colors" begin
+        payload = create_task(
+            Dict{String,Any}(
+                "name" => "Separate colors",
+                "maximumFrontier" => 10,
+                "examples" => Any[Dict{String,Any}(
+                    "output" => Set([
+                        Set([
+                            ((18, 9), 9),
+                            ((19, 11), 9),
+                            ((17, 9), 9),
+                            ((18, 10), 9),
+                            ((18, 11), 9),
+                            ((17, 10), 9),
+                            ((19, 10), 9),
+                        ]),
+                        Set([
+                            ((11, 12), 2),
+                            ((10, 12), 2),
+                            ((9, 12), 2),
+                            ((11, 13), 2),
+                            ((9, 13), 2),
+                            ((11, 11), 2),
+                            ((9, 11), 2),
+                        ]),
+                        Set([
+                            ((3, 3), 7),
+                            ((5, 3), 7),
+                            ((3, 4), 7),
+                            ((5, 4), 7),
+                            ((4, 4), 7),
+                            ((3, 5), 7),
+                            ((5, 5), 7),
+                        ]),
+                    ]),
+                    "inputs" => Dict{String,Any}(
+                        "inp0" => Set(
+                            Tuple{Set{Tuple{Int64,Int64}},Int64}[
+                                (Set([(19, 10), (18, 9), (19, 11), (17, 9), (18, 10), (18, 11), (17, 10)]), 9),
+                                (Set([(5, 5), (3, 3), (5, 3), (3, 4), (5, 4), (4, 4), (3, 5)]), 7),
+                                (Set([(11, 13), (9, 13), (11, 11), (9, 11), (11, 12), (10, 12), (9, 12)]), 2),
+                            ],
+                        ),
+                    ),
+                ),],
+                "test_examples" => Any[],
+                "request" => Dict{String,Any}(
+                    "arguments" => Dict{String,Any}(
+                        "inp0" => Dict{String,Any}(
+                            "arguments" => Any[Dict{String,Any}(
+                                "arguments" => Any[
+                                    Dict{String,Any}(
+                                        "arguments" => Any[Dict{String,Any}(
+                                            "arguments" => Any[
+                                                Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                                Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                            ],
+                                            "constructor" => "tuple2",
+                                        ),],
+                                        "constructor" => "set",
+                                    ),
+                                    Dict{String,Any}("arguments" => Any[], "constructor" => "color"),
+                                ],
+                                "constructor" => "tuple2",
+                            )],
+                            "constructor" => "set",
+                        ),
+                    ),
+                    "output" => Dict{String,Any}(
+                        "arguments" => Any[Dict{String,Any}(
+                            "arguments" => Any[Dict{String,Any}(
+                                "arguments" => Any[
+                                    Dict{String,Any}(
+                                        "arguments" => Any[
+                                            Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                            Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                        ],
+                                        "constructor" => "tuple2",
+                                    ),
+                                    Dict{String,Any}("arguments" => Any[], "constructor" => "color"),
+                                ],
+                                "constructor" => "tuple2",
+                            )],
+                            "constructor" => "set",
+                        ),],
+                        "constructor" => "set",
+                    ),
+                    "constructor" => "->",
+                ),
+            ),
+        )
+        target_solution = "(map_set (lambda (map_set (lambda (tuple2 \$0 (tuple2_second \$1))) (tuple2_first \$0))) \$inp0)"
+        check_reachable(payload, target_solution)
+    end
+
+    @testset "Separate colors reverse" begin
+        payload = create_task(
+            Dict{String,Any}(
+                "name" => "Separate colors",
+                "maximumFrontier" => 10,
+                "examples" => Any[Dict{String,Any}(
+                    "output" => Set(
+                        Tuple{Set{Tuple{Int64,Int64}},Int64}[
+                            (Set([(19, 10), (18, 9), (19, 11), (17, 9), (18, 10), (18, 11), (17, 10)]), 9),
+                            (Set([(5, 5), (3, 3), (5, 3), (3, 4), (5, 4), (4, 4), (3, 5)]), 7),
+                            (Set([(11, 13), (9, 13), (11, 11), (9, 11), (11, 12), (10, 12), (9, 12)]), 2),
+                        ],
+                    ),
+                    "inputs" => Dict{String,Any}(
+                        "inp0" => Set([
+                            Set([
+                                ((18, 9), 9),
+                                ((19, 11), 9),
+                                ((17, 9), 9),
+                                ((18, 10), 9),
+                                ((18, 11), 9),
+                                ((17, 10), 9),
+                                ((19, 10), 9),
+                            ]),
+                            Set([
+                                ((11, 12), 2),
+                                ((10, 12), 2),
+                                ((9, 12), 2),
+                                ((11, 13), 2),
+                                ((9, 13), 2),
+                                ((11, 11), 2),
+                                ((9, 11), 2),
+                            ]),
+                            Set([
+                                ((3, 3), 7),
+                                ((5, 3), 7),
+                                ((3, 4), 7),
+                                ((5, 4), 7),
+                                ((4, 4), 7),
+                                ((3, 5), 7),
+                                ((5, 5), 7),
+                            ]),
+                        ]),
+                    ),
+                ),],
+                "test_examples" => Any[],
+                "request" => Dict{String,Any}(
+                    "arguments" => Dict{String,Any}(
+                        "inp0" => Dict{String,Any}(
+                            "arguments" => Any[Dict{String,Any}(
+                                "arguments" => Any[Dict{String,Any}(
+                                    "arguments" => Any[
+                                        Dict{String,Any}(
+                                            "arguments" => Any[
+                                                Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                                Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                            ],
+                                            "constructor" => "tuple2",
+                                        ),
+                                        Dict{String,Any}("arguments" => Any[], "constructor" => "color"),
+                                    ],
+                                    "constructor" => "tuple2",
+                                )],
+                                "constructor" => "set",
+                            ),],
+                            "constructor" => "set",
+                        ),
+                    ),
+                    "output" => Dict{String,Any}(
+                        "arguments" => Any[Dict{String,Any}(
+                            "arguments" => Any[
+                                Dict{String,Any}(
+                                    "arguments" => Any[Dict{String,Any}(
+                                        "arguments" => Any[
+                                            Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                            Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                        ],
+                                        "constructor" => "tuple2",
+                                    ),],
+                                    "constructor" => "set",
+                                ),
+                                Dict{String,Any}("arguments" => Any[], "constructor" => "color"),
+                            ],
+                            "constructor" => "tuple2",
+                        )],
+                        "constructor" => "set",
+                    ),
+                    "constructor" => "->",
+                ),
+            ),
+        )
+        target_solution = "let \$v1 = rev(\$inp0 = (map_set (lambda (map_set (lambda (tuple2 \$0 (tuple2_second \$1))) (tuple2_first \$0))) \$v1)) in \$v1"
+        check_reachable(payload, target_solution)
+    end
+
+    @testset "Single object coordinates extraction" begin
+        payload = create_task(
+            Dict{String,Any}(
+                "name" => "Single object coordinates extraction",
+                "maximumFrontier" => 10,
+                "examples" => Any[Dict{String,Any}(
+                    "output" => Set([(19, 10), (18, 9), (19, 11), (17, 9), (18, 10), (18, 11), (17, 10)]),
+                    "inputs" => Dict{String,Any}(
+                        "inp0" => ((17, 9), Set([(2, 1), (1, 0), (2, 2), (0, 0), (1, 1), (1, 2), (0, 1)])),
+                    ),
+                ),],
+                "test_examples" => Any[],
+                "request" => Dict{String,Any}(
+                    "arguments" => Dict{String,Any}(
+                        "inp0" => Dict{String,Any}(
+                            "arguments" => Any[
+                                Dict{String,Any}(
+                                    "arguments" => Any[
+                                        Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                        Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                    ],
+                                    "constructor" => "tuple2",
+                                ),
+                                Dict{String,Any}(
+                                    "arguments" => Any[Dict{String,Any}(
+                                        "arguments" => Any[
+                                            Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                            Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                        ],
+                                        "constructor" => "tuple2",
+                                    ),],
+                                    "constructor" => "set",
+                                ),
+                            ],
+                            "constructor" => "tuple2",
+                        ),
+                    ),
+                    "output" => Dict{String,Any}(
+                        "arguments" => Any[Dict{String,Any}(
+                            "arguments" => Any[
+                                Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                            ],
+                            "constructor" => "tuple2",
+                        ),],
+                        "constructor" => "set",
+                    ),
+                    "constructor" => "->",
+                ),
+            ),
+        )
+        target_solution = "let \$v2, \$v1 = rev(\$inp0 = (tuple2 \$v2 \$v1)) in (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$v2)) (+ (tuple2_second \$0) (tuple2_second \$v2)))) \$v1) \$v2 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int))))"
+        check_reachable(payload, target_solution)
+    end
+
+    @testset "Single object coordinates extraction reverse" begin
+        payload = create_task(
+            Dict{String,Any}(
+                "name" => "Single object coordinates extraction",
+                "maximumFrontier" => 10,
+                "examples" => Any[Dict{String,Any}(
+                    "output" => ((17, 9), Set([(2, 1), (1, 0), (2, 2), (0, 0), (1, 1), (1, 2), (0, 1)])),
+                    "inputs" => Dict{String,Any}(
+                        "inp0" => Set([(19, 10), (18, 9), (19, 11), (17, 9), (18, 10), (18, 11), (17, 10)]),
+                    ),
+                ),],
+                "test_examples" => Any[],
+                "request" => Dict{String,Any}(
+                    "arguments" => Dict{String,Any}(
+                        "inp0" => Dict{String,Any}(
+                            "arguments" => Any[Dict{String,Any}(
+                                "arguments" => Any[
+                                    Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                    Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                ],
+                                "constructor" => "tuple2",
+                            ),],
+                            "constructor" => "set",
+                        ),
+                    ),
+                    "output" => Dict{String,Any}(
+                        "arguments" => Any[
+                            Dict{String,Any}(
+                                "arguments" => Any[
+                                    Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                    Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                ],
+                                "constructor" => "tuple2",
+                            ),
+                            Dict{String,Any}(
+                                "arguments" => Any[Dict{String,Any}(
+                                    "arguments" => Any[
+                                        Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                        Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                    ],
+                                    "constructor" => "tuple2",
+                                ),],
+                                "constructor" => "set",
+                            ),
+                        ],
+                        "constructor" => "tuple2",
+                    ),
+                    "constructor" => "->",
+                ),
+            ),
+        )
+        target_solution = "let \$v2, \$v1 = rev(\$inp0 = (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$v2)) (+ (tuple2_second \$0) (tuple2_second \$v2)))) \$v1) \$v2 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int))))) in (tuple2 \$v2 \$v1)"
         check_reachable(payload, target_solution)
     end
 end

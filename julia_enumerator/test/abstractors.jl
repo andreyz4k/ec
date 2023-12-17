@@ -2916,24 +2916,13 @@ using DataStructures: OrderedDict, Accumulator
 
         p, _ = capture_free_vars(skeleton)
 
-        @test compare_options(
+        @test in(
             run_in_reverse(p, Set([Set([[1, 2, 3], [1, 4, 2]]), Set([[2]])])),
-            Dict(
-                UInt64(1) => EitherOptions(
-                    Dict{UInt64,Any}(
-                        0x0cd30b3b35947074 => [2],
-                        0xb77bceb05f49bb13 => [1, 4, 2],
-                        0x507b93ad884f9c7a => [1, 2, 3],
-                    ),
-                ),
-                UInt64(2) => EitherOptions(
-                    Dict{UInt64,Any}(
-                        0x0cd30b3b35947074 => Set([Set([[1, 2, 3], [1, 4, 2]])]),
-                        0xb77bceb05f49bb13 => Set([Set([[1, 2, 3]]), Set([[2]])]),
-                        0x507b93ad884f9c7a => Set([Set([[1, 4, 2]]), Set([[2]])]),
-                    ),
-                ),
-            ),
+            Set([
+                Dict(UInt64(1) => [2], UInt64(2) => Set([Set([[1, 2, 3], [1, 4, 2]])])),
+                Dict(UInt64(1) => [1, 4, 2], UInt64(2) => Set([Set([[1, 2, 3]]), Set([[2]])])),
+                Dict(UInt64(1) => [1, 2, 3], UInt64(2) => Set([Set([[1, 4, 2]]), Set([[2]])])),
+            ]),
         )
 
         @test run_with_arguments(
@@ -2954,29 +2943,26 @@ using DataStructures: OrderedDict, Accumulator
 
         p, _ = capture_free_vars(skeleton)
 
-        @test compare_options(
+        @test in(
             run_in_reverse(p, Set([Set([[1, 2, 3], [1, 4, 2, 2], [3, 5, 2, 5, 2]]), Set([[2]])])),
-            Dict(
-                UInt64(1) => EitherOptions(
-                    Dict{UInt64,Any}(
-                        0x6bc2689b3f9c3031 => [1, 4, 2, 2],
-                        0x8f23b130f21cfac2 => [3, 5, 2, 5, 2],
-                        0x3153e6863760efd0 => [1, 2, 3],
-                        0x50c67e216811b75a => [2],
-                    ),
+            Set([
+                Dict(
+                    UInt64(1) => [1, 4, 2, 2],
+                    UInt64(2) => Set(Set{Vector{Int64}}[Set([[1, 2, 3]]), Set([[3, 5, 2, 5, 2]]), Set([[2]])]),
                 ),
-                UInt64(2) => EitherOptions(
-                    Dict{UInt64,Any}(
-                        0x6bc2689b3f9c3031 =>
-                            Set(Set{Vector{Int64}}[Set([[1, 2, 3]]), Set([[3, 5, 2, 5, 2]]), Set([[2]])]),
-                        0x8f23b130f21cfac2 => Set(Set{Vector{Int64}}[Set([[2]]), Set([[1, 2, 3], [1, 4, 2, 2]])]),
-                        0x3153e6863760efd0 =>
-                            Set(Set{Vector{Int64}}[Set([[3, 5, 2, 5, 2], [1, 4, 2, 2]]), Set([[2]])]),
-                        0x50c67e216811b75a =>
-                            Set(Set{Vector{Int64}}[Set([[3, 5, 2, 5, 2], [1, 2, 3], [1, 4, 2, 2]])]),
-                    ),
+                Dict(
+                    UInt64(1) => [3, 5, 2, 5, 2],
+                    UInt64(2) => Set(Set{Vector{Int64}}[Set([[2]]), Set([[1, 2, 3], [1, 4, 2, 2]])]),
                 ),
-            ),
+                Dict(
+                    UInt64(1) => [1, 2, 3],
+                    UInt64(2) => Set(Set{Vector{Int64}}[Set([[3, 5, 2, 5, 2], [1, 4, 2, 2]]), Set([[2]])]),
+                ),
+                Dict(
+                    UInt64(1) => [2],
+                    UInt64(2) => Set(Set{Vector{Int64}}[Set([[3, 5, 2, 5, 2], [1, 2, 3], [1, 4, 2, 2]])]),
+                ),
+            ]),
         )
 
         @test run_with_arguments(

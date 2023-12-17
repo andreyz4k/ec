@@ -105,5 +105,3 @@ _is_prime(n) = in(
 @define_primitive("any", arrow(arrow(t0, tbool), tlist(t0), tbool), (f -> (l -> any(f, l))))
 @define_primitive("all_set", arrow(arrow(t0, tbool), tset(t0), tbool), (f -> (l -> all(f, l))))
 @define_primitive("any_set", arrow(arrow(t0, tbool), tset(t0), tbool), (f -> (l -> any(f, l))))
-
-@define_primitive("collect", arrow(tset(t0), tlist(t0)), collect)
