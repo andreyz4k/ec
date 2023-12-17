@@ -435,6 +435,24 @@ using DataStructures
                     "is_reversible" => true,
                     "type" => "t0 -> t1 -> (t0 -> t1) -> t0",
                 ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "max_int",
+                    "is_reversible" => false,
+                    "type" => "int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "min_int",
+                    "is_reversible" => false,
+                    "type" => "int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "collect",
+                    "is_reversible" => false,
+                    "type" => "set(t0) -> list(t0)",
+                ),
             ],
         ),
         "type_weights" => Dict{String,Any}(
@@ -1618,6 +1636,168 @@ using DataStructures
             sample_payload2,
         )
         target_solution = "let \$v1, \$v2 = rev(\$inp0 = (cons \$v1 \$v2)) in let \$v3, \$v4 = rev(\$v2 = (cons \$v3 \$v4)) in let \$v5, \$v6 = rev(\$v4 = (cons \$v5 \$v6)) in (cdr (cdr \$v6))"
+        check_reachable(payload, target_solution)
+    end
+
+    @testset "Select background" begin
+        payload = create_task(
+            Dict{String,Any}(
+                "name" => "Select background",
+                "maximumFrontier" => 10,
+                "examples" => Any[Dict{String,Any}(
+                    "output" => [
+                        0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+                        0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+                        0 0 7 7 7 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+                        0 0 0 7 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+                        0 0 7 7 7 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+                        0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+                        0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+                        0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+                        0 0 0 0 0 0 0 0 0 0 2 2 2 0 0 0 0 0 0 0
+                        0 0 0 0 0 0 0 0 0 0 0 2 0 0 0 0 0 0 0 0
+                        0 0 0 0 0 0 0 0 0 0 2 2 2 0 0 0 0 0 0 0
+                        0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+                        0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+                        0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+                        0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+                        0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+                        0 0 0 0 0 0 0 0 9 9 0 0 0 0 0 0 0 0 0 0
+                        0 0 0 0 0 0 0 0 9 9 9 0 0 0 0 0 0 0 0 0
+                        0 0 0 0 0 0 0 0 0 9 9 0 0 0 0 0 0 0 0 0
+                        0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+                    ],
+                    "inputs" => Dict{String,Any}(
+                        "inp0" => [
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing 7 7 7 nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing 7 nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing 7 7 7 nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing 2 2 2 nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing 2 nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing 2 2 2 nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing 9 9 nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing 9 9 9 nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing 9 9 nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                        ],
+                    ),
+                ),],
+                "test_examples" => Any[],
+                "request" => Dict{String,Any}(
+                    "arguments" => Dict{String,Any}(
+                        "inp0" => Dict{String,Any}(
+                            "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "color")],
+                            "constructor" => "grid",
+                        ),
+                    ),
+                    "output" => Dict{String,Any}(
+                        "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "color")],
+                        "constructor" => "grid",
+                    ),
+                    "constructor" => "->",
+                ),
+            ),
+        )
+        target_solution = "let \$v4::color = Const(color, 0) in let \$v6::int = Const(int, 20) in let \$v5::int = Const(int, 20) in let \$v1::color = Const(color, 0) in let \$v2::grid(color) = (repeat_grid \$v4 \$v5 \$v6) in (rev_select_grid (lambda (eq? \$0 \$v1)) \$v2 \$inp0)"
+        check_reachable(payload, target_solution)
+    end
+
+    @testset "Select background reverse" begin
+        payload = create_task(
+            Dict{String,Any}(
+                "name" => "Select background",
+                "maximumFrontier" => 10,
+                "examples" => Any[Dict{String,Any}(
+                    "output" => (
+                        (20, 20),
+                        [
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing 7 7 7 nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing 7 nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing 7 7 7 nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing 2 2 2 nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing 2 nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing 2 2 2 nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing 9 9 nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing 9 9 9 nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing 9 9 nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                            nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
+                        ],
+                    ),
+                    "inputs" => Dict{String,Any}(
+                        "inp0" => [
+                            0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+                            0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+                            0 0 7 7 7 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+                            0 0 0 7 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+                            0 0 7 7 7 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+                            0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+                            0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+                            0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+                            0 0 0 0 0 0 0 0 0 0 2 2 2 0 0 0 0 0 0 0
+                            0 0 0 0 0 0 0 0 0 0 0 2 0 0 0 0 0 0 0 0
+                            0 0 0 0 0 0 0 0 0 0 2 2 2 0 0 0 0 0 0 0
+                            0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+                            0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+                            0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+                            0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+                            0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+                            0 0 0 0 0 0 0 0 9 9 0 0 0 0 0 0 0 0 0 0
+                            0 0 0 0 0 0 0 0 9 9 9 0 0 0 0 0 0 0 0 0
+                            0 0 0 0 0 0 0 0 0 9 9 0 0 0 0 0 0 0 0 0
+                            0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+                        ],
+                    ),
+                ),],
+                "test_examples" => Any[],
+                "request" => Dict{String,Any}(
+                    "arguments" => Dict{String,Any}(
+                        "inp0" => Dict{String,Any}(
+                            "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "color")],
+                            "constructor" => "grid",
+                        ),
+                    ),
+                    "output" => Dict{String,Any}(
+                        "arguments" => Any[
+                            Dict{String,Any}(
+                                "arguments" => Any[
+                                    Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                    Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                ],
+                                "constructor" => "tuple2",
+                            ),
+                            Dict{String,Any}(
+                                "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "color")],
+                                "constructor" => "grid",
+                            ),
+                        ],
+                        "constructor" => "tuple2",
+                    ),
+                    "constructor" => "->",
+                ),
+            ),
+        )
+
+        target_solution = "let \$v1, \$v2, \$v3 = rev(\$inp0 = (rev_fix_param (rev_select_grid (lambda (eq? \$0 \$v1)) \$v2 \$v3) \$v1 (lambda Const(color, 0)))) in let \$v4, \$v5, \$v6 = rev(\$v2 = (repeat_grid \$v4 \$v5 \$v6)) in let \$v7::tuple2(int, int) = (tuple2 \$v5 \$v6) in (tuple2 \$v7 \$v3)"
         check_reachable(payload, target_solution)
     end
 end

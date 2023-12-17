@@ -417,14 +417,15 @@ using DataStructures: OrderedDict, Accumulator
             Dict(UInt64(1) => 1, UInt64(2) => 3, UInt64(3) => 2),
         )
         @test compare_options(
-            run_in_reverse(p, [[1, any_object, 1] [1, any_object, any_object]]),
+            run_in_reverse(p, PatternWrapper([[1, any_object, 1] [1, any_object, any_object]])),
             Dict(UInt64(1) => 1, UInt64(2) => 3, UInt64(3) => 2),
         )
         @test compare_options(
-            run_in_reverse(p, [[any_object, any_object, 1] [any_object, any_object, any_object]]),
+            run_in_reverse(p, PatternWrapper([[any_object, any_object, 1] [any_object, any_object, any_object]])),
             Dict(UInt64(1) => 1, UInt64(2) => 3, UInt64(3) => 2),
         )
-        @test run_in_reverse(p, [[any_object, any_object, 1] [any_object, any_object, any_object]])[1] !== any_object
+        @test run_in_reverse(p, PatternWrapper([[any_object, any_object, 1] [any_object, any_object, any_object]]))[1] !==
+              any_object
     end
 
     @testset "Reverse cons" begin

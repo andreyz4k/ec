@@ -670,7 +670,7 @@ end
 _has_wildcard(v::PatternWrapper) = true
 _has_wildcard(v) = false
 _has_wildcard(v::AnyObject) = true
-_has_wildcard(v::Vector) = any(_has_wildcard, v)
+_has_wildcard(v::Array) = any(_has_wildcard, v)
 _has_wildcard(v::Tuple) = any(_has_wildcard, v)
 _has_wildcard(v::Set) = any(_has_wildcard, v)
 

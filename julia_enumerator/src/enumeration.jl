@@ -669,6 +669,13 @@ function try_run_block(
             rethrow()
         end
         if isnothing(out_value) || !match_at_index(expected_output, i, out_value)
+            if sc.verbose
+                if isnothing(out_value)
+                    @info "Got nothing for $(block.p) $xs"
+                else
+                    @info "Can't match $out_value for $(block.p) with $expected_output at $i"
+                end
+            end
             throw(EnumerationException())
         end
         push!(outs, out_value)

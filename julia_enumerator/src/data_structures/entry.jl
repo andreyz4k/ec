@@ -427,7 +427,7 @@ _match_value(unknown_value::AnyObject, known_value::PatternWrapper) = true
 _match_value(unknown_value::PatternWrapper, known_value) = _match_value(unknown_value.value, known_value)
 _match_value(unknown_value::PatternWrapper, known_value::PatternWrapper) = unknown_value.value == known_value.value
 _match_value(unknown_value, known_value::PatternWrapper) = unknown_value == known_value.value
-_match_value(unknown_value::Vector, known_value::PatternWrapper) = unknown_value == known_value.value
+_match_value(unknown_value::Array, known_value::PatternWrapper) = unknown_value == known_value.value
 _match_value(unknown_value::Tuple, known_value::PatternWrapper) = unknown_value == known_value.value
 _match_value(unknown_value::AbductibleValue, known_value::PatternWrapper) =
     _match_value(unknown_value.value, known_value.value)
@@ -435,11 +435,10 @@ _match_value(unknown_value::EitherOptions, known_value::PatternWrapper) =
     @invoke(_match_value(unknown_value::EitherOptions, known_value.value::Any))
 _match_value(unknown_value, known_value) = unknown_value == known_value
 
-_match_value(unknown_value::Vector, known_value::Vector) =
-    length(unknown_value) == length(known_value) &&
-    all(_match_value(v, ov) for (v, ov) in zip(unknown_value, known_value))
+_match_value(unknown_value::Array, known_value::Array) =
+    size(unknown_value) == size(known_value) && all(_match_value(v, ov) for (v, ov) in zip(unknown_value, known_value))
 
-_match_value(unknown_value::Vector, known_value) = false
+_match_value(unknown_value::Array, known_value) = false
 
 _match_value(unknown_value::Tuple, known_value::Tuple) =
     length(unknown_value) == length(known_value) &&
