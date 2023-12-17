@@ -157,14 +157,24 @@ end
 
 function _insert_output_option(output_options, option, is_set)
     itr, _ = option[1]
-    if !isa(itr, AbductibleValue) && any(isa(v, AbductibleValue) for v in itr)
-        new_itr = [isa(v, AbductibleValue) ? v.value : v for v in itr]
-        if is_set
-            new_itr = Set(new_itr)
+    if !isa(itr, AbductibleValue)
+        has_abductible = any(isa(v, AbductibleValue) for v in itr)
+        has_pattern = any(isa(v, PatternWrapper) for v in itr)
+        if !has_abductible && !has_pattern
+            push!(output_options, option[1:3])
+        else
+            new_itr = [isa(v, AbductibleValue) || isa(v, PatternWrapper) ? v.value : v for v in itr]
+            if is_set
+                new_itr = Set(new_itr)
+            end
+            if has_abductible
+                new_itr = AbductibleValue(new_itr)
+            else
+                new_itr = PatternWrapper(new_itr)
+            end
+            push!(output_options, [[new_itr, option[1][2]], option[2], option[3]])
+            # @info "Inserted output option $([[new_itr, option[1][2]], option[2], option[3]])"
         end
-        new_itr = AbductibleValue(new_itr)
-        push!(output_options, [[new_itr, option[1][2]], option[2], option[3]])
-        # @info "Inserted output option $([[new_itr, option[1][2]], option[2], option[3]])"
     else
         push!(output_options, option[1:3])
         # @info "Inserted output option $(option[1:3])"
@@ -438,15 +448,36 @@ end
 
 function _insert_output_option_grid(output_options, option)
     grid, acc = option[1]
-    if !isa(grid, AbductibleValue) && any(isa(v, AbductibleValue) for v in grid)
-        new_grid = [isa(v, AbductibleValue) ? v.value : v for v in grid]
-        new_grid = reshape(new_grid, size(grid))
-        new_grid = AbductibleValue(new_grid)
+    if !isa(grid, AbductibleValue)
+        has_abductible = any(isa(v, AbductibleValue) for v in grid)
+        has_pattern = any(isa(v, PatternWrapper) for v in grid)
+        if !has_abductible && !has_pattern
+            new_grid = grid
+        else
+            new_grid = [isa(v, AbductibleValue) || isa(v, PatternWrapper) ? v.value : v for v in grid]
+            new_grid = reshape(new_grid, size(grid))
+            if has_abductible
+                new_grid = AbductibleValue(new_grid)
+            else
+                new_grid = PatternWrapper(new_grid)
+            end
+        end
     else
         new_grid = grid
     end
-    if !isa(acc, AbductibleValue) && any(isa(v, AbductibleValue) for v in acc)
-        new_acc = AbductibleValue([isa(v, AbductibleValue) ? v.value : v for v in acc])
+    if !isa(acc, AbductibleValue)
+        has_abductible = any(isa(v, AbductibleValue) for v in acc)
+        has_pattern = any(isa(v, PatternWrapper) for v in acc)
+        if !has_abductible && !has_pattern
+            new_acc = acc
+        else
+            new_acc = [isa(v, AbductibleValue) || isa(v, PatternWrapper) ? v.value : v for v in acc]
+            if has_abductible
+                new_acc = AbductibleValue(new_acc)
+            else
+                new_acc = PatternWrapper(new_acc)
+            end
+        end
     else
         new_acc = acc
     end

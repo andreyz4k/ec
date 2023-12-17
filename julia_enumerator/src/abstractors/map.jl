@@ -20,9 +20,10 @@ end
 
 function reshape_arg(arg, is_set, dims)
     has_abductible = any(v isa AbductibleValue for v in arg)
+    has_pattern = any(v isa PatternWrapper for v in arg)
 
     if is_set
-        result = Set([isa(v, AbductibleValue) ? v.value : v for v in arg])
+        result = Set([isa(v, AbductibleValue) || isa(v, PatternWrapper) ? v.value : v for v in arg])
         if length(result) != length(arg)
             if has_abductible
                 result = any_object
@@ -31,10 +32,12 @@ function reshape_arg(arg, is_set, dims)
             end
         end
     else
-        result = reshape([isa(v, AbductibleValue) ? v.value : v for v in arg], dims)
+        result = reshape([isa(v, AbductibleValue) || isa(v, PatternWrapper) ? v.value : v for v in arg], dims)
     end
     if has_abductible
         return AbductibleValue(result)
+    elseif has_pattern
+        return PatternWrapper(result)
     else
         return result
     end
