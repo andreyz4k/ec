@@ -160,6 +160,7 @@ let unifying_expressions ?(reversible_only = false) g environment request contex
                let return_type = return_of_type t in
                if not (might_unify return_type request) then None
                else
+                 let context, _t = instantiate_type context t in
                  let context, arguments = u context request in
                  Some (p, arguments, context, ll)
            with UnificationFailure -> None)
