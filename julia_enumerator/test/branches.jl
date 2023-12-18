@@ -35,13 +35,20 @@ using solver:
     Path,
     all_abstractors,
     get_connected_from,
-    get_connected_to
+    get_connected_to,
+    CustomArgChecker
 
 import Redis
 using DataStructures
 
 function initial_state(t, g)
-    EnumerationState(Hole(t, g.no_context, nothing, nothing), empty_context, [], 0.0, 0)
+    EnumerationState(
+        Hole(t, g.no_context, CustomArgChecker(false, -1, true, nothing), nothing),
+        empty_context,
+        [],
+        0.0,
+        0,
+    )
 end
 
 function next_state(state, target_candidate, cg)
@@ -56,24 +63,7 @@ function next_state(state, target_candidate, cg)
     context, request = apply_context(context, request)
 
     environment = path_environment(state.path)
-    candidates = unifying_expressions(
-        g,
-        environment,
-        request,
-        context,
-        current_hole.from_input,
-        current_hole.candidates_filter,
-        state.skeleton,
-        state.path,
-        nothing,
-    )
-    if !isa(state.skeleton, Hole)
-        p = FreeVar(request, nothing)
-        if isnothing(current_hole.candidates_filter) ||
-           current_hole.candidates_filter(p, current_hole.from_input, state.skeleton, state.path)
-            push!(candidates, (p, [], context, g.log_variable))
-        end
-    end
+    candidates = unifying_expressions(environment, context, current_hole, state.skeleton, state.path)
 
     states = collect(
         skipmissing(
@@ -94,19 +84,15 @@ function next_state(state, target_candidate, cg)
                         custom_checkers_args_count = length(all_abstractors[candidate][1])
                     end
                     for i in 1:length(argument_types)
+                        if i > custom_checkers_args_count
+                            arg_checker = current_hole.candidates_filter
+                        else
+                            arg_checker = combine_arg_checkers(current_hole.candidates_filter, custom_arg_checkers[i])
+                        end
+
                         application_template = Apply(
                             application_template,
-                            Hole(
-                                argument_types[i],
-                                argument_requests[i],
-                                current_hole.from_input,
-                                if i > custom_checkers_args_count || isnothing(all_abstractors[candidate][1][i][2])
-                                    current_hole.candidates_filter
-                                else
-                                    all_abstractors[candidate][1][i][2]
-                                end,
-                                nothing,
-                            ),
+                            Hole(argument_types[i], argument_requests[i], arg_checker, nothing),
                         )
                     end
                     new_skeleton = modify_skeleton(state.skeleton, application_template, state.path)
