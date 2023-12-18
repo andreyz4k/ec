@@ -529,6 +529,14 @@ using solver: load_problems, enumerate_for_task
                 ),
             ),
         )
+        for prod_dict in payload["DSL"]["productions"]
+            if prod_dict["expression"] == "repeat"
+                prod_dict["logProbability"] = 2.0
+            end
+            if prod_dict["expression"] == "rev_fix_param"
+                prod_dict["logProbability"] = 0.0
+            end
+        end
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),

@@ -180,7 +180,6 @@ function block_state_successors(
         error("Error during following path")
     end
     request = current_hole.t
-    g = current_hole.grammar
 
     context = state.context
     context, request = apply_context(context, request)
@@ -192,9 +191,13 @@ function block_state_successors(
                     (Abstraction(
                         Hole(
                             request.arguments[2],
-                            g,
-                            current_hole.from_input,
-                            current_hole.candidates_filter,
+                            current_hole.grammar,
+                            CustomArgChecker(
+                                current_hole.candidates_filter.should_be_reversible,
+                                current_hole.candidates_filter.max_index + 1,
+                                current_hole.candidates_filter.can_have_free_vars,
+                                current_hole.candidates_filter.checker_function,
+                            ),
                             current_hole.possible_values,
                         ),
                     )),
@@ -208,17 +211,7 @@ function block_state_successors(
         ]
     else
         environment = path_environment(state.path)
-        candidates = unifying_expressions(
-            g,
-            environment,
-            request,
-            context,
-            current_hole.from_input,
-            current_hole.candidates_filter,
-            state.skeleton,
-            state.path,
-            current_hole.possible_values,
-        )
+        candidates = unifying_expressions(environment, context, current_hole, state.skeleton, state.path)
 
         states = map(candidates) do (candidate, argument_types, context, ll)
             new_free_parameters = number_of_free_parameters(candidate)
@@ -232,19 +225,15 @@ function block_state_successors(
                 custom_arg_checkers = _get_custom_arg_checkers(candidate)
                 custom_checkers_args_count = length(custom_arg_checkers)
                 for i in 1:length(argument_types)
+                    if i > custom_checkers_args_count
+                        arg_checker = current_hole.candidates_filter
+                    else
+                        arg_checker = combine_arg_checkers(current_hole.candidates_filter, custom_arg_checkers[i])
+                    end
+
                     application_template = Apply(
                         application_template,
-                        Hole(
-                            argument_types[i],
-                            argument_requests[i],
-                            current_hole.from_input,
-                            if i > custom_checkers_args_count || isnothing(custom_arg_checkers[i])
-                                current_hole.candidates_filter
-                            else
-                                custom_arg_checkers[i]
-                            end,
-                            nothing,
-                        ),
+                        Hole(argument_types[i], argument_requests[i], arg_checker, nothing),
                     )
                 end
                 new_skeleton = modify_skeleton(state.skeleton, application_template, state.path)
@@ -503,15 +492,11 @@ function create_wrapping_program_prototype(
     g = cg.no_context
 
     candidate_functions = unifying_expressions(
-        g,
         Tp[],
-        input_type,
         context,
-        true,
-        nothing,
-        Hole(input_type, g, true, nothing, nothing),
+        Hole(input_type, g, CustomArgChecker(true, -1, false, nothing), nothing),
+        Hole(input_type, g, CustomArgChecker(true, -1, false, nothing), nothing),
         [],
-        nothing,
     )
 
     wrapper, arg_types, new_context, wrap_cost =
@@ -527,7 +512,7 @@ function create_wrapping_program_prototype(
 
     wrapped_p = Apply(
         Apply(Apply(wrapper, filled_p), FreeVar(unknown_type, "r$var_ind")),
-        Hole(fixer_type, cg.contextual_library[wrapper][3], true, custom_arg_checkers[3], unknown_entry.values),
+        Hole(fixer_type, cg.contextual_library[wrapper][3], custom_arg_checkers[3], unknown_entry.values),
     )
 
     state = EnumerationState(

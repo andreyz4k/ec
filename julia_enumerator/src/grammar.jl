@@ -123,25 +123,28 @@ function _get_free_var_types(p::Program)
 end
 
 function unifying_expressions(
-    g::Grammar,
     environment::Vector{Tp},
-    request::Tp,
     context,
-    from_input::Bool,
-    candidates_filter,
+    current_hole::Hole,
     skeleton,
     path,
-    possible_values,
 )::Vector{Tuple{Program,Vector{Tp},Context,Float64}}
     #  given a grammar environment requested type and typing context,
     #    what are all of the possible leaves that we might use?
     #    These could be productions in the grammar or they could be variables.
     #    Yields a sequence of:
     #    (leaf, argument types, context with leaf return type unified with requested type, normalized log likelihood)
+    request = current_hole.t
+    g = current_hole.grammar
+    candidates_filter = current_hole.candidates_filter
+    checker_function = candidates_filter.checker_function
 
     variable_candidates = collect(skipmissing(map(enumerate(environment)) do (j, t)
+        if (j - 1) > candidates_filter.max_index
+            return missing
+        end
         p = Index(j - 1)
-        if !isnothing(candidates_filter) && !candidates_filter(p, from_input, skeleton, path)
+        if !isnothing(checker_function) && !checker_function(p, skeleton, path)
             return missing
         end
         ll = g.log_variable
@@ -164,16 +167,16 @@ function unifying_expressions(
         end
     end))
 
-    if !isnothing(g.continuation_type) && !isempty(variable_candidates)
-        terminal_indices = [get_index_value(p) for (p, t, _, _) in variable_candidates if isempty(t)]
-        if !isempty(terminal_indices)
-            smallest_terminal_index = minimum(terminal_indices)
-            filter!(
-                ((p, t, _, _) -> !is_index(p) || !isempty(t) || get_index_value(p) == smallest_terminal_index),
-                variable_candidates,
-            )
-        end
-    end
+    # if !isnothing(g.continuation_type) && !isempty(variable_candidates)
+    #     terminal_indices = [get_index_value(p) for (p, t, _, _) in variable_candidates if isempty(t)]
+    #     if !isempty(terminal_indices)
+    #         smallest_terminal_index = minimum(terminal_indices)
+    #         filter!(
+    #             ((p, t, _, _) -> !is_index(p) || !isempty(t) || get_index_value(p) == smallest_terminal_index),
+    #             variable_candidates,
+    #         )
+    #     end
+    # end
 
     nv = log(length(variable_candidates))
     variable_candidates =
@@ -183,14 +186,11 @@ function unifying_expressions(
         Tuple{Program,Vector{Tp},Context,Float64},
         skipmissing(map(g.library) do (p, t, ll)
             try
-                if !isnothing(candidates_filter)
-                    if !candidates_filter(p, from_input, skeleton, path)
-                        return missing
-                    end
-                else
-                    if from_input && !haskey(all_abstractors, p)
-                        return missing
-                    end
+                if candidates_filter.should_be_reversible && !is_reversible(p)
+                    return missing
+                end
+                if !isnothing(checker_function) && !checker_function(p, skeleton, path)
+                    return missing
                 end
 
                 if !might_unify(return_of_type(t), request)
@@ -217,35 +217,38 @@ function unifying_expressions(
         candidates = Tuple{Program,Vector{Tp},Context,Float64}[(p, t, k, z - ll) for (p, t, k, ll) in candidates]
     end
 
-    if !isa(skeleton, Hole)
-        p = FreeVar(request, nothing)
-        if isnothing(candidates_filter) || candidates_filter(p, from_input, skeleton, path)
-            push!(candidates, (p, [], context, 0.001))
+    if candidates_filter.can_have_free_vars
+        if !isa(skeleton, Hole)
+            p = FreeVar(request, nothing)
+            if isnothing(checker_function) || checker_function(p, skeleton, path)
+                push!(candidates, (p, [], context, 0.001))
+            end
         end
-    end
 
-    for (i, t) in enumerate(_get_free_var_types(skeleton))
-        (new_context, t) = apply_context(context, t)
-        return_type = return_of_type(t)
-        if might_unify(return_type, request)
-            try
-                new_context = unify(new_context, return_type, request)
-                (new_context, t) = apply_context(new_context, t)
-                p = FreeVar(t, "r$i")
-                if isnothing(candidates_filter) || candidates_filter(p, from_input, skeleton, path)
-                    push!(candidates, (p, [], new_context, 0.001))
-                end
-            catch e
-                if isa(e, UnificationFailure)
-                    continue
-                else
-                    rethrow()
+        for (i, t) in enumerate(_get_free_var_types(skeleton))
+            (new_context, t) = apply_context(context, t)
+            return_type = return_of_type(t)
+            if might_unify(return_type, request)
+                try
+                    new_context = unify(new_context, return_type, request)
+                    (new_context, t) = apply_context(new_context, t)
+                    p = FreeVar(t, "r$i")
+                    if isnothing(checker_function) || checker_function(p, skeleton, path)
+                        push!(candidates, (p, [], new_context, 0.001))
+                    end
+                catch e
+                    if isa(e, UnificationFailure)
+                        continue
+                    else
+                        rethrow()
+                    end
                 end
             end
         end
     end
 
-    if !isnothing(possible_values)
+    if !isnothing(current_hole.possible_values)
+        possible_values = current_hole.possible_values
         const_candidates = _const_options(possible_values[1])
         for i in 2:length(possible_values)
             const_candidates = filter(c -> _match_value(possible_values[i], c), const_candidates)
@@ -255,8 +258,9 @@ function unifying_expressions(
         end
         for candidate in const_candidates
             p = SetConst(request, candidate)
-            if (isnothing(candidates_filter) && !from_input) ||
-               (!isnothing(candidates_filter) && candidates_filter(p, from_input, skeleton, path))
+            # if (isnothing(candidates_filter) && !current_hole.should_be_reversible) ||
+            #    (!isnothing(candidates_filter) && candidates_filter(p, skeleton, path))
+            if isnothing(checker_function) || checker_function(p, skeleton, path)
                 push!(candidates, (p, [], context, 0.001))
             end
         end

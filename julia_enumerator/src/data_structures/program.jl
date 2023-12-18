@@ -56,21 +56,23 @@ Base.:(==)(p::Invented, q::Invented) = p.b == q.b
 struct Hole <: Program
     t::Tp
     grammar::Any
-    from_input::Bool
     candidates_filter::Any
     possible_values::Any
     hash_value::UInt64
-    Hole(t::Tp, grammar::Any, from_input::Bool, candidates_filter::Any, possible_values) = new(
+    Hole(t::Tp, grammar::Any, candidates_filter::Any, possible_values) = new(
         t,
         grammar,
-        from_input,
         candidates_filter,
         possible_values,
-        hash(t, hash(grammar, hash(from_input, hash(candidates_filter, hash(possible_values))))),
+        hash(t, hash(grammar, hash(candidates_filter, hash(possible_values)))),
     )
 end
+
 Base.:(==)(p::Hole, q::Hole) =
-    p.t == q.t && p.grammar == q.grammar && p.from_input == q.from_input && p.candidates_filter == q.candidates_filter
+    p.t == q.t &&
+    p.grammar == q.grammar &&
+    p.candidates_filter == q.candidates_filter &&
+    p.possible_values == q.possible_values
 
 struct FreeVar <: Program
     t::Tp
@@ -340,7 +342,7 @@ parse_object.matcher =
 
 parse_const_clause = P"Const\(" + type_parser + P", " + parse_object + P"\)" |> (v -> SetConst(v[1], v[2]))
 
-parse_hole = P"\?\?\(" + type_parser + P"\)" > (t -> Hole(t, nothing, false, nothing, nothing))
+parse_hole = P"\?\?\(" + type_parser + P"\)" > (t -> Hole(t, nothing, nothing, nothing))
 
 _parse_program.matcher =
     parse_application |

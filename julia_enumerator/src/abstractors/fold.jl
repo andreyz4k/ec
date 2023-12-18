@@ -84,16 +84,6 @@ function rev_fold_set(f, init, acc)
     return first(output_options)
 end
 
-_is_possible_init(p::Primitive, from_input, skeleton, path) = true
-_is_possible_init(p::FreeVar, from_input, skeleton, path) = false
-_is_possible_init(p::Index, from_input, skeleton, path) = true
-_is_possible_init(p::Invented, from_input, skeleton, path) = true
-
-_is_possible_folder(p::Index, from_input, skeleton, path) = true
-_is_possible_folder(p::Primitive, from_input, skeleton, path) = haskey(all_abstractors, p)
-_is_possible_folder(p::Invented, from_input, skeleton, path) = is_reversible(p)
-_is_possible_folder(p::FreeVar, from_input, skeleton, path) = false
-
 function reverse_rev_fold()
     function _reverse_rev_fold(value, context)
         f = context.arguments[end]
@@ -113,7 +103,11 @@ function reverse_rev_fold()
             context.filled_vars,
         )
     end
-    return [(_is_reversible_subfunction, _is_possible_folder), (_has_no_holes, _is_possible_init)], _reverse_rev_fold
+    return [
+        (_is_reversible_subfunction, CustomArgChecker(true, -1, false, nothing)),
+        (_has_no_holes, CustomArgChecker(false, -1, false, nothing)),
+    ],
+    _reverse_rev_fold
 end
 
 @define_custom_reverse_primitive(
@@ -424,7 +418,8 @@ function reverse_fold(is_set = false)
         )
     end
 
-    return [(_is_reversible_subfunction, _is_possible_subfunction)], _reverse_fold
+    return [(_is_reversible_subfunction, CustomArgChecker(nothing, nothing, nothing, _is_possible_subfunction))],
+    _reverse_fold
 end
 
 @define_custom_reverse_primitive(
@@ -738,7 +733,8 @@ function reverse_fold_grid(dim)
         )
     end
 
-    return [(_is_reversible_subfunction, _is_possible_subfunction)], _reverse_fold
+    return [(_is_reversible_subfunction, CustomArgChecker(nothing, nothing, nothing, _is_possible_subfunction))],
+    _reverse_fold
 end
 
 @define_custom_reverse_primitive(

@@ -70,7 +70,13 @@ function get_candidates_for_unknown_var(sc, branch_id, g)::Vector{BlockPrototype
         push!(
             prototypes,
             BlockPrototype(
-                EnumerationState(Hole(type, g.no_context, false, nothing, entry.values), context, [], EPSILON, 0),
+                EnumerationState(
+                    Hole(type, g.no_context, CustomArgChecker(false, -1, true, nothing), entry.values),
+                    context,
+                    [],
+                    EPSILON,
+                    0,
+                ),
                 type,
                 nothing,
                 (var_id, branch_id),
@@ -97,7 +103,13 @@ function get_candidates_for_known_var(sc, branch_id, g)
         push!(
             prototypes,
             BlockPrototype(
-                EnumerationState(Hole(type, g.no_context, true, nothing, entry.values), context, [], EPSILON, 0),
+                EnumerationState(
+                    Hole(type, g.no_context, CustomArgChecker(true, -1, true, nothing), nothing),
+                    context,
+                    [],
+                    EPSILON,
+                    0,
+                ),
                 type,
                 nothing,
                 (var_id, branch_id),

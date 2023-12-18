@@ -3,10 +3,10 @@
 # _is_fixable_param(p::FreeVar) = true
 _is_fixable_param(p) = true
 
-function _is_possible_fixable_param(p::Index, from_input, skeleton, path)
+function _is_possible_fixable_param(p::Index, skeleton, path)
     return has_index(follow_path(skeleton, vcat(path[begin:end-1], [LeftTurn(), RightTurn()])), p.n)
 end
-_is_possible_fixable_param(p, from_input, skeleton, path) = false
+_is_possible_fixable_param(p, skeleton, path) = false
 
 function _get_free_vars(p::FreeVar)
     return [p]
@@ -18,7 +18,7 @@ end
 _get_free_vars(p::Abstraction) = _get_free_vars(p.b)
 _get_free_vars(p::Program) = []
 
-function _is_possible_fixable_param(p::FreeVar, from_input, skeleton, path)
+function _is_possible_fixable_param(p::FreeVar, skeleton, path)
     if isnothing(p.var_id)
         return false
     end
@@ -35,13 +35,6 @@ function _is_possible_fixable_param(p::FreeVar, from_input, skeleton, path)
     end
     return false
 end
-
-_is_possible_fixer(p::Primitive, from_input, skeleton, path) = true
-_is_possible_fixer(p::FreeVar, from_input, skeleton, path) = false
-#TODO: allow for bigger indices in inner functions
-_is_possible_fixer(p::Index, from_input, skeleton, path) = p.n == 0
-_is_possible_fixer(p::Invented, from_input, skeleton, path) = true
-_is_possible_fixer(p::SetConst, from_input, skeleton, path) = true
 
 function reverse_fix_param()
     function _reverse_fix_param(value, context)
@@ -92,9 +85,9 @@ function reverse_fix_param()
         )
     end
     return [
-        (_is_reversible_subfunction, nothing),
-        (_is_fixable_param, _is_possible_fixable_param),
-        (_has_no_holes, _is_possible_fixer),
+        (_is_reversible_subfunction, CustomArgChecker(true, nothing, nothing, nothing)),
+        (_is_fixable_param, CustomArgChecker(nothing, nothing, nothing, _is_possible_fixable_param)),
+        (_has_no_holes, CustomArgChecker(false, -1, false, nothing)),
     ],
     _reverse_fix_param
 end

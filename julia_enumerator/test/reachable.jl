@@ -735,7 +735,7 @@ using DataStructures
             else
                 vars = _used_vars(p)
                 in_vars = []
-                for v in Set(vars)
+                for v in unique(vars)
                     if !haskey(vars_mapping, v)
                         vars_mapping[v] = length(vars_mapping) + copied_vars + 1
                         push!(in_vars, vars_mapping[v])

@@ -49,11 +49,11 @@ end
 is_reversible_selector(p::Abstraction) = _is_reversible_selector(p.b, true) == 1
 is_reversible_selector(p::Program) = false
 
-_is_possible_selector(p::Primitive, from_input, skeleton, path) = true
-_is_possible_selector(p::Invented, from_input, skeleton, path) = true
-_is_possible_selector(p::Index, from_input, skeleton, path) = p.n != 0 || !isa(path[end], ArgTurn)
+_is_possible_selector(p::Primitive, skeleton, path) = true
+_is_possible_selector(p::Invented, skeleton, path) = true
+_is_possible_selector(p::Index, skeleton, path) = p.n != 0 || !isa(path[end], ArgTurn)
 
-function _is_possible_selector(p::FreeVar, from_input, skeleton, path)
+function _is_possible_selector(p::FreeVar, skeleton, path)
     if skeleton isa Abstraction &&
        skeleton.b isa Apply &&
        skeleton.b.f isa Apply &&
@@ -150,7 +150,7 @@ function reverse_rev_select()
             )
         end
     end
-    return [(is_reversible_selector, _is_possible_selector)], _reverse_rev_select
+    return [(is_reversible_selector, CustomArgChecker(false, -1, nothing, _is_possible_selector))], _reverse_rev_select
 end
 
 @define_custom_reverse_primitive(
@@ -257,7 +257,7 @@ function reverse_rev_select_set()
             )
         end
     end
-    return [(is_reversible_selector, _is_possible_selector)], _reverse_rev_select
+    return [(is_reversible_selector, CustomArgChecker(false, -1, nothing, _is_possible_selector))], _reverse_rev_select
 end
 
 @define_custom_reverse_primitive(

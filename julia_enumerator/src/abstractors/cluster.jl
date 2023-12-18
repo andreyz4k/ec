@@ -45,7 +45,7 @@ function reverse_rev_greedy_cluster()
             context.filled_vars,
         )
     end
-    return [(_has_no_holes, _is_possible_key_extractor)], _reverse_rev_greedy_cluster
+    return [(_has_no_holes, CustomArgChecker(false, -1, false, nothing))], _reverse_rev_greedy_cluster
 end
 
 # This function is meant to be used with fold

@@ -17,11 +17,6 @@ function rev_groupby(f, item, groups)
     return result
 end
 
-_is_possible_key_extractor(p::Primitive, from_input, skeleton, path) = true
-_is_possible_key_extractor(p::Invented, from_input, skeleton, path) = true
-_is_possible_key_extractor(p::Index, from_input, skeleton, path) = true
-_is_possible_key_extractor(p::FreeVar, from_input, skeleton, path) = false
-
 function reverse_rev_groupby()
     function _reverse_rev_groupby(groups, context)
         output_options = []
@@ -58,7 +53,7 @@ function reverse_rev_groupby()
             context.filled_vars,
         )
     end
-    return [(_has_no_holes, _is_possible_key_extractor)], _reverse_rev_groupby
+    return [(_has_no_holes, CustomArgChecker(false, -1, false, nothing))], _reverse_rev_groupby
 end
 
 # This function is meant to be used with fold

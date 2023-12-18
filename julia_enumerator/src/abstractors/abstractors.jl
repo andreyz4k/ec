@@ -1,6 +1,50 @@
 
 all_abstractors = Dict{Program,Tuple{Vector,Any}}()
 
+struct CustomArgChecker
+    should_be_reversible::Union{Bool,Nothing}
+    max_index::Union{Int64,Nothing}
+    can_have_free_vars::Union{Bool,Nothing}
+    checker_function::Union{Function,Nothing}
+end
+
+Base.:(==)(c1::CustomArgChecker, c2::CustomArgChecker) =
+    c1.should_be_reversible == c2.should_be_reversible &&
+    c1.max_index == c2.max_index &&
+    c1.can_have_free_vars == c2.can_have_free_vars &&
+    c1.checker_function == c2.checker_function
+
+Base.hash(c::CustomArgChecker, h::UInt64) =
+    hash(c.should_be_reversible, hash(c.max_index, hash(c.can_have_free_vars, hash(c.checker_function, h))))
+
+function combine_arg_checkers(old::CustomArgChecker, new::CustomArgChecker)
+    should_be_reversible = if isnothing(new.should_be_reversible)
+        old.should_be_reversible
+    else
+        new.should_be_reversible
+    end
+    max_index = if isnothing(new.max_index)
+        old.max_index
+    elseif isnothing(old.max_index)
+        new.max_index
+    else
+        min(old.max_index, new.max_index)
+    end
+    can_have_free_vars = if isnothing(new.can_have_free_vars)
+        old.can_have_free_vars
+    else
+        new.can_have_free_vars
+    end
+    checker_function = if isnothing(new.checker_function)
+        old.checker_function
+    elseif isnothing(old.checker_function)
+        new.checker_function
+    else
+        (args...) -> old.checker_function(args...) && new.checker_function(args...)
+    end
+    return CustomArgChecker(should_be_reversible, max_index, can_have_free_vars, checker_function)
+end
+
 function _get_custom_arg_checkers(p::Primitive)
     if haskey(all_abstractors, p)
         [c[2] for c in all_abstractors[p][1]]
@@ -35,7 +79,7 @@ function __get_custom_arg_chekers(p::Primitive, checker, indices_checkers::Dict)
             if c[2] == checker
                 push!(out_checkers, c[2])
             else
-                combined = (args...) -> c[2](args...) && checker(args...)
+                combined = combine_arg_checkers(checker, c[2])
                 push!(out_checkers, combined)
             end
         end
@@ -71,7 +115,7 @@ function __get_custom_arg_chekers(p::Index, checker, indices_checkers::Dict)
         if indices_checkers[p.n] == checker
             return [], indices_checkers
         else
-            combined = (args...) -> indices_checkers[p.n](args...) && checker(args...)
+            combined = combine_arg_checkers(checker, indices_checkers[p.n])
             indices_checkers[p.n] = combined
             return [], indices_checkers
         end
@@ -854,10 +898,10 @@ _has_no_holes(p::Program) = true
 
 _is_reversible_subfunction(p) = is_reversible(p) && _has_no_holes(p)
 
-_is_possible_subfunction(p::Index, from_input, skeleton, path) = p.n != 0 || !isa(path[end], ArgTurn)
-_is_possible_subfunction(p::Primitive, from_input, skeleton, path) = !from_input || haskey(all_abstractors, p)
-_is_possible_subfunction(p::Invented, from_input, skeleton, path) = !from_input || is_reversible(p)
-_is_possible_subfunction(p::FreeVar, from_input, skeleton, path) = true
+_is_possible_subfunction(p::Index, skeleton, path) = p.n != 0 || !isa(path[end], ArgTurn)
+_is_possible_subfunction(p::Primitive, skeleton, path) = true
+_is_possible_subfunction(p::Invented, skeleton, path) = true
+_is_possible_subfunction(p::FreeVar, skeleton, path) = true
 
 _get_var_indices(p::Index) = [p.n]
 _get_var_indices(p::FreeVar) = [-Int64(p.var_id)]
