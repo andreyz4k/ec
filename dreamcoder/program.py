@@ -1264,6 +1264,71 @@ class Constant(Program):
         return True
 
 
+class CustomArgChecker:
+    def __init__(
+        self, should_be_reversible, max_index, can_have_free_vars, checker_funciton
+    ):
+        self.should_be_reversible = should_be_reversible
+        self.max_index = max_index
+        self.can_have_free_vars = can_have_free_vars
+        self.checker_funciton = checker_funciton
+
+    def __eq__(self, other) -> bool:
+        return (
+            self.should_be_reversible == other.should_be_reversible
+            and self.max_index == other.max_index
+            and self.can_have_free_vars == other.can_have_free_vars
+            and self.checker_funciton == other.checker_funciton
+        )
+
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.should_be_reversible,
+                self.max_index,
+                self.can_have_free_vars,
+                self.checker_funciton,
+            )
+        )
+
+    def __repr__(self) -> str:
+        return f"CustomArgChecker({self.should_be_reversible}, {self.max_index}, {self.can_have_free_vars}, {self.checker_funciton})"
+
+    @staticmethod
+    def combine(old, new):
+        if new.should_be_reversible is None:
+            should_be_reversible = old.should_be_reversible
+        else:
+            should_be_reversible = new.should_be_reversible
+
+        if new.max_index is None:
+            max_index = old.max_index
+        elif old.max_index is None:
+            max_index = new.max_index
+        else:
+            max_index = min(old.max_index, new.max_index)
+
+        if new.can_have_free_vars is None:
+            can_have_free_vars = old.can_have_free_vars
+        else:
+            can_have_free_vars = new.can_have_free_vars
+
+        if new.checker_funciton is None:
+            checker_funciton = old.checker_funciton
+        elif old.checker_funciton is None:
+            checker_funciton = new.checker_funciton
+        else:
+
+            def checker_funciton(p, from_input, path):
+                return old.checker_funciton(
+                    p, from_input, path
+                ) and new.checker_funciton(p, from_input, path)
+
+        return CustomArgChecker(
+            should_be_reversible, max_index, can_have_free_vars, checker_funciton
+        )
+
+
 class ShareVisitor(object):
     def __init__(self):
         self.primitiveTable = {}

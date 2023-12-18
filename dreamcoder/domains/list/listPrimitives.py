@@ -2,6 +2,7 @@ from cProfile import label
 from dreamcoder.program import (
     Abstraction,
     Application,
+    CustomArgChecker,
     FreeVariable,
     Hole,
     Index,
@@ -452,14 +453,6 @@ def _is_possible_fixable_param(p, from_input, path):
     return False
 
 
-def _is_possible_fixer(p, from_input, path):
-    if isinstance(p, FreeVariable):
-        return False
-    if isinstance(p, Index):
-        return p.i == 0
-    return True
-
-
 def julia():
     return [
         Primitive("repeat", arrow(t0, tint, tlist(t0)), _repeat, is_reversible=True),
@@ -475,7 +468,10 @@ def julia():
             _map,
             is_reversible=True,
             custom_args_checkers=[
-                (_is_reversible_subfunction, _is_possible_subfunction)
+                (
+                    _is_reversible_subfunction,
+                    CustomArgChecker(None, None, None, _is_possible_subfunction),
+                )
             ],
         ),
         Primitive(
@@ -484,7 +480,10 @@ def julia():
             _fold,
             is_reversible=True,
             custom_args_checkers=[
-                (_is_reversible_subfunction, _is_possible_subfunction)
+                (
+                    _is_reversible_subfunction,
+                    CustomArgChecker(None, None, None, _is_possible_subfunction),
+                )
             ],
         ),
         Primitive(
@@ -493,9 +492,12 @@ def julia():
             None,
             is_reversible=True,
             custom_args_checkers=[
-                (_is_reversible_subfunction, None),
-                (_is_fixable_param, _is_possible_fixable_param),
-                (_has_no_holes, _is_possible_fixer),
+                (_is_reversible_subfunction, CustomArgChecker(True, None, None, None)),
+                (
+                    _is_fixable_param,
+                    CustomArgChecker(None, None, None, _is_possible_fixable_param),
+                ),
+                (_has_no_holes, CustomArgChecker(False, -1, False, None)),
             ],
         ),
     ] + [p for p in bootstrapTarget_extra() if p.name != "map" and p.name != "fold"]

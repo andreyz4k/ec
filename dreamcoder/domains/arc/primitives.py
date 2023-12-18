@@ -3,6 +3,7 @@ import math
 import sys
 from dreamcoder.program import (
     Application,
+    CustomArgChecker,
     Hole,
     Primitive,
     Invented,
@@ -282,7 +283,7 @@ def _is_reversible_selector(p):
     return False
 
 
-def _is_possible_selector(p, from_input, path):
+def _is_possible_selector(p, path):
     if isinstance(p, Primitive) or isinstance(p, Invented):
         return True
     if isinstance(p, Index):
@@ -310,38 +311,12 @@ def _is_reversible_subfunction(p):
     return p.is_reversible and _has_no_holes(p)
 
 
-def _is_possible_subfunction(p, from_input, path):
+def _is_possible_subfunction(p, path):
     if isinstance(p, Index):
         return p.i != 0 or not isinstance(path[-1][0], Abstraction)
     if isinstance(p, FreeVariable):
         return True
     if isinstance(p, Primitive) or isinstance(p, Invented):
-        return not from_input or p.is_reversible
-    assert False
-
-
-def _is_possible_init(p, from_input, path):
-    if isinstance(p, FreeVariable):
-        return False
-    if isinstance(p, Primitive) or isinstance(p, Invented) or isinstance(p, Index):
-        return True
-    assert False
-
-
-def _is_possible_folder(p, from_input, path):
-    if isinstance(p, FreeVariable):
-        return False
-    if isinstance(p, Index):
-        return True
-    if isinstance(p, Primitive) or isinstance(p, Invented):
-        return p.is_reversible
-    assert False
-
-
-def _is_possible_key_extractor(p, from_input, path):
-    if isinstance(p, FreeVariable):
-        return False
-    if isinstance(p, Index) or isinstance(p, Primitive) or isinstance(p, Invented):
         return True
     assert False
 
@@ -350,21 +325,13 @@ def _is_fixable_param(p):
     return isinstance(p, Index) or isinstance(p, FreeVariable)
 
 
-def _is_possible_fixable_param(p, from_input, path):
+def _is_possible_fixable_param(p, path):
     # TODO: implement real algorithm here
     if isinstance(p, Index):
         return True
     if isinstance(p, FreeVariable):
         return True
     return False
-
-
-def _is_possible_fixer(p, from_input, path):
-    if isinstance(p, FreeVariable):
-        return False
-    if isinstance(p, Index):
-        return p.i == 0
-    return True
 
 
 def basePrimitives():
@@ -375,9 +342,12 @@ def basePrimitives():
             None,
             is_reversible=True,
             custom_args_checkers=[
-                (_is_reversible_subfunction, None),
-                (_is_fixable_param, _is_possible_fixable_param),
-                (_has_no_holes, _is_possible_fixer),
+                (_is_reversible_subfunction, CustomArgChecker(True, None, None, None)),
+                (
+                    _is_fixable_param,
+                    CustomArgChecker(None, None, None, _is_possible_fixable_param),
+                ),
+                (_has_no_holes, CustomArgChecker(False, -1, False, None)),
             ],
         ),
         Primitive(
@@ -386,7 +356,10 @@ def basePrimitives():
             _map,
             is_reversible=True,
             custom_args_checkers=[
-                (_is_reversible_subfunction, _is_possible_subfunction)
+                (
+                    _is_reversible_subfunction,
+                    CustomArgChecker(None, None, None, _is_possible_subfunction),
+                )
             ],
         ),
         Primitive(
@@ -395,7 +368,10 @@ def basePrimitives():
             _map,
             is_reversible=True,
             custom_args_checkers=[
-                (_is_reversible_subfunction, _is_possible_subfunction)
+                (
+                    _is_reversible_subfunction,
+                    CustomArgChecker(None, None, None, _is_possible_subfunction),
+                )
             ],
         ),
         Primitive(
@@ -404,7 +380,10 @@ def basePrimitives():
             _map_grid,
             is_reversible=True,
             custom_args_checkers=[
-                (_is_reversible_subfunction, _is_possible_subfunction)
+                (
+                    _is_reversible_subfunction,
+                    CustomArgChecker(None, None, None, _is_possible_subfunction),
+                )
             ],
         ),
         Primitive(
@@ -413,7 +392,10 @@ def basePrimitives():
             _map,
             is_reversible=True,
             custom_args_checkers=[
-                (_is_reversible_subfunction, _is_possible_subfunction)
+                (
+                    _is_reversible_subfunction,
+                    CustomArgChecker(None, None, None, _is_possible_subfunction),
+                )
             ],
         ),
         Primitive(
@@ -422,7 +404,10 @@ def basePrimitives():
             _map_grid,
             is_reversible=True,
             custom_args_checkers=[
-                (_is_reversible_subfunction, _is_possible_subfunction)
+                (
+                    _is_reversible_subfunction,
+                    CustomArgChecker(None, None, None, _is_possible_subfunction),
+                )
             ],
         ),
         Primitive(
@@ -439,7 +424,10 @@ def basePrimitives():
             _fold,
             is_reversible=True,
             custom_args_checkers=[
-                (_is_reversible_subfunction, _is_possible_subfunction)
+                (
+                    _is_reversible_subfunction,
+                    CustomArgChecker(None, None, None, _is_possible_subfunction),
+                )
             ],
         ),
         Primitive(
@@ -448,7 +436,10 @@ def basePrimitives():
             _fold,
             is_reversible=True,
             custom_args_checkers=[
-                (_is_reversible_subfunction, _is_possible_subfunction)
+                (
+                    _is_reversible_subfunction,
+                    CustomArgChecker(None, None, None, _is_possible_subfunction),
+                )
             ],
         ),
         Primitive(
@@ -457,7 +448,10 @@ def basePrimitives():
             _fold_h,
             is_reversible=True,
             custom_args_checkers=[
-                (_is_reversible_subfunction, _is_possible_subfunction)
+                (
+                    _is_reversible_subfunction,
+                    CustomArgChecker(None, None, None, _is_possible_subfunction),
+                )
             ],
         ),
         Primitive(
@@ -466,7 +460,10 @@ def basePrimitives():
             _fold_v,
             is_reversible=True,
             custom_args_checkers=[
-                (_is_reversible_subfunction, _is_possible_subfunction)
+                (
+                    _is_reversible_subfunction,
+                    CustomArgChecker(None, None, None, _is_possible_subfunction),
+                )
             ],
         ),
         Primitive("length", arrow(tlist(t0), tint), len),
@@ -519,21 +516,36 @@ def basePrimitives():
             arrow(arrow(t0, tbool), tlist(t0), tlist(t0), tlist(t0)),
             None,
             is_reversible=True,
-            custom_args_checkers=[(_is_reversible_selector, _is_possible_selector)],
+            custom_args_checkers=[
+                (
+                    _is_reversible_selector,
+                    CustomArgChecker(False, -1, None, _is_possible_selector),
+                )
+            ],
         ),
         Primitive(
             "rev_select_set",
             arrow(arrow(t0, tbool), tset(t0), tset(t0), tset(t0)),
             None,
             is_reversible=True,
-            custom_args_checkers=[(_is_reversible_selector, _is_possible_selector)],
+            custom_args_checkers=[
+                (
+                    _is_reversible_selector,
+                    CustomArgChecker(False, -1, None, _is_possible_selector),
+                )
+            ],
         ),
         Primitive(
             "rev_select_grid",
             arrow(arrow(t0, tbool), tgrid(t0), tgrid(t0), tgrid(t0)),
             None,
             is_reversible=True,
-            custom_args_checkers=[(_is_reversible_selector, _is_possible_selector)],
+            custom_args_checkers=[
+                (
+                    _is_reversible_selector,
+                    CustomArgChecker(False, -1, None, _is_possible_selector),
+                )
+            ],
         ),
         Primitive(
             "rev_list_elements",
@@ -571,8 +583,8 @@ def basePrimitives():
             None,
             is_reversible=True,
             custom_args_checkers=[
-                (_is_reversible_subfunction, _is_possible_folder),
-                (_has_no_holes, _is_possible_init),
+                (_is_reversible_subfunction, CustomArgChecker(True, -1, False, None)),
+                (_has_no_holes, CustomArgChecker(False, -1, False, None)),
             ],
         ),
         Primitive(
@@ -581,8 +593,8 @@ def basePrimitives():
             None,
             is_reversible=True,
             custom_args_checkers=[
-                (_is_reversible_subfunction, _is_possible_folder),
-                (_has_no_holes, _is_possible_init),
+                (_is_reversible_subfunction, CustomArgChecker(True, -1, False, None)),
+                (_has_no_holes, CustomArgChecker(False, -1, False, None)),
             ],
         ),
         Primitive("list_to_set", arrow(tlist(t0), tset(t0)), None),
@@ -598,14 +610,18 @@ def basePrimitives():
             ),
             None,
             is_reversible=True,
-            custom_args_checkers=[(_has_no_holes, _is_possible_key_extractor)],
+            custom_args_checkers=[
+                (_has_no_holes, CustomArgChecker(False, -1, False, None))
+            ],
         ),
         Primitive(
             "rev_greedy_cluster",
             arrow(arrow(t0, tset(t0), tbool), t0, tset(tset(t0)), tset(tset(t0))),
             None,
             is_reversible=True,
-            custom_args_checkers=[(_has_no_holes, _is_possible_key_extractor)],
+            custom_args_checkers=[
+                (_has_no_holes, CustomArgChecker(False, -1, False, None))
+            ],
         ),
         Primitive("not", arrow(tbool, tbool), _not, is_reversible=True),
         Primitive("and", arrow(tbool, tbool, tbool), _and, is_reversible=True),

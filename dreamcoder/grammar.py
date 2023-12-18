@@ -177,7 +177,7 @@ class Grammar(object):
         returnProbabilities=False,
         # Must be a leaf (have no arguments)?
         mustBeLeaf=False,
-        from_input=False,
+        checker=CustomArgChecker(False, 100, True, None),
         path=[],
     ):
         """Primitives that are candidates for being used given a requested type
@@ -189,21 +189,12 @@ class Grammar(object):
         candidates = []
         for l, t, p in self.productions:
             try:
-                bad_option = False
-                for f, i in reversed(path):
-                    if not isinstance(f, Abstraction):
-                        custom_checkers = f.get_custom_arg_checkers()
-                        if i < len(custom_checkers):
-                            checker = custom_checkers[i]
-                            if not checker:
-                                continue
-                            if not checker(p, from_input, path):
-                                bad_option = True
-                            break
-                else:
-                    if from_input and not p.is_reversible:
-                        continue
-                if bad_option:
+                if checker.should_be_reversible and not p.is_reversible:
+                    continue
+                if (
+                    checker.checker_funciton is not None
+                    and not checker.checker_funciton(p, path)
+                ):
                     continue
 
                 newContext, t = t.instantiate(context)
@@ -221,25 +212,20 @@ class Grammar(object):
         variableCandidates = []
         for j, t in enumerate(environment):
             try:
+                if j > checker.max_index:
+                    continue
+                p = Index(j)
+                if (
+                    checker.checker_funciton is not None
+                    and not checker.checker_funciton(p, path)
+                ):
+                    continue
                 newContext = context.unify(t.returns(), request)
                 t = t.apply(newContext)
                 if mustBeLeaf and t.isArrow():
                     continue
-                bad_option = False
-                for f, i in reversed(path):
-                    if not isinstance(f, Abstraction):
-                        custom_checkers = f.get_custom_arg_checkers()
-                        if i < len(custom_checkers):
-                            checker = custom_checkers[i]
-                            if not checker:
-                                continue
-                            if not checker(Index(j), from_input, path):
-                                bad_option = True
-                            break
-                if bad_option:
-                    continue
 
-                variableCandidates.append((t, Index(j), newContext))
+                variableCandidates.append((t, p, newContext))
             except UnificationFailure:
                 continue
 
@@ -337,7 +323,7 @@ class Grammar(object):
         request,
         expression,
         silent=False,
-        from_input=False,
+        checker=CustomArgChecker(False, -1, True, None),
         path=[],
     ):
         if isinstance(request, TypeNamedArgsConstructor) and request.isArrow():
@@ -349,7 +335,7 @@ class Grammar(object):
                 request.output,
                 expression,
                 silent=silent,
-                from_input=from_input,
+                checker=checker,
                 path=path,
             )
             for var_name, var_type in request.arguments.items():
@@ -375,7 +361,12 @@ class Grammar(object):
                 request.arguments[1],
                 expression.body,
                 silent=silent,
-                from_input=from_input,
+                checker=CustomArgChecker(
+                    checker.should_be_reversible,
+                    checker.max_index + 1,
+                    checker.can_have_free_vars,
+                    checker.checker_funciton,
+                ),
                 path=path + [(expression, 0)],
             )
         if expression.isLetClause:
@@ -389,7 +380,7 @@ class Grammar(object):
                 request,
                 expression.body,
                 silent=silent,
-                from_input=from_input,
+                checker=checker,
                 path=path,
             )
             context, var_def_requests, def_summary = self.likelihoodSummary(
@@ -399,7 +390,7 @@ class Grammar(object):
                 expression.var_type,
                 expression.var_def,
                 silent=silent,
-                from_input=from_input,
+                checker=CustomArgChecker(False, -1, True, None),
                 path=path,
             )
             var_requests.update(var_def_requests)
@@ -416,7 +407,7 @@ class Grammar(object):
                 workspace[expression.inp_var_name],
                 expression.vars_def,
                 silent=silent,
-                from_input=True,
+                checker=CustomArgChecker(True, -1, True, None),
                 path=path,
             )
             merged_workspace = dict(workspace, **var_requests)
@@ -427,7 +418,7 @@ class Grammar(object):
                 request,
                 expression.body,
                 silent=silent,
-                from_input=from_input,
+                checker=checker,
                 path=path,
             )
             summary.join(body_summary)
@@ -452,7 +443,7 @@ class Grammar(object):
             environment,
             normalize=False,
             returnTable=True,
-            from_input=from_input,
+            checker=checker,
             path=path,
         )
 
@@ -498,6 +489,10 @@ class Grammar(object):
             raise GrammarFailure((context, environment, request, expression))
 
         var_requests = {}
+        if not f.isIndex:
+            custom_checkers = f.get_custom_arg_checkers()
+        else:
+            custom_checkers = []
 
         for i, (argumentType, argument) in enumerate(zip(argumentTypes, xs)):
             argumentType = argumentType.apply(context)
@@ -508,7 +503,9 @@ class Grammar(object):
                 argumentType,
                 argument,
                 silent=silent,
-                from_input=from_input,
+                checker=CustomArgChecker.combine(checker, custom_checkers[i])
+                if i < len(custom_checkers)
+                else checker,
                 path=path + [(f, i)],
             )
             if newSummary is None:
