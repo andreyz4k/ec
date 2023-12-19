@@ -382,13 +382,13 @@ def _is_reversible_subfunction(p):
     return p.is_reversible and _has_no_holes(p)
 
 
-def _is_possible_subfunction(p, from_input, path):
+def _is_possible_subfunction(p, path):
     if isinstance(p, Index):
         return p.i != 0 or not isinstance(path[-1][0], Abstraction)
     if isinstance(p, FreeVariable):
         return True
     if isinstance(p, Primitive) or isinstance(p, Invented):
-        return not from_input or p.is_reversible
+        return True
     assert False
 
 
@@ -444,7 +444,7 @@ def _is_fixable_param(p):
     return isinstance(p, Index) or isinstance(p, FreeVariable)
 
 
-def _is_possible_fixable_param(p, from_input, path):
+def _is_possible_fixable_param(p, path):
     # TODO: implement real algorithm here
     if isinstance(p, Index):
         return True
