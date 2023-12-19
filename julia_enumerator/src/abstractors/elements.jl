@@ -55,7 +55,11 @@ end
 )
 
 function reverse_collect(value)
-    return [Set(value)]
+    result = Set(value)
+    if length(result) != length(value)
+        error("Duplicate elements")
+    end
+    return [result]
 end
 
 @define_reverse_primitive("collect", arrow(tset(t0), tlist(t0)), collect, reverse_collect)

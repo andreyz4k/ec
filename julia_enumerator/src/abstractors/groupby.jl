@@ -19,35 +19,24 @@ end
 
 function reverse_rev_groupby()
     function _reverse_rev_groupby(groups, context)
-        output_options = []
-        for (k, values) in groups
-            for v in values
-                new_groups = copy(groups)
-                delete!(new_groups, (k, values))
-                new_values = copy(values)
-                delete!(new_values, v)
-                if !isempty(new_values)
-                    push!(new_groups, (k, new_values))
-                end
-                push!(output_options, (v, new_groups))
-            end
-        end
-        if length(output_options) == 0
+        if isempty(groups)
             error("Groups are empty")
-        elseif length(output_options) == 1
-            r = first(output_options)
-            result = [SkipArg(), r[1], r[2]]
-        else
-            hashed_options = Dict(rand(UInt64) => option for option in output_options)
-            result = Any[SkipArg()]
-            for i in 1:2
-                push!(result, EitherOptions(Dict(h => option[i] for (h, option) in hashed_options)))
-            end
         end
+        (k, values) = first(groups)
+        v = first(values)
+
+        new_groups = copy(groups)
+        delete!(new_groups, (k, values))
+        new_values = copy(values)
+        delete!(new_values, v)
+        if !isempty(new_values)
+            push!(new_groups, (k, new_values))
+        end
+
         return groups,
         ReverseRunContext(
             context.arguments,
-            vcat(context.predicted_arguments, reverse(result)),
+            vcat(context.predicted_arguments, [new_groups, v, SkipArg()]),
             context.calculated_arguments,
             context.filled_indices,
             context.filled_vars,
