@@ -7,6 +7,7 @@ using solver: load_problems, enumerate_for_task
     sample_payload = Dict{String,Any}(
         "DSL" => Dict{String,Any}(
             "logVariable" => 0.0,
+            "logLambda" => -3.0,
             "productions" => Any[
                 Dict{String,Any}(
                     "logProbability" => 0.0,
@@ -891,6 +892,7 @@ using solver: load_problems, enumerate_for_task
     payload12 = Dict{String,Any}(
         "DSL" => Dict{String,Any}(
             "logVariable" => -0.03174869831458027,
+            "logLambda" => -3.0,
             "productions" => Any[
                 Dict{String,Any}(
                     "logProbability" => -1.4821678103968758,
@@ -1096,6 +1098,7 @@ using solver: load_problems, enumerate_for_task
     payload13 = Dict{String,Any}(
         "DSL" => Dict{String,Any}(
             "logVariable" => 0.0,
+            "logLambda" => -3.0,
             "productions" => Any[
                 Dict{String,Any}(
                     "logProbability" => 0.0,
@@ -1304,6 +1307,7 @@ using solver: load_problems, enumerate_for_task
     payload14 = Dict{String,Any}(
         "DSL" => Dict{String,Any}(
             "logVariable" => -0.16180989146232605,
+            "logLambda" => -3.0,
             "productions" => Any[
                 Dict{String,Any}(
                     "logProbability" => -0.17757169902324677,

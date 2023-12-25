@@ -1,6 +1,7 @@
 
 struct Grammar
     log_variable::Float64
+    log_lambda::Float64
     library::Vector{Tuple{Program,Tp,Float64}}
     continuation_type::Union{Tp,Nothing}
 end
@@ -13,6 +14,7 @@ end
 
 function deserialize_grammar(payload)
     log_variable = payload["logVariable"]
+    log_lambda = payload["logLambda"]
 
     productions = map(payload["productions"]) do p
         source = p["expression"]
@@ -41,7 +43,7 @@ function deserialize_grammar(payload)
     end
 
     #  Successfully parsed the grammar
-    Grammar(log_variable, productions, continuation_type)
+    Grammar(log_variable, log_lambda, productions, continuation_type)
 end
 
 function make_dummy_contextual(g::Grammar)
@@ -71,7 +73,7 @@ function _prune(expression, gs)
                 end
             end
         end
-        Grammar(g.log_variable, filtered_library, g.continuation_type)
+        Grammar(g.log_variable, g.log_lambda, filtered_library, g.continuation_type)
     end
 end
 
@@ -139,53 +141,66 @@ function unifying_expressions(
     candidates_filter = current_hole.candidates_filter
     checker_function = candidates_filter.checker_function
 
-    variable_candidates = collect(skipmissing(map(enumerate(environment)) do (j, t)
-        if (j - 1) > candidates_filter.max_index
-            return missing
-        end
-        p = Index(j - 1)
-        if !isnothing(checker_function) && !checker_function(p, skeleton, path)
-            return missing
-        end
-        ll = g.log_variable
-        (new_context, t) = apply_context(context, t)
-        return_type = return_of_type(t)
-        if might_unify(return_type, request)
-            try
-                new_context = unify(new_context, return_type, request)
-                (new_context, t) = apply_context(new_context, t)
-                return (p, arguments_of_type(t), new_context, ll)
-            catch e
-                if isa(e, UnificationFailure)
-                    return missing
-                else
-                    rethrow()
-                end
+    if length(path) >= 2 && isa(path[end], ArgTurn) && isa(path[end-1], LeftTurn)
+        in_lambda_wrapper = true
+    else
+        in_lambda_wrapper = false
+    end
+
+    if in_lambda_wrapper
+        variable_candidates = []
+    else
+        variable_candidates = collect(skipmissing(map(enumerate(environment)) do (j, t)
+            if (j - 1) > candidates_filter.max_index
+                return missing
             end
-        else
-            return missing
-        end
-    end))
+            p = Index(j - 1)
+            if !isnothing(checker_function) && !checker_function(p, skeleton, path)
+                return missing
+            end
+            ll = g.log_variable
+            (new_context, t) = apply_context(context, t)
+            return_type = return_of_type(t)
+            if might_unify(return_type, request)
+                try
+                    new_context = unify(new_context, return_type, request)
+                    (new_context, t) = apply_context(new_context, t)
+                    return (p, arguments_of_type(t), new_context, ll)
+                catch e
+                    if isa(e, UnificationFailure)
+                        return missing
+                    else
+                        rethrow()
+                    end
+                end
+            else
+                return missing
+            end
+        end))
 
-    # if !isnothing(g.continuation_type) && !isempty(variable_candidates)
-    #     terminal_indices = [get_index_value(p) for (p, t, _, _) in variable_candidates if isempty(t)]
-    #     if !isempty(terminal_indices)
-    #         smallest_terminal_index = minimum(terminal_indices)
-    #         filter!(
-    #             ((p, t, _, _) -> !is_index(p) || !isempty(t) || get_index_value(p) == smallest_terminal_index),
-    #             variable_candidates,
-    #         )
-    #     end
-    # end
+        # if !isnothing(g.continuation_type) && !isempty(variable_candidates)
+        #     terminal_indices = [get_index_value(p) for (p, t, _, _) in variable_candidates if isempty(t)]
+        #     if !isempty(terminal_indices)
+        #         smallest_terminal_index = minimum(terminal_indices)
+        #         filter!(
+        #             ((p, t, _, _) -> !is_index(p) || !isempty(t) || get_index_value(p) == smallest_terminal_index),
+        #             variable_candidates,
+        #         )
+        #     end
+        # end
 
-    nv = log(length(variable_candidates))
-    variable_candidates =
-        Tuple{Program,Vector{Tp},Context,Float64}[(p, t, k, ll - nv) for (p, t, k, ll) in variable_candidates]
+        nv = log(length(variable_candidates))
+        variable_candidates =
+            Tuple{Program,Vector{Tp},Context,Float64}[(p, t, k, ll - nv) for (p, t, k, ll) in variable_candidates]
+    end
 
     grammar_candidates = collect(
         Tuple{Program,Vector{Tp},Context,Float64},
         skipmissing(map(g.library) do (p, t, ll)
             try
+                if in_lambda_wrapper && p != every_primitive["rev_fix_param"]
+                    return missing
+                end
                 if candidates_filter.should_be_reversible && !is_reversible(p)
                     return missing
                 end
@@ -211,7 +226,32 @@ function unifying_expressions(
         end),
     )
 
-    candidates = vcat(variable_candidates, grammar_candidates)
+    if !isempty(grammar_candidates)
+        lambda_context, arg_type = instantiate(t0, context)
+        lambda_context, lambda_type = apply_context(lambda_context, request)
+        lambda_candidates = [(
+            Abstraction(
+                Hole(
+                    lambda_type,
+                    g,
+                    CustomArgChecker(
+                        candidates_filter.should_be_reversible,
+                        candidates_filter.max_index + 1,
+                        candidates_filter.can_have_free_vars,
+                        candidates_filter.checker_function,
+                    ),
+                    nothing,
+                ),
+            ),
+            [arg_type],
+            lambda_context,
+            g.log_lambda,
+        )]
+    else
+        lambda_candidates = []
+    end
+
+    candidates = vcat(variable_candidates, grammar_candidates, lambda_candidates)
     if !isempty(candidates)
         z = lse([ll for (_, _, _, ll) in candidates])
         candidates = Tuple{Program,Vector{Tp},Context,Float64}[(p, t, k, z - ll) for (p, t, k, ll) in candidates]

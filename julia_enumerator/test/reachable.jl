@@ -38,6 +38,7 @@ using DataStructures
     sample_payload = Dict{String,Any}(
         "DSL" => Dict{String,Any}(
             "logVariable" => 3.0,
+            "logLambda" => 0.0,
             "productions" => Any[
                 Dict{String,Any}(
                     "logProbability" => 0.0,
@@ -476,6 +477,7 @@ using DataStructures
     sample_payload2 = Dict{String,Any}(
         "DSL" => Dict{String,Any}(
             "logVariable" => 0.0,
+            "logLambda" => 0.0,
             "productions" => Any[
                 Dict{String,Any}(
                     "logProbability" => 0.0,
@@ -774,7 +776,7 @@ using DataStructures
         return haskey(vars_mapping, bl.input_vars[1])
     end
 
-    function is_on_path(bp::BlockPrototype, bl::ProgramBlock, vars_mapping, verbose = false)
+    function is_var_on_path(bp::BlockPrototype, bl::ProgramBlock, vars_mapping, verbose = false)
         if !isa(bp.state.skeleton, FreeVar)
             return false
         end
@@ -797,11 +799,28 @@ using DataStructures
         end
     end
 
-    is_on_path(prot::Hole, p) = true
-    is_on_path(prot::Apply, p::Apply) = is_on_path(prot.f, p.f) && is_on_path(prot.x, p.x)
-    is_on_path(prot::Abstraction, p::Abstraction) = is_on_path(prot.b, p.b)
-    is_on_path(prot, p) = prot == p
-    is_on_path(prot::FreeVar, p::FreeVar) = true
+    is_on_path(prot::Hole, p, vars_mapping) = true
+    is_on_path(prot::Apply, p::Apply, vars_mapping) =
+        is_on_path(prot.f, p.f, vars_mapping) && is_on_path(prot.x, p.x, vars_mapping)
+    is_on_path(prot::Abstraction, p::Abstraction, vars_mapping) = is_on_path(prot.b, p.b, vars_mapping)
+    is_on_path(prot, p, vars_mapping) = prot == p
+    function is_on_path(prot::FreeVar, p::FreeVar, vars_mapping)
+        if !haskey(vars_mapping, p.var_id)
+            if isnothing(prot.var_id)
+                vars_mapping[p.var_id] = "r$(length(vars_mapping) + 1)"
+            else
+                return false
+            end
+        else
+            if isnothing(prot.var_id)
+                return false
+            end
+            if vars_mapping[p.var_id] != prot.var_id
+                return false
+            end
+        end
+        true
+    end
 
     function _get_entries(sc, vars_mapping, branches)
         result = Dict()
@@ -865,8 +884,8 @@ using DataStructures
             if verbose
                 @info bp
             end
-            if (!isa(bp.state.skeleton, FreeVar) && is_on_path(bp.state.skeleton, bl.p)) ||
-               is_on_path(bp, bl, vars_mapping, verbose)
+            if (!isa(bp.state.skeleton, FreeVar) && is_on_path(bp.state.skeleton, bl.p, Dict())) ||
+               is_var_on_path(bp, bl, vars_mapping, verbose)
                 if verbose
                     @info "on path"
                 end
@@ -1015,13 +1034,13 @@ using DataStructures
             if verbose
                 @info bp
             end
-            if is_on_path(bp.state.skeleton, bl.p) ||
-               (wrapped_func !== nothing && is_on_path(bp.state.skeleton, wrapped_func))
+            if is_on_path(bp.state.skeleton, bl.p, Dict()) ||
+               (wrapped_func !== nothing && is_on_path(bp.state.skeleton, wrapped_func, Dict()))
                 if verbose
                     @info "on path"
                 end
                 enumeration_iteration(run_context, sc, finalizer, mfp, g, q, bp, in_branch_id, is_explained)
-                if !(wrapped_func !== nothing && is_on_path(bp.state.skeleton, wrapped_func)) &&
+                if !(wrapped_func !== nothing && is_on_path(bp.state.skeleton, wrapped_func, Dict())) &&
                    (is_reversible(bp.state.skeleton) || state_finished(bp.state))
                     if verbose
                         @info "found end"
@@ -2496,6 +2515,117 @@ using DataStructures
             ),
         )
         target_solution = "let \$v2, \$v1 = rev(\$inp0 = (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$v2)) (+ (tuple2_second \$0) (tuple2_second \$v2)))) \$v1) \$v2 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int))))) in (tuple2 \$v2 \$v1)"
+        check_reachable(payload, target_solution)
+    end
+
+    @testset "Single object coordinates extraction 2" begin
+        payload = create_task(
+            Dict{String,Any}(
+                "name" => "Single object coordinates extraction",
+                "maximumFrontier" => 10,
+                "examples" => Any[Dict{String,Any}(
+                    "output" => Set([(19, 10), (18, 9), (19, 11), (17, 9), (18, 10), (18, 11), (17, 10)]),
+                    "inputs" => Dict{String,Any}(
+                        "inp0" => ((17, 9), Set([(2, 1), (1, 0), (2, 2), (0, 0), (1, 1), (1, 2), (0, 1)])),
+                    ),
+                ),],
+                "test_examples" => Any[],
+                "request" => Dict{String,Any}(
+                    "arguments" => Dict{String,Any}(
+                        "inp0" => Dict{String,Any}(
+                            "arguments" => Any[
+                                Dict{String,Any}(
+                                    "arguments" => Any[
+                                        Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                        Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                    ],
+                                    "constructor" => "tuple2",
+                                ),
+                                Dict{String,Any}(
+                                    "arguments" => Any[Dict{String,Any}(
+                                        "arguments" => Any[
+                                            Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                            Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                        ],
+                                        "constructor" => "tuple2",
+                                    ),],
+                                    "constructor" => "set",
+                                ),
+                            ],
+                            "constructor" => "tuple2",
+                        ),
+                    ),
+                    "output" => Dict{String,Any}(
+                        "arguments" => Any[Dict{String,Any}(
+                            "arguments" => Any[
+                                Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                            ],
+                            "constructor" => "tuple2",
+                        ),],
+                        "constructor" => "set",
+                    ),
+                    "constructor" => "->",
+                ),
+            ),
+        )
+
+        target_solution = "((lambda ((lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$1)) (+ (tuple2_second \$0) (tuple2_second \$1)))) \$1) \$0 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int))))) (tuple2_first \$inp0))) (tuple2_second \$inp0))"
+        check_reachable(payload, target_solution)
+    end
+
+    @testset "Single object coordinates extraction reverse 2" begin
+        payload = create_task(
+            Dict{String,Any}(
+                "name" => "Single object coordinates extraction",
+                "maximumFrontier" => 10,
+                "examples" => Any[Dict{String,Any}(
+                    "output" => ((17, 9), Set([(2, 1), (1, 0), (2, 2), (0, 0), (1, 1), (1, 2), (0, 1)])),
+                    "inputs" => Dict{String,Any}(
+                        "inp0" => Set([(19, 10), (18, 9), (19, 11), (17, 9), (18, 10), (18, 11), (17, 10)]),
+                    ),
+                ),],
+                "test_examples" => Any[],
+                "request" => Dict{String,Any}(
+                    "arguments" => Dict{String,Any}(
+                        "inp0" => Dict{String,Any}(
+                            "arguments" => Any[Dict{String,Any}(
+                                "arguments" => Any[
+                                    Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                    Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                ],
+                                "constructor" => "tuple2",
+                            ),],
+                            "constructor" => "set",
+                        ),
+                    ),
+                    "output" => Dict{String,Any}(
+                        "arguments" => Any[
+                            Dict{String,Any}(
+                                "arguments" => Any[
+                                    Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                    Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                ],
+                                "constructor" => "tuple2",
+                            ),
+                            Dict{String,Any}(
+                                "arguments" => Any[Dict{String,Any}(
+                                    "arguments" => Any[
+                                        Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                        Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                    ],
+                                    "constructor" => "tuple2",
+                                ),],
+                                "constructor" => "set",
+                            ),
+                        ],
+                        "constructor" => "tuple2",
+                    ),
+                    "constructor" => "->",
+                ),
+            ),
+        )
+        target_solution = "let \$v1 = rev(\$inp0 = ((lambda ((lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$1)) (+ (tuple2_second \$0) (tuple2_second \$1)))) \$1) \$0 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int))))) (tuple2_first \$v1))) (tuple2_second \$v1))) in \$v1"
         check_reachable(payload, target_solution)
     end
 end

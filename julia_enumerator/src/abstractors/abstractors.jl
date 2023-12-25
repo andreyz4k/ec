@@ -192,7 +192,7 @@ end
 _is_reversible(p::Invented, environment, args) = _is_reversible(p.b, environment, args)
 
 function _is_reversible(p::Abstraction, environment, args)
-    environment = Dict(i + 1 => c for (i, c) in environment)
+    environment = Dict{Int64,Any}(i + 1 => c for (i, c) in environment)
     if !isempty(args)
         environment[0] = args[end]
     end

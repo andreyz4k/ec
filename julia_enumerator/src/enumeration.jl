@@ -214,30 +214,40 @@ function block_state_successors(
         candidates = unifying_expressions(environment, context, current_hole, state.skeleton, state.path)
 
         states = map(candidates) do (candidate, argument_types, context, ll)
-            new_free_parameters = number_of_free_parameters(candidate)
-            argument_requests = get_argument_requests(candidate, argument_types, cg)
-
-            if isempty(argument_types)
-                new_skeleton = modify_skeleton(state.skeleton, candidate, state.path)
-                new_path = unwind_path(state.path, new_skeleton)
-            else
-                application_template = candidate
-                custom_arg_checkers = _get_custom_arg_checkers(candidate)
-                custom_checkers_args_count = length(custom_arg_checkers)
-                for i in 1:length(argument_types)
-                    if i > custom_checkers_args_count
-                        arg_checker = current_hole.candidates_filter
-                    else
-                        arg_checker = combine_arg_checkers(current_hole.candidates_filter, custom_arg_checkers[i])
-                    end
-
-                    application_template = Apply(
-                        application_template,
-                        Hole(argument_types[i], argument_requests[i], arg_checker, nothing),
-                    )
-                end
+            if isa(candidate, Abstraction)
+                new_free_parameters = 0
+                application_template = Apply(
+                    candidate,
+                    Hole(argument_types[1], cg.no_context, current_hole.candidates_filter, nothing),
+                )
                 new_skeleton = modify_skeleton(state.skeleton, application_template, state.path)
-                new_path = vcat(state.path, [LeftTurn() for _ in 2:length(argument_types)], [RightTurn()])
+                new_path = vcat(state.path, [LeftTurn(), ArgTurn(argument_types[1])])
+            else
+                new_free_parameters = number_of_free_parameters(candidate)
+                argument_requests = get_argument_requests(candidate, argument_types, cg)
+
+                if isempty(argument_types)
+                    new_skeleton = modify_skeleton(state.skeleton, candidate, state.path)
+                    new_path = unwind_path(state.path, new_skeleton)
+                else
+                    application_template = candidate
+                    custom_arg_checkers = _get_custom_arg_checkers(candidate)
+                    custom_checkers_args_count = length(custom_arg_checkers)
+                    for i in 1:length(argument_types)
+                        if i > custom_checkers_args_count
+                            arg_checker = current_hole.candidates_filter
+                        else
+                            arg_checker = combine_arg_checkers(current_hole.candidates_filter, custom_arg_checkers[i])
+                        end
+
+                        application_template = Apply(
+                            application_template,
+                            Hole(argument_types[i], argument_requests[i], arg_checker, nothing),
+                        )
+                    end
+                    new_skeleton = modify_skeleton(state.skeleton, application_template, state.path)
+                    new_path = vcat(state.path, [LeftTurn() for _ in 2:length(argument_types)], [RightTurn()])
+                end
             end
             return EnumerationState(
                 new_skeleton,

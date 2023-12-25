@@ -2920,24 +2920,13 @@ using DataStructures: OrderedDict, Accumulator
 
         p, _ = capture_free_vars(skeleton)
 
-        @test compare_options(
+        @test in(
             run_in_reverse(p, Set([(1, Set([[1, 2, 3], [1, 4, 2]])), (2, Set([[2]]))])),
-            Dict(
-                UInt64(1) => EitherOptions(
-                    Dict{UInt64,Any}(
-                        0x1c6ee62fbac1d45a => [2],
-                        0x61176613c407e226 => [1, 4, 2],
-                        0x52c032b6da5f6ae8 => [1, 2, 3],
-                    ),
-                ),
-                UInt64(2) => EitherOptions(
-                    Dict{UInt64,Any}(
-                        0x1c6ee62fbac1d45a => Set([(1, Set([[1, 2, 3], [1, 4, 2]]))]),
-                        0x61176613c407e226 => Set([(2, Set([[2]])), (1, Set([[1, 2, 3]]))]),
-                        0x52c032b6da5f6ae8 => Set([(1, Set([[1, 4, 2]])), (2, Set([[2]]))]),
-                    ),
-                ),
-            ),
+            [
+                Dict(UInt64(1) => [2], UInt64(2) => Set([(1, Set([[1, 2, 3], [1, 4, 2]]))])),
+                Dict(UInt64(1) => [1, 4, 2], UInt64(2) => Set([(2, Set([[2]])), (1, Set([[1, 2, 3]]))])),
+                Dict(UInt64(1) => [1, 2, 3], UInt64(2) => Set([(1, Set([[1, 4, 2]])), (2, Set([[2]]))])),
+            ],
         )
 
         @test run_with_arguments(

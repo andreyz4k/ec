@@ -22,8 +22,9 @@ class NoCandidates(Exception):
 
 
 class Grammar(object):
-    def __init__(self, logVariable, productions, continuationType=None):
+    def __init__(self, logVariable, productions, logLambda=0.0, continuationType=None):
         self.logVariable = logVariable
+        self.logLambda = logLambda
         self.productions = productions
 
         self.continuationType = continuationType
@@ -35,6 +36,7 @@ class Grammar(object):
         """returns a new grammar with random weights drawn from r. calls `r` w/ old weight"""
         return Grammar(
             logVariable=r(self.logVariable),
+            logLambda=r(self.logLambda),
             productions=[(r(l), t, p) for l, t, p in self.productions],
             continuationType=self.continuationType,
         )
@@ -42,6 +44,7 @@ class Grammar(object):
     def strip_primitive_values(self):
         return Grammar(
             logVariable=self.logVariable,
+            logLambda=self.logLambda,
             productions=[
                 (l, t, strip_primitive_values(p)) for l, t, p in self.productions
             ],
@@ -51,6 +54,7 @@ class Grammar(object):
     def unstrip_primitive_values(self):
         return Grammar(
             logVariable=self.logVariable,
+            logLambda=self.logLambda,
             productions=[
                 (l, t, unstrip_primitive_values(p)) for l, t, p in self.productions
             ],
@@ -76,15 +80,19 @@ class Grammar(object):
         self.__init__(
             state["logVariable"],
             state["productions"],
+            logLambda=state.get("logLambda", 0.0),
             continuationType=continuationType,
         )
 
     @staticmethod
-    def fromProductions(productions, logVariable=0.0, continuationType=None):
+    def fromProductions(
+        productions, logVariable=0.0, logLambda=0.0, continuationType=None
+    ):
         """Make a grammar from primitives and their relative logpriors."""
         return Grammar(
             logVariable,
             [(l, p.infer(), p) for l, p in productions],
+            logLambda=logLambda,
             continuationType=continuationType,
         )
 
@@ -93,6 +101,7 @@ class Grammar(object):
         return Grammar(
             0.0,
             [(0.0, p.infer(), p) for p in primitives],
+            logLambda=0.0,
             continuationType=continuationType,
         )
 
@@ -126,6 +135,7 @@ class Grammar(object):
     def json(self):
         j = {
             "logVariable": self.logVariable,
+            "logLambda": self.logLambda,
             "productions": [
                 {
                     "expression": str(p),
@@ -141,7 +151,7 @@ class Grammar(object):
         return j
 
     def _immutable_code(self):
-        return self.logVariable, tuple(self.productions)
+        return self.logVariable, self.logLambda, tuple(self.productions)
 
     def __eq__(self, o):
         return self._immutable_code() == o._immutable_code()
@@ -160,6 +170,7 @@ class Grammar(object):
         return Grammar(
             self.logVariable,
             [(l, t, p) for (l, t, p) in self.productions if p not in ps],
+            logLambda=self.logLambda,
             continuationType=self.continuationType,
         )
 

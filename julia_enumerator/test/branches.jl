@@ -129,6 +129,7 @@ end
     base_task = Dict(
         "DSL" => Dict{String,Any}(
             "logVariable" => 0.0,
+            "logLambda" => 0.0,
             "productions" => Any[
                 Dict{String,Any}("logProbability" => 0.0, "expression" => "map", "is_reversible" => true),
                 Dict{String,Any}("logProbability" => 0.0, "expression" => "unfold", "is_reversible" => false),
@@ -361,7 +362,7 @@ end
         @test sc.branch_is_unknown[out_branch_id] == true
         @test sc.branch_is_explained[out_branch_id] == true
         @test sc.branch_is_not_copy[out_branch_id] == true
-        @test sc.explained_min_path_costs[out_branch_id] == 2.4859066497880002
+        @test sc.explained_min_path_costs[out_branch_id] == 2.5659493574615366
         @test sc.unknown_min_path_costs[out_branch_id] == 0.0
         @test sc.explained_complexity_factors[out_branch_id] == 13.0
         @test sc.unknown_complexity_factors[out_branch_id] == 13.0
@@ -448,7 +449,7 @@ end
         @test sc.branch_outgoing_blocks[v1_branch_id, first_block_copy_id] == first_block_id
         @test sc.branch_is_unknown[v1_branch_id] == true
         @test sc.branch_is_explained[v1_branch_id] == false
-        @test sc.unknown_min_path_costs[v1_branch_id] == 2.4849066497880004
+        @test sc.unknown_min_path_costs[v1_branch_id] == 2.5649493574615367
         @test sc.unknown_complexity_factors[v1_branch_id] == 20.0
         @test sc.complexities[v1_branch_id] == 10.0
         @test sc.unmatched_complexities[v1_branch_id] == 10.0
@@ -470,7 +471,7 @@ end
         @test sc.branch_outgoing_blocks[v2_branch_id, first_block_copy_id] == first_block_id
         @test sc.branch_is_unknown[v2_branch_id] == true
         @test sc.branch_is_explained[v2_branch_id] == false
-        @test sc.unknown_min_path_costs[v2_branch_id] == 2.4849066497880004
+        @test sc.unknown_min_path_costs[v2_branch_id] == 2.5649493574615367
         @test sc.unknown_complexity_factors[v2_branch_id] == 20.0
         @test sc.complexities[v2_branch_id] == 10.0
         @test sc.unmatched_complexities[v2_branch_id] == 10.0
@@ -537,7 +538,7 @@ end
         @test sc.branch_is_unknown[v1_child_id] == true
         @test sc.branch_is_explained[v1_child_id] == false
         @test sc.branch_is_not_copy[v1_child_id] == false
-        @test sc.unknown_min_path_costs[v1_child_id] == 2.4849066497880004
+        @test sc.unknown_min_path_costs[v1_child_id] == 2.5649493574615367
         @test sc.unknown_complexity_factors[v1_child_id] == 6.0
         @test sc.complexities[v1_child_id] == 6.0
         @test sc.unmatched_complexities[v1_child_id] == 6.0
@@ -590,7 +591,7 @@ end
         @test sc.branch_is_unknown[v1_child_id] == true
         @test sc.branch_is_explained[v1_child_id] == true
         @test sc.branch_is_not_copy[v1_child_id] == true
-        @test sc.unknown_min_path_costs[v1_child_id] == 2.4849066497880004
+        @test sc.unknown_min_path_costs[v1_child_id] == 2.5649493574615367
         @test sc.explained_min_path_costs[v1_child_id] === nothing
         @test sc.unknown_complexity_factors[v1_child_id] == 6.0
         @test sc.explained_complexity_factors[v1_child_id] == 16.0
@@ -620,7 +621,7 @@ end
         @test sc.branch_is_unknown[out_branch_id] == true
         @test sc.branch_is_explained[out_branch_id] == true
         @test sc.branch_is_not_copy[out_branch_id] == true
-        @test sc.explained_min_path_costs[out_branch_id] == 2.4849066497880004
+        @test sc.explained_min_path_costs[out_branch_id] == 2.5649493574615367
         @test sc.explained_complexity_factors[out_branch_id] == 29.0
         @test sc.complexities[out_branch_id] == 19.0
         @test sc.added_upstream_complexities[out_branch_id] == 10.0
