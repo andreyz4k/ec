@@ -2192,4 +2192,61 @@ using DataStructures
         target_solution = "let \$v1 = rev(\$inp0 = (map_set (lambda (tuple2 ((lambda ((lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$1)) (+ (tuple2_second \$0) (tuple2_second \$1)))) \$1) \$0 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int))))) (tuple2_first (tuple2_first \$1)))) (tuple2_second (tuple2_first \$0))) (tuple2_second \$0))) \$v1)) in \$v1"
         check_reachable(payload, target_solution)
     end
+
+    @testset "Select similar shape objects" begin
+        payload = create_task(
+            Dict{String,Any}(
+                "name" => "Select similar shape objects",
+                "maximumFrontier" => 10,
+                "examples" => Any[Dict{String,Any}(
+                    "output" => Set([
+                        (((17, 9), Set([(2, 1), (1, 0), (2, 2), (0, 0), (1, 1), (1, 2), (0, 1)])), 9),
+                        (((3, 3), Set([(2, 2), (0, 0), (2, 0), (0, 1), (2, 1), (1, 1), (0, 2)])), 7),
+                        (((9, 11), Set([(2, 2), (0, 2), (2, 0), (0, 0), (2, 1), (1, 1), (0, 1)])), 2),
+                    ]),
+                    "inputs" => Dict{String,Any}(
+                        "inp0" => (
+                            Set([
+                                (((9, 11), Set([(0, 0), (0, 2), (2, 0), (1, 1), (0, 1), (2, 2), (2, 1)])), 2),
+                                (((3, 3), Set([(0, 0), (2, 0), (1, 1), (0, 1), (0, 2), (2, 2), (2, 1)])), 7),
+                            ]),
+                            Set([(((17, 9), Set([(0, 0), (1, 2), (1, 1), (0, 1), (2, 2), (2, 1), (1, 0)])), 9)]),
+                        ),
+                    ),
+                )],
+                "test_examples" => Any[],
+                "request" => "inp0:tuple2(set(tuple2(tuple2(tuple2(int, int), set(tuple2(int, int))), color)), set(tuple2(tuple2(tuple2(int, int), set(tuple2(int, int))), color))) -> set(tuple2(tuple2(tuple2(int, int), set(tuple2(int, int))), color))",
+            ),
+        )
+
+        target_solution = "let \$v1, \$v2 = rev(\$inp0 = (tuple2 \$v1 \$v2)) in let \$v3::set(tuple2(int, int)) = Const(set(tuple2(int, int)), Set([(0, 0), (0, 2), (2, 0), (1, 1), (0, 1), (2, 2), (2, 1)])) in (rev_select_set (lambda (eq? (tuple2_second (tuple2_first \$0)) \$v3)) \$v1 \$v2)"
+        check_reachable(payload, target_solution)
+    end
+
+    @testset "Select similar shape objects reverse" begin
+        payload = create_task(
+            Dict{String,Any}(
+                "name" => "Select similar shape objects",
+                "maximumFrontier" => 10,
+                "examples" => Any[Dict{String,Any}(
+                    "output" => Set([
+                        (((9, 11), Set([(0, 0), (0, 2), (2, 0), (1, 1), (0, 1), (2, 2), (2, 1)])), 2),
+                        (((3, 3), Set([(0, 0), (2, 0), (1, 1), (0, 1), (0, 2), (2, 2), (2, 1)])), 7),
+                    ]),
+                    "inputs" => Dict{String,Any}(
+                        "inp0" => Set([
+                            (((17, 9), Set([(2, 1), (1, 0), (2, 2), (0, 0), (1, 1), (1, 2), (0, 1)])), 9),
+                            (((3, 3), Set([(2, 2), (0, 0), (2, 0), (0, 1), (2, 1), (1, 1), (0, 2)])), 7),
+                            (((9, 11), Set([(2, 2), (0, 2), (2, 0), (0, 0), (2, 1), (1, 1), (0, 1)])), 2),
+                        ]),
+                    ),
+                )],
+                "test_examples" => Any[],
+                "request" => "inp0:set(tuple2(tuple2(tuple2(int, int), set(tuple2(int, int))), color)) -> set(tuple2(tuple2(tuple2(int, int), set(tuple2(int, int))), color))",
+            ),
+        )
+
+        target_solution = "let \$v1, \$v2, \$v3 = rev(\$inp0 = (rev_fix_param (rev_select_set (lambda (eq? (tuple2_second (tuple2_first \$0)) \$v1)) \$v2 \$v3) \$v1 (lambda Const(set(tuple2(int, int)), Set([(0, 0), (0, 2), (2, 0), (1, 1), (0, 1), (2, 2), (2, 1)]))))) in \$v2"
+        check_reachable(payload, target_solution)
+    end
 end

@@ -606,4 +606,52 @@ using solver:
             ]),
         )
     end
+
+    @testset "Select similar shape objects" begin
+        objects = Set([
+            (((17, 9), Set([(2, 1), (1, 0), (2, 2), (0, 0), (1, 1), (1, 2), (0, 1)])), 9),
+            (((3, 3), Set([(2, 2), (0, 0), (2, 0), (0, 1), (2, 1), (1, 1), (0, 2)])), 7),
+            (((9, 11), Set([(2, 2), (0, 2), (2, 0), (0, 0), (2, 1), (1, 1), (0, 1)])), 2),
+        ])
+        select_objects = parse_program(
+            "(rev_select_set (lambda (eq? (tuple2_second (tuple2_first \$0)) ??(set(tuple2(int, int))))) ??(set(tuple2(tuple2(tuple2(int, int), set(tuple2(int, int))), color))) ??(set(tuple2(tuple2(tuple2(int, int), set(tuple2(int, int))), color))))",
+        )
+        @test is_reversible(select_objects)
+        select_objects, _ = capture_free_vars(select_objects)
+        @test compare_options(
+            run_in_reverse(select_objects, objects),
+            Dict(
+                0x0000000000000001 => EitherOptions(
+                    Dict{UInt64,Any}(
+                        0x414a5726bfff0864 => Set([(0, 0), (1, 2), (1, 1), (0, 1), (2, 2), (2, 1), (1, 0)]),
+                        0xe03e2a628b9e5b77 => Set([(0, 0), (0, 2), (2, 0), (1, 1), (0, 1), (2, 2), (2, 1)]),
+                    ),
+                ),
+                0x0000000000000002 => EitherOptions(
+                    Dict{UInt64,Any}(
+                        0x414a5726bfff0864 =>
+                            Set(Any[(((17, 9), Set([(0, 0), (1, 2), (1, 1), (0, 1), (2, 2), (2, 1), (1, 0)])), 9)]),
+                        0xe03e2a628b9e5b77 => Set(
+                            Any[
+                                (((9, 11), Set([(0, 0), (0, 2), (2, 0), (1, 1), (0, 1), (2, 2), (2, 1)])), 2),
+                                (((3, 3), Set([(0, 0), (2, 0), (1, 1), (0, 1), (0, 2), (2, 2), (2, 1)])), 7),
+                            ],
+                        ),
+                    ),
+                ),
+                0x0000000000000003 => EitherOptions(
+                    Dict{UInt64,Any}(
+                        0x414a5726bfff0864 => Set(
+                            Any[
+                                (((9, 11), Set([(0, 0), (0, 2), (2, 0), (1, 1), (0, 1), (2, 2), (2, 1)])), 2),
+                                (((3, 3), Set([(0, 0), (2, 0), (1, 1), (0, 1), (0, 2), (2, 2), (2, 1)])), 7),
+                            ],
+                        ),
+                        0xe03e2a628b9e5b77 =>
+                            Set(Any[(((17, 9), Set([(0, 0), (1, 2), (1, 1), (0, 1), (2, 2), (2, 1), (1, 0)])), 9)]),
+                    ),
+                ),
+            ),
+        )
+    end
 end

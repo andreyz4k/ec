@@ -333,12 +333,19 @@ parse_let_rev_clause =
     P"\) in " +
     _parse_program |> (v -> LetRevClause(v[1], v[2], v[3], v[4]))
 
+julia_type_def = Delayed()
+julia_type_def.matcher = parse_token | (parse_token + e"{" + (julia_type_def+e",")[0:end] + julia_type_def + e"}")
+
 parse_object = Delayed()
 parse_object.matcher =
     parse_token |
-    (parse_token + e"(" + (parse_object+e", ")[0:end] + parse_object + e")") |
-    (parse_token + e"[" + (parse_object+e", ")[0:end] + parse_object + e"]") |
-    (parse_token + e"[]") |> (vs -> eval(Meta.parse(join(vs, ""))))
+    (parse_token + Opt(e"{" + julia_type_def + e"}") + e"(" + (parse_object+e", ")[0:end] + parse_object + e")") |
+    (parse_token + Opt(e"{" + julia_type_def + e"}") + e"()") |
+    (e"[" + (parse_object+e", ")[0:end] + parse_object + e"]") |
+    (e"[]") |
+    (e"(" + (parse_object+e", ")[0:end] + parse_object + e")") |
+    (parse_token + Opt(e"{" + julia_type_def + e"}") + e"[" + (parse_object+e", ")[0:end] + parse_object + e"]") |
+    (parse_token + Opt(e"{" + julia_type_def + e"}") + e"[]") |> (vs -> eval(Meta.parse(join(vs, ""))))
 
 parse_const_clause = P"Const\(" + type_parser + P", " + parse_object + P"\)" |> (v -> SetConst(v[1], v[2]))
 
