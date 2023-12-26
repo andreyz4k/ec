@@ -191,6 +191,7 @@ class Grammar(object):
         mustBeLeaf=False,
         checker=CustomArgChecker(False, 100, True, None),
         path=[],
+        can_use_lambda_wrapper=True,
     ):
         """Primitives that are candidates for being used given a requested type
         If returnTable is false (default): returns [((log)likelihood, tp, primitive, context)]
@@ -230,7 +231,7 @@ class Grammar(object):
                 eprint("path:", path)
                 raise
 
-        if len(candidates) > 0:
+        if can_use_lambda_wrapper and len(candidates) > 0:
             lambda_context, arg_type = t0.instantiate(context)
             lambda_type = request.apply(lambda_context)
             candidates.append(
@@ -335,6 +336,7 @@ class Grammar(object):
             # leaf; a primitive with no
             # function arguments
             mustBeLeaf=maximumDepth <= 1,
+            can_use_lambda_wrapper=False,
         )
         # eprint("candidates:")
         # eprint(candidates)
