@@ -31,6 +31,7 @@ class Grammar(object):
 
         self.expression2likelihood = dict((p, l) for l, _, p in productions)
         self.expression2likelihood[Index(0)] = self.logVariable
+        self.expression2likelihood[Abstraction(Hole())] = self.logLambda
 
     def randomWeights(self, r):
         """returns a new grammar with random weights drawn from r. calls `r` w/ old weight"""
@@ -197,9 +198,18 @@ class Grammar(object):
         if returnProbabilities:
             assert normalize
 
+        if len(path) > 0 and path[-1][0].isAbstraction and path[-1][1] == -1:
+            in_lambda_wrapper = True
+        else:
+            in_lambda_wrapper = False
+
         candidates = []
         for l, t, p in self.productions:
             try:
+                if in_lambda_wrapper and (
+                    not p.isPrimitive or p.name != "rev_fix_param"
+                ):
+                    continue
                 if checker.should_be_reversible and not p.is_reversible:
                     continue
                 if (
@@ -220,35 +230,50 @@ class Grammar(object):
                 eprint("path:", path)
                 raise
 
+        if len(candidates) > 0:
+            lambda_context, arg_type = t0.instantiate(context)
+            lambda_type = request.apply(lambda_context)
+            candidates.append(
+                (
+                    self.logLambda,
+                    arrow(arg_type, lambda_type),
+                    Abstraction(Hole()),
+                    lambda_context,
+                )
+            )
+
         variableCandidates = []
-        for j, t in enumerate(environment):
-            try:
-                if j > checker.max_index:
-                    continue
-                p = Index(j)
-                if (
-                    checker.checker_funciton is not None
-                    and not checker.checker_funciton(p, path)
-                ):
-                    continue
-                newContext = context.unify(t.returns(), request)
-                t = t.apply(newContext)
-                if mustBeLeaf and t.isArrow():
+        if not in_lambda_wrapper:
+            for j, t in enumerate(environment):
+                try:
+                    if j > checker.max_index:
+                        continue
+                    p = Index(j)
+                    if (
+                        checker.checker_funciton is not None
+                        and not checker.checker_funciton(p, path)
+                    ):
+                        continue
+                    newContext = context.unify(t.returns(), request)
+                    t = t.apply(newContext)
+                    if mustBeLeaf and t.isArrow():
+                        continue
+
+                    variableCandidates.append((t, p, newContext))
+                except UnificationFailure:
                     continue
 
-                variableCandidates.append((t, p, newContext))
-            except UnificationFailure:
-                continue
-
-        if self.continuationType == request:
-            terminalIndices = [v.i for t, v, k in variableCandidates if not t.isArrow()]
-            if terminalIndices:
-                smallestIndex = Index(min(terminalIndices))
-                variableCandidates = [
-                    (t, v, k)
-                    for t, v, k in variableCandidates
-                    if t.isArrow() or v == smallestIndex
+            if self.continuationType == request:
+                terminalIndices = [
+                    v.i for t, v, k in variableCandidates if not t.isArrow()
                 ]
+                if terminalIndices:
+                    smallestIndex = Index(min(terminalIndices))
+                    variableCandidates = [
+                        (t, v, k)
+                        for t, v, k in variableCandidates
+                        if t.isArrow() or v == smallestIndex
+                    ]
 
         candidates += [
             (self.logVariable - log(len(variableCandidates)), t, p, k)
@@ -465,8 +490,12 @@ class Grammar(object):
             possibles += [Index(0)]
 
         f, xs = expression.applicationParse()
+        if f.isAbstraction and Abstraction(Hole()) in candidates:
+            is_lambda_wrapper = True
+        else:
+            is_lambda_wrapper = False
 
-        if f not in candidates:
+        if f not in candidates and not is_lambda_wrapper:
             if self.continuationType is not None and f.isIndex:
                 ls = LikelihoodSummary()
                 ls.constant = NEGATIVEINFINITY
@@ -487,7 +516,10 @@ class Grammar(object):
             f, possibles, constant=-math.log(numberOfVariables) if f.isIndex else 0
         )
 
-        _, tp, context = candidates[f]
+        if is_lambda_wrapper:
+            _, tp, context = candidates[Abstraction(Hole())]
+        else:
+            _, tp, context = candidates[f]
         argumentTypes = tp.functionArguments()
         if len(xs) != len(argumentTypes):
             eprint("PANIC: not enough arguments for the type")
@@ -499,8 +531,30 @@ class Grammar(object):
             # This should absolutely never occur
             raise GrammarFailure((context, environment, request, expression))
 
-        var_requests = {}
-        if not f.isIndex:
+        if is_lambda_wrapper:
+            context, var_requests, newSummary = self.likelihoodSummary(
+                context,
+                [tp.arguments[0]] + environment,
+                workspace,
+                tp.arguments[1],
+                f.body,
+                silent=silent,
+                checker=CustomArgChecker(
+                    checker.should_be_reversible,
+                    checker.max_index + 1,
+                    checker.can_have_free_vars,
+                    checker.checker_funciton,
+                ),
+                path=path + [(f, -1)],
+            )
+            if newSummary is None:
+                return context, {}, None
+            thisSummary.join(newSummary)
+
+        else:
+            var_requests = {}
+
+        if not f.isIndex and not is_lambda_wrapper:
             custom_checkers = f.get_custom_arg_checkers()
         else:
             custom_checkers = []
@@ -1156,6 +1210,9 @@ normalizers = {%s})""" % (
         # Variables are all normalized to be $0
         if isinstance(actual, Index):
             actual = Index(0)
+
+        if isinstance(actual, Abstraction):
+            actual = Abstraction(Hole())
 
         # Make it something that we can hash
         possibles = frozenset(sorted(possibles, key=hash))

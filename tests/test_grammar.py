@@ -1,6 +1,12 @@
 import pytest
 from dreamcoder.domains.list.listPrimitives import bootstrapTarget_extra, julia
-from dreamcoder.domains.arc.primitives import basePrimitives, tgrid, tcolor
+from dreamcoder.domains.arc.primitives import (
+    basePrimitives,
+    tgrid,
+    tcolor,
+    tset,
+    ttuple2,
+)
 from dreamcoder.grammar import Grammar
 from dreamcoder.program import Program
 from dreamcoder.task import NamedVarsTask, Task
@@ -60,7 +66,7 @@ def sample_programs():
                     "int": 43,
                 },
             },
-            -2.302585092994046,
+            -2.3978952727983707,
         ),
         (
             "let $v1::bool = (eq? $inp0 $inp0) in let $v2::list(int) = (cdr $inp0) in (if $v1 $v2 empty)",
@@ -81,7 +87,7 @@ def sample_programs():
                     "int": 43,
                 },
             },
-            -9.104979856318357,
+            -9.496270911389157,
         ),
         (
             "let $v1::bool = (eq? $inp0 $inp0) in let $v2, $v3 = rev($inp0 = (cons $v2 $v3)) in (if $v1 $v3 empty)",
@@ -105,7 +111,7 @@ def sample_programs():
                     "int": 43,
                 },
             },
-            -8.188689124444203,
+            -8.707813551024888,
         ),
         (
             "let $v1, $v2 = rev($inp0 = (cons $v1 $v2)) in $v2",
@@ -126,7 +132,7 @@ def sample_programs():
                     "int": 43,
                 },
             },
-            -1.3862943611198906,
+            -1.6094379124341003,
         ),
     ]
     return programs
@@ -152,79 +158,79 @@ def sample_wrapper_programs():
             "program": "let $v2, $v3 = rev($inp0 = (rev_fix_param (concat $v2 $v3) $v2 (lambda Const(list(int), Any[])))) in let $v4::list(int) = Const(list(int), Any[]) in let $v5::list(int) = Const(list(int), Any[1]) in let $v6::list(int) = (concat $v4 $v5) in (concat $v3 $v6)",
             "time": 14.128462791442871,
             "logLikelihood": 0.0,
-            "logPrior": -9.0217190130337,
+            "logPrior": -9.436997742590188,
         },
         {
             "program": "let $v1, $v2 = rev($inp0 = (rev_fix_param (concat $v1 $v2) $v2 (lambda $0))) in let $v3::list(int) = Const(list(int), Any[]) in let $v4::list(int) = Const(list(int), Any[1]) in let $v5::list(int) = (concat $v3 $v4) in (concat $v2 $v5)",
             "time": 14.270664930343628,
             "logLikelihood": 0.0,
-            "logPrior": -12.279815551055183,
+            "logPrior": -12.732834608594517,
         },
         {
             "program": "let $v2, $v3 = rev($inp0 = (rev_fix_param (concat $v2 $v3) $v3 (lambda Const(list(int), Any[])))) in let $v4::list(int) = Const(list(int), Any[]) in let $v5::list(int) = Const(list(int), Any[1]) in let $v6::list(int) = (concat $v4 $v5) in (concat $v2 $v6)",
             "time": 14.286531925201416,
             "logLikelihood": 0.0,
-            "logPrior": -9.0217190130337,
+            "logPrior": -9.436997742590188,
         },
         {
             "program": "let $v1, $v2 = rev($inp0 = (rev_fix_param (concat $v1 $v2) $v1 (lambda $0))) in let $v3::list(int) = Const(list(int), Any[]) in let $v4::list(int) = Const(list(int), Any[1]) in let $v5::list(int) = (concat $v3 $v4) in (concat $v1 $v5)",
             "time": 14.27908992767334,
             "logLikelihood": 0.0,
-            "logPrior": -12.279815551055183,
+            "logPrior": -12.732834608594517,
         },
         {
             "program": "let $v1::list(int) = Const(list(int), Any[]) in let $v2::list(int) = Const(list(int), Any[1]) in let $v3::list(int) = (concat $v1 $v2) in (concat $inp0 $v3)",
             "time": 13.979617834091187,
             "logLikelihood": 0.0,
-            "logPrior": -5.1298987149230735,
+            "logPrior": -5.278114659230517,
         },
         {
             "program": "let $v1, $v2 = rev($inp0 = (rev_fix_param (concat $v1 $v2) $v2 (lambda $0))) in let $v3::list(int) = Const(list(int), Any[1]) in (concat $v2 $v3)",
             "time": 13.207619905471802,
             "logLikelihood": 0.0,
-            "logPrior": -9.714866193593645,
+            "logPrior": -10.093777278979259,
         },
         {
             "program": "let $v2, $v3 = rev($inp0 = (rev_fix_param (concat $v2 $v3) $v2 (lambda Const(list(int), Any[])))) in let $v4::list(int) = Const(list(int), Any[1]) in (concat $v3 $v4)",
             "time": 12.554029941558838,
             "logLikelihood": 0.0,
-            "logPrior": -6.456769655572163,
+            "logPrior": -6.7979404129749295,
         },
         {
             "program": "let $v1, $v2 = rev($inp0 = (rev_fix_param (concat $v1 $v2) $v1 (lambda $0))) in let $v3::list(int) = Const(list(int), Any[1]) in (concat $v1 $v3)",
             "time": 13.738729000091553,
             "logLikelihood": 0.0,
-            "logPrior": -9.714866193593645,
+            "logPrior": -10.093777278979259,
         },
         {
             "program": "let $v2, $v3 = rev($inp0 = (rev_fix_param (concat $v2 $v3) $v3 (lambda Const(list(int), Any[])))) in let $v4::list(int) = Const(list(int), Any[1]) in (concat $v2 $v4)",
             "time": 13.747699975967407,
             "logLikelihood": 0.0,
-            "logPrior": -6.456769655572163,
+            "logPrior": -6.7979404129749295,
         },
         {
             "program": "let $v1::list(int) = Const(list(int), Any[1]) in (concat $inp0 $v1)",
             "time": 4.126955986022949,
             "logLikelihood": 0.0,
-            "logPrior": -2.5649493574615367,
+            "logPrior": -2.6390573296152584,
         },
         {
             "program": "let $v1, $v2 = rev($inp0 = (cons $v1 $v2)) in let $v3::list(int) = Const(list(int), Any[]) in let $v4, $v5 = rev($v3 = (concat $v4 $v5)) in let $v6::int = (+ $v1 (length $v4)) in let $v7::list(int) = (cdr $v2) in (cons $v6 $v7)",
             "time": 9.622529983520508,
             "logLikelihood": 0.0,
-            "logPrior": -13.9915323126097,
+            "logPrior": -14.566896457513263,
         },
         {
             "program": "let $v1, $v2 = rev($inp0 = (cons $v1 $v2)) in let $v3::int = (car $v2) in let $v5, $v6 = rev($v1 = (rev_fix_param (+ $v5 $v6) $v5 (lambda Const(int, 1)))) in let $v7::int = (- (length $inp0) $v5) in let $v8::int = Const(int, 1) in let $v9::int = (+ $v7 $v8) in (repeat $v3 $v9)",
             "time": 12.727571964263916,
             "logLikelihood": 0.0,
-            "logPrior": -17.223074827908633,
+            "logPrior": -18.19717212600944,
         },
         {
             "program": "let $v1::int = Const(int, -5) in let $v3, $v4 = rev($inp0 = (rev_fix_param (map (lambda (* $v3 $0)) $v4) $v3 (lambda Const(int, -1)))) in let $v5::int = (* $v1 $v3) in let $v8, $v9 = rev($inp0 = (rev_fix_param (concat $v8 $v9) $v9 (lambda (cdr $0)))) in let $v10::int = (- $v5 (length $v8)) in (cons $v10 $inp0)",
             "time": 1.8824760913848877,
             "logLikelihood": 0.0,
-            "logPrior": -26.91933959555173,
+            "logPrior": -28.239077574281865,
         },
     ]
     return programs
@@ -259,61 +265,61 @@ def sample_arc_programs():
             "program": "let $v1 = rev($inp0 = (rows_to_grid $v1)) in let $v2 = rev($v1 = (columns $v2)) in let $v3, $v4 = rev($v1 = (cons $v3 $v4)) in let $v5, $v6 = rev($v3 = (cons $v5 $v6)) in let $v9, $v10 = rev($v6 = (rev_fix_param (concat $v9 $v10) $v10 (lambda (cdr $0)))) in let $v11, $v12 = rev($v10 = (repeat $v11 $v12)) in (car (repeat $v2 $v12))",
             "time": 3.1087260246276855,
             "logLikelihood": 0.0,
-            "logPrior": -33.27307160896931,
+            "logPrior": -33.83386736378206,
         },
         {
             "program": "let $v1 = rev($inp0 = (rows_to_grid $v1)) in let $v2 = rev($v1 = (columns $v2)) in let $v3, $v4 = rev($v1 = (cons $v3 $v4)) in let $v5, $v6 = rev($v3 = (cons $v5 $v6)) in let $v7::list(color) = (cdr $v6) in let $v8, $v9 = rev($v7 = (repeat $v8 $v9)) in (car (repeat $v2 $v9))",
             "time": 3.1089580059051514,
             "logLikelihood": 0.0,
-            "logPrior": -23.168907679168985,
+            "logPrior": -23.608122414154465,
         },
         {
             "program": "let $v1 = rev($inp0 = (rows_to_grid $v1)) in let $v2 = rev($v1 = (columns $v2)) in let $v3, $v4 = rev($v1 = (cons $v3 $v4)) in let $v5::list(color) = (cdr $v3) in let $v6, $v7 = rev($v5 = (cons $v6 $v7)) in let $v8, $v9 = rev($v7 = (repeat $v8 $v9)) in (car (repeat $v2 $v9))",
             "time": 2.7325570583343506,
             "logLikelihood": 0.0,
-            "logPrior": -23.168907679168985,
+            "logPrior": -23.608122414154465,
         },
         {
             "program": "let $v1 = rev($inp0 = (columns_to_grid $v1)) in let $v2 = rev($v1 = (rows $v2)) in let $v3 = rev($inp0 = (rows_to_grid $v3)) in let $v4, $v5 = rev($v3 = (cons $v4 $v5)) in let $v6, $v7 = rev($v4 = (cons $v6 $v7)) in let $v8, $v9 = rev($v7 = (cons $v8 $v9)) in let $v10, $v11 = rev($v9 = (repeat $v10 $v11)) in (car (repeat $v2 $v11))",
             "time": 2.2313830852508545,
             "logLikelihood": 0.0,
-            "logPrior": -25.308973842665257,
+            "logPrior": -25.84456770464396,
         },
         {
             "program": "let $v1 = rev($inp0 = (rows_to_grid $v1)) in let $v2 = rev($v1 = (columns $v2)) in let $v3, $v4 = rev($v1 = (cons $v3 $v4)) in let $v5, $v6 = rev($v3 = (cons $v5 $v6)) in let $v7, $v8 = rev($v6 = (cons $v7 $v8)) in let $v9, $v10 = rev($v8 = (repeat $v9 $v10)) in (car (repeat $v2 $v10))",
             "time": 2.2469329833984375,
             "logLikelihood": 0.0,
-            "logPrior": -22.824067192877255,
+            "logPrior": -23.279618347182424,
         },
         {
             "program": "let $v1 = rev($inp0 = (rows_to_grid $v1)) in let $v2 = rev($v1 = (rows $v2)) in let $v3 = rev($v2 = (rows_to_grid $v3)) in (columns_to_grid $v3)",
             "time": 1.890024185180664,
             "logLikelihood": 0.0,
-            "logPrior": -10.686841000982222,
+            "logPrior": -10.958844332533282,
         },
         {
             "program": "let $v1 = rev($inp0 = (rows_to_grid $v1)) in (columns_to_grid $v1)",
             "time": 1.7431960105895996,
             "logLikelihood": 0.0,
-            "logPrior": -5.2574953720277815,
+            "logPrior": -5.398162701517753,
         },
         {
             "program": "let $v1 = rev($inp0 = (columns_to_grid $v1)) in (rows_to_grid $v1)",
             "time": 1.2298321723937988,
             "logLikelihood": 0.0,
-            "logPrior": -5.2574953720277815,
+            "logPrior": -5.398162701517753,
         },
         {
             "program": "let $v1 = rev($inp0 = (rows_to_grid $v1)) in let $v2 = rev($v1 = (columns $v2)) in $v2",
             "time": 1.8264191150665283,
             "logLikelihood": 0.0,
-            "logPrior": -5.42934562895444,
+            "logPrior": -5.560681631015528,
         },
         {
             "program": "let $v1 = rev($inp0 = (columns_to_grid $v1)) in let $v2 = rev($v1 = (rows $v2)) in $v2",
             "time": 1.820842981338501,
             "logLikelihood": 0.0,
-            "logPrior": -5.42934562895444,
+            "logPrior": -5.560681631015528,
         },
     ]
     return programs
@@ -332,5 +338,46 @@ def test_parsing_arc(arc_grammar, solution):
         tgrid(tcolor),
     )
     likelihood = arc_grammar.logLikelihood(request, p)
+    print(likelihood)
+    assert likelihood == solution["logPrior"]
+
+
+def sample_lambda_wrapper_programs():
+    programs = [
+        {
+            "program": "((lambda ((lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first $0) (tuple2_first $1)) (+ (tuple2_second $0) (tuple2_second $1)))) $1) $0 (lambda (tuple2 (fold (lambda (lambda (if (gt? $0 $1) $1 $0))) (map (lambda (tuple2_first $0)) (collect $0)) max_int) (fold (lambda (lambda (if (gt? $0 $1) $1 $0))) (map (lambda (tuple2_second $0)) (collect $0)) max_int))))) (tuple2_first $inp0))) (tuple2_second $inp0))",
+            "time": 3.1087260246276855,
+            "logLikelihood": 0.0,
+            "logPrior": -131.35541833292402,
+            "request": TypeNamedArgsConstructor(
+                ARROW,
+                {"inp0": ttuple2(ttuple2(tint, tint), tset(ttuple2(tint, tint)))},
+                tset(ttuple2(tint, tint)),
+            ),
+        },
+        {
+            "program": "let $v1 = rev($inp0 = ((lambda ((lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first $0) (tuple2_first $1)) (+ (tuple2_second $0) (tuple2_second $1)))) $1) $0 (lambda (tuple2 (fold (lambda (lambda (if (gt? $0 $1) $1 $0))) (map (lambda (tuple2_first $0)) (collect $0)) max_int) (fold (lambda (lambda (if (gt? $0 $1) $1 $0))) (map (lambda (tuple2_second $0)) (collect $0)) max_int))))) (tuple2_first $v1))) (tuple2_second $v1))) in $v1",
+            "time": 3.1087260246276855,
+            "logLikelihood": 0.0,
+            "logPrior": -129.9634259506895,
+            "request": TypeNamedArgsConstructor(
+                ARROW,
+                {"inp0": tset(ttuple2(tint, tint))},
+                ttuple2(ttuple2(tint, tint), tset(ttuple2(tint, tint))),
+            ),
+        },
+    ]
+    return programs
+
+
+@pytest.mark.parametrize("solution", sample_lambda_wrapper_programs())
+def test_parsing_lambda_wrappers(arc_grammar, solution):
+    program_str = solution["program"]
+    print(program_str)
+    p = Program.parse(program_str)
+    print(p.show(False))
+    assert p.show(False) == program_str
+
+    likelihood = arc_grammar.logLikelihood(solution["request"], p)
     print(likelihood)
     assert likelihood == solution["logPrior"]

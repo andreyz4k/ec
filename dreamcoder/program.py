@@ -556,10 +556,9 @@ class Index(Program):
         if self.i in indices_checkers:
             if checker == indices_checkers[self.i]:
                 return [], indices_checkers
-            combined = lambda p, from_input, path: checker(
-                p, from_input, path
-            ) and indices_checkers[self.i](p, from_input, path)
-            indices_checkers[self.i] = combined
+            indices_checkers[self.i] = CustomArgChecker.combine(
+                checker, indices_checkers[self.i]
+            )
             return [], indices_checkers
         indices_checkers[self.i] = checker
         return [], indices_checkers
@@ -802,9 +801,7 @@ class Primitive(Program):
                 if c[1] == checker:
                     out_checkers.append(c[1])
                 else:
-                    combined = lambda p, from_input, path: checker(
-                        p, from_input, path
-                    ) and c[1](p, from_input, path)
+                    combined = CustomArgChecker.combine(checker, c[1])
                     out_checkers.append(combined)
             for _ in range(arg_count - len(custom_checkers)):
                 out_checkers.append(checker)
@@ -1319,10 +1316,8 @@ class CustomArgChecker:
             checker_funciton = new.checker_funciton
         else:
 
-            def checker_funciton(p, from_input, path):
-                return old.checker_funciton(
-                    p, from_input, path
-                ) and new.checker_funciton(p, from_input, path)
+            def checker_funciton(p, path):
+                return old.checker_funciton(p, path) and new.checker_funciton(p, path)
 
         return CustomArgChecker(
             should_be_reversible, max_index, can_have_free_vars, checker_funciton

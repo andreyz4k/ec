@@ -146,7 +146,7 @@ function violates_symmetry(f::Primitive, a, n)
 end
 
 has_index(p::Index, i) = p.n == i
-has_index(p::Hole, i) = true
+has_index(p::Hole, i) = p.candidates_filter.max_index >= i
 has_index(p::Primitive, i) = false
 has_index(p::Invented, i) = false
 has_index(p::Apply, i) = has_index(p.f, i) || has_index(p.x, i)
