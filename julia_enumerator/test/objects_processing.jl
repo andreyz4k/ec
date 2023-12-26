@@ -584,4 +584,26 @@ using solver:
             ]),
         )
     end
+
+    @testset "Get object coordinates 2" begin
+        objects = Set(
+            Tuple{Set{Tuple{Int64,Int64}},Int64}[
+                (Set([(19, 10), (18, 9), (19, 11), (17, 9), (18, 10), (18, 11), (17, 10)]), 9),
+                (Set([(5, 5), (3, 3), (5, 3), (3, 4), (5, 4), (4, 4), (3, 5)]), 7),
+                (Set([(11, 13), (9, 13), (11, 11), (9, 11), (11, 12), (10, 12), (9, 12)]), 2),
+            ],
+        )
+        extract_coordinates = parse_program(
+            "(map_set (lambda (tuple2 ((lambda ((lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$1)) (+ (tuple2_second \$0) (tuple2_second \$1)))) \$1) \$0 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int))))) (tuple2_first (tuple2_first \$1)))) (tuple2_second (tuple2_first \$0))) (tuple2_second \$0))) ??(set(tuple2(tuple2(tuple2(int, int), set(tuple2(int, int))), color))))",
+        )
+        @test is_reversible(extract_coordinates)
+        extract_coordinates, _ = capture_free_vars(extract_coordinates)
+        @test run_in_reverse(extract_coordinates, objects) == Dict(
+            0x0000000000000001 => Set([
+                (((17, 9), Set([(2, 1), (1, 0), (2, 2), (0, 0), (1, 1), (1, 2), (0, 1)])), 9),
+                (((3, 3), Set([(2, 2), (0, 0), (2, 0), (0, 1), (2, 1), (1, 1), (0, 2)])), 7),
+                (((9, 11), Set([(2, 2), (0, 2), (2, 0), (0, 0), (2, 1), (1, 1), (0, 1)])), 2),
+            ]),
+        )
+    end
 end

@@ -2628,4 +2628,168 @@ using DataStructures
         target_solution = "let \$v1 = rev(\$inp0 = ((lambda ((lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$1)) (+ (tuple2_second \$0) (tuple2_second \$1)))) \$1) \$0 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int))))) (tuple2_first \$v1))) (tuple2_second \$v1))) in \$v1"
         check_reachable(payload, target_solution)
     end
+
+    @testset "Get object coordinates" begin
+        payload = create_task(
+            Dict{String,Any}(
+                "name" => "Get object coordinates",
+                "maximumFrontier" => 10,
+                "examples" => Any[Dict{String,Any}(
+                    "output" => Set([
+                        (Set([(19, 10), (18, 9), (19, 11), (17, 9), (18, 10), (18, 11), (17, 10)]), 9),
+                        (Set([(5, 5), (3, 3), (5, 3), (3, 4), (5, 4), (4, 4), (3, 5)]), 7),
+                        (Set([(11, 13), (9, 13), (11, 11), (9, 11), (11, 12), (10, 12), (9, 12)]), 2),
+                    ]),
+                    "inputs" => Dict{String,Any}(
+                        "inp0" => Set([
+                            (((17, 9), Set([(2, 1), (1, 0), (2, 2), (0, 0), (1, 1), (1, 2), (0, 1)])), 9),
+                            (((3, 3), Set([(2, 2), (0, 0), (2, 0), (0, 1), (2, 1), (1, 1), (0, 2)])), 7),
+                            (((9, 11), Set([(2, 2), (0, 2), (2, 0), (0, 0), (2, 1), (1, 1), (0, 1)])), 2),
+                        ]),
+                    ),
+                )],
+                "test_examples" => Any[],
+                "request" => Dict{String,Any}(
+                    "arguments" => Dict{String,Any}(
+                        "inp0" => Dict{String,Any}(
+                            "arguments" => Any[Dict{String,Any}(
+                                "arguments" => Any[
+                                    Dict{String,Any}(
+                                        "arguments" => Any[
+                                            Dict{String,Any}(
+                                                "arguments" => Any[
+                                                    Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                                    Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                                ],
+                                                "constructor" => "tuple2",
+                                            ),
+                                            Dict{String,Any}(
+                                                "arguments" => Any[Dict{String,Any}(
+                                                    "arguments" => Any[
+                                                        Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                                        Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                                    ],
+                                                    "constructor" => "tuple2",
+                                                )],
+                                                "constructor" => "set",
+                                            ),
+                                        ],
+                                        "constructor" => "tuple2",
+                                    ),
+                                    Dict{String,Any}("arguments" => Any[], "constructor" => "color"),
+                                ],
+                                "constructor" => "tuple2",
+                            )],
+                            "constructor" => "set",
+                        ),
+                    ),
+                    "output" => Dict{String,Any}(
+                        "arguments" => Any[Dict{String,Any}(
+                            "arguments" => Any[
+                                Dict{String,Any}(
+                                    "arguments" => Any[Dict{String,Any}(
+                                        "arguments" => Any[
+                                            Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                            Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                        ],
+                                        "constructor" => "tuple2",
+                                    )],
+                                    "constructor" => "set",
+                                ),
+                                Dict{String,Any}("arguments" => Any[], "constructor" => "color"),
+                            ],
+                            "constructor" => "tuple2",
+                        )],
+                        "constructor" => "set",
+                    ),
+                    "constructor" => "->",
+                ),
+            ),
+        )
+
+        target_solution = "(map_set (lambda (tuple2 ((lambda ((lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$1)) (+ (tuple2_second \$0) (tuple2_second \$1)))) \$1) \$0 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int))))) (tuple2_first (tuple2_first \$1)))) (tuple2_second (tuple2_first \$0))) (tuple2_second \$0))) \$inp0)"
+        check_reachable(payload, target_solution)
+    end
+
+    @testset "Get object coordinates reverse" begin
+        payload = create_task(
+            Dict{String,Any}(
+                "name" => "Get object coordinates",
+                "maximumFrontier" => 10,
+                "examples" => Any[Dict{String,Any}(
+                    "output" => Set([
+                        (((17, 9), Set([(2, 1), (1, 0), (2, 2), (0, 0), (1, 1), (1, 2), (0, 1)])), 9),
+                        (((3, 3), Set([(2, 2), (0, 0), (2, 0), (0, 1), (2, 1), (1, 1), (0, 2)])), 7),
+                        (((9, 11), Set([(2, 2), (0, 2), (2, 0), (0, 0), (2, 1), (1, 1), (0, 1)])), 2),
+                    ]),
+                    "inputs" => Dict{String,Any}(
+                        "inp0" => Set([
+                            (Set([(19, 10), (18, 9), (19, 11), (17, 9), (18, 10), (18, 11), (17, 10)]), 9),
+                            (Set([(5, 5), (3, 3), (5, 3), (3, 4), (5, 4), (4, 4), (3, 5)]), 7),
+                            (Set([(11, 13), (9, 13), (11, 11), (9, 11), (11, 12), (10, 12), (9, 12)]), 2),
+                        ]),
+                    ),
+                ),],
+                "test_examples" => Any[],
+                "request" => Dict{String,Any}(
+                    "arguments" => Dict{String,Any}(
+                        "inp0" => Dict{String,Any}(
+                            "arguments" => Any[Dict{String,Any}(
+                                "arguments" => Any[
+                                    Dict{String,Any}(
+                                        "arguments" => Any[Dict{String,Any}(
+                                            "arguments" => Any[
+                                                Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                                Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                            ],
+                                            "constructor" => "tuple2",
+                                        ),],
+                                        "constructor" => "set",
+                                    ),
+                                    Dict{String,Any}("arguments" => Any[], "constructor" => "color"),
+                                ],
+                                "constructor" => "tuple2",
+                            ),],
+                            "constructor" => "set",
+                        ),
+                    ),
+                    "output" => Dict{String,Any}(
+                        "arguments" => Any[Dict{String,Any}(
+                            "arguments" => Any[
+                                Dict{String,Any}(
+                                    "arguments" => Any[
+                                        Dict{String,Any}(
+                                            "arguments" => Any[
+                                                Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                                Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                            ],
+                                            "constructor" => "tuple2",
+                                        ),
+                                        Dict{String,Any}(
+                                            "arguments" => Any[Dict{String,Any}(
+                                                "arguments" => Any[
+                                                    Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                                    Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
+                                                ],
+                                                "constructor" => "tuple2",
+                                            )],
+                                            "constructor" => "set",
+                                        ),
+                                    ],
+                                    "constructor" => "tuple2",
+                                ),
+                                Dict{String,Any}("arguments" => Any[], "constructor" => "color"),
+                            ],
+                            "constructor" => "tuple2",
+                        )],
+                        "constructor" => "set",
+                    ),
+                    "constructor" => "->",
+                ),
+            ),
+        )
+
+        target_solution = "let \$v1 = rev(\$inp0 = (map_set (lambda (tuple2 ((lambda ((lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$1)) (+ (tuple2_second \$0) (tuple2_second \$1)))) \$1) \$0 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int))))) (tuple2_first (tuple2_first \$1)))) (tuple2_second (tuple2_first \$0))) (tuple2_second \$0))) \$v1)) in \$v1"
+        check_reachable(payload, target_solution)
+    end
 end
