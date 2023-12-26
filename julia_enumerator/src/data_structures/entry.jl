@@ -451,6 +451,24 @@ _match_value(unknown_value::AbductibleValue, known_value) = _match_value(unknown
 _match_value(unknown_value::EitherOptions, known_value) =
     any(_match_value(op, known_value) for (_, op) in unknown_value.options)
 
+function _match_value(unknown_value::Set, known_value::Set)
+    if length(unknown_value) != length(known_value)
+        return false
+    end
+    if isempty(unknown_value)
+        return true
+    end
+    uv = first(unknown_value)
+    for kv in known_value
+        if _match_value(uv, kv)
+            return _match_value(setdiff(unknown_value, Set([uv])), setdiff(known_value, Set([kv])))
+        end
+    end
+    return false
+end
+
+_match_value(unknown_value::Set, known_value) = false
+
 match_at_index(entry::PatternEntry, index::Int, value) = _match_value(entry.values[index], value)
 
 function match_with_entry(sc, entry::PatternEntry, other::ValueEntry)

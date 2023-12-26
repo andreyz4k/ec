@@ -24,7 +24,8 @@ using solver:
     run_in_reverse,
     fix_option_hashes,
     run_with_arguments,
-    all_abstractors
+    all_abstractors,
+    calculate_dependent_vars
 
 @testset "Objects processing" begin
     function unfold_options(options::Dict)
@@ -653,5 +654,34 @@ using solver:
                 ),
             ),
         )
+    end
+
+    @testset "Move objects" begin
+        objects = Set([
+            (((9, 11), Set([(0, 0), (0, 2), (2, 0), (1, 1), (0, 1), (2, 2), (2, 1)])), 2),
+            (((3, 3), Set([(0, 0), (2, 0), (1, 1), (0, 1), (0, 2), (2, 2), (2, 1)])), 7),
+        ])
+        move_objects = parse_program(
+            "(map_set (lambda (tuple2 (tuple2 (tuple2 (+ (tuple2_first (tuple2_first (tuple2_first \$0))) \$v2) (tuple2_second (tuple2_first (tuple2_first \$0)))) (tuple2_second (tuple2_first \$0))) (tuple2_second \$0))) ??(set(tuple2(tuple2(tuple2(int, int), set(tuple2(int, int))), color))))",
+        )
+        @test is_reversible(move_objects)
+        move_objects, _ = capture_free_vars(move_objects)
+        @test calculate_dependent_vars(move_objects, Dict(0x0000000000000002 => 1), objects) == Dict(
+            0x0000000000000001 => Set([
+                (((8, 11), Set([(0, 0), (0, 2), (2, 0), (1, 1), (0, 1), (2, 2), (2, 1)])), 2),
+                (((2, 3), Set([(0, 0), (2, 0), (1, 1), (0, 1), (0, 2), (2, 2), (2, 1)])), 7),
+            ]),
+        )
+
+        @test calculate_dependent_vars(
+            move_objects,
+            Dict(
+                0x0000000000000001 => Set([
+                    (((8, 11), Set([(0, 0), (0, 2), (2, 0), (1, 1), (0, 1), (2, 2), (2, 1)])), 2),
+                    (((2, 3), Set([(0, 0), (2, 0), (1, 1), (0, 1), (0, 2), (2, 2), (2, 1)])), 7),
+                ]),
+            ),
+            objects,
+        ) == Dict(0x0000000000000002 => 1)
     end
 end

@@ -2249,4 +2249,56 @@ using DataStructures
         target_solution = "let \$v1, \$v2, \$v3 = rev(\$inp0 = (rev_fix_param (rev_select_set (lambda (eq? (tuple2_second (tuple2_first \$0)) \$v1)) \$v2 \$v3) \$v1 (lambda Const(set(tuple2(int, int)), Set([(0, 0), (0, 2), (2, 0), (1, 1), (0, 1), (2, 2), (2, 1)]))))) in \$v2"
         check_reachable(payload, target_solution)
     end
+
+    @testset "Move objects" begin
+        payload = create_task(
+            Dict{String,Any}(
+                "name" => "Move objects",
+                "maximumFrontier" => 10,
+                "examples" => Any[Dict{String,Any}(
+                    "output" => Set([
+                        (((9, 11), Set([(0, 0), (0, 2), (2, 0), (1, 1), (0, 1), (2, 2), (2, 1)])), 2),
+                        (((3, 3), Set([(0, 0), (2, 0), (1, 1), (0, 1), (0, 2), (2, 2), (2, 1)])), 7),
+                    ]),
+                    "inputs" => Dict{String,Any}(
+                        "inp0" => Set([
+                            (((8, 11), Set([(0, 0), (0, 2), (2, 0), (1, 1), (0, 1), (2, 2), (2, 1)])), 2),
+                            (((2, 3), Set([(0, 0), (2, 0), (1, 1), (0, 1), (0, 2), (2, 2), (2, 1)])), 7),
+                        ]),
+                    ),
+                )],
+                "test_examples" => Any[],
+                "request" => "inp0:set(tuple2(tuple2(tuple2(int, int), set(tuple2(int, int))), color)) -> set(tuple2(tuple2(tuple2(int, int), set(tuple2(int, int))), color))",
+            ),
+        )
+
+        target_solution = "let \$v1::int = Const(int, 1) in (map_set (lambda (tuple2 (tuple2 (tuple2 (+ (tuple2_first (tuple2_first (tuple2_first \$0))) \$v1) (tuple2_second (tuple2_first (tuple2_first \$0)))) (tuple2_second (tuple2_first \$0))) (tuple2_second \$0))) \$inp0)"
+        check_reachable(payload, target_solution)
+    end
+
+    @testset "Move objects reverse" begin
+        payload = create_task(
+            Dict{String,Any}(
+                "name" => "Move objects",
+                "maximumFrontier" => 10,
+                "examples" => Any[Dict{String,Any}(
+                    "output" => Set([
+                        (((8, 11), Set([(0, 0), (0, 2), (2, 0), (1, 1), (0, 1), (2, 2), (2, 1)])), 2),
+                        (((2, 3), Set([(0, 0), (2, 0), (1, 1), (0, 1), (0, 2), (2, 2), (2, 1)])), 7),
+                    ]),
+                    "inputs" => Dict{String,Any}(
+                        "inp0" => Set([
+                            (((9, 11), Set([(0, 0), (0, 2), (2, 0), (1, 1), (0, 1), (2, 2), (2, 1)])), 2),
+                            (((3, 3), Set([(0, 0), (2, 0), (1, 1), (0, 1), (0, 2), (2, 2), (2, 1)])), 7),
+                        ]),
+                    ),
+                )],
+                "test_examples" => Any[],
+                "request" => "inp0:set(tuple2(tuple2(tuple2(int, int), set(tuple2(int, int))), color)) -> set(tuple2(tuple2(tuple2(int, int), set(tuple2(int, int))), color))",
+            ),
+        )
+
+        target_solution = "let \$v1, \$v2 = rev(\$inp0 = (rev_fix_param (map_set (lambda (tuple2 (tuple2 (tuple2 (+ (tuple2_first (tuple2_first (tuple2_first \$0))) \$v1) (tuple2_second (tuple2_first (tuple2_first \$0)))) (tuple2_second (tuple2_first \$0))) (tuple2_second \$0))) \$v2) \$v1 (lambda 1))) in \$v2"
+        check_reachable(payload, target_solution)
+    end
 end
