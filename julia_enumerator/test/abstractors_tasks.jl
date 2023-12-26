@@ -464,19 +464,7 @@ using solver: load_problems, enumerate_for_task
                     Dict{String,Any}("output" => Any[3, 3], "inputs" => Dict{String,Any}("inp0" => Any[2, 2, 2])),
                 ],
                 "test_examples" => Any[],
-                "request" => Dict{String,Any}(
-                    "arguments" => Dict{String,Any}(
-                        "inp0" => Dict{String,Any}(
-                            "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
-                            "constructor" => "list",
-                        ),
-                    ),
-                    "output" => Dict{String,Any}(
-                        "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
-                        "constructor" => "list",
-                    ),
-                    "constructor" => "->",
-                ),
+                "request" => "inp0:list(int) -> list(int)",
             ),
         )
         for prod_dict in payload["DSL"]["productions"]
@@ -515,19 +503,7 @@ using solver: load_problems, enumerate_for_task
                     ),
                 ],
                 "test_examples" => Any[],
-                "request" => Dict{String,Any}(
-                    "arguments" => Dict{String,Any}(
-                        "inp0" => Dict{String,Any}(
-                            "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
-                            "constructor" => "list",
-                        ),
-                    ),
-                    "output" => Dict{String,Any}(
-                        "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
-                        "constructor" => "list",
-                    ),
-                    "constructor" => "->",
-                ),
+                "request" => "inp0:list(int) -> list(int)",
             ),
         )
         for prod_dict in payload["DSL"]["productions"]
@@ -572,19 +548,7 @@ using solver: load_problems, enumerate_for_task
                     ),
                 ],
                 "test_examples" => Any[],
-                "request" => Dict{String,Any}(
-                    "arguments" => Dict{String,Any}(
-                        "inp0" => Dict{String,Any}(
-                            "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
-                            "constructor" => "list",
-                        ),
-                    ),
-                    "output" => Dict{String,Any}(
-                        "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
-                        "constructor" => "list",
-                    ),
-                    "constructor" => "->",
-                ),
+                "request" => "inp0:list(int) -> list(int)",
             ),
         )
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
@@ -621,19 +585,7 @@ using solver: load_problems, enumerate_for_task
                     ),
                 ],
                 "test_examples" => Any[],
-                "request" => Dict{String,Any}(
-                    "arguments" => Dict{String,Any}(
-                        "inp0" => Dict{String,Any}(
-                            "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
-                            "constructor" => "list",
-                        ),
-                    ),
-                    "output" => Dict{String,Any}(
-                        "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
-                        "constructor" => "list",
-                    ),
-                    "constructor" => "->",
-                ),
+                "request" => "inp0:list(int) -> list(int)",
             ),
         )
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
@@ -670,19 +622,7 @@ using solver: load_problems, enumerate_for_task
                     ),
                 ],
                 "test_examples" => Any[],
-                "request" => Dict{String,Any}(
-                    "arguments" => Dict{String,Any}(
-                        "inp0" => Dict{String,Any}(
-                            "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
-                            "constructor" => "list",
-                        ),
-                    ),
-                    "output" => Dict{String,Any}(
-                        "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
-                        "constructor" => "list",
-                    ),
-                    "constructor" => "->",
-                ),
+                "request" => "inp0:list(int) -> list(int)",
             ),
         )
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
@@ -719,19 +659,7 @@ using solver: load_problems, enumerate_for_task
                     ),
                 ],
                 "test_examples" => Any[],
-                "request" => Dict{String,Any}(
-                    "arguments" => Dict{String,Any}(
-                        "inp0" => Dict{String,Any}(
-                            "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
-                            "constructor" => "list",
-                        ),
-                    ),
-                    "output" => Dict{String,Any}(
-                        "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
-                        "constructor" => "list",
-                    ),
-                    "constructor" => "->",
-                ),
+                "request" => "inp0:list(int) -> list(int)",
             ),
         )
         for prod_dict in payload["DSL"]["productions"]

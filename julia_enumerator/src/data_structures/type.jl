@@ -361,6 +361,10 @@ function deserialize_type(message)
     end
 end
 
+function deserialize_type(message::String)
+    return parse_type(message)
+end
+
 using ParserCombinator
 
 type_parser = Delayed()

@@ -457,19 +457,7 @@ using solver: load_problems, enumerate_for_task
             "name" => filename,
             "maximumFrontier" => 10,
             "extras" => 5,
-            "request" => Dict{String,Any}(
-                "arguments" => Dict{String,Any}(
-                    "inp0" => Dict{String,Any}(
-                        "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "color")],
-                        "constructor" => "grid",
-                    ),
-                ),
-                "output" => Dict{String,Any}(
-                    "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "color")],
-                    "constructor" => "grid",
-                ),
-                "constructor" => "->",
-            ),
+            "request" => "inp0:grid(color) -> grid(color)",
             "specialTask" => "arc",
         )
         task_dict["examples"] = Any[

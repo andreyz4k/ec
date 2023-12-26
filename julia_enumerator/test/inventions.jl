@@ -194,19 +194,7 @@ using solver: load_problems, enumerate_for_task
                     Dict{String,Any}("output" => Any[0], "inputs" => Dict{String,Any}("inp0" => Any[9, 0, 16, 9, 10])),
                 ],
                 "test_examples" => Any[],
-                "request" => Dict{String,Any}(
-                    "arguments" => Dict{String,Any}(
-                        "inp0" => Dict{String,Any}(
-                            "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
-                            "constructor" => "list",
-                        ),
-                    ),
-                    "output" => Dict{String,Any}(
-                        "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
-                        "constructor" => "list",
-                    ),
-                    "constructor" => "->",
-                ),
+                "request" => "inp0:list(int) -> list(int)",
             ),
             "name" => "slice-k-n with k=2 and n=1",
             "programTimeout" => 1,
@@ -423,19 +411,7 @@ using solver: load_problems, enumerate_for_task
                     Dict{String,Any}("output" => Any[0], "inputs" => Dict{String,Any}("inp0" => Any[9, 0, 16, 9, 10])),
                 ],
                 "test_examples" => Any[],
-                "request" => Dict{String,Any}(
-                    "arguments" => Dict{String,Any}(
-                        "inp0" => Dict{String,Any}(
-                            "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
-                            "constructor" => "list",
-                        ),
-                    ),
-                    "output" => Dict{String,Any}(
-                        "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
-                        "constructor" => "list",
-                    ),
-                    "constructor" => "->",
-                ),
+                "request" => "inp0:list(int) -> list(int)",
             ),
             "name" => "slice-k-n with k=2 and n=1",
             "programTimeout" => 1,

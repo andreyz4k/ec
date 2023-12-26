@@ -52,7 +52,9 @@ def multicoreEnumeration(
         "pypy": solveForTask_pypy,
         "python": solveForTask_python,
     }
-    assert solver in solvers, "You must specify a valid solver. options are ocaml, pypy, or python."
+    assert (
+        solver in solvers
+    ), "You must specify a valid solver. options are ocaml, pypy, or python."
 
     likelihoodModel = None
     if solver == "pypy" or solver == "python":
@@ -79,7 +81,11 @@ def multicoreEnumeration(
         jobs[k] = jobs.get(k, []) + [t]
 
     disableParallelism = len(jobs) == 1
-    parallelCallback = launchParallelProcess if not disableParallelism else lambda f, *a, **k: f(*a, **k)
+    parallelCallback = (
+        launchParallelProcess
+        if not disableParallelism
+        else lambda f, *a, **k: f(*a, **k)
+    )
     if disableParallelism:
         eprint("Disabling parallelism on the Python side because we only have one job.")
         eprint("If you are using ocaml, there could still be parallelism.")
@@ -133,7 +139,8 @@ def multicoreEnumeration(
             v = [
                 t
                 for t in jobs[k]
-                if numberOfHits(frontiers[t]) < maximumFrontier and stopwatches[k].elapsed <= enumerationTimeout
+                if numberOfHits(frontiers[t]) < maximumFrontier
+                and stopwatches[k].elapsed <= enumerationTimeout
             ]
             if v:
                 jobs[k] = v
@@ -157,7 +164,12 @@ def multicoreEnumeration(
         # Don't launch a job that we are already working on
         # We run the stopwatch whenever the job is being worked on
         # freeJobs are things that we are not working on but could be
-        freeJobs = [j for j in jobs if not stopwatches[j].running and stopwatches[j].elapsed < enumerationTimeout - 0.5]
+        freeJobs = [
+            j
+            for j in jobs
+            if not stopwatches[j].running
+            and stopwatches[j].elapsed < enumerationTimeout - 0.5
+        ]
         if freeJobs and activeCPUs < CPUs:
             # Allocate a CPU to each of the jobs that we have made the least
             # progress on
@@ -173,7 +185,14 @@ def multicoreEnumeration(
                 thisTimeout = enumerationTimeout - stopwatches[j].elapsed
                 eprint(
                     "(python) Launching %s (%d tasks) w/ %d CPUs. %f <= MDL < %f. Timeout %f."
-                    % (request, len(jobs[j]), allocation[j], lowerBounds[j], lowerBounds[j] + bi, thisTimeout)
+                    % (
+                        request,
+                        len(jobs[j]),
+                        allocation[j],
+                        lowerBounds[j],
+                        lowerBounds[j] + bi,
+                        thisTimeout,
+                    )
                 )
                 stopwatches[j].start()
                 parallelCallback(
@@ -244,7 +263,10 @@ def multicoreEnumeration(
             eprint("Unknown message result:", message.result)
             assert False
 
-    eprint("We enumerated this many programs, for each task:\n\t", list(taskToNumberOfPrograms.values()))
+    eprint(
+        "We enumerated this many programs, for each task:\n\t",
+        list(taskToNumberOfPrograms.values()),
+    )
 
     return [frontiers[t] for t in tasks], bestSearchTime
 
@@ -302,14 +324,21 @@ def multicore_enumeration_with_data(
     r = redis.Redis(host="localhost", port=6379, db=0)
     for task in tasks:
         m = get_task_message(
-            task, task2grammar[task], enumerationTimeout, evaluationTimeout, maximumFrontier, type_weights
+            task,
+            task2grammar[task],
+            enumerationTimeout,
+            evaluationTimeout,
+            maximumFrontier,
+            type_weights,
         )
         r.rpush("tasks", m)
 
     for _ in range(len(tasks)):
         response = r.blpop("results")[1]
         try:
-            t, frontier_entries, dt, pc = parse_result_message(response, tasks_by_name, task2grammar)
+            t, frontier_entries, dt, pc = parse_result_message(
+                response, tasks_by_name, task2grammar
+            )
             f = Frontier(frontier_entries, t)
             oldBest = None if len(frontiers[t]) == 0 else frontiers[t].bestPosterior
             frontiers[t] = frontiers[t].combine(f)
@@ -337,7 +366,10 @@ def multicore_enumeration_with_data(
             eprint("Failure processing response: ", response)
             raise
 
-    eprint("We enumerated this many programs, for each task:\n\t", list(taskToNumberOfPrograms.values()))
+    eprint(
+        "We enumerated this many programs, for each task:\n\t",
+        list(taskToNumberOfPrograms.values()),
+    )
 
     return [frontiers[t] for t in tasks], bestSearchTime
 
@@ -357,7 +389,16 @@ def wrapInThread(f):
             r = f(*a, **k)
             q.put(dill.dumps({"result": "success", "ID": ID, "value": r}))
         except Exception as e:
-            q.put(dill.dumps({"result": "failure", "exception": e, "stacktrace": traceback.format_exc(), "ID": ID}))
+            q.put(
+                dill.dumps(
+                    {
+                        "result": "failure",
+                        "exception": e,
+                        "stacktrace": traceback.format_exc(),
+                        "ID": ID,
+                    }
+                )
+            )
             return
 
     return _f
@@ -378,7 +419,6 @@ def solveForTask_ocaml(
     evaluationTimeout=None,
     maximumFrontiers=None,
 ):
-
     import json
 
     def taskMessage(t):
@@ -415,7 +455,9 @@ def solveForTask_ocaml(
 
     try:
         solver_file = os.path.join(get_root_dir(), "solver")
-        process = subprocess.Popen(solver_file, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        process = subprocess.Popen(
+            solver_file, stdin=subprocess.PIPE, stdout=subprocess.PIPE
+        )
         response, error = process.communicate(bytes(message, encoding="utf-8"))
         response = json.loads(response.decode("utf-8"))
     except OSError as exc:
@@ -437,7 +479,11 @@ def solveForTask_ocaml(
         solutions = response[t.name]
         frontier = Frontier(
             [
-                FrontierEntry(program=p, logLikelihood=e["logLikelihood"], logPrior=g.logLikelihood(t.request, p))
+                FrontierEntry(
+                    program=p,
+                    logLikelihood=e["logLikelihood"],
+                    logPrior=g.logLikelihood(t.request, p),
+                )
                 for e in solutions
                 for p in [Program.parse(e["program"])]
             ],
@@ -453,20 +499,29 @@ def solveForTask_ocaml(
         # where we might find something with a good prior but bad likelihood early on,
         # and only later discovered the good high likelihood program
         else:
-            searchTimes[t] = min((e["logLikelihood"] + e["logPrior"], e["time"]) for e in solutions)[1] + elapsedTime
+            searchTimes[t] = (
+                min((e["logLikelihood"] + e["logPrior"], e["time"]) for e in solutions)[
+                    1
+                ]
+                + elapsedTime
+            )
 
     return frontiers, searchTimes, pc
 
 
-def get_task_message(task, g, timeout, program_timeout, maximum_frontiers, type_weights):
+def get_task_message(
+    task, g, timeout, program_timeout, maximum_frontiers, type_weights
+):
     import json
 
     m = {
         "examples": [{"inputs": xs, "output": y} for xs, y in task.examples],
         "name": task.name,
-        "request": task.request.json(),
+        "request": str(task.request),
         "maximumFrontier": maximum_frontiers,
-        "test_examples": [{"inputs": xs, "output": y} for xs, y in task.test_examples] if task.test_examples else [],
+        "test_examples": [{"inputs": xs, "output": y} for xs, y in task.test_examples]
+        if task.test_examples
+        else [],
     }
     if hasattr(task, "specialTask"):
         special, extra = task.specialTask
@@ -513,7 +568,11 @@ def parse_result_message(response, tasks_by_name, task2grammar):
         p = Program.parse(e["program"])
         try:
             frontier_entries.append(
-                FrontierEntry(program=p, logLikelihood=e["logLikelihood"], logPrior=g.logLikelihood(task.request, p))
+                FrontierEntry(
+                    program=p,
+                    logLikelihood=e["logLikelihood"],
+                    logPrior=g.logLikelihood(task.request, p),
+                )
             )
         except:
             eprint(p)
@@ -528,7 +587,9 @@ def parse_result_message(response, tasks_by_name, task2grammar):
     # where we might find something with a good prior but bad likelihood early on,
     # and only later discovered the good high likelihood program
     else:
-        searchTime = min((e["logLikelihood"] + e["logPrior"], e["time"]) for e in solutions)[1]
+        searchTime = min(
+            (e["logLikelihood"] + e["logPrior"], e["time"]) for e in solutions
+        )[1]
 
     return task, frontier_entries, searchTime, pc
 
@@ -618,7 +679,9 @@ def enumerateForTasks(
     from time import time
 
     request = tasks[0].request
-    assert all(t.request == request for t in tasks), "enumerateForTasks: Expected tasks to all have the same type"
+    assert all(
+        t.request == request for t in tasks
+    ), "enumerateForTasks: Expected tasks to all have the same type"
 
     maximumFrontiers = [maximumFrontiers[t] for t in tasks]
     # store all of the hits in a priority queue
@@ -638,7 +701,12 @@ def enumerateForTasks(
             numberOfPrograms = 0
 
             for prior, _, p in g.enumeration(
-                Context.EMPTY, [], request, maximumDepth=99, upperBound=budget, lowerBound=previousBudget
+                Context.EMPTY,
+                [],
+                request,
+                maximumDepth=99,
+                upperBound=budget,
+                lowerBound=previousBudget,
             ):
                 descriptionLength = -prior
                 # Shouldn't see it on this iteration
@@ -662,7 +730,15 @@ def enumerateForTasks(
 
                     dt = time() - starting + elapsedTime
                     priority = -(likelihood + prior)
-                    hits[n].push(priority, (dt, FrontierEntry(program=p, logLikelihood=likelihood, logPrior=prior)))
+                    hits[n].push(
+                        priority,
+                        (
+                            dt,
+                            FrontierEntry(
+                                program=p, logLikelihood=likelihood, logPrior=prior
+                            ),
+                        ),
+                    )
                     if len(hits[n]) > maximumFrontiers[n]:
                         hits[n].popMaximum()
 
@@ -676,7 +752,13 @@ def enumerateForTasks(
                 break
     except EnumerationTimeout:
         pass
-    frontiers = {tasks[n]: Frontier([e for _, e in hits[n]], task=tasks[n]) for n in range(len(tasks))}
-    searchTimes = {tasks[n]: None if len(hits[n]) == 0 else min(t for t, _ in hits[n]) for n in range(len(tasks))}
+    frontiers = {
+        tasks[n]: Frontier([e for _, e in hits[n]], task=tasks[n])
+        for n in range(len(tasks))
+    }
+    searchTimes = {
+        tasks[n]: None if len(hits[n]) == 0 else min(t for t, _ in hits[n])
+        for n in range(len(tasks))
+    }
 
     return frontiers, searchTimes, totalNumberOfPrograms

@@ -1250,19 +1250,7 @@ using DataStructures
                     Dict{String,Any}("output" => Any[3, 3], "inputs" => Dict{String,Any}("inp0" => Any[2, 2, 2])),
                 ],
                 "test_examples" => Any[],
-                "request" => Dict{String,Any}(
-                    "arguments" => Dict{String,Any}(
-                        "inp0" => Dict{String,Any}(
-                            "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
-                            "constructor" => "list",
-                        ),
-                    ),
-                    "output" => Dict{String,Any}(
-                        "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
-                        "constructor" => "list",
-                    ),
-                    "constructor" => "->",
-                ),
+                "request" => "inp0:list(int) -> list(int)",
             ),
         )
         target_solution = "let \$v1, \$v2 = rev(\$inp0 = (repeat \$v1 \$v2)) in (repeat \$v2 \$v1)"
@@ -1286,19 +1274,7 @@ using DataStructures
                     ),
                 ],
                 "test_examples" => Any[],
-                "request" => Dict{String,Any}(
-                    "arguments" => Dict{String,Any}(
-                        "inp0" => Dict{String,Any}(
-                            "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
-                            "constructor" => "list",
-                        ),
-                    ),
-                    "output" => Dict{String,Any}(
-                        "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
-                        "constructor" => "list",
-                    ),
-                    "constructor" => "->",
-                ),
+                "request" => "inp0:list(int) -> list(int)",
             ),
         )
         target_solution = "let \$v1, \$v2 = rev(\$inp0 = (repeat \$v1 \$v2)) in let \$v3::int = Const(int, 5) in (repeat \$v2 \$v3)"
@@ -1325,19 +1301,7 @@ using DataStructures
                     ),
                 ],
                 "test_examples" => Any[],
-                "request" => Dict{String,Any}(
-                    "arguments" => Dict{String,Any}(
-                        "inp0" => Dict{String,Any}(
-                            "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
-                            "constructor" => "list",
-                        ),
-                    ),
-                    "output" => Dict{String,Any}(
-                        "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
-                        "constructor" => "list",
-                    ),
-                    "constructor" => "->",
-                ),
+                "request" => "inp0:list(int) -> list(int)",
             ),
         )
         target_solution = "let \$v1::list(int) = Const(list(int), Any[6, 7, 8, 9, 10]) in (concat \$inp0 \$v1)"
@@ -1364,19 +1328,7 @@ using DataStructures
                     ),
                 ],
                 "test_examples" => Any[],
-                "request" => Dict{String,Any}(
-                    "arguments" => Dict{String,Any}(
-                        "inp0" => Dict{String,Any}(
-                            "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
-                            "constructor" => "list",
-                        ),
-                    ),
-                    "output" => Dict{String,Any}(
-                        "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
-                        "constructor" => "list",
-                    ),
-                    "constructor" => "->",
-                ),
+                "request" => "inp0:list(int) -> list(int)",
             ),
         )
         target_solution = "let \$v1::int = (length \$inp0) in let \$v2::int = Const(int, 1) in let \$v3::list(int) = (repeat \$v1 \$v2) in let \$v4::list(int) = (concat \$inp0 \$v3) in let \$v5::list(int) = Const(list(int), Any[6, 7, 8, 9, 10]) in (concat \$v4 \$v5)"
@@ -1403,19 +1355,7 @@ using DataStructures
                     ),
                 ],
                 "test_examples" => Any[],
-                "request" => Dict{String,Any}(
-                    "arguments" => Dict{String,Any}(
-                        "inp0" => Dict{String,Any}(
-                            "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
-                            "constructor" => "list",
-                        ),
-                    ),
-                    "output" => Dict{String,Any}(
-                        "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
-                        "constructor" => "list",
-                    ),
-                    "constructor" => "->",
-                ),
+                "request" => "inp0:list(int) -> list(int)",
             ),
         )
         target_solution = "let \$v1, \$v2 = rev(\$inp0 = (rev_fix_param (concat \$v1 \$v2) \$v2 (lambda Const(list(int), Any[10, 9, 8, 7])))) in \$v1"
@@ -1442,19 +1382,7 @@ using DataStructures
                     ),
                 ],
                 "test_examples" => Any[],
-                "request" => Dict{String,Any}(
-                    "arguments" => Dict{String,Any}(
-                        "inp0" => Dict{String,Any}(
-                            "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
-                            "constructor" => "list",
-                        ),
-                    ),
-                    "output" => Dict{String,Any}(
-                        "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
-                        "constructor" => "list",
-                    ),
-                    "constructor" => "->",
-                ),
+                "request" => "inp0:list(int) -> list(int)",
             ),
         )
         target_solution = "let \$v1::int = Const(int, 1) in let \$v2::int = Const(int, 1) in let \$v3, \$v4, \$v5 = rev(\$inp0 = (rev_fix_param (rev_select (lambda (eq? \$0 \$v3)) \$v4 \$v5) \$v3 (lambda Const(int, 3)))) in let \$v6, \$v7 = rev(\$v4 = (repeat \$v6 \$v7)) in let \$v8::list(int) = (repeat \$v2 \$v7) in (rev_select (lambda (eq? \$0 \$v1)) \$v8 \$v5)"
@@ -1472,13 +1400,7 @@ using DataStructures
                     Dict{String,Any}("output" => 5, "inputs" => Dict{String,Any}("inp0" => -6)),
                 ],
                 "test_examples" => Any[],
-                "request" => Dict{String,Any}(
-                    "arguments" => Dict{String,Any}(
-                        "inp0" => Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                    ),
-                    "output" => Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                    "constructor" => "->",
-                ),
+                "request" => "inp0:int -> int",
             ),
         )
         target_solution = "let \$v1::int = Const(int, 11) in (+ \$v1 \$inp0)"
@@ -1553,19 +1475,7 @@ using DataStructures
                     ),
                 ],
                 "test_examples" => Any[],
-                "request" => Dict{String,Any}(
-                    "arguments" => Dict{String,Any}(
-                        "inp0" => Dict{String,Any}(
-                            "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
-                            "constructor" => "list",
-                        ),
-                    ),
-                    "output" => Dict{String,Any}(
-                        "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
-                        "constructor" => "list",
-                    ),
-                    "constructor" => "->",
-                ),
+                "request" => "inp0:list(int) -> list(int)",
             ),
             sample_payload2,
         )
@@ -1640,19 +1550,7 @@ using DataStructures
                     ),
                 ],
                 "test_examples" => Any[],
-                "request" => Dict{String,Any}(
-                    "arguments" => Dict{String,Any}(
-                        "inp0" => Dict{String,Any}(
-                            "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
-                            "constructor" => "list",
-                        ),
-                    ),
-                    "output" => Dict{String,Any}(
-                        "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
-                        "constructor" => "list",
-                    ),
-                    "constructor" => "->",
-                ),
+                "request" => "inp0:list(int) -> list(int)",
             ),
             sample_payload2,
         )
@@ -1714,19 +1612,7 @@ using DataStructures
                     ),
                 ),],
                 "test_examples" => Any[],
-                "request" => Dict{String,Any}(
-                    "arguments" => Dict{String,Any}(
-                        "inp0" => Dict{String,Any}(
-                            "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "color")],
-                            "constructor" => "grid",
-                        ),
-                    ),
-                    "output" => Dict{String,Any}(
-                        "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "color")],
-                        "constructor" => "grid",
-                    ),
-                    "constructor" => "->",
-                ),
+                "request" => "inp0:grid(color) -> grid(color)",
             ),
         )
         target_solution = "let \$v4::color = Const(color, 0) in let \$v6::int = Const(int, 20) in let \$v5::int = Const(int, 20) in let \$v1::color = Const(color, 0) in let \$v2::grid(color) = (repeat_grid \$v4 \$v5 \$v6) in (rev_select_grid (lambda (eq? \$0 \$v1)) \$v2 \$inp0)"
@@ -1790,31 +1676,7 @@ using DataStructures
                     ),
                 ),],
                 "test_examples" => Any[],
-                "request" => Dict{String,Any}(
-                    "arguments" => Dict{String,Any}(
-                        "inp0" => Dict{String,Any}(
-                            "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "color")],
-                            "constructor" => "grid",
-                        ),
-                    ),
-                    "output" => Dict{String,Any}(
-                        "arguments" => Any[
-                            Dict{String,Any}(
-                                "arguments" => Any[
-                                    Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                    Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                ],
-                                "constructor" => "tuple2",
-                            ),
-                            Dict{String,Any}(
-                                "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "color")],
-                                "constructor" => "grid",
-                            ),
-                        ],
-                        "constructor" => "tuple2",
-                    ),
-                    "constructor" => "->",
-                ),
+                "request" => "inp0:grid(color) -> tuple2(tuple2(int, int), grid(color))",
             ),
         )
 
@@ -1879,31 +1741,7 @@ using DataStructures
                     ),
                 ),],
                 "test_examples" => Any[],
-                "request" => Dict{String,Any}(
-                    "arguments" => Dict{String,Any}(
-                        "inp0" => Dict{String,Any}(
-                            "arguments" => Any[Dict{String,Any}(
-                                "arguments" => Any[
-                                    Dict{String,Any}(
-                                        "arguments" => Any[
-                                            Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                            Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                        ],
-                                        "constructor" => "tuple2",
-                                    ),
-                                    Dict{String,Any}("arguments" => Any[], "constructor" => "color"),
-                                ],
-                                "constructor" => "tuple2",
-                            )],
-                            "constructor" => "set",
-                        ),
-                    ),
-                    "output" => Dict{String,Any}(
-                        "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "color")],
-                        "constructor" => "grid",
-                    ),
-                    "constructor" => "->",
-                ),
+                "request" => "inp0:set(tuple2(tuple2(int, int), color)) -> grid(color)",
             ),
         )
         target_solution = "let \$v1::int = Const(int, 20) in let \$v2::int = Const(int, 20) in (rev_grid_elements \$inp0 \$v1 \$v2)"
@@ -1967,31 +1805,7 @@ using DataStructures
                     ),
                 ),],
                 "test_examples" => Any[],
-                "request" => Dict{String,Any}(
-                    "arguments" => Dict{String,Any}(
-                        "inp0" => Dict{String,Any}(
-                            "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "color")],
-                            "constructor" => "grid",
-                        ),
-                    ),
-                    "output" => Dict{String,Any}(
-                        "arguments" => Any[Dict{String,Any}(
-                            "arguments" => Any[
-                                Dict{String,Any}(
-                                    "arguments" => Any[
-                                        Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                        Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                    ],
-                                    "constructor" => "tuple2",
-                                ),
-                                Dict{String,Any}("arguments" => Any[], "constructor" => "color"),
-                            ],
-                            "constructor" => "tuple2",
-                        )],
-                        "constructor" => "set",
-                    ),
-                    "constructor" => "->",
-                ),
+                "request" => "inp0:grid(color) -> set(tuple2(tuple2(int, int), color))",
             ),
         )
         target_solution = "let \$v1, \$v2, \$v3 = rev(\$inp0 = (rev_grid_elements \$v1 \$v2 \$v3)) in \$v1"
@@ -2062,46 +1876,7 @@ using DataStructures
                     ),
                 ),],
                 "test_examples" => Any[],
-                "request" => Dict{String,Any}(
-                    "arguments" => Dict{String,Any}(
-                        "inp0" => Dict{String,Any}(
-                            "arguments" => Any[Dict{String,Any}(
-                                "arguments" => Any[Dict{String,Any}(
-                                    "arguments" => Any[
-                                        Dict{String,Any}(
-                                            "arguments" => Any[
-                                                Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                                Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                            ],
-                                            "constructor" => "tuple2",
-                                        ),
-                                        Dict{String,Any}("arguments" => Any[], "constructor" => "color"),
-                                    ],
-                                    "constructor" => "tuple2",
-                                )],
-                                "constructor" => "set",
-                            ),],
-                            "constructor" => "set",
-                        ),
-                    ),
-                    "output" => Dict{String,Any}(
-                        "arguments" => Any[Dict{String,Any}(
-                            "arguments" => Any[
-                                Dict{String,Any}(
-                                    "arguments" => Any[
-                                        Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                        Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                    ],
-                                    "constructor" => "tuple2",
-                                ),
-                                Dict{String,Any}("arguments" => Any[], "constructor" => "color"),
-                            ],
-                            "constructor" => "tuple2",
-                        )],
-                        "constructor" => "set",
-                    ),
-                    "constructor" => "->",
-                ),
+                "request" => "inp0:set(set(tuple2(tuple2(int, int), color))) -> set(tuple2(tuple2(int, int), color))",
             ),
         )
         target_solution = "(rev_fold_set (lambda (lambda (rev_greedy_cluster (lambda (lambda (any_set (lambda (and (not (gt? (abs (- (tuple2_first (tuple2_first \$0)) (tuple2_first (tuple2_first \$2)))) 1)) (not (gt? (abs (- (tuple2_second (tuple2_first \$0)) (tuple2_second (tuple2_first \$2)))) 1)))) \$0))) \$1 \$0))) empty_set \$inp0)"
@@ -2172,46 +1947,7 @@ using DataStructures
                     ),
                 ),],
                 "test_examples" => Any[],
-                "request" => Dict{String,Any}(
-                    "arguments" => Dict{String,Any}(
-                        "inp0" => Dict{String,Any}(
-                            "arguments" => Any[Dict{String,Any}(
-                                "arguments" => Any[
-                                    Dict{String,Any}(
-                                        "arguments" => Any[
-                                            Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                            Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                        ],
-                                        "constructor" => "tuple2",
-                                    ),
-                                    Dict{String,Any}("arguments" => Any[], "constructor" => "color"),
-                                ],
-                                "constructor" => "tuple2",
-                            )],
-                            "constructor" => "set",
-                        ),
-                    ),
-                    "output" => Dict{String,Any}(
-                        "arguments" => Any[Dict{String,Any}(
-                            "arguments" => Any[Dict{String,Any}(
-                                "arguments" => Any[
-                                    Dict{String,Any}(
-                                        "arguments" => Any[
-                                            Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                            Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                        ],
-                                        "constructor" => "tuple2",
-                                    ),
-                                    Dict{String,Any}("arguments" => Any[], "constructor" => "color"),
-                                ],
-                                "constructor" => "tuple2",
-                            )],
-                            "constructor" => "set",
-                        ),],
-                        "constructor" => "set",
-                    ),
-                    "constructor" => "->",
-                ),
+                "request" => "inp0:set(tuple2(tuple2(int, int), color)) -> set(set(tuple2(tuple2(int, int), color)))",
             ),
         )
         target_solution = "let \$v1 = rev(\$inp0 = (rev_fold_set (lambda (lambda (rev_greedy_cluster (lambda (lambda (any_set (lambda (and (not (gt? (abs (- (tuple2_first (tuple2_first \$0)) (tuple2_first (tuple2_first \$2)))) 1)) (not (gt? (abs (- (tuple2_second (tuple2_first \$0)) (tuple2_second (tuple2_first \$2)))) 1)))) \$0))) \$1 \$0))) empty_set \$v1)) in \$v1"
@@ -2264,49 +2000,7 @@ using DataStructures
                     ),
                 ),],
                 "test_examples" => Any[],
-                "request" => Dict{String,Any}(
-                    "arguments" => Dict{String,Any}(
-                        "inp0" => Dict{String,Any}(
-                            "arguments" => Any[Dict{String,Any}(
-                                "arguments" => Any[
-                                    Dict{String,Any}(
-                                        "arguments" => Any[Dict{String,Any}(
-                                            "arguments" => Any[
-                                                Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                                Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                            ],
-                                            "constructor" => "tuple2",
-                                        ),],
-                                        "constructor" => "set",
-                                    ),
-                                    Dict{String,Any}("arguments" => Any[], "constructor" => "color"),
-                                ],
-                                "constructor" => "tuple2",
-                            )],
-                            "constructor" => "set",
-                        ),
-                    ),
-                    "output" => Dict{String,Any}(
-                        "arguments" => Any[Dict{String,Any}(
-                            "arguments" => Any[Dict{String,Any}(
-                                "arguments" => Any[
-                                    Dict{String,Any}(
-                                        "arguments" => Any[
-                                            Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                            Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                        ],
-                                        "constructor" => "tuple2",
-                                    ),
-                                    Dict{String,Any}("arguments" => Any[], "constructor" => "color"),
-                                ],
-                                "constructor" => "tuple2",
-                            )],
-                            "constructor" => "set",
-                        ),],
-                        "constructor" => "set",
-                    ),
-                    "constructor" => "->",
-                ),
+                "request" => "inp0:set(tuple2(set(tuple2(int, int)), color)) -> set(set(tuple2(tuple2(int, int), color)))",
             ),
         )
         target_solution = "(map_set (lambda (map_set (lambda (tuple2 \$0 (tuple2_second \$1))) (tuple2_first \$0))) \$inp0)"
@@ -2359,49 +2053,7 @@ using DataStructures
                     ),
                 ),],
                 "test_examples" => Any[],
-                "request" => Dict{String,Any}(
-                    "arguments" => Dict{String,Any}(
-                        "inp0" => Dict{String,Any}(
-                            "arguments" => Any[Dict{String,Any}(
-                                "arguments" => Any[Dict{String,Any}(
-                                    "arguments" => Any[
-                                        Dict{String,Any}(
-                                            "arguments" => Any[
-                                                Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                                Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                            ],
-                                            "constructor" => "tuple2",
-                                        ),
-                                        Dict{String,Any}("arguments" => Any[], "constructor" => "color"),
-                                    ],
-                                    "constructor" => "tuple2",
-                                )],
-                                "constructor" => "set",
-                            ),],
-                            "constructor" => "set",
-                        ),
-                    ),
-                    "output" => Dict{String,Any}(
-                        "arguments" => Any[Dict{String,Any}(
-                            "arguments" => Any[
-                                Dict{String,Any}(
-                                    "arguments" => Any[Dict{String,Any}(
-                                        "arguments" => Any[
-                                            Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                            Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                        ],
-                                        "constructor" => "tuple2",
-                                    ),],
-                                    "constructor" => "set",
-                                ),
-                                Dict{String,Any}("arguments" => Any[], "constructor" => "color"),
-                            ],
-                            "constructor" => "tuple2",
-                        )],
-                        "constructor" => "set",
-                    ),
-                    "constructor" => "->",
-                ),
+                "request" => "inp0:set(set(tuple2(tuple2(int, int), color))) -> set(tuple2(set(tuple2(int, int)), color))",
             ),
         )
         target_solution = "let \$v1 = rev(\$inp0 = (map_set (lambda (map_set (lambda (tuple2 \$0 (tuple2_second \$1))) (tuple2_first \$0))) \$v1)) in \$v1"
@@ -2420,43 +2072,7 @@ using DataStructures
                     ),
                 ),],
                 "test_examples" => Any[],
-                "request" => Dict{String,Any}(
-                    "arguments" => Dict{String,Any}(
-                        "inp0" => Dict{String,Any}(
-                            "arguments" => Any[
-                                Dict{String,Any}(
-                                    "arguments" => Any[
-                                        Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                        Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                    ],
-                                    "constructor" => "tuple2",
-                                ),
-                                Dict{String,Any}(
-                                    "arguments" => Any[Dict{String,Any}(
-                                        "arguments" => Any[
-                                            Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                            Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                        ],
-                                        "constructor" => "tuple2",
-                                    ),],
-                                    "constructor" => "set",
-                                ),
-                            ],
-                            "constructor" => "tuple2",
-                        ),
-                    ),
-                    "output" => Dict{String,Any}(
-                        "arguments" => Any[Dict{String,Any}(
-                            "arguments" => Any[
-                                Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                            ],
-                            "constructor" => "tuple2",
-                        ),],
-                        "constructor" => "set",
-                    ),
-                    "constructor" => "->",
-                ),
+                "request" => "inp0:tuple2(tuple2(int, int), set(tuple2(int, int))) -> set(tuple2(int, int))",
             ),
         )
         target_solution = "let \$v2, \$v1 = rev(\$inp0 = (tuple2 \$v2 \$v1)) in (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$v2)) (+ (tuple2_second \$0) (tuple2_second \$v2)))) \$v1) \$v2 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int))))"
@@ -2475,43 +2091,7 @@ using DataStructures
                     ),
                 ),],
                 "test_examples" => Any[],
-                "request" => Dict{String,Any}(
-                    "arguments" => Dict{String,Any}(
-                        "inp0" => Dict{String,Any}(
-                            "arguments" => Any[Dict{String,Any}(
-                                "arguments" => Any[
-                                    Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                    Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                ],
-                                "constructor" => "tuple2",
-                            ),],
-                            "constructor" => "set",
-                        ),
-                    ),
-                    "output" => Dict{String,Any}(
-                        "arguments" => Any[
-                            Dict{String,Any}(
-                                "arguments" => Any[
-                                    Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                    Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                ],
-                                "constructor" => "tuple2",
-                            ),
-                            Dict{String,Any}(
-                                "arguments" => Any[Dict{String,Any}(
-                                    "arguments" => Any[
-                                        Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                        Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                    ],
-                                    "constructor" => "tuple2",
-                                ),],
-                                "constructor" => "set",
-                            ),
-                        ],
-                        "constructor" => "tuple2",
-                    ),
-                    "constructor" => "->",
-                ),
+                "request" => "inp0:set(tuple2(int, int)) -> tuple2(tuple2(int, int), set(tuple2(int, int)))",
             ),
         )
         target_solution = "let \$v2, \$v1 = rev(\$inp0 = (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$v2)) (+ (tuple2_second \$0) (tuple2_second \$v2)))) \$v1) \$v2 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int))))) in (tuple2 \$v2 \$v1)"
@@ -2530,43 +2110,7 @@ using DataStructures
                     ),
                 ),],
                 "test_examples" => Any[],
-                "request" => Dict{String,Any}(
-                    "arguments" => Dict{String,Any}(
-                        "inp0" => Dict{String,Any}(
-                            "arguments" => Any[
-                                Dict{String,Any}(
-                                    "arguments" => Any[
-                                        Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                        Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                    ],
-                                    "constructor" => "tuple2",
-                                ),
-                                Dict{String,Any}(
-                                    "arguments" => Any[Dict{String,Any}(
-                                        "arguments" => Any[
-                                            Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                            Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                        ],
-                                        "constructor" => "tuple2",
-                                    ),],
-                                    "constructor" => "set",
-                                ),
-                            ],
-                            "constructor" => "tuple2",
-                        ),
-                    ),
-                    "output" => Dict{String,Any}(
-                        "arguments" => Any[Dict{String,Any}(
-                            "arguments" => Any[
-                                Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                            ],
-                            "constructor" => "tuple2",
-                        ),],
-                        "constructor" => "set",
-                    ),
-                    "constructor" => "->",
-                ),
+                "request" => "inp0:tuple2(tuple2(int, int), set(tuple2(int, int))) -> set(tuple2(int, int))",
             ),
         )
 
@@ -2586,43 +2130,7 @@ using DataStructures
                     ),
                 ),],
                 "test_examples" => Any[],
-                "request" => Dict{String,Any}(
-                    "arguments" => Dict{String,Any}(
-                        "inp0" => Dict{String,Any}(
-                            "arguments" => Any[Dict{String,Any}(
-                                "arguments" => Any[
-                                    Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                    Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                ],
-                                "constructor" => "tuple2",
-                            ),],
-                            "constructor" => "set",
-                        ),
-                    ),
-                    "output" => Dict{String,Any}(
-                        "arguments" => Any[
-                            Dict{String,Any}(
-                                "arguments" => Any[
-                                    Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                    Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                ],
-                                "constructor" => "tuple2",
-                            ),
-                            Dict{String,Any}(
-                                "arguments" => Any[Dict{String,Any}(
-                                    "arguments" => Any[
-                                        Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                        Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                    ],
-                                    "constructor" => "tuple2",
-                                ),],
-                                "constructor" => "set",
-                            ),
-                        ],
-                        "constructor" => "tuple2",
-                    ),
-                    "constructor" => "->",
-                ),
+                "request" => "inp0:set(tuple2(int, int)) -> tuple2(tuple2(int, int), set(tuple2(int, int)))",
             ),
         )
         target_solution = "let \$v1 = rev(\$inp0 = ((lambda ((lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$1)) (+ (tuple2_second \$0) (tuple2_second \$1)))) \$1) \$0 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int))))) (tuple2_first \$v1))) (tuple2_second \$v1))) in \$v1"
@@ -2649,61 +2157,7 @@ using DataStructures
                     ),
                 )],
                 "test_examples" => Any[],
-                "request" => Dict{String,Any}(
-                    "arguments" => Dict{String,Any}(
-                        "inp0" => Dict{String,Any}(
-                            "arguments" => Any[Dict{String,Any}(
-                                "arguments" => Any[
-                                    Dict{String,Any}(
-                                        "arguments" => Any[
-                                            Dict{String,Any}(
-                                                "arguments" => Any[
-                                                    Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                                    Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                                ],
-                                                "constructor" => "tuple2",
-                                            ),
-                                            Dict{String,Any}(
-                                                "arguments" => Any[Dict{String,Any}(
-                                                    "arguments" => Any[
-                                                        Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                                        Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                                    ],
-                                                    "constructor" => "tuple2",
-                                                )],
-                                                "constructor" => "set",
-                                            ),
-                                        ],
-                                        "constructor" => "tuple2",
-                                    ),
-                                    Dict{String,Any}("arguments" => Any[], "constructor" => "color"),
-                                ],
-                                "constructor" => "tuple2",
-                            )],
-                            "constructor" => "set",
-                        ),
-                    ),
-                    "output" => Dict{String,Any}(
-                        "arguments" => Any[Dict{String,Any}(
-                            "arguments" => Any[
-                                Dict{String,Any}(
-                                    "arguments" => Any[Dict{String,Any}(
-                                        "arguments" => Any[
-                                            Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                            Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                        ],
-                                        "constructor" => "tuple2",
-                                    )],
-                                    "constructor" => "set",
-                                ),
-                                Dict{String,Any}("arguments" => Any[], "constructor" => "color"),
-                            ],
-                            "constructor" => "tuple2",
-                        )],
-                        "constructor" => "set",
-                    ),
-                    "constructor" => "->",
-                ),
+                "request" => "inp0:set(tuple2(tuple2(tuple2(int, int), set(tuple2(int, int))), color)) -> set(tuple2(set(tuple2(int, int)), color))",
             ),
         )
 
@@ -2731,61 +2185,7 @@ using DataStructures
                     ),
                 ),],
                 "test_examples" => Any[],
-                "request" => Dict{String,Any}(
-                    "arguments" => Dict{String,Any}(
-                        "inp0" => Dict{String,Any}(
-                            "arguments" => Any[Dict{String,Any}(
-                                "arguments" => Any[
-                                    Dict{String,Any}(
-                                        "arguments" => Any[Dict{String,Any}(
-                                            "arguments" => Any[
-                                                Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                                Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                            ],
-                                            "constructor" => "tuple2",
-                                        ),],
-                                        "constructor" => "set",
-                                    ),
-                                    Dict{String,Any}("arguments" => Any[], "constructor" => "color"),
-                                ],
-                                "constructor" => "tuple2",
-                            ),],
-                            "constructor" => "set",
-                        ),
-                    ),
-                    "output" => Dict{String,Any}(
-                        "arguments" => Any[Dict{String,Any}(
-                            "arguments" => Any[
-                                Dict{String,Any}(
-                                    "arguments" => Any[
-                                        Dict{String,Any}(
-                                            "arguments" => Any[
-                                                Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                                Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                            ],
-                                            "constructor" => "tuple2",
-                                        ),
-                                        Dict{String,Any}(
-                                            "arguments" => Any[Dict{String,Any}(
-                                                "arguments" => Any[
-                                                    Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                                    Dict{String,Any}("arguments" => Any[], "constructor" => "int"),
-                                                ],
-                                                "constructor" => "tuple2",
-                                            )],
-                                            "constructor" => "set",
-                                        ),
-                                    ],
-                                    "constructor" => "tuple2",
-                                ),
-                                Dict{String,Any}("arguments" => Any[], "constructor" => "color"),
-                            ],
-                            "constructor" => "tuple2",
-                        )],
-                        "constructor" => "set",
-                    ),
-                    "constructor" => "->",
-                ),
+                "request" => "inp0:set(tuple2(set(tuple2(int, int)), color)) -> set(tuple2(tuple2(tuple2(int, int), set(tuple2(int, int))), color))",
             ),
         )
 

@@ -184,19 +184,7 @@ end
                         Dict{String,Any}("output" => Any[3, 3], "inputs" => Dict{String,Any}("inp0" => Any[3, 3])),
                     ],
                     "test_examples" => Any[],
-                    "request" => Dict{String,Any}(
-                        "arguments" => Dict{String,Any}(
-                            "inp0" => Dict{String,Any}(
-                                "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
-                                "constructor" => "list",
-                            ),
-                        ),
-                        "output" => Dict{String,Any}(
-                            "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
-                            "constructor" => "list",
-                        ),
-                        "constructor" => "->",
-                    ),
+                    "request" => "inp0:list(int) -> list(int)",
                 ),
                 "name" => "copy",
             ),
@@ -262,19 +250,7 @@ end
                         Dict{String,Any}("output" => Any[3], "inputs" => Dict{String,Any}("inp0" => Any[3, 3])),
                     ],
                     "test_examples" => Any[],
-                    "request" => Dict{String,Any}(
-                        "arguments" => Dict{String,Any}(
-                            "inp0" => Dict{String,Any}(
-                                "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
-                                "constructor" => "list",
-                            ),
-                        ),
-                        "output" => Dict{String,Any}(
-                            "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
-                            "constructor" => "list",
-                        ),
-                        "constructor" => "->",
-                    ),
+                    "request" => "inp0:list(int) -> list(int)",
                 ),
                 "name" => "cdr",
             ),
@@ -393,19 +369,7 @@ end
                         Dict{String,Any}("output" => Any[5, 3, 3], "inputs" => Dict{String,Any}("inp0" => Any[3, 3])),
                     ],
                     "test_examples" => Any[],
-                    "request" => Dict{String,Any}(
-                        "arguments" => Dict{String,Any}(
-                            "inp0" => Dict{String,Any}(
-                                "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
-                                "constructor" => "list",
-                            ),
-                        ),
-                        "output" => Dict{String,Any}(
-                            "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "int")],
-                            "constructor" => "list",
-                        ),
-                        "constructor" => "->",
-                    ),
+                    "request" => "inp0:list(int) -> list(int)",
                 ),
                 "name" => "concat",
             ),
