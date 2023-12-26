@@ -429,6 +429,7 @@ _match_value(unknown_value::PatternWrapper, known_value::PatternWrapper) = unkno
 _match_value(unknown_value, known_value::PatternWrapper) = unknown_value == known_value.value
 _match_value(unknown_value::Array, known_value::PatternWrapper) = unknown_value == known_value.value
 _match_value(unknown_value::Tuple, known_value::PatternWrapper) = unknown_value == known_value.value
+_match_value(unknown_value::Set, known_value::PatternWrapper) = unknown_value == known_value.value
 _match_value(unknown_value::AbductibleValue, known_value::PatternWrapper) =
     _match_value(unknown_value.value, known_value.value)
 _match_value(unknown_value::EitherOptions, known_value::PatternWrapper) =
