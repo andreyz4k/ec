@@ -318,8 +318,16 @@ parse_abstraction = P"\(lambda " + parse_whitespace + _parse_program + P"\)" > A
 parse_application = P"\(" + Repeat(_parse_program + parse_whitespace, 2, ALL) + P"\)" |> (xs -> foldl(Apply, xs))
 
 parse_let_clause =
-    P"let " + P"\$v" + parse_number + P"::" + type_parser + P" = " + _parse_program + P" in " + _parse_program |>
-    (v -> LetClause(UInt64(v[1]), v[2], v[3], v[4]))
+    P"let " +
+    P"\$v" +
+    parse_number +
+    P"::" +
+    type_parser +
+    P" = " +
+    _parse_program +
+    P" in" +
+    parse_whitespace +
+    _parse_program |> (v -> LetClause(UInt64(v[1]), v[2], v[3], v[4]))
 
 parse_var_name_list = (E"$"+parse_var_name+E", ")[0:end] + E"$" + parse_var_name |> (vs -> [v for v in vs])
 
@@ -330,7 +338,8 @@ parse_let_rev_clause =
     parse_var_name +
     P" = " +
     _parse_program +
-    P"\) in " +
+    P"\) in" +
+    parse_whitespace +
     _parse_program |> (v -> LetRevClause(v[1], v[2], v[3], v[4]))
 
 julia_type_def = Delayed()

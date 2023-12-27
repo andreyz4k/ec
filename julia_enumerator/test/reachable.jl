@@ -1,6 +1,7 @@
 
 using Test
 
+using JSON
 # if false
 #     include("../src/solver.jl")
 # end
@@ -656,6 +657,24 @@ using DataStructures
         return result
     end
 
+    function create_arc_task(filename, dir = "ARC/data/training/")
+        arc_task = JSON.parsefile("../../dreamcoder/domains/arc/" * dir * filename)
+        task_dict = Dict{String,Any}(
+            "name" => filename,
+            "maximumFrontier" => 10,
+            "extras" => 5,
+            "request" => "inp0:grid(color) -> grid(color)",
+            "specialTask" => "arc",
+        )
+        task_dict["examples"] = Any[
+            Dict{String,Any}("inputs" => Dict{String,Any}("inp0" => example["input"]), "output" => example["output"]) for example in arc_task["train"]
+        ]
+        task_dict["test_examples"] = Any[
+            Dict{String,Any}("inputs" => Dict{String,Any}("inp0" => example["input"]), "output" => example["output"]) for example in arc_task["test"]
+        ]
+        return create_task(task_dict)
+    end
+
     _used_vars(p::FreeVar) = [p.var_id]
     _used_vars(p::Apply) = vcat(_used_vars(p.f), _used_vars(p.x))
     _used_vars(p::Abstraction) = _used_vars(p.b)
@@ -1192,6 +1211,9 @@ using DataStructures
             if !isnothing(ll) && !isinf(ll)
                 dt = time() - start_time
                 res = HitResult(join(show_program(solution, false)), -cost, ll, dt)
+                # if isempty(hits)
+                #     @info "Time to first solution: $dt"
+                # end
                 if haskey(hits, res)
                     # @warn "Duplicated solution $solution"
                 else
@@ -2299,6 +2321,27 @@ using DataStructures
         )
 
         target_solution = "let \$v1, \$v2 = rev(\$inp0 = (rev_fix_param (map_set (lambda (tuple2 (tuple2 (tuple2 (+ (tuple2_first (tuple2_first (tuple2_first \$0))) \$v1) (tuple2_second (tuple2_first (tuple2_first \$0)))) (tuple2_second (tuple2_first \$0))) (tuple2_second \$0))) \$v2) \$v1 (lambda 1))) in \$v2"
+        check_reachable(payload, target_solution)
+    end
+
+    @testset "0f39a9d9.json" begin
+        payload = create_arc_task("0f39a9d9.json", "sortOfARC/")
+        target_solution = "let \$v1, \$v2, \$v3 = rev(\$inp0 = (rev_fix_param (rev_select_grid (lambda (eq? \$0 \$v1)) \$v2 \$v3) \$v1 (lambda Const(color, 0)))) in
+        let \$v4, \$v5, \$v6 = rev(\$v2 = (repeat_grid \$v4 \$v5 \$v6)) in
+        let \$v7, \$v8, \$v9 = rev(\$v3 = (rev_grid_elements \$v7 \$v8 \$v9)) in
+        let \$v10 = rev(\$v7 = (rev_fold_set (lambda (lambda (rev_greedy_cluster (lambda (lambda (any_set (lambda (and (not (gt? (abs (- (tuple2_first (tuple2_first \$0)) (tuple2_first (tuple2_first \$2)))) 1)) (not (gt? (abs (- (tuple2_second (tuple2_first \$0)) (tuple2_second (tuple2_first \$2)))) 1)))) \$0))) \$1 \$0))) empty_set \$v10)) in
+        let \$v11 = rev(\$v10 = (map_set (lambda (map_set (lambda (tuple2 \$0 (tuple2_second \$1))) (tuple2_first \$0))) \$v11)) in
+        let \$v12 = rev(\$v11 = (map_set (lambda (tuple2 ((lambda ((lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$1)) (+ (tuple2_second \$0) (tuple2_second \$1)))) \$1) \$0 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int))))) (tuple2_first (tuple2_first \$1)))) (tuple2_second (tuple2_first \$0))) (tuple2_second \$0))) \$v12)) in
+        let \$v13, \$v14, \$v15 = rev(\$v12 = (rev_fix_param (rev_select_set (lambda (eq? (tuple2_second (tuple2_first \$0)) \$v13)) \$v14 \$v15) \$v13 (lambda Const(set(tuple2(int, int)), Set([(0, 0), (0, 2), (2, 0), (1, 1), (0, 1), (2, 2), (2, 1)]))))) in
+        let \$v16::int = Const(int, 1) in
+        let \$v17::set(tuple2(tuple2(tuple2(int, int), set(tuple2(int, int))), color)) = (map_set (lambda (tuple2 (tuple2 (tuple2 (+ (tuple2_first (tuple2_first (tuple2_first \$0))) \$v16) (tuple2_second (tuple2_first (tuple2_first \$0)))) (tuple2_second (tuple2_first \$0))) (tuple2_second \$0))) \$v14) in
+        let \$v18::set(tuple2(tuple2(tuple2(int, int), set(tuple2(int, int))), color)) = (rev_select_set (lambda (eq? (tuple2_second (tuple2_first \$0)) \$v13)) \$v17 \$v15) in
+        let \$v19::set(tuple2(set(tuple2(int, int)), color)) = (map_set (lambda (tuple2 ((lambda ((lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$1)) (+ (tuple2_second \$0) (tuple2_second \$1)))) \$1) \$0 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int))))) (tuple2_first (tuple2_first \$1)))) (tuple2_second (tuple2_first \$0))) (tuple2_second \$0))) \$v18) in
+        let \$v20::set(set(tuple2(tuple2(int, int), color))) = (map_set (lambda (map_set (lambda (tuple2 \$0 (tuple2_second \$1))) (tuple2_first \$0))) \$v19) in
+        let \$v21::set(tuple2(tuple2(int, int), color)) = (rev_fold_set (lambda (lambda (rev_greedy_cluster (lambda (lambda (any_set (lambda (and (not (gt? (abs (- (tuple2_first (tuple2_first \$0)) (tuple2_first (tuple2_first \$2)))) 1)) (not (gt? (abs (- (tuple2_second (tuple2_first \$0)) (tuple2_second (tuple2_first \$2)))) 1)))) \$0))) \$1 \$0))) empty_set \$v20) in
+        let \$v22::grid(color) = (rev_grid_elements \$v21 \$v8 \$v9) in
+        let \$v23::grid(color) = (repeat_grid \$v4 \$v5 \$v6) in
+        (rev_select_grid (lambda (eq? \$0 \$v1)) \$v23 \$v22)"
         check_reachable(payload, target_solution)
     end
 end
