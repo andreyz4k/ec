@@ -34,6 +34,30 @@ end
 @define_abductible_reverse_primitive "+" arrow(tint, tint, tint) (a -> (b -> a + b)) reverse_plus
 # @define_primitive "+" arrow(tint, tint, tint) (a -> (b -> a + b))
 
+function reverse_minus(value, calculated_arguments)
+    # @info "Reverse minus"
+    # @info value
+    # @info calculated_arguments
+    if calculated_arguments[end] !== missing && calculated_arguments[end] !== any_object
+        if calculated_arguments[end-1] !== missing && calculated_arguments[end-1] !== any_object
+            if value != calculated_arguments[end] - calculated_arguments[end-1]
+                error("Calculated arguments $(calculated_arguments[end-1:end]) don't add up to value $value")
+            else
+                return [calculated_arguments[end], calculated_arguments[end-1]]
+            end
+        else
+            return [calculated_arguments[end], calculated_arguments[end] - value]
+        end
+    elseif calculated_arguments[end-1] !== missing && calculated_arguments[end-1] !== any_object
+        return [value + calculated_arguments[end-1], calculated_arguments[end-1]]
+    end
+
+    return [AbductibleValue(any_object), AbductibleValue(any_object)]
+end
+
+@define_abductible_reverse_primitive "-" arrow(tint, tint, tint) (a -> (b -> a - b)) reverse_minus
+# @define_primitive("-", arrow(tint, tint, tint), (a -> (b -> a - b)))
+
 function reverse_mult(value)
     options = []
     if value > 0

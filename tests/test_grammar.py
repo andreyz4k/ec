@@ -224,13 +224,13 @@ def sample_wrapper_programs():
             "program": "let $v1, $v2 = rev($inp0 = (cons $v1 $v2)) in let $v3::int = (car $v2) in let $v5, $v6 = rev($v1 = (rev_fix_param (+ $v5 $v6) $v5 (lambda Const(int, 1)))) in let $v7::int = (- (length $inp0) $v5) in let $v8::int = Const(int, 1) in let $v9::int = (+ $v7 $v8) in (repeat $v3 $v9)",
             "time": 12.727571964263916,
             "logLikelihood": 0.0,
-            "logPrior": -18.19717212600944,
+            "logPrior": -18.56181523959735,
         },
         {
             "program": "let $v1::int = Const(int, -5) in let $v3, $v4 = rev($inp0 = (rev_fix_param (map (lambda (* $v3 $0)) $v4) $v3 (lambda Const(int, -1)))) in let $v5::int = (* $v1 $v3) in let $v8, $v9 = rev($inp0 = (rev_fix_param (concat $v8 $v9) $v9 (lambda (cdr $0)))) in let $v10::int = (- $v5 (length $v8)) in (cons $v10 $inp0)",
             "time": 1.8824760913848877,
             "logLikelihood": 0.0,
-            "logPrior": -28.239077574281865,
+            "logPrior": -28.54737893393638,
         },
     ]
     return programs
@@ -348,7 +348,7 @@ def sample_lambda_wrapper_programs():
             "program": "((lambda ((lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first $0) (tuple2_first $1)) (+ (tuple2_second $0) (tuple2_second $1)))) $1) $0 (lambda (tuple2 (fold (lambda (lambda (if (gt? $0 $1) $1 $0))) (map (lambda (tuple2_first $0)) (collect $0)) max_int) (fold (lambda (lambda (if (gt? $0 $1) $1 $0))) (map (lambda (tuple2_second $0)) (collect $0)) max_int))))) (tuple2_first $inp0))) (tuple2_second $inp0))",
             "time": 3.1087260246276855,
             "logLikelihood": 0.0,
-            "logPrior": -131.35541833292402,
+            "logPrior": -131.92727941174996,
             "request": TypeNamedArgsConstructor(
                 ARROW,
                 {"inp0": ttuple2(ttuple2(tint, tint), tset(ttuple2(tint, tint)))},
@@ -359,7 +359,7 @@ def sample_lambda_wrapper_programs():
             "program": "let $v1 = rev($inp0 = ((lambda ((lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first $0) (tuple2_first $1)) (+ (tuple2_second $0) (tuple2_second $1)))) $1) $0 (lambda (tuple2 (fold (lambda (lambda (if (gt? $0 $1) $1 $0))) (map (lambda (tuple2_first $0)) (collect $0)) max_int) (fold (lambda (lambda (if (gt? $0 $1) $1 $0))) (map (lambda (tuple2_second $0)) (collect $0)) max_int))))) (tuple2_first $v1))) (tuple2_second $v1))) in $v1",
             "time": 3.1087260246276855,
             "logLikelihood": 0.0,
-            "logPrior": -129.9634259506895,
+            "logPrior": -130.53528702951544,
             "request": TypeNamedArgsConstructor(
                 ARROW,
                 {"inp0": tset(ttuple2(tint, tint))},

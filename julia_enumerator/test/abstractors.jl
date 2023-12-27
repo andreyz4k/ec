@@ -535,6 +535,32 @@ using DataStructures: OrderedDict, Accumulator
         ) == Dict(UInt64(2) => EitherOptions(Dict{UInt64,Any}(0xaa2dcc33efe7cdcd => 29, 0x4ef19a9b1c1cc5e2 => 14)))
     end
 
+    @testset "Reverse minus" begin
+        skeleton = parse_program("(- ??(int) ??(int))")
+        @test is_reversible(skeleton)
+        p, _ = capture_free_vars(skeleton)
+        @test compare_options(
+            run_in_reverse(p, 3),
+            Dict(0x0000000000000002 => AbductibleValue(any_object), 0x0000000000000001 => AbductibleValue(any_object)),
+        )
+        @test compare_options(
+            run_in_reverse(p, 15),
+            Dict(0x0000000000000002 => AbductibleValue(any_object), 0x0000000000000001 => AbductibleValue(any_object)),
+        )
+        @test compare_options(
+            run_in_reverse(p, -5),
+            Dict(0x0000000000000002 => AbductibleValue(any_object), 0x0000000000000001 => AbductibleValue(any_object)),
+        )
+
+        @test calculate_dependent_vars(p, Dict{UInt64,Any}(UInt64(1) => 1), 3) == Dict(UInt64(2) => -2)
+        @test calculate_dependent_vars(p, Dict{UInt64,Any}(UInt64(2) => 1), 3) == Dict(UInt64(1) => 4)
+        @test calculate_dependent_vars(
+            p,
+            Dict{UInt64,Any}(UInt64(2) => 1),
+            EitherOptions(Dict{UInt64,Any}(0xaa2dcc33efe7cdcd => 30, 0x4ef19a9b1c1cc5e2 => 15)),
+        ) == Dict(UInt64(1) => EitherOptions(Dict{UInt64,Any}(0xaa2dcc33efe7cdcd => 31, 0x4ef19a9b1c1cc5e2 => 16)))
+    end
+
     @testset "Reverse plus with plus" begin
         skeleton = parse_program("(+ (+ ??(int) ??(int)) ??(int))")
         @test is_reversible(skeleton)

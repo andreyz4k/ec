@@ -82,7 +82,6 @@ _is_prime(n) = in(
 
 # built-ins
 @define_primitive("if", arrow(tbool, t0, t0, t0), (c -> (t -> (f -> c ? t : f))))
-@define_primitive("-", arrow(tint, tint, tint), (a -> (b -> a - b)))
 @define_primitive("empty", tlist(t0), [])
 @define_primitive("car", arrow(tlist(t0), t0), (l -> l[1]))
 @define_primitive("cdr", arrow(tlist(t0), tlist(t0)), (l -> isempty(l) ? error("Empty list") : l[2:end]))
