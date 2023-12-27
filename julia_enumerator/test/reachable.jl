@@ -877,6 +877,7 @@ using DataStructures
         finalizer,
         mfp,
         verbose,
+        find_one,
     )
         if verbose
             @info "Simulating block search for $bl"
@@ -993,6 +994,7 @@ using DataStructures
                         finalizer,
                         mfp,
                         verbose,
+                        find_one,
                     )
                 end
             else
@@ -1022,6 +1024,7 @@ using DataStructures
         finalizer,
         mfp,
         verbose,
+        find_one,
     )
         if verbose
             @info "Simulating block search for $bl"
@@ -1113,6 +1116,7 @@ using DataStructures
                         finalizer,
                         mfp,
                         verbose,
+                        find_one,
                     )
                 end
             else
@@ -1138,6 +1142,7 @@ using DataStructures
         finalizer,
         mfp,
         verbose,
+        find_one,
     )
         checked_any = false
         if isempty(blocks)
@@ -1167,9 +1172,13 @@ using DataStructures
                     finalizer,
                     mfp,
                     verbose,
+                    find_one,
                 )
                 union!(successful, s)
                 union!(failed, f)
+                if find_one && !isempty(successful)
+                    break
+                end
             end
         end
         if verbose
@@ -1180,7 +1189,7 @@ using DataStructures
         return successful, failed
     end
 
-    function check_reachable(payload, target_solution, verbose_test = false)
+    function check_reachable(payload, target_solution, verbose_test = false; find_one = false)
         task, maximum_frontier, g, type_weights, mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
         mfp = 10
         run_context = Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout)
@@ -1237,8 +1246,19 @@ using DataStructures
         if verbose_test
             @info inner_mapping
         end
-        successful, failed =
-            _check_reachable(sc, blocks, inner_mapping, branches, [], g, run_context, finalizer, mfp, verbose_test)
+        successful, failed = _check_reachable(
+            sc,
+            blocks,
+            inner_mapping,
+            branches,
+            [],
+            g,
+            run_context,
+            finalizer,
+            mfp,
+            verbose_test,
+            find_one,
+        )
         if verbose_test
             @info "successful: $successful"
             @info "failed: $failed"
@@ -2342,6 +2362,6 @@ using DataStructures
         let \$v22::grid(color) = (rev_grid_elements \$v21 \$v8 \$v9) in
         let \$v23::grid(color) = (repeat_grid \$v4 \$v5 \$v6) in
         (rev_select_grid (lambda (eq? \$0 \$v1)) \$v23 \$v22)"
-        check_reachable(payload, target_solution)
+        check_reachable(payload, target_solution; find_one = true)
     end
 end
