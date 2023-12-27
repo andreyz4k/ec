@@ -14,9 +14,13 @@ def _division(x):
     return lambda y: x / y
 
 
-subtraction = Primitive("-", arrow(tint, arrow(tint, tint)), _subtraction)
+subtraction = Primitive(
+    "-", arrow(tint, arrow(tint, tint)), _subtraction, is_reversible=True
+)
 real_subtraction = Primitive("-.", arrow(treal, treal, treal), _subtraction)
-addition = Primitive("+", arrow(tint, arrow(tint, tint)), Curried(_addition), is_reversible=True)
+addition = Primitive(
+    "+", arrow(tint, arrow(tint, tint)), Curried(_addition), is_reversible=True
+)
 real_addition = Primitive("+.", arrow(treal, treal, treal), _addition)
 
 
@@ -24,13 +28,15 @@ def _multiplication(x):
     return lambda y: x * y
 
 
-multiplication = Primitive("*", arrow(tint, arrow(tint, tint)), _multiplication, is_reversible=True)
+multiplication = Primitive(
+    "*", arrow(tint, arrow(tint, tint)), _multiplication, is_reversible=True
+)
 real_multiplication = Primitive("*.", arrow(treal, treal, treal), _multiplication)
 real_division = Primitive("/.", arrow(treal, treal, treal), _division)
 
 
 def _power(a):
-    return lambda b: a ** b
+    return lambda b: a**b
 
 
 real_power = Primitive("power", arrow(treal, treal, treal), _power)

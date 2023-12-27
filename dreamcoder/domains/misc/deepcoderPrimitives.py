@@ -106,7 +106,7 @@ def _negate(x):
 
 
 def _square(x):
-    return x ** 2
+    return x**2
 
 
 def _triple(x):
@@ -178,13 +178,23 @@ def deepcoderPrimitives():
             Primitive("SUM", arrow(tlist(tint), tint), _sum),
         ]
         + [
-            Primitive("MAP", arrow(int_to_int, tlist(tint), tlist(tint)), _map),  # is this okay???
-            Primitive("FILTER", arrow(int_to_bool, tlist(tint), tlist(tint)), _filter),  # is this okay???
-            Primitive("COUNT", arrow(int_to_bool, tlist(tint), tint), _count),  # is this okay???
             Primitive(
-                "ZIPWITH", arrow(int_to_int_to_int, tlist(tint), tlist(tint), tlist(tint)), _zipwith
+                "MAP", arrow(int_to_int, tlist(tint), tlist(tint)), _map
             ),  # is this okay???
-            Primitive("SCANL1", arrow(int_to_int_to_int, tlist(tint), tlist(tint)), _scanl1),  # is this okay???
+            Primitive(
+                "FILTER", arrow(int_to_bool, tlist(tint), tlist(tint)), _filter
+            ),  # is this okay???
+            Primitive(
+                "COUNT", arrow(int_to_bool, tlist(tint), tint), _count
+            ),  # is this okay???
+            Primitive(
+                "ZIPWITH",
+                arrow(int_to_int_to_int, tlist(tint), tlist(tint), tlist(tint)),
+                _zipwith,
+            ),  # is this okay???
+            Primitive(
+                "SCANL1", arrow(int_to_int_to_int, tlist(tint), tlist(tint)), _scanl1
+            ),  # is this okay???
         ]
         + [
             Primitive("INC", int_to_int, _succ),
@@ -206,7 +216,7 @@ def deepcoderPrimitives():
         ]
         + [
             Primitive("+", int_to_int_to_int, _add, is_reversible=True),
-            Primitive("-", int_to_int_to_int, _sub),
+            Primitive("-", int_to_int_to_int, _sub, is_reversible=True),
             Primitive("*", int_to_int_to_int, _mult, is_reversible=True),
             Primitive("MIN", int_to_int_to_int, _min),
             Primitive("MAX", int_to_int_to_int, _max),
@@ -229,13 +239,23 @@ def OldDeepcoderPrimitives():
             Primitive("sum", arrow(tlist(tint), tint), _sum),
         ]
         + [
-            Primitive("map", arrow(int_to_int, tlist(tint), tlist(tint)), _map),  # is this okay???
-            Primitive("filter_int", arrow(int_to_bool, tlist(tint), tlist(tint)), _filter),  # is this okay???
-            Primitive("count", arrow(int_to_bool, tlist(tint), tint), _count),  # is this okay???
             Primitive(
-                "zipwith", arrow(int_to_int_to_int, tlist(tint), tlist(tint), tlist(tint)), _zipwith
+                "map", arrow(int_to_int, tlist(tint), tlist(tint)), _map
             ),  # is this okay???
-            Primitive("scanl1", arrow(int_to_int_to_int, tlist(tint), tlist(tint)), _scanl1),  # is this okay???
+            Primitive(
+                "filter_int", arrow(int_to_bool, tlist(tint), tlist(tint)), _filter
+            ),  # is this okay???
+            Primitive(
+                "count", arrow(int_to_bool, tlist(tint), tint), _count
+            ),  # is this okay???
+            Primitive(
+                "zipwith",
+                arrow(int_to_int_to_int, tlist(tint), tlist(tint), tlist(tint)),
+                _zipwith,
+            ),  # is this okay???
+            Primitive(
+                "scanl1", arrow(int_to_int_to_int, tlist(tint), tlist(tint)), _scanl1
+            ),  # is this okay???
             # ] + [
             # Primitive("succ", arrow(tint, tint), _succ),
             # Primitive("pred", arrow(tint, tint), _pred),
