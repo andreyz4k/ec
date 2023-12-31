@@ -651,7 +651,7 @@ using DataStructures
     )
 
     function create_task(task_dict, sample_payload = sample_payload)
-        result = copy(sample_payload)
+        result = deepcopy(sample_payload)
         result["task"] = task_dict
         result["name"] = task_dict["name"]
         return result
@@ -2121,6 +2121,48 @@ using DataStructures
         check_reachable(payload, target_solution)
     end
 
+    @testset "Single object coordinates extraction with invented" begin
+        payload = create_task(
+            Dict{String,Any}(
+                "name" => "Single object coordinates extraction",
+                "maximumFrontier" => 10,
+                "examples" => Any[Dict{String,Any}(
+                    "output" => Set([(19, 10), (18, 9), (19, 11), (17, 9), (18, 10), (18, 11), (17, 10)]),
+                    "inputs" => Dict{String,Any}(
+                        "inp0" => ((17, 9), Set([(2, 1), (1, 0), (2, 2), (0, 0), (1, 1), (1, 2), (0, 1)])),
+                    ),
+                ),],
+                "test_examples" => Any[],
+                "request" => "inp0:tuple2(tuple2(int, int), set(tuple2(int, int))) -> set(tuple2(int, int))",
+            ),
+        )
+        append!(
+            payload["DSL"]["productions"],
+            [
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "#(lambda (lambda (if (gt? \$0 \$1) \$1 \$0)))",
+                    "is_reversible" => false,
+                    "type" => "int -> int -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "#(lambda (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$1)) (+ (tuple2_second \$0) (tuple2_second \$1)))))",
+                    "is_reversible" => true,
+                    "type" => "tuple2(int, int) -> tuple2(int, int) -> tuple2(int, int)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "#(lambda (fold (lambda (lambda (#(lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) \$0 \$1))) \$0 max_int))",
+                    "is_reversible" => false,
+                    "type" => "list(int) -> int",
+                ),
+            ],
+        )
+        target_solution = "let \$v2, \$v1 = rev(\$inp0 = (tuple2 \$v2 \$v1)) in (rev_fix_param (map_set (lambda (#(lambda (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$1)) (+ (tuple2_second \$0) (tuple2_second \$1))))) \$0 \$v2)) \$v1) \$v2 (lambda (tuple2 (#(lambda (fold (lambda (lambda (#(lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) \$0 \$1))) \$0 max_int)) (map (lambda (tuple2_first \$0)) (collect \$0))) (#(lambda (fold (lambda (lambda (#(lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) \$0 \$1))) \$0 max_int)) (map (lambda (tuple2_second \$0)) (collect \$0))))))"
+        check_reachable(payload, target_solution)
+    end
+
     @testset "Single object coordinates extraction reverse" begin
         payload = create_task(
             Dict{String,Any}(
@@ -2137,6 +2179,48 @@ using DataStructures
             ),
         )
         target_solution = "let \$v2, \$v1 = rev(\$inp0 = (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$v2)) (+ (tuple2_second \$0) (tuple2_second \$v2)))) \$v1) \$v2 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int))))) in (tuple2 \$v2 \$v1)"
+        check_reachable(payload, target_solution)
+    end
+
+    @testset "Single object coordinates extraction with invented reverse" begin
+        payload = create_task(
+            Dict{String,Any}(
+                "name" => "Single object coordinates extraction",
+                "maximumFrontier" => 10,
+                "examples" => Any[Dict{String,Any}(
+                    "output" => ((17, 9), Set([(2, 1), (1, 0), (2, 2), (0, 0), (1, 1), (1, 2), (0, 1)])),
+                    "inputs" => Dict{String,Any}(
+                        "inp0" => Set([(19, 10), (18, 9), (19, 11), (17, 9), (18, 10), (18, 11), (17, 10)]),
+                    ),
+                ),],
+                "test_examples" => Any[],
+                "request" => "inp0:set(tuple2(int, int)) -> tuple2(tuple2(int, int), set(tuple2(int, int)))",
+            ),
+        )
+        append!(
+            payload["DSL"]["productions"],
+            [
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "#(lambda (lambda (if (gt? \$0 \$1) \$1 \$0)))",
+                    "is_reversible" => false,
+                    "type" => "int -> int -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "#(lambda (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$1)) (+ (tuple2_second \$0) (tuple2_second \$1)))))",
+                    "is_reversible" => true,
+                    "type" => "tuple2(int, int) -> tuple2(int, int) -> tuple2(int, int)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "#(lambda (fold (lambda (lambda (#(lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) \$0 \$1))) \$0 max_int))",
+                    "is_reversible" => false,
+                    "type" => "list(int) -> int",
+                ),
+            ],
+        )
+        target_solution = "let \$v2, \$v1 = rev(\$inp0 = (rev_fix_param (map_set (lambda (#(lambda (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$1)) (+ (tuple2_second \$0) (tuple2_second \$1))))) \$0 \$v2)) \$v1) \$v2 (lambda (tuple2 (#(lambda (fold (lambda (lambda (#(lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) \$0 \$1))) \$0 max_int)) (map (lambda (tuple2_first \$0)) (collect \$0))) (#(lambda (fold (lambda (lambda (#(lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) \$0 \$1))) \$0 max_int)) (map (lambda (tuple2_second \$0)) (collect \$0))))))) in (tuple2 \$v2 \$v1)"
         check_reachable(payload, target_solution)
     end
 

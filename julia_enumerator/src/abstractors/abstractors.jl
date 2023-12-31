@@ -64,7 +64,7 @@ end
 
 function __get_custom_arg_chekers(p::Primitive, checker::Nothing, indices_checkers::Dict)
     if haskey(all_abstractors, p)
-        all_abstractors[p][1], indices_checkers
+        [c[2] for c in all_abstractors[p][1]], indices_checkers
     else
         [], indices_checkers
     end
@@ -125,7 +125,7 @@ function __get_custom_arg_chekers(p::Index, checker, indices_checkers::Dict)
     end
 end
 
-function __get_custom_arg_chekers(p::Abstraction, checker::Nothing, indices_checkers::Dict)
+function __get_custom_arg_chekers(p::Abstraction, checker, indices_checkers::Dict)
     chekers, indices_checkers = __get_custom_arg_chekers(p.b, checker, Dict(i + 1 => c for (i, c) in indices_checkers))
     if haskey(indices_checkers, 0)
         out_checkers = vcat([indices_checkers[0]], chekers)
