@@ -688,7 +688,7 @@ function _downstream_branch_options_known(sc, block_id, block_copy_id, fixed_bra
         end
     end
     out_branches = keys(get_connected_to(sc.branch_incoming_blocks, block_copy_id))
-    target_output = Dict(sc.branch_vars[b] => b for b in out_branches)
+    target_output = Dict{UInt64,UInt64}(sc.branch_vars[b] => b for b in out_branches)
     if isempty(unfixed_vars)
         return false, Set([(block_id, fixed_branches, target_output)]), Set()
     end
