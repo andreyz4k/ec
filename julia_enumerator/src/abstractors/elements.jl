@@ -63,3 +63,14 @@ function reverse_collect(value)
 end
 
 @define_reverse_primitive("collect", arrow(tset(t0), tlist(t0)), collect, reverse_collect)
+
+function reverse_empty(value)
+    if isempty(value)
+        return []
+    else
+        error("Expected empty object")
+    end
+end
+
+@define_reverse_primitive("empty", tlist(t0), [], reverse_empty)
+@define_reverse_primitive("empty_set", tset(t0), Set(), reverse_empty)

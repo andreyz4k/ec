@@ -767,7 +767,7 @@ end
 macro define_reverse_primitive(name, t, x, reverse_function)
     return quote
         local n = $(esc(name))
-        @define_primitive n $t $x
+        @define_primitive n $(esc(t)) $(esc(x))
         local prim = every_primitive[n]
         all_abstractors[prim] = [],
         (

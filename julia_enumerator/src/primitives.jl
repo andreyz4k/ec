@@ -82,12 +82,10 @@ _is_prime(n) = in(
 
 # built-ins
 @define_primitive("if", arrow(tbool, t0, t0, t0), (c -> (t -> (f -> c ? t : f))))
-@define_primitive("empty", tlist(t0), [])
 @define_primitive("car", arrow(tlist(t0), t0), (l -> l[1]))
 @define_primitive("cdr", arrow(tlist(t0), tlist(t0)), (l -> isempty(l) ? error("Empty list") : l[2:end]))
 @define_primitive("empty?", arrow(tlist(t0), tbool), isempty)
 
-[@define_primitive(string(j), tint, j) for j in 0:1]
 @define_primitive("max_int", tint, typemax(Int64))
 @define_primitive("min_int", tint, typemin(Int64))
 
@@ -98,7 +96,6 @@ _is_prime(n) = in(
 @define_primitive("is-square", arrow(tint, tbool), (n -> floor(sqrt(n))^2 == n))
 
 @define_primitive("list_to_set", arrow(tlist(t0), tset(t0)), Set)
-@define_primitive("empty_set", tset(t0), Set())
 
 @define_primitive("all", arrow(arrow(t0, tbool), tlist(t0), tbool), (f -> (l -> all(f, l))))
 @define_primitive("any", arrow(arrow(t0, tbool), tlist(t0), tbool), (f -> (l -> any(f, l))))

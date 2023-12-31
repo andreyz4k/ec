@@ -388,7 +388,7 @@ function try_get_reversed_values(sc::SolutionContext, p::Program, context, path,
 
     complexity_factor = (is_known ? sc.explained_complexity_factors : sc.unknown_complexity_factors)[output_branch_id]
     if !has_abductibles
-        complexity_factor -= out_entry.complexity - sum(entry.complexity for (_, entry) in new_entries)
+        complexity_factor -= out_entry.complexity - sum(entry.complexity for (_, entry) in new_entries; init = 0.0)
     end
 
     new_branches = []

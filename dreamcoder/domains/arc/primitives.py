@@ -472,7 +472,7 @@ def basePrimitives():
         Primitive("if", arrow(tbool, t0, t0, t0), _if),
         Primitive("+", arrow(tint, tint, tint), _addition, is_reversible=True),
         Primitive("-", arrow(tint, tint, tint), _subtraction, is_reversible=True),
-        Primitive("empty", tlist(t0), []),
+        Primitive("empty", tlist(t0), [], is_reversible=True),
         Primitive("cons", arrow(t0, tlist(t0), tlist(t0)), _cons, is_reversible=True),
         Primitive("car", arrow(tlist(t0), t0), _car),
         Primitive("cdr", arrow(tlist(t0), tlist(t0)), _cdr),
@@ -599,7 +599,7 @@ def basePrimitives():
         ),
         Primitive("list_to_set", arrow(tlist(t0), tset(t0)), None),
         Primitive("adjoin", arrow(t0, tset(t0), tset(t0)), None, is_reversible=True),
-        Primitive("empty_set", tset(t0), None),
+        Primitive("empty_set", tset(t0), None, is_reversible=True),
         Primitive(
             "rev_groupby",
             arrow(
@@ -634,4 +634,4 @@ def basePrimitives():
         Primitive("max_int", tint, sys.maxsize),
         Primitive("min_int", tint, -sys.maxsize - 1),
         Primitive("collect", arrow(tset(t0), tlist(t0)), list, is_reversible=True),
-    ] + [Primitive(str(j), tint, j) for j in range(2)]
+    ] + [Primitive(str(j), tint, j, is_reversible=True) for j in range(2)]

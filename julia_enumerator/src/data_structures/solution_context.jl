@@ -823,6 +823,9 @@ function _update_prev_follow_vars(sc::SolutionContext, bl::ProgramBlock)
 end
 
 function _update_prev_follow_vars(sc, bl::ReverseProgramBlock)
+    if isempty(bl.output_vars)
+        return
+    end
     inp_prev_vars = union([get_connected_to(sc.previous_vars, inp_var) for inp_var in bl.input_vars]...)
     out_foll_vars = union([get_connected_from(sc.previous_vars, out_var) for out_var in bl.output_vars]...)
     sc.previous_vars[inp_prev_vars, out_foll_vars] = true

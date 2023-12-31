@@ -298,7 +298,7 @@ def _match(l):
 
 def primitives():
     return [Primitive(str(j), tint, j) for j in range(6)] + [
-        Primitive("empty", tlist(t0), []),
+        Primitive("empty", tlist(t0), [], is_reversible=True),
         Primitive("singleton", arrow(t0, tlist(t0)), _single),
         Primitive("range", arrow(tint, tlist(tint)), _range, is_reversible=True),
         Primitive("++", arrow(tlist(t0), tlist(t0), tlist(t0)), _append),
@@ -420,12 +420,12 @@ def bootstrapTarget():
         Primitive("if", arrow(tbool, t0, t0, t0), _if),
         Primitive("+", arrow(tint, tint, tint), _addition, is_reversible=True),
         Primitive("-", arrow(tint, tint, tint), _subtraction, is_reversible=True),
-        Primitive("empty", tlist(t0), []),
+        Primitive("empty", tlist(t0), [], is_reversible=True),
         Primitive("cons", arrow(t0, tlist(t0), tlist(t0)), _cons, is_reversible=True),
         Primitive("car", arrow(tlist(t0), t0), _car),
         Primitive("cdr", arrow(tlist(t0), tlist(t0)), _cdr),
         Primitive("empty?", arrow(tlist(t0), tbool), _isEmpty),
-    ] + [Primitive(str(j), tint, j) for j in range(2)]
+    ] + [Primitive(str(j), tint, j, is_reversible=True) for j in range(2)]
 
 
 def bootstrapTarget_extra():
@@ -518,7 +518,7 @@ def no_length():
 def McCarthyPrimitives():
     "These are < primitives provided by 1959 lisp as introduced by McCarthy"
     return [
-        Primitive("empty", tlist(t0), []),
+        Primitive("empty", tlist(t0), [], is_reversible=True),
         Primitive("cons", arrow(t0, tlist(t0), tlist(t0)), _cons, is_reversible=True),
         Primitive("car", arrow(tlist(t0), t0), _car),
         Primitive("cdr", arrow(tlist(t0), tlist(t0)), _cdr),
@@ -536,7 +536,7 @@ def McCarthyPrimitives():
         Primitive("eq?", arrow(t0, t0, tbool), _eq),
         Primitive("+", arrow(tint, tint, tint), _addition, is_reversible=True),
         Primitive("-", arrow(tint, tint, tint), _subtraction, is_reversible=True),
-    ] + [Primitive(str(j), tint, j) for j in range(2)]
+    ] + [Primitive(str(j), tint, j, is_reversible=True) for j in range(2)]
 
 
 if __name__ == "__main__":

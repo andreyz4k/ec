@@ -96,3 +96,16 @@ end
 
 @define_reverse_primitive "*" arrow(tint, tint, tint) (a -> (b -> a * b)) reverse_mult
 # @define_primitive "*" arrow(tint, tint, tint) (a -> (b -> a * b))
+
+function reverse_const_int(expected)
+    function _reverse_const_int(value)
+        if value == expected
+            return []
+        else
+            error("Expected $expected, got $value")
+        end
+    end
+    return _reverse_const_int
+end
+
+[@define_reverse_primitive(string(j), tint, j, reverse_const_int(j)) for j in 0:1]
