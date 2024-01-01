@@ -28,12 +28,19 @@ function add_new_workers(count, source_path)
     else
         new_pids = addprocs(count)
     end
-    setup_futures = [setup_worker(pid, source_path) for pid in new_pids]
-    for f in setup_futures
-        fetch(f)
+    created_pids = []
+    setup_futures = [(pid, setup_worker(pid, source_path)) for pid in new_pids]
+    for (pid, f) in setup_futures
+        try
+            fetch(f)
+            push!(created_pids, pid)
+        catch e
+            bt = catch_backtrace()
+            @error exception = (e, bt) "Failed to setup worker $pid"
+        end
     end
     @info "Finished adding new workers"
-    new_pids
+    created_pids
 end
 
 function should_stop(conn)
