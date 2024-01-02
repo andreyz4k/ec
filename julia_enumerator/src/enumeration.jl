@@ -638,13 +638,23 @@ function try_run_block(
         push!(inputs, Dict())
     end
     input_types = []
+    has_non_consts = false
     for var_id in block.input_vars
         fixed_branch_id = fixed_branches[var_id]
+        if sc.branch_is_not_const[fixed_branch_id]
+            has_non_consts = true
+        end
         entry = sc.entries[sc.branch_entries[fixed_branch_id]]
         push!(input_types, sc.types[entry.type_id])
         for i in 1:sc.example_count
             inputs[i][var_id] = entry.values[i]
         end
+    end
+    if !has_non_consts && length(block.input_vars) > 0
+        if sc.verbose
+            @info "Aborting $block_id $(block.p) because all inputs are const"
+        end
+        throw(EnumerationException())
     end
 
     out_branch_id = target_output[block.output_var]
@@ -759,6 +769,7 @@ function try_run_block_with_downstream(
                 fixed_branches[var_id],
                 sc.branch_entries[fixed_branches[var_id]],
                 sc.types[sc.entries[sc.branch_entries[fixed_branches[var_id]]].type_id],
+                sc.branch_is_not_const[fixed_branches[var_id]],
                 sc.entries[sc.branch_entries[fixed_branches[var_id]]],
             ) for var_id in sc.blocks[block_id].input_vars
         )

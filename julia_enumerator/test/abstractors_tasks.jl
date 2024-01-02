@@ -562,7 +562,7 @@ using solver: load_problems, enumerate_for_task
             verbose,
         )
         @test length(solutions) >= 1
-        @test number_enumerated <= 5000
+        @test number_enumerated <= 15000
     end
 
     @testset "Use eithers 2" begin

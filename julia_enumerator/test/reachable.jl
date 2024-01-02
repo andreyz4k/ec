@@ -1657,7 +1657,7 @@ using DataStructures
                 "request" => "inp0:grid(color) -> grid(color)",
             ),
         )
-        target_solution = "let \$v4::color = Const(color, 0) in let \$v6::int = Const(int, 20) in let \$v5::int = Const(int, 20) in let \$v1::color = Const(color, 0) in let \$v2::grid(color) = (repeat_grid \$v4 \$v5 \$v6) in (rev_select_grid (lambda (eq? \$0 \$v1)) \$v2 \$inp0)"
+        target_solution = "let \$v4::color = Const(color, 0) in let \$v6::int = (height \$inp0) in let \$v5::int = (width \$inp0) in let \$v1::color = Const(color, 0) in let \$v2::grid(color) = (repeat_grid \$v4 \$v5 \$v6) in (rev_select_grid (lambda (eq? \$0 \$v1)) \$v2 \$inp0)"
         check_reachable(payload, target_solution)
     end
 

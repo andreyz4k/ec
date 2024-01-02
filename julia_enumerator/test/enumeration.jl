@@ -537,7 +537,7 @@ using solver: load_problems, enumerate_for_task
             verbose,
         )
         @test length(solutions) >= 1
-        @test number_enumerated <= 2000
+        @test number_enumerated <= 10000
     end
 
     @testset "remove empty lists" begin

@@ -40,6 +40,8 @@ function value_updates(
         branch_id,
         t_id,
         !isa(block.p, FreeVar),
+        !isa(block.p, SetConst) &&
+        !(isa(block.p, FreeVar) && !sc.branch_is_not_const[fixed_branches[block.input_vars[1]]]),
         fixed_branches,
         created_paths,
     )
@@ -84,6 +86,7 @@ function value_updates(
             br_id,
             entry.type_id,
             true,
+            true,
             fixed_branches,
             created_paths,
         )
@@ -118,12 +121,16 @@ function updated_branches(
     var_id::UInt64,
     branch_id::UInt64,
     t_id::UInt64,
-    is_meaningful::Bool,
+    is_not_copy::Bool,
+    is_not_const::Bool,
     fixed_branches::Dict{UInt64,UInt64},
     created_paths,
 )::Tuple{UInt64,Bool,Bool,Set{Any},Bool,Vector{Any}}
-    if is_meaningful && sc.branch_is_not_copy[branch_id] != true
+    if is_not_copy && sc.branch_is_not_copy[branch_id] != true
         sc.branch_is_not_copy[branch_id] = true
+    end
+    if is_not_const && sc.branch_is_not_const[branch_id] != true
+        sc.branch_is_not_const[branch_id] = true
     end
     set_explained = false
     if !sc.branch_is_explained[branch_id]
@@ -186,7 +193,8 @@ function updated_branches(
     var_id::UInt64,
     branch_id::UInt64,
     t_id::UInt64,
-    is_meaningful::Bool,
+    is_not_copy::Bool,
+    is_not_const::Bool,
     fixed_branches::Dict{UInt64,UInt64},
     created_paths,
 )::Tuple{UInt64,Bool,Bool,Set{Any},Bool,Vector{Any}}
@@ -225,8 +233,11 @@ function updated_branches(
     sc.branch_vars[new_branch_id] = var_id
     sc.branch_types[new_branch_id, t_id] = true
     sc.branch_is_explained[new_branch_id] = true
-    if is_meaningful
+    if is_not_copy
         sc.branch_is_not_copy[new_branch_id] = true
+    end
+    if is_not_const
+        sc.branch_is_not_const[new_branch_id] = true
     end
 
     sc.branch_children[new_parents, new_branch_id] = true
@@ -259,7 +270,8 @@ function updated_branches(
     var_id::UInt64,
     branch_id::UInt64,
     t_id::UInt64,
-    is_meaningful::Bool,
+    is_not_copy::Bool,
+    is_not_const::Bool,
     fixed_branches::Dict{UInt64,UInt64},
     created_paths,
 )::Tuple{UInt64,Bool,Bool,Set{Any},Bool,Vector{Any}}
@@ -278,8 +290,11 @@ function updated_branches(
             sc.branch_is_explained[possible_result] = true
             set_explained = true
         end
-        if is_meaningful && sc.branch_is_not_copy[possible_result] != true
+        if is_not_copy && sc.branch_is_not_copy[possible_result] != true
             sc.branch_is_not_copy[possible_result] = true
+        end
+        if is_not_const && sc.branch_is_not_const[possible_result] != true
+            sc.branch_is_not_const[possible_result] = true
         end
         block_created_paths =
             get_new_paths_for_block(sc, block_id, is_new_block, created_paths, var_id, possible_result, fixed_branches)
@@ -301,8 +316,11 @@ function updated_branches(
     sc.branch_vars[new_branch_id] = var_id
     sc.branch_types[new_branch_id, t_id] = true
     sc.branch_is_explained[new_branch_id] = true
-    if is_meaningful
+    if is_not_copy
         sc.branch_is_not_copy[new_branch_id] = true
+    end
+    if is_not_const
+        sc.branch_is_not_const[new_branch_id] = true
     end
 
     sc.branch_children[new_parents, new_branch_id] = true
@@ -335,7 +353,8 @@ function updated_branches(
     var_id::UInt64,
     branch_id::UInt64,
     t_id::UInt64,
-    is_meaningful::Bool,
+    is_not_copy::Bool,
+    is_not_const::Bool,
     fixed_branches::Dict{UInt64,UInt64},
     created_paths,
 )::Tuple{UInt64,Bool,Bool,Set{Any},Bool,Vector{Any}}
@@ -354,8 +373,11 @@ function updated_branches(
             sc.branch_is_explained[possible_result] = true
             set_explained = true
         end
-        if is_meaningful && sc.branch_is_not_copy[possible_result] != true
+        if is_not_copy && sc.branch_is_not_copy[possible_result] != true
             sc.branch_is_not_copy[possible_result] = true
+        end
+        if is_not_const && sc.branch_is_not_const[possible_result] != true
+            sc.branch_is_not_const[possible_result] = true
         end
         block_created_paths =
             get_new_paths_for_block(sc, block_id, is_new_block, created_paths, var_id, possible_result, fixed_branches)
@@ -377,8 +399,11 @@ function updated_branches(
     sc.branch_vars[new_branch_id] = var_id
     sc.branch_types[new_branch_id, t_id] = true
     sc.branch_is_explained[new_branch_id] = true
-    if is_meaningful
+    if is_not_copy
         sc.branch_is_not_copy[new_branch_id] = true
+    end
+    if is_not_const
+        sc.branch_is_not_const[new_branch_id] = true
     end
 
     sc.branch_children[new_parents, new_branch_id] = true
@@ -613,7 +638,8 @@ function updated_branches(
     var_id::UInt64,
     branch_id::UInt64,
     t_id::UInt64,
-    is_meaningful::Bool,
+    is_not_copy::Bool,
+    is_not_const::Bool,
     fixed_branches::Dict{UInt64,UInt64},
     created_paths,
 )::Tuple{UInt64,Bool,Bool,Set{Any},Bool,Vector{Any}}
@@ -631,8 +657,11 @@ function updated_branches(
             sc.branch_is_explained[possible_result] = true
             set_explained = true
         end
-        if is_meaningful && sc.branch_is_not_copy[possible_result] != true
+        if is_not_copy && sc.branch_is_not_copy[possible_result] != true
             sc.branch_is_not_copy[possible_result] = true
+        end
+        if is_not_const && sc.branch_is_not_const[possible_result] != true
+            sc.branch_is_not_const[possible_result] = true
         end
         block_created_paths =
             get_new_paths_for_block(sc, block_id, is_new_block, created_paths, var_id, possible_result, fixed_branches)
@@ -654,8 +683,11 @@ function updated_branches(
     sc.branch_vars[new_branch_id] = var_id
     sc.branch_types[new_branch_id, t_id] = true
     sc.branch_is_explained[new_branch_id] = true
-    if is_meaningful
+    if is_not_copy
         sc.branch_is_not_copy[new_branch_id] = true
+    end
+    if is_not_const
+        sc.branch_is_not_const[new_branch_id] = true
     end
 
     sc.branch_children[new_parents, new_branch_id] = true

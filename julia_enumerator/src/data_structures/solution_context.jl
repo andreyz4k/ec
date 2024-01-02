@@ -11,6 +11,7 @@ mutable struct SolutionContext
     branch_is_unknown::VectorStorage{Bool}
     branch_is_explained::VectorStorage{Bool}
     branch_is_not_copy::VectorStorage{Bool}
+    branch_is_not_const::VectorStorage{Bool}
 
     branch_entries::VectorStorage{UInt64}
     branch_vars::VectorStorage{UInt64}
@@ -86,6 +87,7 @@ function create_starting_context(task::Task, type_weights, verbose)::SolutionCon
         VectorStorage{Bool}(),
         VectorStorage{Bool}(),
         VectorStorage{Bool}(),
+        VectorStorage{Bool}(),
         VectorStorage{UInt64}(),
         VectorStorage{UInt64}(),
         ConnectionGraphStorage(),
@@ -142,6 +144,7 @@ function create_starting_context(task::Task, type_weights, verbose)::SolutionCon
         sc.branch_types[branch_id, type_id] = true
         sc.branch_is_explained[branch_id] = true
         sc.branch_is_not_copy[branch_id] = true
+        sc.branch_is_not_const[branch_id] = true
         sc.branch_known_from_input[branch_id] = true
 
         sc.explained_min_path_costs[branch_id] = 0.0
@@ -235,6 +238,7 @@ function start_transaction!(sc::SolutionContext, depth)
     start_transaction!(sc.branches_count, depth)
     start_transaction!(sc.branch_is_explained, depth)
     start_transaction!(sc.branch_is_not_copy, depth)
+    start_transaction!(sc.branch_is_not_const, depth)
     start_transaction!(sc.branch_is_unknown, depth)
     start_transaction!(sc.branch_entries, depth)
     start_transaction!(sc.branch_vars, depth)
@@ -274,6 +278,7 @@ function save_changes!(sc::SolutionContext, depth)
     save_changes!(sc.branches_count, depth)
     save_changes!(sc.branch_is_explained, depth)
     save_changes!(sc.branch_is_not_copy, depth)
+    save_changes!(sc.branch_is_not_const, depth)
     save_changes!(sc.branch_is_unknown, depth)
     save_changes!(sc.branch_entries, depth)
     save_changes!(sc.branch_vars, depth)
@@ -313,6 +318,7 @@ function drop_changes!(sc::SolutionContext, depth)
     drop_changes!(sc.branches_count, depth)
     drop_changes!(sc.branch_is_explained, depth)
     drop_changes!(sc.branch_is_not_copy, depth)
+    drop_changes!(sc.branch_is_not_const, depth)
     drop_changes!(sc.branch_is_unknown, depth)
     drop_changes!(sc.branch_entries, depth)
     drop_changes!(sc.branch_vars, depth)
@@ -441,12 +447,17 @@ function get_new_paths_for_block(
     output_branch_id,
     input_branches,
 )
-    # @info "Getting paths for new block $bl"
     bl = sc.blocks[bl_id]
+    if sc.verbose
+        @info "Getting paths for new block $bl"
+    end
     if is_new_block
         input_paths = get_input_paths_for_new_block(sc, bl, input_branches)
     else
         input_paths = get_input_paths_for_existing_block(sc, bl, input_branches, new_paths)
+    end
+    if sc.verbose
+        @info "Got $(length(input_paths)) $input_paths paths for new block $bl"
     end
     check_path_cost = any(!isnothing(sc.explained_min_path_costs[input_branches[v_id]]) for v_id in bl.input_vars)
     best_cost = Inf
@@ -471,14 +482,38 @@ function set_new_paths_for_block(
     check_path_cost,
     best_cost,
 )
-    if isa(bl.p, FreeVar)
-        filter!(input_paths) do path
-            if !haskey(path.main_path, bl.input_vars[1])
-                return true
+    filter!(input_paths) do path
+        if isa(bl.p, FreeVar)
+            if haskey(path.main_path, bl.input_vars[1])
+                prev_block = sc.blocks[path.main_path[bl.input_vars[1]]]
+                if isa(prev_block, ProgramBlock) && isa(prev_block.p, FreeVar)
+                    return false
+                end
             end
-            prev_block = sc.blocks[path.main_path[bl.input_vars[1]]]
-            return !isa(prev_block, ProgramBlock) || !isa(prev_block.p, FreeVar)
+        else
+            for in_var_id in bl.input_vars
+                if haskey(path.main_path, in_var_id)
+                    prev_block = sc.blocks[path.main_path[in_var_id]]
+                    if isa(prev_block, ProgramBlock) && isa(prev_block.p, FreeVar)
+                        v_id = prev_block.input_vars[1]
+                        if !haskey(path.main_path, v_id)
+                            return true
+                        end
+                        prev_block = sc.blocks[path.main_path[v_id]]
+                    end
+                    if !isa(prev_block, ProgramBlock) || !isa(prev_block.p, SetConst)
+                        return true
+                    end
+                else
+                    return true
+                end
+            end
+            return length(bl.input_vars) == 0
         end
+        return true
+    end
+    if sc.verbose
+        @info "Filtered $(length(input_paths)) $input_paths paths for new block $bl"
     end
     return set_new_paths_for_var(
         sc,
@@ -490,6 +525,7 @@ function set_new_paths_for_block(
         check_path_cost,
         best_cost,
         !isa(bl.p, FreeVar),
+        !isa(bl.p, SetConst),
     )
 end
 
@@ -513,6 +549,7 @@ function set_new_paths_for_block(
         check_path_cost,
         best_cost,
         true,
+        true,
     )
 end
 
@@ -526,6 +563,7 @@ function set_new_paths_for_var(
     check_path_cost,
     best_cost,
     is_not_copy,
+    is_not_const,
 )
     new_block_paths = []
     for path in input_paths
@@ -544,6 +582,9 @@ function set_new_paths_for_var(
     end
     if is_not_copy && !sc.branch_is_not_copy[out_branch_id]
         sc.branch_is_not_copy[out_branch_id] = true
+    end
+    if is_not_const && !sc.branch_is_not_const[out_branch_id]
+        sc.branch_is_not_const[out_branch_id] = true
     end
     return new_block_paths
 end
