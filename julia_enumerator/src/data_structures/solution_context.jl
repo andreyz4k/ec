@@ -65,6 +65,7 @@ mutable struct SolutionContext
     example_count::Int64
     type_weights::Dict{String,Float64}
     total_number_of_enumerated_programs::Int64
+    iterations_count::Int64
     pq_input::PriorityQueue{Tuple{UInt64,Bool},Float64,Base.Order.ForwardOrdering}
     pq_output::PriorityQueue{Tuple{UInt64,Bool},Float64,Base.Order.ForwardOrdering}
     branch_queues_unknown::Dict{UInt64,PriorityQueue{BlockPrototype,Float64,Base.Order.ForwardOrdering}}
@@ -117,6 +118,7 @@ function create_starting_context(task::Task, type_weights, verbose)::SolutionCon
         0,
         example_count,
         type_weights,
+        0,
         0,
         PriorityQueue{Tuple{UInt64,Bool},Float64}(),
         PriorityQueue{Tuple{UInt64,Bool},Float64}(),

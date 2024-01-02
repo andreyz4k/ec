@@ -1025,6 +1025,7 @@ function enumeration_iteration(
     br_id::UInt64,
     is_explained::Bool,
 )
+    sc.iterations_count += 1
     if (is_reversible(bp.state.skeleton) && !isa(sc.entries[sc.branch_entries[br_id]], AbductibleEntry)) ||
        state_finished(bp.state)
         if sc.verbose
@@ -1163,5 +1164,6 @@ function log_results(sc, hits)
         @info "Total incoming paths length $(sum(sum(length(path.main_path) + length(path.side_vars) for path in paths; init=0) for paths in values(sc.incoming_paths.values_stack[1]); init=0))"
     end
 
-    @info "Total number of enumerated programs $(sc.total_number_of_enumerated_programs)"
+    @info "Iterations count $(sc.iterations_count)"
+    @info "Total number of valid blocks $(sc.total_number_of_enumerated_programs)"
 end
