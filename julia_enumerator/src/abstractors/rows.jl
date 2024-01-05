@@ -6,7 +6,14 @@ end
 @define_reverse_primitive(
     "rows_to_grid",
     arrow(tlist(tlist(t0)), tgrid(t0)),
-    (rs -> isempty(rs) ? Array{Any}(undef, 0, 0) : vcat([permutedims(r) for r in rs]...)),
+    (
+        rs ->
+            isempty(rs) ? Array{Any}(undef, 0, 0) :
+            (
+                any(!isa(r, Array) for r in rs) ? error("Only arrays are allowed as rows") :
+                vcat([permutedims(r) for r in rs]...)
+            )
+    ),
     reverse_rows_to_grid
 )
 
