@@ -818,15 +818,19 @@ using DataStructures
         end
     end
 
-    is_on_path(prot::Hole, p, vars_mapping) = true
-    is_on_path(prot::Apply, p::Apply, vars_mapping) =
-        is_on_path(prot.f, p.f, vars_mapping) && is_on_path(prot.x, p.x, vars_mapping)
-    is_on_path(prot::Abstraction, p::Abstraction, vars_mapping) = is_on_path(prot.b, p.b, vars_mapping)
-    is_on_path(prot, p, vars_mapping) = prot == p
-    function is_on_path(prot::FreeVar, p::FreeVar, vars_mapping)
+    is_on_path(prot::Hole, p, vars_mapping, final = false) = true
+    is_on_path(prot::Apply, p::Apply, vars_mapping, final = false) =
+        is_on_path(prot.f, p.f, vars_mapping, final) && is_on_path(prot.x, p.x, vars_mapping, final)
+    is_on_path(prot::Abstraction, p::Abstraction, vars_mapping, final = false) =
+        is_on_path(prot.b, p.b, vars_mapping, final)
+    is_on_path(prot, p, vars_mapping, final = false) = prot == p
+
+    function is_on_path(prot::FreeVar, p::FreeVar, vars_mapping, final = false)
         if !haskey(vars_mapping, p.var_id)
             if isnothing(prot.var_id)
                 vars_mapping[p.var_id] = "r$(length(vars_mapping) + 1)"
+            elseif final
+                vars_mapping[p.var_id] = prot.var_id
             else
                 return false
             end
@@ -1050,8 +1054,10 @@ using DataStructures
             wrapped_func = nothing
         end
 
+        not_on_path = Set()
         @test !isempty(q)
         while !isempty(q)
+            (bp, p) = peek(q)
             bp = dequeue!(q)
             if verbose
                 @info bp
@@ -1067,6 +1073,11 @@ using DataStructures
                     if verbose
                         @info "found end"
                     end
+
+                    for (bp_, p_) in not_on_path
+                        q[bp_] = p_
+                    end
+
                     out_blocks = get_connected_from(sc.branch_outgoing_blocks, in_branch_id)
                     if isempty(out_blocks)
                         children = get_connected_from(sc.branch_children, in_branch_id)
@@ -1078,32 +1089,37 @@ using DataStructures
                     if verbose
                         @info "out_blocks: $out_blocks"
                     end
-                    created_block_id = first(values(out_blocks))
-                    created_block = sc.blocks[created_block_id]
-                    if verbose
-                        @info "created_block: $created_block"
-                    end
-
                     updated_branches = copy(branches)
-                    created_block_copy_id = first(keys(out_blocks))
-                    out_branches = keys(get_connected_to(sc.branch_incoming_blocks, created_block_copy_id))
-                    for out_branch in out_branches
-                        updated_branches[sc.branch_vars[out_branch]] = out_branch
-                    end
-                    updated_branches = _fetch_branches_children(sc, updated_branches)
-                    if verbose
-                        @info "updated_branches: $updated_branches"
-                    end
-
                     updated_vars_mapping = copy(vars_mapping)
-                    for (original_var, new_var) in zip(bl.output_vars, created_block.output_vars)
-                        if !haskey(updated_vars_mapping, original_var)
-                            updated_vars_mapping[original_var] = new_var
+                    for (created_block_copy_id, created_block_id) in out_blocks
+                        created_block = sc.blocks[created_block_id]
+                        if isa(created_block, ReverseProgramBlock) && is_on_path(created_block.p, bl.p, Dict(), true)
+                            if verbose
+                                @info "created_block: $created_block"
+                                @info "created_block_copy_id: $created_block_copy_id"
+                            end
+
+                            out_branches = keys(get_connected_to(sc.branch_incoming_blocks, created_block_copy_id))
+                            for out_branch in out_branches
+                                updated_branches[sc.branch_vars[out_branch]] = out_branch
+                            end
+                            updated_branches = _fetch_branches_children(sc, updated_branches)
+                            if verbose
+                                @info "updated_branches: $updated_branches"
+                            end
+
+                            for (original_var, new_var) in zip(bl.output_vars, created_block.output_vars)
+                                if !haskey(updated_vars_mapping, original_var)
+                                    updated_vars_mapping[original_var] = new_var
+                                end
+                            end
+                            if verbose
+                                @info "updated_vars_mapping: $updated_vars_mapping"
+                            end
+                            break
                         end
                     end
-                    if verbose
-                        @info "updated_vars_mapping: $updated_vars_mapping"
-                    end
+
                     updated_history = vcat(branches_history, [(branches, bl)])
                     return _check_reachable(
                         sc,
@@ -1120,6 +1136,9 @@ using DataStructures
                     )
                 end
             else
+                if isa(bp.state.skeleton, FreeVar)
+                    push!(not_on_path, (bp, p))
+                end
                 if verbose
                     @info "not on path"
                 end
@@ -2447,5 +2466,78 @@ using DataStructures
         let \$v23::grid(color) = (repeat_grid \$v4 \$v5 \$v6) in
         (rev_select_grid (lambda (eq? \$0 \$v1)) \$v23 \$v22)"
         check_reachable(payload, target_solution; find_one = true)
+    end
+
+    @testset "67a3c6ac.json" begin
+        payload = create_arc_task("67a3c6ac.json")
+        target_solution = "let \$v1 = rev(\$inp0 = (columns_to_grid \$v1)) in let \$v2 = rev(\$v1 = (reverse \$v2)) in (columns_to_grid \$v2)"
+        check_reachable(payload, target_solution)
+    end
+
+    @testset "68b16354.json" begin
+        payload = create_arc_task("68b16354.json")
+        target_solution = "let \$v1 = rev(\$inp0 = (rows_to_grid \$v1)) in let \$v2 = rev(\$v1 = (reverse \$v2)) in (rows_to_grid \$v2)"
+        check_reachable(payload, target_solution)
+    end
+
+    @testset "74dd1130.json" begin
+        payload = create_arc_task("74dd1130.json")
+        target_solution = "let \$v1 = rev(\$inp0 = (columns_to_grid \$v1)) in (rows_to_grid \$v1)"
+        check_reachable(payload, target_solution)
+    end
+
+    @testset "ed36ccf7.json" begin
+        payload = create_arc_task("ed36ccf7.json")
+        target_solution = "let \$v1 = rev(\$inp0 = (columns_to_grid \$v1)) in let \$v2 = rev(\$v1 = (reverse \$v2)) in (rows_to_grid \$v2)"
+        check_reachable(payload, target_solution)
+    end
+
+    @testset "9dfd6313.json" begin
+        payload = create_arc_task("9dfd6313.json")
+        target_solution = "let \$v1 = rev(\$inp0 = (columns_to_grid \$v1)) in (rows_to_grid \$v1)"
+        check_reachable(payload, target_solution)
+    end
+
+    @testset "6d0aefbc.json" begin
+        payload = create_arc_task("6d0aefbc.json")
+        target_solution = "let \$v1 = rev(\$inp0 = (columns_to_grid \$v1)) in let \$v2 = rev(\$v1 = (reverse \$v2)) in let \$v3::list(list(color)) = (concat \$v1 \$v2) in (columns_to_grid \$v3)"
+        check_reachable(payload, target_solution)
+    end
+
+    @testset "8be77c9e.json" begin
+        payload = create_arc_task("8be77c9e.json")
+        target_solution = "let \$v1 = rev(\$inp0 = (rows_to_grid \$v1)) in let \$v2 = rev(\$v1 = (reverse \$v2)) in let \$v3::list(list(color)) = (concat \$v1 \$v2) in (rows_to_grid \$v3)"
+        check_reachable(payload, target_solution)
+    end
+
+    @testset "c9e6f938.json" begin
+        payload = create_arc_task("c9e6f938.json")
+        target_solution = "let \$v1 = rev(\$inp0 = (columns_to_grid \$v1)) in let \$v2 = rev(\$v1 = (reverse \$v2)) in let \$v3::list(list(color)) = (concat \$v1 \$v2) in (columns_to_grid \$v3)"
+        check_reachable(payload, target_solution)
+    end
+
+    @testset "25ff71a9.json" begin
+        payload = create_arc_task("25ff71a9.json")
+        # target_solution = "let \$v1 = rev(\$inp0 = (rows_to_grid \$v1)) in let \$v2::list(list(color)) = Const(list(list(color)), Vector{Any}[[0, 0, 0]]) in let \$v3, \$v4 = wrap(let \$v3, \$v4 = rev(\$v1 = (concat \$v3 \$v4)); let \$v4 = \$v2) in let \$v5::list(list(color)) = (concat \$v4 \$v3) in (rows_to_grid \$v5)"
+        target_solution = "let \$v1 = rev(\$inp0 = (rows_to_grid \$v1)) in let \$v3, \$v4 = rev(\$v1 = (rev_fix_param (concat \$v3 \$v4) \$v4 (lambda Const(list(list(color)), Vector{Any}[[0, 0, 0]])))) in let \$v5::list(list(color)) = (concat \$v4 \$v3) in (rows_to_grid \$v5)"
+        check_reachable(payload, target_solution)
+    end
+
+    @testset "6fa7a44f.json" begin
+        payload = create_arc_task("6fa7a44f.json")
+        target_solution = "let \$v1 = rev(\$inp0 = (rows_to_grid \$v1)) in let \$v2 = rev(\$v1 = (reverse \$v2)) in let \$v3::list(list(color)) = (concat \$v1 \$v2) in (rows_to_grid \$v3)"
+        check_reachable(payload, target_solution)
+    end
+
+    @testset "a416b8f3.json" begin
+        payload = create_arc_task("a416b8f3.json")
+        target_solution = "let \$v1 = rev(\$inp0 = (columns_to_grid \$v1)) in let \$v2::list(list(color)) = (concat \$v1 \$v1) in (columns_to_grid \$v2)"
+        check_reachable(payload, target_solution)
+    end
+
+    @testset "4c4377d9.json" begin
+        payload = create_arc_task("4c4377d9.json")
+        target_solution = "let \$v1 = rev(\$inp0 = (rows_to_grid \$v1)) in let \$v2 = rev(\$v1 = (reverse \$v2)) in let \$v3::list(list(color)) = (concat \$v2 \$v1) in (rows_to_grid \$v3)"
+        check_reachable(payload, target_solution)
     end
 end
