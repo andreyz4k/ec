@@ -34,3 +34,4 @@ language_experiments/
 tests/out/
 .DS_Store
 Manifest.toml
+julia_enumerator/test/solution_dumps

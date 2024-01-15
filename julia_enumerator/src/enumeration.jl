@@ -1084,6 +1084,7 @@ function enumerate_for_task(
     maximum_frontier::Int,
     timeout::Int,
     verbose::Bool = false,
+    need_export::Bool = false,
 )
     #    Returns, for each task, (program,logPrior) as well as the total number of enumerated programs
     enumeration_timeout = get_enumeration_timeout(timeout)
@@ -1136,7 +1137,9 @@ function enumerate_for_task(
     end
 
     log_results(sc, hits)
-    export_solution_context(sc)
+    if need_export
+        export_solution_context(sc, task)
+    end
 
     (collect(keys(hits)), sc.total_number_of_enumerated_programs)
 end

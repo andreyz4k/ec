@@ -7,6 +7,22 @@ function get_all_parents(sc, branch_id)
     return parents
 end
 
+function get_root_parent(sc, branch_id)
+    parents = get_connected_to(sc.branch_children, branch_id)
+    for parent_id in parents
+        return get_root_parent(sc, parent_id)
+    end
+    return branch_id
+end
+
+function get_all_children(sc, branch_id)
+    children = get_connected_from(sc.branch_children, branch_id)
+    for child_id in children
+        children = union(children, get_all_children(sc, child_id))
+    end
+    return children
+end
+
 # function is_branch_compatible(key, branch, fixed_branches)
 #     for fixed_branch in fixed_branches
 #         if haskey(fixed_branch.values, key)
