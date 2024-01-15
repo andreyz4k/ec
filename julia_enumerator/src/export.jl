@@ -224,6 +224,12 @@ function export_solution_context(sc::SolutionContext, task)
         if !isa(entry, NoDataEntry)
             vertex_dict["_entry_value"] = string(entry.values)
         end
+        if haskey(sc.branch_queues_explained, branch_id)
+            vertex_dict["_queue_explained_size"] = length(sc.branch_queues_explained[branch_id])
+        end
+        if haskey(sc.branch_queues_unknown, branch_id)
+            vertex_dict["_queue_unknown_size"] = length(sc.branch_queues_unknown[branch_id])
+        end
         filter!(kv -> !isnothing(kv[2]), vertex_dict)
         add_vertex!(data, string(branch_id), vertex_dict)
 

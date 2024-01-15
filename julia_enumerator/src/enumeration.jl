@@ -109,6 +109,7 @@ const illegal_combinations1 = Set([
     #  McCarthy primitives
     (1, "car", "cons"),
     (1, "car", "empty"),
+    (1, "car", "repeat"),
     (1, "cdr", "cons"),
     (1, "cdr", "empty"),
     (2, "-", "0"),
@@ -123,6 +124,7 @@ const illegal_combinations1 = Set([
     (2, "map", "empty"),
     (2, "fold", "empty"),
     (2, "index", "empty"),
+    (2, "index", "repeat"),
 ])
 
 const illegal_combinations2 = Set([
@@ -153,8 +155,31 @@ has_index(p::Apply, i) = has_index(p.f, i) || has_index(p.x, i)
 has_index(p::FreeVar, i) = false
 has_index(p::Abstraction, i) = has_index(p.b, i + 1)
 
-state_violates_symmetry(p::Abstraction)::Bool = state_violates_symmetry(p.b) || !has_index(p.b, 0)
-function state_violates_symmetry(p::Apply)::Bool
+new_free_vars_count(p::FreeVar) = isnothing(p.var_id) ? 1 : 0
+new_free_vars_count(p::Abstraction) = new_free_vars_count(p.b)
+new_free_vars_count(p::Apply) = new_free_vars_count(p.f) + new_free_vars_count(p.x)
+new_free_vars_count(p) = 0
+
+subprograms_equal(p1, p2, var_shift) = p1 == p2
+subprograms_equal(p1::Apply, p2::Apply, var_shift) =  # TODO: new free vars count can be optimized
+    subprograms_equal(p1.f, p2.f, var_shift) && subprograms_equal(p1.x, p2.x, var_shift + new_free_vars_count(p1.f))
+
+subprograms_equal(p1::Abstraction, p2::Abstraction, var_shift) = subprograms_equal(p1.b, p2.b, var_shift)
+
+function subprograms_equal(p1::FreeVar, p2::FreeVar, var_shift)
+    if !isnothing(p1.var_id)
+        return p1.var_id == p2.var_id
+    end
+    if !isnothing(p2.var_id)
+        return p2.var_id == "r$(var_shift + 1)"
+    end
+    return false
+end
+
+state_violates_symmetry(p::Abstraction, var_shift = 0)::Bool =
+    state_violates_symmetry(p.b, var_shift) || !has_index(p.b, 0)
+
+function state_violates_symmetry(p::Apply, var_shift = 0)::Bool
     (f, a) = application_parse(p)
     if f == every_primitive["rev_fix_param"]
         if isa(a[1], FreeVar) || isa(a[1], Index)
@@ -164,11 +189,30 @@ function state_violates_symmetry(p::Apply)::Bool
             a[3] = a[3].b
         end
     end
-    return state_violates_symmetry(f) ||
-           any(state_violates_symmetry, a) ||
-           any(violates_symmetry(f, x, n) for (n, x) in enumerate(a))
+    if state_violates_symmetry(f, var_shift)
+        return true
+    end
+    if f == every_primitive["eq?"] && _has_no_holes(a[1]) && _has_no_holes(a[2])
+        if subprograms_equal(a[1], a[2], var_shift)
+            return true
+        end
+    end
+    if f == every_primitive["if"] && _has_no_holes(a[2]) && _has_no_holes(a[3])
+        cond_var_shift = new_free_vars_count(a[1])
+        if subprograms_equal(a[2], a[3], var_shift + cond_var_shift)
+            return true
+        end
+    end
+    var_shift += new_free_vars_count(f)
+    for (n, x) in enumerate(a)
+        if state_violates_symmetry(x, var_shift) || violates_symmetry(f, x, n)
+            return true
+        end
+        var_shift += new_free_vars_count(x)
+    end
+    return false
 end
-state_violates_symmetry(::Program)::Bool = false
+state_violates_symmetry(::Program, var_shift = 0)::Bool = false
 
 function block_state_successors(
     maxFreeParameters,
