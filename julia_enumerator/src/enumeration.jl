@@ -579,6 +579,8 @@ function create_reversed_block(
                 ),
             )
         end
+        drop_changes!(sc, sc.transaction_depth - 1)
+        sc.transaction_depth += 1
         return [], unfinished_prototypes
     end
 end
@@ -1134,6 +1136,7 @@ function enumerate_for_task(
     end
 
     log_results(sc, hits)
+    export_solution_context(sc)
 
     (collect(keys(hits)), sc.total_number_of_enumerated_programs)
 end
