@@ -7,6 +7,7 @@ using solver: load_problems, enumerate_for_task
     sample_payload = Dict{String,Any}(
         "DSL" => Dict{String,Any}(
             "logVariable" => 0.0,
+            "logFreeVar" => 0.0,
             "logLambda" => -10.0,
             "productions" => Any[
                 Dict{String,Any}(
@@ -665,9 +666,13 @@ using solver: load_problems, enumerate_for_task
         for prod_dict in payload["DSL"]["productions"]
             if prod_dict["expression"] == "repeat" ||
                prod_dict["expression"] == "eq?" ||
-               prod_dict["expression"] == "rev_select"
-                prod_dict["logProbability"] = 2.0
+               prod_dict["expression"] == "rev_select" ||
+               prod_dict["expression"] == "rev_fix_param"
+                prod_dict["logProbability"] = 3.0
             end
+            # if
+            #     prod_dict["logProbability"] = 2.0
+            # end
         end
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(

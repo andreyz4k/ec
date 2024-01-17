@@ -660,6 +660,22 @@ end
 
 function _push_unused_complexity_to_input(sc::SolutionContext, branch_id, fixed_branches, unused_complexity)
     current_unused_complexity = sc.unused_explained_complexities[branch_id]
+    parents = get_connected_to(sc.branch_children, branch_id)
+    for parent in parents
+        if sc.complexities[parent] > 0
+            continue
+        end
+        parent_entry = sc.entries[sc.branch_entries[parent]]
+        if (
+            isa(parent_entry, PatternEntry) &&
+            all(value == PatternWrapper(any_object) for value in parent_entry.values)
+        ) || (
+            isa(parent_entry, AbductibleEntry) &&
+            all(value == AbductibleValue(any_object) for value in parent_entry.values)
+        )
+            return
+        end
+    end
     if isnothing(current_unused_complexity) || current_unused_complexity > unused_complexity
         sc.unused_explained_complexities[branch_id] = unused_complexity
         for (in_block_copy_id, in_block_id) in get_connected_from(sc.branch_incoming_blocks, branch_id)

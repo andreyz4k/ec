@@ -38,9 +38,9 @@ function check_following_blocks(
     max_depth = depth
     for var_branch in var_branches
         for (block_copy_id, block_id) in get_connected_from(sc.branch_outgoing_blocks, var_branch)
-            if haskey(block_depths, block_id) || haskey(following_blocks_depths, block_id)
-                continue
-            end
+            # if haskey(block_depths, block_id) || haskey(following_blocks_depths, block_id)
+            #     continue
+            # end
             block_outputs = get_connected_to(sc.branch_incoming_blocks, block_copy_id)
             following_blocks_depths[block_id] = depth
             for (output_branch_id, _) in block_outputs
@@ -117,9 +117,13 @@ function do_sorting_step(sc::SolutionContext, queue, visited_branches, remaining
             for (b_id, depth) in following_blocks_depths
                 blocks_depths[b_id] = vars_depths[var_id] + inputs_depths - depth
             end
+            new_depth = vars_depths[var_id] + inputs_depths + 1
             for (input_branch_id, _) in block_inputs
                 if !haskey(vars_depths, sc.branch_vars[input_branch_id])
-                    vars_depths[sc.branch_vars[input_branch_id]] = vars_depths[var_id] + inputs_depths + 1
+                    vars_depths[sc.branch_vars[input_branch_id]] = new_depth
+                else
+                    # vars_depths[sc.branch_vars[input_branch_id]] =
+                    #     max(vars_depths[sc.branch_vars[input_branch_id]], new_depth)
                 end
                 push!(queue, input_branch_id)
             end
@@ -173,13 +177,13 @@ function sort_vars_and_blocks(sc::SolutionContext)
         end
     end
     max_depth = maximum(values(vars_depths))
-    out_var_depths = Dict{UInt64,Int}()
-    out_block_depths = Dict{UInt64,Int}()
+    out_var_depths = Dict{UInt64,Float64}()
+    out_block_depths = Dict{UInt64,Float64}()
     for (var_id, depth) in vars_depths
-        out_var_depths[var_id] = (max_depth - depth) * 20
+        out_var_depths[var_id] = (max_depth / 2 - depth) * 20 + (rand() - 0.5) * 10
     end
     for (block_id, depth) in blocks_depths
-        out_block_depths[block_id] = (max_depth - depth) * 20 - 10
+        out_block_depths[block_id] = (max_depth / 2 - depth) * 20 - 10 + (rand() - 0.5) * 10
     end
     # @info remaining_vars
     # @info "vars_depths $vars_depths"
@@ -219,16 +223,38 @@ function export_solution_context(sc::SolutionContext, task)
             "_unmatched_complexity" => sc.unmatched_complexities[branch_id],
             "_added_upstream_complexity" => sc.added_upstream_complexities[branch_id],
             "_unused_explained_complexity" => sc.unused_explained_complexities[branch_id],
-            "_depth" => get(vars_depths, sc.branch_vars[branch_id], -200),
+            "_depth" => get(vars_depths, sc.branch_vars[branch_id], -200) + rand(),
+            "_related_explained_branches" =>
+                string(get_connected_from(sc.related_explained_complexity_branches, branch_id)),
+            "_related_unknown_branches" =>
+                string(get_connected_from(sc.related_unknown_complexity_branches, branch_id)),
         )
         if !isa(entry, NoDataEntry)
             vertex_dict["_entry_value"] = string(entry.values)
         end
         if haskey(sc.branch_queues_explained, branch_id)
             vertex_dict["_queue_explained_size"] = length(sc.branch_queues_explained[branch_id])
+            if haskey(sc.pq_input, (branch_id, true))
+                vertex_dict["_queue_explained_priority"] = sc.pq_input[(branch_id, true)]
+            elseif haskey(sc.pq_output, (branch_id, true))
+                vertex_dict["_queue_explained_priority"] = sc.pq_output[(branch_id, true)]
+            end
+            if branch_id == 1
+                for (i, (bp, pr)) in enumerate(sc.branch_queues_explained[branch_id])
+                    if i > 2000
+                        break
+                    end
+                    @info "$pr $bp"
+                end
+            end
         end
         if haskey(sc.branch_queues_unknown, branch_id)
             vertex_dict["_queue_unknown_size"] = length(sc.branch_queues_unknown[branch_id])
+            if haskey(sc.pq_input, (branch_id, false))
+                vertex_dict["_queue_unknown_priority"] = sc.pq_input[(branch_id, false)]
+            elseif haskey(sc.pq_output, (branch_id, false))
+                vertex_dict["_queue_unknown_priority"] = sc.pq_output[(branch_id, false)]
+            end
         end
         filter!(kv -> !isnothing(kv[2]), vertex_dict)
         add_vertex!(data, string(branch_id), vertex_dict)
@@ -240,6 +266,13 @@ function export_solution_context(sc::SolutionContext, task)
 
     for block_copy_id in 1:sc.block_copies_count[]
         outs = get_connected_to(sc.branch_incoming_blocks, block_copy_id)
+        if isempty(outs)
+            @info "block $block_copy_id has no outputs"
+            inputs = get_connected_to(sc.branch_outgoing_blocks, block_copy_id)
+            @info inputs
+            block_id = first(values(inputs))
+            @info sc.blocks[block_id]
+        end
         output_branches = keys(outs)
         block_id = first(values(outs))
         input_branches = keys(get_connected_to(sc.branch_outgoing_blocks, block_copy_id))
@@ -251,11 +284,14 @@ function export_solution_context(sc::SolutionContext, task)
             "_block_type" => typeof(block),
             "_p" => string(block.p),
             "_cost" => block.cost,
-            "_depth" => get(blocks_depths, block_id, -200),
+            "_depth" => get(blocks_depths, block_id, -200) + rand(),
         )
 
         if isa(block, ProgramBlock)
             block_dict["_is_reversible"] = block.is_reversible
+            block_dict["_var_id"] = block.output_var
+        else
+            block_dict["_var_id"] = block.input_vars[1]
         end
 
         add_vertex!(data, "b$block_copy_id", block_dict)

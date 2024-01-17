@@ -129,6 +129,7 @@ end
     base_task = Dict(
         "DSL" => Dict{String,Any}(
             "logVariable" => 0.0,
+            "logFreeVar" => 0.0,
             "logLambda" => 0.0,
             "productions" => Any[
                 Dict{String,Any}("logProbability" => 0.0, "expression" => "map", "is_reversible" => true),

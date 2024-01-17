@@ -178,6 +178,9 @@ end
 
 function _find_related_branches(sc, branch_id, new_entry, new_entry_index)::Tuple{Vector{UInt64},Union{UInt64,Nothing}}
     possible_parents = UInt64[]
+    if sc.branch_entries[branch_id] == new_entry_index
+        return UInt64[], branch_id
+    end
     for child_id in get_connected_from(sc.branch_children, branch_id)
         if sc.branch_entries[child_id] == new_entry_index
             return UInt64[], child_id

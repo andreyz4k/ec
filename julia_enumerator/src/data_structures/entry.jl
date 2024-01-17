@@ -66,6 +66,9 @@ function matching_with_unknown_candidates(sc, entry::NoDataEntry, var_id)
             if known_branch_id == sc.target_branch_id
                 continue
             end
+            if sc.complexities[known_branch_id] == 0
+                continue
+            end
             known_var_id = sc.branch_vars[known_branch_id]
             if vars_in_loop(sc, known_var_id, var_id)
                 # || !is_branch_compatible(unknown_branch.key, unknown_branch, [input_branch])
@@ -360,6 +363,9 @@ function matching_with_unknown_candidates(sc, entry::EitherEntry, var_id)
             if known_branch_id == sc.target_branch_id
                 continue
             end
+            if sc.complexities[known_branch_id] == 0
+                continue
+            end
             known_var_id = sc.branch_vars[known_branch_id]
             if vars_in_loop(sc, known_var_id, var_id) ||
                !match_with_entry(sc, entry, sc.entries[sc.branch_entries[known_branch_id]])
@@ -501,6 +507,9 @@ function matching_with_unknown_candidates(sc, entry::PatternEntry, var_id)
         if known_branch_id == sc.target_branch_id
             continue
         end
+        if sc.complexities[known_branch_id] == 0
+            continue
+        end
         known_var_id = sc.branch_vars[known_branch_id]
         if vars_in_loop(sc, known_var_id, var_id) ||
            !match_with_entry(sc, entry, sc.entries[sc.branch_entries[known_branch_id]])
@@ -515,8 +524,12 @@ end
 
 function matching_with_known_candidates(sc, entry::PatternEntry, known_branch_id)
     results = []
+    if entry.complexity == 0
+        return results
+    end
     types = get_super_types(sc.types, entry.type_id)
     entry_type = sc.types[entry.type_id]
+    known_entry_id = sc.branch_entries[known_branch_id]
 
     known_var_id = sc.branch_vars[known_branch_id]
     for tp_id in types
@@ -531,7 +544,7 @@ function matching_with_known_candidates(sc, entry::PatternEntry, known_branch_id
             end
             unknown_entry_id = sc.branch_entries[unknown_branch_id]
             unknown_entry = sc.entries[unknown_entry_id]
-            if unknown_entry_id == sc.branch_entries[known_branch_id] ||
+            if unknown_entry_id == known_entry_id ||
                (!isa(unknown_entry, ValueEntry) && match_with_entry(sc, unknown_entry, entry))
                 push!(results, (FreeVar(entry_type, known_var_id), unknown_var_id, unknown_branch_id, entry_type))
             end
@@ -569,6 +582,9 @@ function matching_with_unknown_candidates(sc, entry::AbductibleEntry, var_id)
             continue
         end
         if known_branch_id == sc.target_branch_id
+            continue
+        end
+        if sc.complexities[known_branch_id] == 0
             continue
         end
         known_var_id = sc.branch_vars[known_branch_id]

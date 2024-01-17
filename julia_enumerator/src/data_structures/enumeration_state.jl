@@ -65,7 +65,7 @@ function get_candidates_for_unknown_var(sc, branch_id, g)::Vector{BlockPrototype
     type = sc.types[type_id]
     entry = sc.entries[sc.branch_entries[branch_id]]
     prototypes = []
-    if !isa(entry, NoDataEntry)
+    if !isa(entry, NoDataEntry) && sc.complexities[branch_id] > 0
         context, type = instantiate(type, empty_context)
         push!(
             prototypes,
@@ -94,9 +94,7 @@ function get_candidates_for_known_var(sc, branch_id, g)
     prototypes = []
     var_id = sc.branch_vars[branch_id]
     entry = sc.entries[sc.branch_entries[branch_id]]
-    if !isnothing(sc.explained_min_path_costs[branch_id])
-        # &&
-        # !(isa(entry, PatternEntry) && all(v == PatternWrapper(any_object) for v in entry.values))
+    if !isnothing(sc.explained_min_path_costs[branch_id]) && entry.complexity > 0
         type_id = first(get_connected_from(sc.branch_types, branch_id))
         type = sc.types[type_id]
         context, type = instantiate(type, empty_context)

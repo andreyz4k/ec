@@ -125,6 +125,7 @@ const illegal_combinations1 = Set([
     (2, "fold", "empty"),
     (2, "index", "empty"),
     (2, "index", "repeat"),
+    (3, "index2", "repeat_grid"),
 ])
 
 const illegal_combinations2 = Set([
@@ -593,6 +594,9 @@ function create_reversed_block(
 )
     new_p, output_vars, either_var_ids, abductible_var_ids, either_branch_ids, abductible_branch_ids =
         try_get_reversed_values(sc, p, context, path, input_var[2], cost, true)
+    if isempty(output_vars)
+        throw(EnumerationException())
+    end
     block = ReverseProgramBlock(new_p, cost, [input_var[1]], [v_id for (v_id, _, _) in output_vars])
     if isempty(either_var_ids) && isempty(abductible_var_ids)
         block_id = push!(sc.blocks, block)
