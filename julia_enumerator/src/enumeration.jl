@@ -934,7 +934,7 @@ function enqueue_updates(sc::SolutionContext, g)
     for branch_id in updated_factors_unknown_branches
         if in(branch_id, new_unknown_branches)
             enqueue_unknown_var(sc, branch_id, g)
-        else
+        elseif haskey(sc.branch_queues_unknown, branch_id)
             update_branch_priority(sc, branch_id, false)
         end
     end
