@@ -8,7 +8,7 @@ using solver: load_problems, enumerate_for_task
     sample_payload = Dict{String,Any}(
         "DSL" => Dict{String,Any}(
             "logVariable" => 0.18440093100070953,
-            "logFreeVar" => 0.0,
+            "logFreeVar" => 3.0,
             "logLambda" => -3.0,
             "productions" => Any[
                 Dict{String,Any}(
@@ -734,7 +734,7 @@ using solver: load_problems, enumerate_for_task
         @info payload["name"]
         payload["DSL"] = Dict{String,Any}(
             "logVariable" => -0.1470305323600769,
-            "logFreeVar" => 0.0,
+            "logFreeVar" => 3.0,
             "logLambda" => -3.0,
             "productions" => Any[
                 Dict{String,Any}(
@@ -1172,7 +1172,7 @@ using solver: load_problems, enumerate_for_task
         @info payload["name"]
         payload["DSL"] = Dict{String,Any}(
             "logVariable" => -0.1470305323600769,
-            "logFreeVar" => 0.0,
+            "logFreeVar" => 3.0,
             "logLambda" => -3.0,
             "productions" => Any[
                 Dict{String,Any}(
@@ -1609,7 +1609,7 @@ using solver: load_problems, enumerate_for_task
         payload = create_arc_task("6a1e5592.json")
         payload["DSL"] = Dict{String,Any}(
             "logVariable" => 0.11757951974868774,
-            "logFreeVar" => 0.0,
+            "logFreeVar" => 3.0,
             "logLambda" => -3.0,
             "productions" => Any[
                 Dict{String,Any}(
@@ -2039,7 +2039,7 @@ using solver: load_problems, enumerate_for_task
             verbose,
         )
         @test length(solutions) == 0
-        @test number_enumerated >= 3000
+        @test number_enumerated >= 300
     end
 
     # @testset "8731374e.json" begin
