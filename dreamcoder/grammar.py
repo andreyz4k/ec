@@ -22,15 +22,24 @@ class NoCandidates(Exception):
 
 
 class Grammar(object):
-    def __init__(self, logVariable, productions, logLambda=0.0, continuationType=None):
+    def __init__(
+        self,
+        logVariable,
+        productions,
+        logLambda=0.0,
+        logFreeVariable=0.0,
+        continuationType=None,
+    ):
         self.logVariable = logVariable
         self.logLambda = logLambda
+        self.logFreeVariable = logFreeVariable
         self.productions = productions
 
         self.continuationType = continuationType
 
         self.expression2likelihood = dict((p, l) for l, _, p in productions)
         self.expression2likelihood[Index(0)] = self.logVariable
+        self.expression2likelihood[FreeVariable(None)] = self.logFreeVariable
         self.expression2likelihood[Abstraction(Hole())] = self.logLambda
 
     def randomWeights(self, r):
@@ -38,6 +47,7 @@ class Grammar(object):
         return Grammar(
             logVariable=r(self.logVariable),
             logLambda=r(self.logLambda),
+            logFreeVariable=r(self.logFreeVariable),
             productions=[(r(l), t, p) for l, t, p in self.productions],
             continuationType=self.continuationType,
         )
@@ -46,6 +56,7 @@ class Grammar(object):
         return Grammar(
             logVariable=self.logVariable,
             logLambda=self.logLambda,
+            logFreeVariable=self.logFreeVariable,
             productions=[
                 (l, t, strip_primitive_values(p)) for l, t, p in self.productions
             ],
@@ -56,6 +67,7 @@ class Grammar(object):
         return Grammar(
             logVariable=self.logVariable,
             logLambda=self.logLambda,
+            logFreeVariable=self.logFreeVariable,
             productions=[
                 (l, t, unstrip_primitive_values(p)) for l, t, p in self.productions
             ],
@@ -82,18 +94,24 @@ class Grammar(object):
             state["logVariable"],
             state["productions"],
             logLambda=state.get("logLambda", 0.0),
+            logFreeVariable=state.get("logFreeVariable", 0.0),
             continuationType=continuationType,
         )
 
     @staticmethod
     def fromProductions(
-        productions, logVariable=0.0, logLambda=0.0, continuationType=None
+        productions,
+        logVariable=0.0,
+        logLambda=0.0,
+        logFreeVariable=0.0,
+        continuationType=None,
     ):
         """Make a grammar from primitives and their relative logpriors."""
         return Grammar(
             logVariable,
             [(l, p.infer(), p) for l, p in productions],
             logLambda=logLambda,
+            logFreeVariable=logFreeVariable,
             continuationType=continuationType,
         )
 
@@ -103,6 +121,7 @@ class Grammar(object):
             0.0,
             [(0.0, p.infer(), p) for p in primitives],
             logLambda=0.0,
+            logFreeVariable=0.0,
             continuationType=continuationType,
         )
 
@@ -137,6 +156,7 @@ class Grammar(object):
         j = {
             "logVariable": self.logVariable,
             "logLambda": self.logLambda,
+            "logFreeVar": self.logFreeVariable,
             "productions": [
                 {
                     "expression": str(p),
@@ -172,6 +192,7 @@ class Grammar(object):
             self.logVariable,
             [(l, t, p) for (l, t, p) in self.productions if p not in ps],
             logLambda=self.logLambda,
+            logFreeVariable=self.logFreeVariable,
             continuationType=self.continuationType,
         )
 
@@ -192,6 +213,7 @@ class Grammar(object):
         checker=CustomArgChecker(False, 100, True, None),
         path=[],
         can_use_lambda_wrapper=True,
+        can_use_free_variable=True,
     ):
         """Primitives that are candidates for being used given a requested type
         If returnTable is false (default): returns [((log)likelihood, tp, primitive, context)]
@@ -280,6 +302,12 @@ class Grammar(object):
             (self.logVariable - log(len(variableCandidates)), t, p, k)
             for t, p, k in variableCandidates
         ]
+
+        if can_use_free_variable and checker.can_have_free_vars:
+            p = FreeVariable(None)
+            if checker.checker_funciton is None or checker.checker_funciton(p, path):
+                candidates.append((self.logFreeVariable, request, p, context))
+
         if candidates == []:
             raise NoCandidates()
         # eprint("candidates inside buildCandidates before norm:")
@@ -337,6 +365,7 @@ class Grammar(object):
             # function arguments
             mustBeLeaf=maximumDepth <= 1,
             can_use_lambda_wrapper=False,
+            can_use_free_variable=False,
         )
         # eprint("candidates:")
         # eprint(candidates)
@@ -468,9 +497,6 @@ class Grammar(object):
 
         thisSummary = LikelihoodSummary()
 
-        if expression.isFreeVariable:
-            return context, {expression.name: request}, thisSummary
-
         if expression.isConst:
             return context, {}, thisSummary
 
@@ -497,7 +523,12 @@ class Grammar(object):
         else:
             is_lambda_wrapper = False
 
-        if f not in candidates and not is_lambda_wrapper:
+        if expression.isFreeVariable and FreeVariable(None) in candidates:
+            is_free_variable = True
+        else:
+            is_free_variable = False
+
+        if f not in candidates and not is_lambda_wrapper and not is_free_variable:
             if self.continuationType is not None and f.isIndex:
                 ls = LikelihoodSummary()
                 ls.constant = NEGATIVEINFINITY
@@ -520,6 +551,8 @@ class Grammar(object):
 
         if is_lambda_wrapper:
             _, tp, context = candidates[Abstraction(Hole())]
+        elif is_free_variable:
+            _, tp, context = candidates[FreeVariable(None)]
         else:
             _, tp, context = candidates[f]
         argumentTypes = tp.functionArguments()
@@ -552,11 +585,12 @@ class Grammar(object):
             if newSummary is None:
                 return context, {}, None
             thisSummary.join(newSummary)
-
+        elif is_free_variable:
+            var_requests = {expression.name: request}
         else:
             var_requests = {}
 
-        if not f.isIndex and not is_lambda_wrapper:
+        if not f.isIndex and not is_lambda_wrapper and not is_free_variable:
             custom_checkers = f.get_custom_arg_checkers()
         else:
             custom_checkers = []
@@ -1215,6 +1249,9 @@ normalizers = {%s})""" % (
 
         if isinstance(actual, Abstraction):
             actual = Abstraction(Hole())
+
+        if isinstance(actual, FreeVariable):
+            actual = FreeVariable(None)
 
         # Make it something that we can hash
         possibles = frozenset(sorted(possibles, key=hash))

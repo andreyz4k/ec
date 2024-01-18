@@ -7,6 +7,7 @@ using solver: load_problems, enumerate_for_task
     sample_payload = Dict{String,Any}(
         "DSL" => Dict{String,Any}(
             "logVariable" => 0.0,
+            "logFreeVar" => 0.0,
             "logLambda" => -10.0,
             "productions" => Any[
                 Dict{String,Any}(
@@ -682,7 +683,6 @@ using solver: load_problems, enumerate_for_task
             maximum_frontier,
             timeout,
             verbose,
-            # true,
         )
         @test length(solutions) >= 1
         @test number_enumerated <= 2000

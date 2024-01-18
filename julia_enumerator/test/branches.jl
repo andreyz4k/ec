@@ -129,6 +129,7 @@ end
     base_task = Dict(
         "DSL" => Dict{String,Any}(
             "logVariable" => 0.0,
+            "logFreeVar" => 0.0,
             "logLambda" => 0.0,
             "productions" => Any[
                 Dict{String,Any}("logProbability" => 0.0, "expression" => "map", "is_reversible" => true),
@@ -338,7 +339,7 @@ end
         @test sc.branch_is_unknown[out_branch_id] == true
         @test sc.branch_is_explained[out_branch_id] == true
         @test sc.branch_is_not_copy[out_branch_id] == true
-        @test sc.explained_min_path_costs[out_branch_id] == 2.5659493574615366
+        @test sc.explained_min_path_costs[out_branch_id] == 5.204006687076795
         @test sc.unknown_min_path_costs[out_branch_id] == 0.0
         @test sc.explained_complexity_factors[out_branch_id] == 13.0
         @test sc.unknown_complexity_factors[out_branch_id] == 13.0
