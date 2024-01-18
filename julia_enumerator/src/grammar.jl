@@ -2,7 +2,6 @@
 struct Grammar
     log_variable::Float64
     log_lambda::Float64
-    log_free_var::Float64
     library::Vector{Tuple{Program,Tp,Float64}}
     continuation_type::Union{Tp,Nothing}
 end
@@ -16,7 +15,6 @@ end
 function deserialize_grammar(payload)
     log_variable = payload["logVariable"]
     log_lambda = payload["logLambda"]
-    log_free_var = payload["logFreeVar"]
 
     productions = map(payload["productions"]) do p
         source = p["expression"]
@@ -45,7 +43,7 @@ function deserialize_grammar(payload)
     end
 
     #  Successfully parsed the grammar
-    Grammar(log_variable, log_lambda, log_free_var, productions, continuation_type)
+    Grammar(log_variable, log_lambda, productions, continuation_type)
 end
 
 function make_dummy_contextual(g::Grammar)
@@ -75,7 +73,7 @@ function _prune(expression, gs)
                 end
             end
         end
-        Grammar(g.log_variable, g.log_lambda, g.log_free_var, filtered_library, g.continuation_type)
+        Grammar(g.log_variable, g.log_lambda, filtered_library, g.continuation_type)
     end
 end
 
@@ -253,12 +251,17 @@ function unifying_expressions(
         lambda_candidates = []
     end
 
-    free_var_candidates = []
+    candidates = vcat(variable_candidates, grammar_candidates, lambda_candidates)
+    if !isempty(candidates)
+        z = lse([ll for (_, _, _, ll) in candidates])
+        candidates = Tuple{Program,Vector{Tp},Context,Float64}[(p, t, k, z - ll) for (p, t, k, ll) in candidates]
+    end
+
     if candidates_filter.can_have_free_vars
         if !isa(skeleton, Hole)
             p = FreeVar(request, nothing)
             if isnothing(checker_function) || checker_function(p, skeleton, path)
-                push!(free_var_candidates, (p, [], context, g.log_free_var))
+                push!(candidates, (p, [], context, 0.001))
             end
         end
 
@@ -271,7 +274,7 @@ function unifying_expressions(
                     (new_context, t) = apply_context(new_context, t)
                     p = FreeVar(t, "r$i")
                     if isnothing(checker_function) || checker_function(p, skeleton, path)
-                        push!(free_var_candidates, (p, [], new_context, g.log_free_var))
+                        push!(candidates, (p, [], new_context, 0.001))
                     end
                 catch e
                     if isa(e, UnificationFailure)
@@ -282,15 +285,6 @@ function unifying_expressions(
                 end
             end
         end
-        nv = log(length(free_var_candidates))
-        free_var_candidates =
-            Tuple{Program,Vector{Tp},Context,Float64}[(p, t, k, ll - nv) for (p, t, k, ll) in free_var_candidates]
-    end
-
-    candidates = vcat(variable_candidates, grammar_candidates, lambda_candidates, free_var_candidates)
-    if !isempty(candidates)
-        z = lse([ll for (_, _, _, ll) in candidates])
-        candidates = Tuple{Program,Vector{Tp},Context,Float64}[(p, t, k, z - ll) for (p, t, k, ll) in candidates]
     end
 
     if !isnothing(current_hole.possible_values)

@@ -39,7 +39,6 @@ using DataStructures
     sample_payload = Dict{String,Any}(
         "DSL" => Dict{String,Any}(
             "logVariable" => 3.0,
-            "logFreeVar" => 0.0,
             "logLambda" => 0.0,
             "productions" => Any[
                 Dict{String,Any}(
@@ -479,7 +478,6 @@ using DataStructures
     sample_payload2 = Dict{String,Any}(
         "DSL" => Dict{String,Any}(
             "logVariable" => 0.0,
-            "logFreeVar" => 0.0,
             "logLambda" => 0.0,
             "productions" => Any[
                 Dict{String,Any}(
