@@ -452,8 +452,8 @@ using solver: load_problems, enumerate_for_task
         return result
     end
 
-    function create_arc_task(filename)
-        arc_task = JSON.parsefile("../../dreamcoder/domains/arc/ARC/data/training/" * filename)
+    function create_arc_task(filename, dir = "ARC/data/training/")
+        arc_task = JSON.parsefile("../../dreamcoder/domains/arc/" * dir * filename)
         task_dict = Dict{String,Any}(
             "name" => filename,
             "maximumFrontier" => 10,
@@ -2024,6 +2024,443 @@ using solver: load_problems, enumerate_for_task
                     "logProbability" => 0.16639654338359833,
                     "expression" => "1",
                     "is_reversible" => false,
+                    "type" => "int",
+                ),
+            ],
+        )
+        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        solutions, number_enumerated = @time enumerate_for_task(
+            Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
+            g,
+            type_weights,
+            task,
+            maximum_frontier,
+            timeout,
+            verbose,
+        )
+        @test length(solutions) == 0
+        @test number_enumerated >= 300
+    end
+
+    @testset "77352326.json" begin
+        payload = create_arc_task("77352326.json", "sortOfARC/")
+        payload["DSL"] = Dict{String,Any}(
+            "logFreeVar" => 0.0,
+            "logVariable" => 0.3263143301010132,
+            "logLambda" => 0.0,
+            "productions" => Any[
+                Dict{String,Any}(
+                    "logProbability" => -0.26009663939476013,
+                    "expression" => "rev_fix_param",
+                    "is_reversible" => true,
+                    "type" => "t0 -> t1 -> (t0 -> t1) -> t0",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.5106646418571472,
+                    "expression" => "map",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1) -> list(t0) -> list(t1)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.05265367031097412,
+                    "expression" => "map_set",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1) -> set(t0) -> set(t1)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.19276094436645508,
+                    "expression" => "map_grid",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1) -> grid(t0) -> grid(t1)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.33183038234710693,
+                    "expression" => "map2",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1 -> t2) -> list(t0) -> list(t1) -> list(t2)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.1419844627380371,
+                    "expression" => "map2_grid",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1 -> t2) -> grid(t0) -> grid(t1) -> grid(t2)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.21597525477409363,
+                    "expression" => "unfold",
+                    "is_reversible" => false,
+                    "type" => "(t0 -> bool) -> (t0 -> t1) -> (t0 -> t0) -> t0 -> list(t1)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.16166384518146515,
+                    "expression" => "range",
+                    "is_reversible" => true,
+                    "type" => "int -> list(int)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.3061349093914032,
+                    "expression" => "index",
+                    "is_reversible" => false,
+                    "type" => "int -> list(t0) -> t0",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.07610253244638443,
+                    "expression" => "index2",
+                    "is_reversible" => false,
+                    "type" => "int -> int -> grid(t0) -> t0",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.646217942237854,
+                    "expression" => "fold",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1 -> t1) -> list(t0) -> t1 -> t1",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.19072723388671875,
+                    "expression" => "fold_set",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1 -> t1) -> set(t0) -> t1 -> t1",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.11397601664066315,
+                    "expression" => "fold_h",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1 -> t1) -> grid(t0) -> list(t1) -> list(t1)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.5652339458465576,
+                    "expression" => "fold_v",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1 -> t1) -> grid(t0) -> list(t1) -> list(t1)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.2681933641433716,
+                    "expression" => "length",
+                    "is_reversible" => false,
+                    "type" => "list(t0) -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.2903901934623718,
+                    "expression" => "height",
+                    "is_reversible" => false,
+                    "type" => "grid(t0) -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.2667853832244873,
+                    "expression" => "width",
+                    "is_reversible" => false,
+                    "type" => "grid(t0) -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.2669607698917389,
+                    "expression" => "if",
+                    "is_reversible" => false,
+                    "type" => "bool -> t0 -> t0 -> t0",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.21574783325195312,
+                    "expression" => "+",
+                    "is_reversible" => true,
+                    "type" => "int -> int -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.3594146966934204,
+                    "expression" => "-",
+                    "is_reversible" => true,
+                    "type" => "int -> int -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.20972324907779694,
+                    "expression" => "empty",
+                    "is_reversible" => true,
+                    "type" => "list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.1095760390162468,
+                    "expression" => "cons",
+                    "is_reversible" => true,
+                    "type" => "t0 -> list(t0) -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.17027275264263153,
+                    "expression" => "car",
+                    "is_reversible" => false,
+                    "type" => "list(t0) -> t0",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.1449996680021286,
+                    "expression" => "cdr",
+                    "is_reversible" => false,
+                    "type" => "list(t0) -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.22954635322093964,
+                    "expression" => "empty?",
+                    "is_reversible" => false,
+                    "type" => "list(t0) -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.2977787256240845,
+                    "expression" => "*",
+                    "is_reversible" => true,
+                    "type" => "int -> int -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.8057296872138977,
+                    "expression" => "mod",
+                    "is_reversible" => false,
+                    "type" => "int -> int -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.38684606552124023,
+                    "expression" => "gt?",
+                    "is_reversible" => false,
+                    "type" => "int -> int -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.376747190952301,
+                    "expression" => "eq?",
+                    "is_reversible" => false,
+                    "type" => "t0 -> t0 -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.31760290265083313,
+                    "expression" => "is-prime",
+                    "is_reversible" => false,
+                    "type" => "int -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.0940081924200058,
+                    "expression" => "is-square",
+                    "is_reversible" => false,
+                    "type" => "int -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.3111276924610138,
+                    "expression" => "repeat",
+                    "is_reversible" => true,
+                    "type" => "t0 -> int -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.23550884425640106,
+                    "expression" => "repeat_grid",
+                    "is_reversible" => true,
+                    "type" => "t0 -> int -> int -> grid(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.43426579236984253,
+                    "expression" => "concat",
+                    "is_reversible" => true,
+                    "type" => "list(t0) -> list(t0) -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.5637559294700623,
+                    "expression" => "rows",
+                    "is_reversible" => true,
+                    "type" => "grid(t0) -> list(list(t0))",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.1135353222489357,
+                    "expression" => "columns",
+                    "is_reversible" => true,
+                    "type" => "grid(t0) -> list(list(t0))",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.10652853548526764,
+                    "expression" => "rows_to_grid",
+                    "is_reversible" => true,
+                    "type" => "list(list(t0)) -> grid(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.005080468952655792,
+                    "expression" => "columns_to_grid",
+                    "is_reversible" => true,
+                    "type" => "list(list(t0)) -> grid(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.2542416453361511,
+                    "expression" => "rev_select",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> bool) -> list(t0) -> list(t0) -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.7583125829696655,
+                    "expression" => "rev_select_set",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> bool) -> set(t0) -> set(t0) -> set(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.19957420229911804,
+                    "expression" => "rev_select_grid",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> bool) -> grid(t0) -> grid(t0) -> grid(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.5662212371826172,
+                    "expression" => "rev_list_elements",
+                    "is_reversible" => true,
+                    "type" => "set(tuple2(int, t0)) -> int -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.21633177995681763,
+                    "expression" => "rev_grid_elements",
+                    "is_reversible" => true,
+                    "type" => "set(tuple2(tuple2(int, int), t0)) -> int -> int -> grid(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.38265013694763184,
+                    "expression" => "zip2",
+                    "is_reversible" => true,
+                    "type" => "list(t0) -> list(t1) -> list(tuple2(t0, t1))",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.06507925689220428,
+                    "expression" => "zip_grid2",
+                    "is_reversible" => true,
+                    "type" => "grid(t0) -> grid(t1) -> grid(tuple2(t0, t1))",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.36707258224487305,
+                    "expression" => "tuple2",
+                    "is_reversible" => true,
+                    "type" => "t0 -> t1 -> tuple2(t0, t1)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.3899320662021637,
+                    "expression" => "tuple2_first",
+                    "is_reversible" => true,
+                    "type" => "tuple2(t0, t1) -> t0",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0015176162123680115,
+                    "expression" => "tuple2_second",
+                    "is_reversible" => true,
+                    "type" => "tuple2(t0, t1) -> t1",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.2700403928756714,
+                    "expression" => "reverse",
+                    "is_reversible" => true,
+                    "type" => "list(t0) -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.21556152403354645,
+                    "expression" => "rev_fold",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1 -> t1) -> t1 -> t1 -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.2102193683385849,
+                    "expression" => "rev_fold_set",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1 -> t1) -> t1 -> t1 -> set(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.2428511679172516,
+                    "expression" => "list_to_set",
+                    "is_reversible" => false,
+                    "type" => "list(t0) -> set(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.3955332040786743,
+                    "expression" => "adjoin",
+                    "is_reversible" => true,
+                    "type" => "t0 -> set(t0) -> set(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.027274534106254578,
+                    "expression" => "empty_set",
+                    "is_reversible" => true,
+                    "type" => "set(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.0021641552448272705,
+                    "expression" => "rev_groupby",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1) -> t0 -> set(tuple2(t1, set(t0))) -> set(tuple2(t1, set(t0)))",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.2714475691318512,
+                    "expression" => "rev_greedy_cluster",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> set(t0) -> bool) -> t0 -> set(set(t0)) -> set(set(t0))",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.02452974021434784,
+                    "expression" => "not",
+                    "is_reversible" => true,
+                    "type" => "bool -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.4067993462085724,
+                    "expression" => "and",
+                    "is_reversible" => true,
+                    "type" => "bool -> bool -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.2539457082748413,
+                    "expression" => "or",
+                    "is_reversible" => true,
+                    "type" => "bool -> bool -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.3339998424053192,
+                    "expression" => "all",
+                    "is_reversible" => false,
+                    "type" => "(t0 -> bool) -> list(t0) -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.5056955218315125,
+                    "expression" => "any",
+                    "is_reversible" => false,
+                    "type" => "(t0 -> bool) -> list(t0) -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.4993366599082947,
+                    "expression" => "all_set",
+                    "is_reversible" => false,
+                    "type" => "(t0 -> bool) -> set(t0) -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.38480138778686523,
+                    "expression" => "any_set",
+                    "is_reversible" => false,
+                    "type" => "(t0 -> bool) -> set(t0) -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.1552448868751526,
+                    "expression" => "abs",
+                    "is_reversible" => true,
+                    "type" => "int -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.30245423316955566,
+                    "expression" => "max_int",
+                    "is_reversible" => false,
+                    "type" => "int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.04224035143852234,
+                    "expression" => "min_int",
+                    "is_reversible" => false,
+                    "type" => "int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.15396639704704285,
+                    "expression" => "collect",
+                    "is_reversible" => true,
+                    "type" => "set(t0) -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.4184340834617615,
+                    "expression" => "0",
+                    "is_reversible" => true,
+                    "type" => "int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.24294883012771606,
+                    "expression" => "1",
+                    "is_reversible" => true,
                     "type" => "int",
                 ),
             ],
