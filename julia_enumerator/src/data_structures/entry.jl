@@ -405,7 +405,7 @@ function match_with_entry(sc, entry::EitherEntry, other::ValueEntry)
     return all(match_at_index(entry, i, other.values[i]) for i in 1:sc.example_count)
 end
 
-is_subeither(wide::EitherOptions, narrow) = any(is_subeither(op, narrow) for op in wide.options)
+is_subeither(wide::EitherOptions, narrow) = any(is_subeither(op, narrow) for (h, op) in wide.options)
 is_subeither(wide, narrow::EitherOptions) = false
 is_subeither(wide, narrow) = wide == narrow
 

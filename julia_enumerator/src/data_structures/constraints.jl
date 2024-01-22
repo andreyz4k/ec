@@ -190,12 +190,11 @@ function _find_relatives_for_either(sc, new_entry, branch_id, old_entry)
             union!(outputs, outputs_)
         end
     end
-    if !isempty(children)
-        if all(is_subeither(old_val, new_val) for (old_val, new_val) in zip(old_entry.values, new_entry.values))
-            push!(outputs, (branch_id, children))
-        else
-            push!(outputs, (nothing, children))
-        end
+
+    if all(is_subeither(old_val, new_val) for (old_val, new_val) in zip(old_entry.values, new_entry.values))
+        push!(outputs, (branch_id, children))
+    elseif !isempty(children)
+        push!(outputs, (nothing, children))
     end
     return nothing, outputs
 end
