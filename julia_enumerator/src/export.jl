@@ -239,14 +239,14 @@ function export_solution_context(sc::SolutionContext, task)
             elseif haskey(sc.pq_output, (branch_id, true))
                 vertex_dict["_queue_explained_priority"] = sc.pq_output[(branch_id, true)]
             end
-            if branch_id == 1
-                for (i, (bp, pr)) in enumerate(sc.branch_queues_explained[branch_id])
-                    if i > 2000
-                        break
-                    end
-                    @info "$pr $bp"
-                end
-            end
+            # if branch_id == 1
+            #     for (i, (bp, pr)) in enumerate(sc.branch_queues_explained[branch_id])
+            #         if i > 2000
+            #             break
+            #         end
+            #         @info "$pr $bp"
+            #     end
+            # end
         end
         if haskey(sc.branch_queues_unknown, branch_id)
             vertex_dict["_queue_unknown_size"] = length(sc.branch_queues_unknown[branch_id])

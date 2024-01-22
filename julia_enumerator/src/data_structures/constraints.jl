@@ -170,30 +170,34 @@ end
 
 function _find_relatives_for_either(sc, new_entry, branch_id, old_entry)
     if old_entry == new_entry
-        return branch_id, UInt64[], UInt64[]
+        return branch_id, Tuple{Union{UInt64,Nothing},Vector{UInt64}}[]
     end
 
-    parents = UInt64[]
+    outputs = Tuple{Union{UInt64,Nothing},Vector{UInt64}}[]
     children = UInt64[]
     for child_id in get_connected_from(sc.branch_children, branch_id)
         child_entry = sc.entries[sc.branch_entries[child_id]]
-        if all(is_subeither(child_val, new_val) for (child_val, new_val) in zip(child_entry.values, new_entry.values))
-            exact_match, parents_, children_ = _find_relatives_for_either(sc, new_entry, child_id, child_entry)
-            if !isnothing(exact_match)
-                return exact_match, UInt64[], UInt64[]
-            end
-            union!(parents, parents_)
-            union!(children, children_)
-        elseif all(
-            is_subeither(new_val, child_val) for (child_val, new_val) in zip(child_entry.values, new_entry.values)
-        )
+        if child_entry == new_entry
+            return child_id, Tuple{Union{UInt64,Nothing},Vector{UInt64}}[]
+        end
+        if all(is_subeither(new_val, child_val) for (child_val, new_val) in zip(child_entry.values, new_entry.values))
             push!(children, child_id)
+        else
+            exact_match, outputs_ = _find_relatives_for_either(sc, new_entry, child_id, child_entry)
+            if !isnothing(exact_match)
+                return exact_match, outputs_
+            end
+            union!(outputs, outputs_)
         end
     end
-    if isempty(parents)
-        push!(parents, branch_id)
+    if !isempty(children)
+        if all(is_subeither(old_val, new_val) for (old_val, new_val) in zip(old_entry.values, new_entry.values))
+            push!(outputs, (branch_id, children))
+        else
+            push!(outputs, (nothing, children))
+        end
     end
-    return nothing, parents, children
+    return nothing, outputs
 end
 
 function _tighten_constraint(
@@ -226,7 +230,7 @@ function _tighten_constraint(
             end
             new_br_entry = _fix_option_hashes(sc, fixed_hashes, old_br_entry)
             # @info new_br_entry
-            exact_match, parents, children = _find_relatives_for_either(sc, new_br_entry, branch_id, old_br_entry)
+            exact_match, parents_children = _find_relatives_for_either(sc, new_br_entry, branch_id, old_br_entry)
             if !isnothing(exact_match)
                 if isa(new_br_entry, EitherEntry)
                     out_either_branches[var_id] = exact_match
@@ -244,9 +248,28 @@ function _tighten_constraint(
                     sc.branch_is_unknown[created_branch_id] = true
                     sc.branch_unknown_from_output[created_branch_id] = sc.branch_unknown_from_output[branch_id]
                 end
-                deleteat!(sc.branch_children, parents, children)
-                sc.branch_children[parents, created_branch_id] = true
-                sc.branch_children[created_branch_id, children] = true
+                # if sc.verbose
+                #     @info "Inserting new branch from either $((created_branch_id, branch_id))"
+                #     root_parent = get_root_parent(sc, branch_id)
+                #     @info "Root children $((root_parent, get_connected_from(sc.branch_children, root_parent)))"
+                #     for child in get_all_children(sc, root_parent)
+                #         @info "Child $((child, (get_connected_from(sc.branch_children, child)), (get_connected_to(sc.branch_children, child)))) is parent $(all(
+                #             is_subeither(child_val, new_val) for (child_val, new_val) in
+                #             zip(sc.entries[sc.branch_entries[child]].values, new_br_entry.values)
+                #         )) is child $(all(
+                #             is_subeither(new_val, child_val) for (child_val, new_val) in
+                #             zip(sc.entries[sc.branch_entries[child]].values, new_br_entry.values)
+                #         ))"
+                #     end
+                #     @info "Parents and children $parents_children"
+                # end
+                for (parent, children) in parents_children
+                    if !isnothing(parent)
+                        deleteat!(sc.branch_children, [parent], children)
+                        sc.branch_children[parent, created_branch_id] = true
+                    end
+                    sc.branch_children[created_branch_id, children] = true
+                end
 
                 original_path_cost = sc.unknown_min_path_costs[branch_id]
                 if !isnothing(original_path_cost)

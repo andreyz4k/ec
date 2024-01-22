@@ -628,7 +628,7 @@ function create_reversed_block(
             )
         end
         drop_changes!(sc, sc.transaction_depth - 1)
-        sc.transaction_depth += 1
+        start_transaction!(sc, sc.transaction_depth + 1)
         return [], unfinished_prototypes
     end
 end
