@@ -48,10 +48,11 @@ Base.hash(a::BlockPrototype, h::UInt) =
     hash(a.state, hash(a.request, hash(a.input_vars, hash(a.output_var, hash(a.reverse, h)))))
 
 EPSILON = 1e-3
+MATCH_DUPLICATES_PENALTY = 3
 
-function block_prototype(pr, inputs, output_var_id, output_branch_id, output_type)
+function block_prototype(pr, inputs, output_var_id, output_branch_id, output_type, prev_matches_count)
     BlockPrototype(
-        EnumerationState(pr, empty_context, [], EPSILON, 0),
+        EnumerationState(pr, empty_context, [], EPSILON + MATCH_DUPLICATES_PENALTY * prev_matches_count, 0),
         output_type,
         inputs,
         (output_var_id, output_branch_id),
@@ -84,8 +85,8 @@ function get_candidates_for_unknown_var(sc, branch_id, g)::Vector{BlockPrototype
             ),
         )
     end
-    for (pr, inputs, out_type) in matching_with_unknown_candidates(sc, entry, var_id)
-        push!(prototypes, block_prototype(pr, inputs, var_id, branch_id, out_type))
+    for (pr, inputs, out_type, prev_matches_count) in matching_with_unknown_candidates(sc, entry, branch_id)
+        push!(prototypes, block_prototype(pr, inputs, var_id, branch_id, out_type, prev_matches_count))
     end
     prototypes
 end
@@ -115,8 +116,12 @@ function get_candidates_for_known_var(sc, branch_id, g)
             ),
         )
     end
-    for (pr, output_var_id, output_br_id, out_type) in matching_with_known_candidates(sc, entry, branch_id)
-        push!(prototypes, block_prototype(pr, Dict(var_id => branch_id), output_var_id, output_br_id, out_type))
+    for (pr, output_var_id, output_br_id, out_type, prev_matches_count) in
+        matching_with_known_candidates(sc, entry, branch_id)
+        push!(
+            prototypes,
+            block_prototype(pr, Dict(var_id => branch_id), output_var_id, output_br_id, out_type, prev_matches_count),
+        )
     end
     prototypes
 end
