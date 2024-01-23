@@ -4,7 +4,7 @@ using DataStructures
 using solver: get_complexity_summary, tlist, tint, tgrid, tcolor
 
 @testset "Test complexity" begin
-    @testcase "list complexity" begin
+    @testcase_log "list complexity" begin
         l = [1, 2, 3]
         t = tlist(tint)
         s = get_complexity_summary([l], t)
@@ -16,7 +16,7 @@ using solver: get_complexity_summary, tlist, tint, tgrid, tcolor
         @test ss == Accumulator("list" => 3, "int" => 6)
     end
 
-    @testcase "grid complexity" begin
+    @testcase_log "grid complexity" begin
         g = [1 2 3; 4 5 6]
         t = tgrid(tcolor)
         s = get_complexity_summary([g], t)

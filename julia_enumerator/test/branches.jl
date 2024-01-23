@@ -163,7 +163,7 @@ end
     )
     run_context = Dict("program_timeout" => 1, "timeout" => 20)
 
-    @testcase "Exact value match" begin
+    @testcase_log "Exact value match" begin
         payload = merge(
             base_task,
             Dict(
@@ -229,7 +229,7 @@ end
         @test isempty(get_connected_from(sc.related_explained_complexity_branches, out_branch_id))
     end
 
-    @testcase "Type only match" begin
+    @testcase_log "Type only match" begin
         payload = merge(
             base_task,
             Dict(
@@ -348,7 +348,7 @@ end
         @test isempty(get_connected_from(sc.related_explained_complexity_branches, out_branch_id))
     end
 
-    @testcase "Either match" begin
+    @testcase_log "Either match" begin
         payload = merge(
             base_task,
             Dict(

@@ -66,7 +66,7 @@ using solver:
         end
     end
 
-    @testcase "Fix mult" begin
+    @testcase_log "Fix mult" begin
         p = parse_program("(* \$v1 \$v2)")
         @test is_reversible(p)
         @test compare_options(

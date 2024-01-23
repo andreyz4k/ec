@@ -467,7 +467,7 @@ using solver: load_problems, enumerate_for_task
         return create_task(task_dict)
     end
 
-    @testcase "a85d4709.json" begin
+    @testcase_log "a85d4709.json" begin
         payload = create_arc_task("a85d4709.json")
         @info payload["name"]
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
@@ -484,7 +484,7 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated >= 1000
     end
 
-    @testcase "5c2c9af4.json" begin
+    @testcase_log "5c2c9af4.json" begin
         payload = create_arc_task("5c2c9af4.json")
         @info payload["name"]
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
@@ -501,7 +501,7 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated >= 1500
     end
 
-    @testcase "23581191.json" begin
+    @testcase_log "23581191.json" begin
         payload = create_arc_task("23581191.json")
         @info payload["name"]
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
@@ -518,7 +518,7 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated >= 3000
     end
 
-    @testcase "4258a5f9.json" begin
+    @testcase_log "4258a5f9.json" begin
         payload = create_arc_task("4258a5f9.json")
         @info payload["name"]
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
@@ -535,7 +535,7 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated >= 1000
     end
 
-    @testcase "f25ffba3.json" begin
+    @testcase_log "f25ffba3.json" begin
         payload = create_arc_task("f25ffba3.json")
         @info payload["name"]
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
@@ -552,7 +552,7 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated >= 1000
     end
 
-    @testcase "74dd1130.json" begin
+    @testcase_log "74dd1130.json" begin
         payload = create_arc_task("74dd1130.json")
         @info payload["name"]
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
@@ -569,7 +569,7 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated < 10000
     end
 
-    @testcase "7837ac64.json" begin
+    @testcase_log "7837ac64.json" begin
         payload = create_arc_task("7837ac64.json")
         @info payload["name"]
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
@@ -586,7 +586,7 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated >= 1500
     end
 
-    @testcase "6fa7a44f.json" begin
+    @testcase_log "6fa7a44f.json" begin
         payload = create_arc_task("6fa7a44f.json")
         @info payload["name"]
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
@@ -603,7 +603,7 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated < 10000
     end
 
-    @testcase "c9e6f938.json" begin
+    @testcase_log "c9e6f938.json" begin
         payload = create_arc_task("c9e6f938.json")
         @info payload["name"]
         for prod in payload["DSL"]["productions"]
@@ -625,7 +625,7 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated < 15000
     end
 
-    @testcase "bbc9ae5d.json" begin
+    @testcase_log "bbc9ae5d.json" begin
         payload = create_arc_task("bbc9ae5d.json")
         @info payload["name"]
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
@@ -642,7 +642,7 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated >= 1000
     end
 
-    @testcase "63613498.json" begin
+    @testcase_log "63613498.json" begin
         payload = create_arc_task("63613498.json")
         @info payload["name"]
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
@@ -661,7 +661,7 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated >= 3000
     end
 
-    @testcase "d8c310e9.json" begin
+    @testcase_log "d8c310e9.json" begin
         payload = create_arc_task("d8c310e9.json")
         @info payload["name"]
         task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
@@ -680,7 +680,7 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated >= 1000
     end
 
-    @testcase "d06dbe63.json" begin
+    @testcase_log "d06dbe63.json" begin
         payload = create_arc_task("d06dbe63.json")
         @info payload["name"]
         payload["DSL"]["logVariable"] = 0.0
@@ -703,7 +703,7 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated >= 3000
     end
 
-    @testcase "017c7c7b.json" begin
+    @testcase_log "017c7c7b.json" begin
         payload = create_arc_task("017c7c7b.json")
         @info payload["name"]
         payload["DSL"]["logVariable"] = 0.0
@@ -726,7 +726,7 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated >= 3000
     end
 
-    @testcase "90c28cc7.json" begin
+    @testcase_log "90c28cc7.json" begin
         payload = create_arc_task("90c28cc7.json")
         @info payload["name"]
         payload["DSL"] = Dict{String,Any}(
@@ -1164,7 +1164,7 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated >= 1000
     end
 
-    @testcase "80af3007.json" begin
+    @testcase_log "80af3007.json" begin
         payload = create_arc_task("80af3007.json")
         @info payload["name"]
         payload["DSL"] = Dict{String,Any}(
@@ -1602,7 +1602,7 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated >= 3000
     end
 
-    @testcase "6a1e5592.json" begin
+    @testcase_log "6a1e5592.json" begin
         payload = create_arc_task("6a1e5592.json")
         payload["DSL"] = Dict{String,Any}(
             "logVariable" => 0.11757951974868774,
@@ -2039,7 +2039,7 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated >= 300
     end
 
-    @testcase "77352326.json" begin
+    @testcase_log "77352326.json" begin
         payload = create_arc_task("77352326.json", "sortOfARC/")
         payload["DSL"] = Dict{String,Any}(
             "logFreeVar" => 0.0,

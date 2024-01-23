@@ -1,7 +1,7 @@
 using solver: load_problems, enumerate_for_task
 
 @testset "Inventions" begin
-    @testcase "slice-k-n with k=2 and n=1" begin
+    @testcase_log "slice-k-n with k=2 and n=1" begin
         payload = Dict{String,Any}(
             "DSL" => Dict{String,Any}(
                 "logVariable" => 0.0,
@@ -214,7 +214,7 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated < 1000
     end
 
-    @testcase "Invented abstractor" begin
+    @testcase_log "Invented abstractor" begin
         payload = Dict{String,Any}(
             "DSL" => Dict{String,Any}(
                 "logVariable" => 0.0,

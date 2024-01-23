@@ -3,7 +3,7 @@ using solver: parse_program, parse_type, TypeVariable
 
 @testset "Program parser" begin
     function parsing_test_case(s)
-        @testcase "$s" begin
+        @testcase_log "$s" begin
             @test repr(parse_program(s)) == s
         end
     end
@@ -67,7 +67,7 @@ end
 
 @testset "Type parser" begin
     function parsing_test_case(s)
-        @testcase "$s" begin
+        @testcase_log "$s" begin
             @test repr(parse_type(s)) == s
         end
     end

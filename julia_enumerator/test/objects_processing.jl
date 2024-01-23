@@ -78,7 +78,7 @@ using solver:
         end
     end
 
-    @testcase "Select background" begin
+    @testcase_log "Select background" begin
         grid = [
             0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
             0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
@@ -326,7 +326,7 @@ using solver:
         )
     end
 
-    @testcase "Extract background" begin
+    @testcase_log "Extract background" begin
         bgr_grid = [
             0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
             0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
@@ -371,7 +371,7 @@ using solver:
         ]
     end
 
-    @testcase "Non-background cells" begin
+    @testcase_log "Non-background cells" begin
         grid = [
             nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
             nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
@@ -429,7 +429,7 @@ using solver:
         )
     end
 
-    @testcase "Cluster nearby cells" begin
+    @testcase_log "Cluster nearby cells" begin
         cells = Set(
             Any[
                 ((19, 11), 9),
@@ -485,7 +485,7 @@ using solver:
         )
     end
 
-    @testcase "Separate colors" begin
+    @testcase_log "Separate colors" begin
         groups = Set([
             Set([
                 ((18, 9), 9),
@@ -515,7 +515,7 @@ using solver:
         )
     end
 
-    @testcase "Single object coordinates extraction" begin
+    @testcase_log "Single object coordinates extraction" begin
         cells = Set([(19, 10), (18, 9), (19, 11), (17, 9), (18, 10), (18, 11), (17, 10)])
         extract_coordinates = parse_program(
             "(rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$v2)) (+ (tuple2_second \$0) (tuple2_second \$v2)))) \$v1) \$v2 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int))))",
@@ -528,7 +528,7 @@ using solver:
         )
     end
 
-    @testcase "Single object coordinates extraction 2" begin
+    @testcase_log "Single object coordinates extraction 2" begin
         cells = Set([(19, 10), (18, 9), (19, 11), (17, 9), (18, 10), (18, 11), (17, 10)])
         extract_coordinates = parse_program(
             "((lambda (lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$2)) (+ (tuple2_second \$0) (tuple2_second \$2)))) \$0) \$1 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int)))))) (tuple2_first \$v1) (tuple2_second \$v1))",
@@ -539,7 +539,7 @@ using solver:
               Dict(0x0000000000000001 => ((17, 9), Set([(2, 1), (1, 0), (2, 2), (0, 0), (1, 1), (1, 2), (0, 1)])))
     end
 
-    @testcase "Single object coordinates extraction 3" begin
+    @testcase_log "Single object coordinates extraction 3" begin
         cells = Set([(19, 10), (18, 9), (19, 11), (17, 9), (18, 10), (18, 11), (17, 10)])
         extract_coordinates = parse_program(
             "(#(lambda (lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$2)) (+ (tuple2_second \$0) (tuple2_second \$2)))) \$0) \$1 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int)))))) (tuple2_first \$v1) (tuple2_second \$v1))",
@@ -550,7 +550,7 @@ using solver:
               Dict(0x0000000000000001 => ((17, 9), Set([(2, 1), (1, 0), (2, 2), (0, 0), (1, 1), (1, 2), (0, 1)])))
     end
 
-    @testcase "Single object coordinates extraction 4" begin
+    @testcase_log "Single object coordinates extraction 4" begin
         cells = Set([(19, 10), (18, 9), (19, 11), (17, 9), (18, 10), (18, 11), (17, 10)])
         extract_coordinates = parse_program(
             "((lambda ((lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$1)) (+ (tuple2_second \$0) (tuple2_second \$1)))) \$1) \$0 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int))))) (tuple2_first \$v1))) (tuple2_second \$v1))",
@@ -561,7 +561,7 @@ using solver:
               Dict(0x0000000000000001 => ((17, 9), Set([(2, 1), (1, 0), (2, 2), (0, 0), (1, 1), (1, 2), (0, 1)])))
     end
 
-    @testcase "Get object coordinates" begin
+    @testcase_log "Get object coordinates" begin
         objects = Set(
             Tuple{Set{Tuple{Int64,Int64}},Int64}[
                 (Set([(19, 10), (18, 9), (19, 11), (17, 9), (18, 10), (18, 11), (17, 10)]), 9),
@@ -583,7 +583,7 @@ using solver:
         )
     end
 
-    @testcase "Get object coordinates 2" begin
+    @testcase_log "Get object coordinates 2" begin
         objects = Set(
             Tuple{Set{Tuple{Int64,Int64}},Int64}[
                 (Set([(19, 10), (18, 9), (19, 11), (17, 9), (18, 10), (18, 11), (17, 10)]), 9),
@@ -605,7 +605,7 @@ using solver:
         )
     end
 
-    @testcase "Select similar shape objects" begin
+    @testcase_log "Select similar shape objects" begin
         objects = Set([
             (((17, 9), Set([(2, 1), (1, 0), (2, 2), (0, 0), (1, 1), (1, 2), (0, 1)])), 9),
             (((3, 3), Set([(2, 2), (0, 0), (2, 0), (0, 1), (2, 1), (1, 1), (0, 2)])), 7),
@@ -653,7 +653,7 @@ using solver:
         )
     end
 
-    @testcase "Move objects" begin
+    @testcase_log "Move objects" begin
         objects = Set([
             (((9, 11), Set([(0, 0), (0, 2), (2, 0), (1, 1), (0, 1), (2, 2), (2, 1)])), 2),
             (((3, 3), Set([(0, 0), (2, 0), (1, 1), (0, 1), (0, 2), (2, 2), (2, 1)])), 7),

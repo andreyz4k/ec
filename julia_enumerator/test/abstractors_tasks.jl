@@ -449,7 +449,7 @@ using solver: load_problems, enumerate_for_task
         return result
     end
 
-    @testcase "Repeat" begin
+    @testcase_log "Repeat" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "invert repeated",
@@ -485,7 +485,7 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated < 1000
     end
 
-    @testcase "Find const" begin
+    @testcase_log "Find const" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "find const",
@@ -527,7 +527,7 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated <= 2000
     end
 
-    @testcase "Use eithers" begin
+    @testcase_log "Use eithers" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "use eithers",
@@ -564,7 +564,7 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated <= 15000
     end
 
-    @testcase "Use eithers 2" begin
+    @testcase_log "Use eithers 2" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "use eithers",
@@ -601,7 +601,7 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated <= 10000
     end
 
-    @testcase "Use eithers from input" begin
+    @testcase_log "Use eithers from input" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "use eithers",
@@ -638,7 +638,7 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated <= 10000
     end
 
-    @testcase "Replace background" begin
+    @testcase_log "Replace background" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "replace background",

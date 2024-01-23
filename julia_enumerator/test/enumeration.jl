@@ -185,7 +185,7 @@ using solver: load_problems, enumerate_for_task
         return result
     end
 
-    @testcase "try_enumerate add-k with k=1" begin
+    @testcase_log "try_enumerate add-k with k=1" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "add-k with k=1",
@@ -246,7 +246,7 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated < 20000
     end
 
-    @testcase "try_enumerate empty" begin
+    @testcase_log "try_enumerate empty" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "empty",
@@ -295,7 +295,7 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated < 20000
     end
 
-    @testcase "try_enumerate append-index-k with k=5" begin
+    @testcase_log "try_enumerate append-index-k with k=5" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "append-index-k with k=5",
@@ -380,7 +380,7 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated < 10000
     end
 
-    @testcase "try_enumerate len" begin
+    @testcase_log "try_enumerate len" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "len",
@@ -423,7 +423,7 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated <= 10000
     end
 
-    @testcase "try_enumerate is-mod-k with k=1" begin
+    @testcase_log "try_enumerate is-mod-k with k=1" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "is-mod-k with k=1",
@@ -472,7 +472,7 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated <= 10000
     end
 
-    @testcase "prepend-k with k=0" begin
+    @testcase_log "prepend-k with k=0" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "prepend-k with k=0",
@@ -539,7 +539,7 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated <= 10000
     end
 
-    @testcase "remove empty lists" begin
+    @testcase_log "remove empty lists" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "remove empty lists",
@@ -663,7 +663,7 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated >= 2000
     end
 
-    @testcase "prepend-index-k with k=3" begin
+    @testcase_log "prepend-index-k with k=3" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "prepend-index-k with k=3",
@@ -748,7 +748,7 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated <= 20000
     end
 
-    @testcase "range +1 maximum list" begin
+    @testcase_log "range +1 maximum list" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "range +1 maximum list",
@@ -830,7 +830,7 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated >= 600
     end
 
-    @testcase "drop-k with k=5" begin
+    @testcase_log "drop-k with k=5" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "drop-k with k=5",
@@ -912,7 +912,7 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated <= 20000
     end
 
-    @testcase "product" begin
+    @testcase_log "product" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "product",
@@ -964,7 +964,7 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated >= 600
     end
 
-    @testcase "keep gt 3" begin
+    @testcase_log "keep gt 3" begin
         payload = Dict{String,Any}(
             "DSL" => Dict{String,Any}(
                 "logVariable" => -0.03174869831458027,
@@ -1188,7 +1188,7 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated >= 600
     end
 
-    @testcase "modulo-k with k=5" begin
+    @testcase_log "modulo-k with k=5" begin
         payload = Dict{String,Any}(
             "DSL" => Dict{String,Any}(
                 "logVariable" => 0.0,
@@ -1403,7 +1403,7 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated >= 600
     end
 
-    @testcase "prepend-k with k=3" begin
+    @testcase_log "prepend-k with k=3" begin
         payload = Dict{String,Any}(
             "DSL" => Dict{String,Any}(
                 "logVariable" => -0.16180989146232605,
