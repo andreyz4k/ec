@@ -38,7 +38,7 @@ function matching_with_unknown_candidates(sc, entry::ValueEntry, branch_id)
         known_entry_id = sc.branch_entries[known_branch_id]
         if known_entry_id == unknown_entry_id
             known_type = sc.types[first(get_connected_from(sc.branch_types, known_branch_id))]
-            prev_matches_count = _get_prev_matches_count(sc, branch_id, known_entry_id)
+            prev_matches_count = _get_prev_matches_count(sc, var_id, known_entry_id)
             push!(
                 results,
                 (
@@ -87,7 +87,7 @@ function matching_with_unknown_candidates(sc, entry::NoDataEntry, branch_id)
                 continue
             end
             tp = sc.types[tp_id]
-            prev_matches_count = _get_prev_matches_count(sc, branch_id, sc.branch_entries[known_branch_id])
+            prev_matches_count = _get_prev_matches_count(sc, var_id, sc.branch_entries[known_branch_id])
 
             push!(results, (FreeVar(tp, known_var_id), Dict(known_var_id => known_branch_id), tp, prev_matches_count))
         end
@@ -96,12 +96,12 @@ function matching_with_unknown_candidates(sc, entry::NoDataEntry, branch_id)
     results
 end
 
-function _get_prev_matches_count(sc, branch_id, entry_id)
-    old_count = sc.branch_incoming_matches_counts[branch_id, entry_id]
+function _get_prev_matches_count(sc, var_id, entry_id)
+    old_count = sc.var_incoming_matches_counts[var_id, entry_id]
     if isnothing(old_count)
         old_count = UInt64(0)
     end
-    sc.branch_incoming_matches_counts[branch_id, entry_id] = old_count + 1
+    sc.var_incoming_matches_counts[var_id, entry_id] = old_count + 1
     return old_count
 end
 
@@ -129,7 +129,7 @@ function matching_with_known_candidates(sc, entry::ValueEntry, known_branch_id)
             unknown_entry = sc.entries[unknown_entry_id]
             if unknown_entry_id == known_entry_id ||
                (!isa(unknown_entry, ValueEntry) && match_with_entry(sc, unknown_entry, entry))
-                prev_matches_count = _get_prev_matches_count(sc, unknown_branch_id, known_entry_id)
+                prev_matches_count = _get_prev_matches_count(sc, unknown_var_id, known_entry_id)
                 push!(
                     results,
                     (
@@ -408,7 +408,7 @@ function matching_with_unknown_candidates(sc, entry::EitherEntry, branch_id)
                 continue
             end
             tp = sc.types[tp_id]
-            prev_matches_count = _get_prev_matches_count(sc, branch_id, known_entry_id)
+            prev_matches_count = _get_prev_matches_count(sc, var_id, known_entry_id)
             push!(results, (FreeVar(tp, known_var_id), Dict(known_var_id => known_branch_id), tp, prev_matches_count))
         end
     end
@@ -554,7 +554,7 @@ function matching_with_unknown_candidates(sc, entry::PatternEntry, branch_id)
             continue
         end
         tp = sc.types[entry.type_id]
-        prev_matches_count = _get_prev_matches_count(sc, branch_id, known_entry_id)
+        prev_matches_count = _get_prev_matches_count(sc, var_id, known_entry_id)
         push!(results, (FreeVar(tp, known_var_id), Dict(known_var_id => known_branch_id), tp, prev_matches_count))
     end
     results
@@ -584,7 +584,7 @@ function matching_with_known_candidates(sc, entry::PatternEntry, known_branch_id
             unknown_entry = sc.entries[unknown_entry_id]
             if unknown_entry_id == known_entry_id ||
                (!isa(unknown_entry, ValueEntry) && match_with_entry(sc, unknown_entry, entry))
-                prev_matches_count = _get_prev_matches_count(sc, unknown_branch_id, known_entry_id)
+                prev_matches_count = _get_prev_matches_count(sc, unknown_var_id, known_entry_id)
                 push!(
                     results,
                     (
@@ -643,7 +643,7 @@ function matching_with_unknown_candidates(sc, entry::AbductibleEntry, branch_id)
             continue
         end
         tp = sc.types[entry.type_id]
-        prev_matches_count = _get_prev_matches_count(sc, branch_id, known_entry_id)
+        prev_matches_count = _get_prev_matches_count(sc, var_id, known_entry_id)
         push!(results, (FreeVar(tp, known_var_id), Dict(known_var_id => known_branch_id), tp, prev_matches_count))
     end
     results

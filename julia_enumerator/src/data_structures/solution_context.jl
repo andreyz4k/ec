@@ -33,8 +33,8 @@ mutable struct SolutionContext
     "[branch_id x block_copy_id] -> block_id"
     branch_outgoing_blocks::ValueGraphStorage
 
-    "[branch_id x incoming_entry_id] -> count"
-    branch_incoming_matches_counts::ValueGraphStorage
+    "[var_id x incoming_entry_id] -> count"
+    var_incoming_matches_counts::ValueGraphStorage
 
     "[var_id x constraint_id] -> branch_id"
     constrained_vars::ValueGraphStorage
@@ -256,7 +256,7 @@ function start_transaction!(sc::SolutionContext, depth)
     start_transaction!(sc.branch_children, depth)
     start_transaction!(sc.branch_incoming_blocks, depth)
     start_transaction!(sc.branch_outgoing_blocks, depth)
-    start_transaction!(sc.branch_incoming_matches_counts, depth)
+    start_transaction!(sc.var_incoming_matches_counts, depth)
     start_transaction!(sc.constrained_vars, depth)
     start_transaction!(sc.constrained_branches, depth)
     start_transaction!(sc.constrained_contexts, depth)
@@ -297,7 +297,7 @@ function save_changes!(sc::SolutionContext, depth)
     save_changes!(sc.branch_children, depth)
     save_changes!(sc.branch_incoming_blocks, depth)
     save_changes!(sc.branch_outgoing_blocks, depth)
-    save_changes!(sc.branch_incoming_matches_counts, depth)
+    save_changes!(sc.var_incoming_matches_counts, depth)
     save_changes!(sc.constrained_vars, depth)
     save_changes!(sc.constrained_branches, depth)
     save_changes!(sc.constrained_contexts, depth)
@@ -338,7 +338,7 @@ function drop_changes!(sc::SolutionContext, depth)
     drop_changes!(sc.branch_children, depth)
     drop_changes!(sc.branch_incoming_blocks, depth)
     drop_changes!(sc.branch_outgoing_blocks, depth)
-    drop_changes!(sc.branch_incoming_matches_counts, depth)
+    drop_changes!(sc.var_incoming_matches_counts, depth)
     drop_changes!(sc.constrained_vars, depth)
     drop_changes!(sc.constrained_branches, depth)
     drop_changes!(sc.constrained_contexts, depth)
