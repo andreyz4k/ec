@@ -4,7 +4,8 @@ using Test: TestLogger
 
 macro testcase_log(name, body)
     return quote
-        @testcase $name begin
+        local name_ = $(esc(name))
+        @testcase "$name_" begin
             test_logger = TestLogger()
             try
                 with_logger(test_logger) do
@@ -12,7 +13,7 @@ macro testcase_log(name, body)
                 end
             finally
                 if !isempty(test_logger.logs)
-                    @info "Test $($name) logs:"
+                    @info "Test $(name_) logs:"
                     for log in test_logger.logs
                         @logmsg(
                             log.level,
