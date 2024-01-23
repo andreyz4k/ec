@@ -3,6 +3,9 @@ name: Main workflow
 on:
   [push]
 
+permissions:
+  actions: write
+  contents: read
 
 jobs:
   ocaml-build:
@@ -10,7 +13,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: apt-get update
         run: sudo apt-get update
@@ -64,7 +67,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
@@ -86,7 +89,7 @@ jobs:
     needs: [create-virtualenv]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Python
         uses: actions/setup-python@v4
@@ -112,7 +115,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: true
 
@@ -120,6 +123,8 @@ jobs:
         uses: julia-actions/setup-julia@latest
         with:
           version: ${{ matrix.version }}
+
+      - uses: julia-actions/cache@v1
 
       - uses: julia-actions/julia-buildpkg@latest
         with:
@@ -152,7 +157,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Julia
         uses: julia-actions/setup-julia@latest
@@ -178,6 +183,8 @@ jobs:
 
       - uses: syphar/restore-virtualenv@v1
         id: cache-virtualenv
+
+      - uses: julia-actions/cache@v1
 
       - uses: julia-actions/julia-buildpkg@latest
         with:
@@ -208,7 +215,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: true
 
@@ -243,6 +250,8 @@ jobs:
       - run: pip install -r requirements.txt
         if: steps.cache-virtualenv.outputs.cache-hit != 'true'
 
+      - uses: julia-actions/cache@v1
+
       - uses: julia-actions/julia-buildpkg@latest
         with:
           project: julia_enumerator
@@ -272,7 +281,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Julia
         uses: julia-actions/setup-julia@latest
@@ -299,6 +308,8 @@ jobs:
       - uses: syphar/restore-virtualenv@v1
         id: cache-virtualenv
 
+      - uses: julia-actions/cache@v1
+
       - uses: julia-actions/julia-buildpkg@latest
         with:
           project: julia_enumerator
@@ -321,7 +332,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Download binaries patch
         uses: actions/download-artifact@v3
@@ -353,7 +364,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Download binaries patch
         uses: actions/download-artifact@v3
@@ -385,7 +396,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Download binaries patch
         uses: actions/download-artifact@v3
@@ -418,7 +429,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Download binaries patch
         uses: actions/download-artifact@v3
@@ -450,7 +461,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Download binaries patch
         uses: actions/download-artifact@v3
@@ -484,7 +495,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Download binaries patch
         uses: actions/download-artifact@v3
@@ -517,7 +528,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Download binaries patch
         uses: actions/download-artifact@v3
@@ -553,7 +564,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Download binaries patch
         uses: actions/download-artifact@v3
