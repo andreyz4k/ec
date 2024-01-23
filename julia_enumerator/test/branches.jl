@@ -1,6 +1,4 @@
 
-using Test
-
 using solver:
     load_problems,
     create_starting_context,
@@ -38,7 +36,6 @@ using solver:
     get_connected_to,
     CustomArgChecker
 
-import Redis
 using DataStructures
 
 function initial_state(t, g)
@@ -164,9 +161,9 @@ end
         "verbose" => false,
         "shatter" => 10,
     )
-    run_context = Dict("redis" => RedisContext(Redis.RedisConnection(db = 2)), "program_timeout" => 1, "timeout" => 20)
+    run_context = Dict("program_timeout" => 1, "timeout" => 20)
 
-    @testset "Exact value match" begin
+    @testcase "Exact value match" begin
         payload = merge(
             base_task,
             Dict(
@@ -232,7 +229,7 @@ end
         @test isempty(get_connected_from(sc.related_explained_complexity_branches, out_branch_id))
     end
 
-    @testset "Type only match" begin
+    @testcase "Type only match" begin
         payload = merge(
             base_task,
             Dict(
@@ -351,7 +348,7 @@ end
         @test isempty(get_connected_from(sc.related_explained_complexity_branches, out_branch_id))
     end
 
-    @testset "Either match" begin
+    @testcase "Either match" begin
         payload = merge(
             base_task,
             Dict(

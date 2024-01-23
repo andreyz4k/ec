@@ -1,8 +1,10 @@
 
-using Test
-include("../src/solver.jl")
-using TestSetExtensions
-
-@testset ExtendedTestSet "all" begin
-    @includetests ARGS
+using Distributed
+if myid() != 1
+    cd("julia_enumerator/test")
+else
+    addprocs(Threads.nthreads())
+    @everywhere using XUnit
 end
+
+runtests("all_tests.jl", ["all/" * a for a in ARGS]...)

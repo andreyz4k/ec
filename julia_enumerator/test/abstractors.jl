@@ -1,6 +1,3 @@
-
-using Test
-
 using solver:
     every_primitive,
     Apply,
@@ -109,11 +106,11 @@ using DataStructures: OrderedDict, Accumulator
         end
     end
 
-    @testset "Check reversible simple" begin
+    @testcase "Check reversible simple" begin
         @test is_reversible(parse_program("(repeat ??(int) ??(int))"))
     end
 
-    @testset "Check reversible map" begin
+    @testcase "Check reversible map" begin
         @test !is_reversible(
             Apply(
                 Apply(
@@ -180,7 +177,7 @@ using DataStructures: OrderedDict, Accumulator
         )
     end
 
-    @testset "Check reversible nested map" begin
+    @testcase "Check reversible nested map" begin
         @test !is_reversible(
             Apply(
                 Apply(
@@ -335,7 +332,7 @@ using DataStructures: OrderedDict, Accumulator
         @test is_reversible(parse_program("(map (lambda (map (lambda (repeat \$0 \$0)) \$0)) ??(list(list(int))))"))
     end
 
-    @testset "Check reversible select" begin
+    @testcase "Check reversible select" begin
         @test is_reversible(
             Apply(
                 Apply(
@@ -422,7 +419,7 @@ using DataStructures: OrderedDict, Accumulator
         )
     end
 
-    @testset "Reverse repeat" begin
+    @testcase "Reverse repeat" begin
         skeleton = parse_program("(repeat ??(int) ??(int))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
@@ -447,7 +444,7 @@ using DataStructures: OrderedDict, Accumulator
         )
     end
 
-    @testset "Reverse repeat grid" begin
+    @testcase "Reverse repeat grid" begin
         skeleton = parse_program("(repeat_grid ??(int) ??(int) ??(int))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
@@ -472,14 +469,14 @@ using DataStructures: OrderedDict, Accumulator
               any_object
     end
 
-    @testset "Reverse cons" begin
+    @testcase "Reverse cons" begin
         skeleton = parse_program("(cons ??(int) ??(list(int)))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
         @test compare_options(run_in_reverse(p, [1, 2, 3]), Dict(UInt64(1) => 1, UInt64(2) => [2, 3]))
     end
 
-    @testset "Reverse adjoin" begin
+    @testcase "Reverse adjoin" begin
         skeleton = parse_program("(adjoin ??(int) ??(set(int)))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
@@ -503,14 +500,14 @@ using DataStructures: OrderedDict, Accumulator
         @test run_with_arguments(p, [], Dict(UInt64(1) => 1, UInt64(2) => Set([3, 2]))) == Set([1, 2, 3])
     end
 
-    @testset "Reverse tuple2" begin
+    @testcase "Reverse tuple2" begin
         skeleton = parse_program("(tuple2 ??(color) ??(list(int)))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
         @test compare_options(run_in_reverse(p, (1, [2, 3])), Dict(UInt64(1) => 1, UInt64(2) => [2, 3]))
     end
 
-    @testset "Reverse plus" begin
+    @testcase "Reverse plus" begin
         skeleton = parse_program("(+ ??(int) ??(int))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
@@ -535,7 +532,7 @@ using DataStructures: OrderedDict, Accumulator
         ) == Dict(UInt64(2) => EitherOptions(Dict{UInt64,Any}(0xaa2dcc33efe7cdcd => 29, 0x4ef19a9b1c1cc5e2 => 14)))
     end
 
-    @testset "Reverse minus" begin
+    @testcase "Reverse minus" begin
         skeleton = parse_program("(- ??(int) ??(int))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
@@ -561,7 +558,7 @@ using DataStructures: OrderedDict, Accumulator
         ) == Dict(UInt64(1) => EitherOptions(Dict{UInt64,Any}(0xaa2dcc33efe7cdcd => 31, 0x4ef19a9b1c1cc5e2 => 16)))
     end
 
-    @testset "Reverse plus with plus" begin
+    @testcase "Reverse plus with plus" begin
         skeleton = parse_program("(+ (+ ??(int) ??(int)) ??(int))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
@@ -583,7 +580,7 @@ using DataStructures: OrderedDict, Accumulator
         @test calculate_dependent_vars(p, Dict{UInt64,Any}(UInt64(1) => 1, UInt64(3) => 5), 3) == Dict(UInt64(2) => -3)
     end
 
-    @testset "Reverse repeat with plus" begin
+    @testcase "Reverse repeat with plus" begin
         skeleton = parse_program("(repeat (+ ??(int) ??(int)) ??(int))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
@@ -600,7 +597,7 @@ using DataStructures: OrderedDict, Accumulator
               Dict(UInt64(2) => 2)
     end
 
-    @testset "Reverse abs with plus" begin
+    @testcase "Reverse abs with plus" begin
         skeleton = parse_program("(abs (+ ??(int) ??(int)))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
@@ -615,7 +612,7 @@ using DataStructures: OrderedDict, Accumulator
         )
     end
 
-    @testset "Reverse plus with abs" begin
+    @testcase "Reverse plus with abs" begin
         skeleton = parse_program("(+ (abs ??(int)) ??(int))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
@@ -630,7 +627,7 @@ using DataStructures: OrderedDict, Accumulator
         )
     end
 
-    @testset "Reverse mult" begin
+    @testcase "Reverse mult" begin
         skeleton = parse_program("(* ??(int) ??(int))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
@@ -758,7 +755,7 @@ using DataStructures: OrderedDict, Accumulator
         )
     end
 
-    @testset "Reverse combined abstractors" begin
+    @testcase "Reverse combined abstractors" begin
         skeleton = parse_program("(repeat (cons ??(int) ??(list(int))) ??(int))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
@@ -770,7 +767,7 @@ using DataStructures: OrderedDict, Accumulator
     end
 
     @testset "Reverse map2" begin
-        @testset "with holes" begin
+        @testcase "with holes" begin
             skeleton = Apply(
                 Apply(
                     Apply(
@@ -794,7 +791,7 @@ using DataStructures: OrderedDict, Accumulator
             @test !is_reversible(skeleton)
         end
 
-        @testset "repeat indices 1 0" begin
+        @testcase "repeat indices 1 0" begin
             skeleton = parse_program("(map2 (lambda (lambda (repeat \$1 \$0))) ??(list(t0)) ??(list(t1)))")
             @test is_reversible(skeleton)
 
@@ -809,7 +806,7 @@ using DataStructures: OrderedDict, Accumulator
                   [[1, 1, 1], [2, 2], [4]]
         end
 
-        @testset "repeat indices 0 1" begin
+        @testcase "repeat indices 0 1" begin
             skeleton = parse_program("(map2 (lambda (lambda (repeat \$0 \$1))) ??(list(t0)) ??(list(t1)))")
             @test is_reversible(skeleton)
 
@@ -824,7 +821,7 @@ using DataStructures: OrderedDict, Accumulator
                   [[1, 1, 1], [2, 2], [4]]
         end
 
-        @testset "cons indices 1 0" begin
+        @testcase "cons indices 1 0" begin
             skeleton = parse_program("(map2 (lambda (lambda (cons \$1 \$0))) ??(list(t0)) ??(list(t1)))")
             @test is_reversible(skeleton)
             p, _ = capture_free_vars(skeleton)
@@ -838,7 +835,7 @@ using DataStructures: OrderedDict, Accumulator
                   [[1, 1, 1], [2, 2], [4]]
         end
 
-        @testset "cons indices 0 1" begin
+        @testcase "cons indices 0 1" begin
             skeleton = parse_program("(map2 (lambda (lambda (cons \$0 \$1))) ??(list(t0)) ??(list(t1)))")
             @test is_reversible(skeleton)
             p, _ = capture_free_vars(skeleton)
@@ -853,7 +850,7 @@ using DataStructures: OrderedDict, Accumulator
         end
     end
 
-    @testset "Reverse nested map2" begin
+    @testcase "Reverse nested map2" begin
         skeleton = parse_program(
             "(map2 (lambda (lambda (map2 (lambda (lambda (repeat \$1 \$0))) \$1 \$0))) ??(list(t0)) ??(list(t1)))",
         )
@@ -872,7 +869,7 @@ using DataStructures: OrderedDict, Accumulator
         ) == [[[1, 1, 1], [2, 2], [4]], [[3, 3, 3, 3], [2, 2, 2], [8, 8, 8]]]
     end
 
-    @testset "Reverse range" begin
+    @testcase "Reverse range" begin
         skeleton = parse_program("(range ??(int))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
@@ -881,7 +878,7 @@ using DataStructures: OrderedDict, Accumulator
         @test compare_options(run_in_reverse(p, []), Dict(UInt64(1) => 0))
     end
 
-    @testset "Reverse map with range" begin
+    @testcase "Reverse map with range" begin
         skeleton = Apply(
             Apply(
                 every_primitive["map"],
@@ -903,7 +900,7 @@ using DataStructures: OrderedDict, Accumulator
         @test compare_options(run_in_reverse(p, [[0, 1, 2], [0, 1], [0, 1, 2, 3]]), Dict(UInt64(1) => [3, 2, 4]))
     end
 
-    @testset "Reverse map set with range" begin
+    @testcase "Reverse map set with range" begin
         skeleton = Apply(
             Apply(
                 every_primitive["map_set"],
@@ -928,7 +925,7 @@ using DataStructures: OrderedDict, Accumulator
         )
     end
 
-    @testset "Reverse map with repeat" begin
+    @testcase "Reverse map with repeat" begin
         skeleton = parse_program("(map (lambda (repeat \$0 \$0)) ??(list(t0)))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
@@ -939,7 +936,7 @@ using DataStructures: OrderedDict, Accumulator
         @test run_with_arguments(p, [], Dict(UInt64(1) => [1, 2, 4])) == [[1], [2, 2], [4, 4, 4, 4]]
     end
 
-    @testset "Reverse map set with tuple" begin
+    @testcase "Reverse map set with tuple" begin
         skeleton = Apply(
             Apply(
                 every_primitive["map_set"],
@@ -965,7 +962,7 @@ using DataStructures: OrderedDict, Accumulator
         )
     end
 
-    @testset "Reverse map2 with either options" begin
+    @testcase "Reverse map2 with either options" begin
         skeleton = parse_program("(map2 (lambda (lambda (concat \$1 \$0))) ??(list(t0)) ??(list(t1)))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
@@ -1113,7 +1110,7 @@ using DataStructures: OrderedDict, Accumulator
         )
     end
 
-    @testset "Reverse map with either options" begin
+    @testcase "Reverse map with either options" begin
         skeleton = parse_program("(map (lambda (concat \$0 \$0)) ??(list(t0)))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
@@ -1124,7 +1121,7 @@ using DataStructures: OrderedDict, Accumulator
         )
     end
 
-    @testset "Reverse map with either options with free var" begin
+    @testcase "Reverse map with either options with free var" begin
         skeleton = Apply(
             Apply(
                 every_primitive["map"],
@@ -1156,7 +1153,7 @@ using DataStructures: OrderedDict, Accumulator
         )
     end
 
-    @testset "Reverse map with either options with free var and plus" begin
+    @testcase "Reverse map with either options with free var and plus" begin
         skeleton = Apply(
             Apply(
                 every_primitive["map"],
@@ -1191,7 +1188,7 @@ using DataStructures: OrderedDict, Accumulator
         )
     end
 
-    @testset "Reverse map with either options with free var with plus and mult" begin
+    @testcase "Reverse map with either options with free var with plus and mult" begin
         skeleton = Apply(
             Apply(
                 every_primitive["map"],
@@ -1221,7 +1218,7 @@ using DataStructures: OrderedDict, Accumulator
         )
     end
 
-    @testset "Reverse map with either options with free var with plus and mult 2" begin
+    @testcase "Reverse map with either options with free var with plus and mult 2" begin
         # (map (lambda (* $0 (* (+ $v651 $0) $v652))) $v653)
         skeleton = Apply(
             Apply(
@@ -1255,7 +1252,7 @@ using DataStructures: OrderedDict, Accumulator
         )
     end
 
-    @testset "Reverse map with either options with free var with plus and mult 3" begin
+    @testcase "Reverse map with either options with free var with plus and mult 3" begin
         # (map (lambda (* $0 (+ $v154 $0))) $v155)
         skeleton = Apply(
             Apply(
@@ -1288,7 +1285,7 @@ using DataStructures: OrderedDict, Accumulator
         )
     end
 
-    @testset "Reverse map with either options with free var with plus and mult 4" begin
+    @testcase "Reverse map with either options with free var with plus and mult 4" begin
         skeleton = parse_program("(map (lambda (* \$0 (+ \$0 \$0))) ??(list(t0)))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
@@ -1304,7 +1301,7 @@ using DataStructures: OrderedDict, Accumulator
         )
     end
 
-    @testset "Reverse map with either options with free var with plus and mult 5" begin
+    @testcase "Reverse map with either options with free var with plus and mult 5" begin
         # (map (lambda (* $0 (* (+ $v2080 $0) $v2081))) $v2082)
         skeleton = Apply(
             Apply(
@@ -1338,7 +1335,7 @@ using DataStructures: OrderedDict, Accumulator
         )
     end
 
-    @testset "Reverse map2 with plus" begin
+    @testcase "Reverse map2 with plus" begin
         skeleton = parse_program("(map2 (lambda (lambda (+ \$0 \$1))) ??(list(t0)) ??(list(int)))")
         @test is_reversible(skeleton)
 
@@ -1355,7 +1352,7 @@ using DataStructures: OrderedDict, Accumulator
         @test calculate_dependent_vars(p, Dict{UInt64,Any}(UInt64(1) => [1, 2]), [3, 2]) == Dict(UInt64(2) => [2, 0])
     end
 
-    @testset "Reverse map with plus and free var" begin
+    @testcase "Reverse map with plus and free var" begin
         skeleton = Apply(
             Apply(
                 every_primitive["map"],
@@ -1379,7 +1376,7 @@ using DataStructures: OrderedDict, Accumulator
         @test calculate_dependent_vars(p, Dict{UInt64,Any}(UInt64(1) => 1), [3, 2]) == Dict(UInt64(2) => [2, 1])
     end
 
-    @testset "Reverse rows with either" begin
+    @testcase "Reverse rows with either" begin
         skeleton = Apply(every_primitive["rows"], Hole(tgrid(tcolor), nothing, nothing, nothing))
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
@@ -1469,7 +1466,7 @@ using DataStructures: OrderedDict, Accumulator
         )
     end
 
-    @testset "Reverse rev select" begin
+    @testcase "Reverse rev select" begin
         skeleton = Apply(
             Apply(
                 Apply(
@@ -1514,7 +1511,7 @@ using DataStructures: OrderedDict, Accumulator
         )
     end
 
-    @testset "Reverse rev select set" begin
+    @testcase "Reverse rev select set" begin
         skeleton = Apply(
             Apply(
                 Apply(
@@ -1557,7 +1554,7 @@ using DataStructures: OrderedDict, Accumulator
         )
     end
 
-    @testset "Reverse rev select with empty" begin
+    @testcase "Reverse rev select with empty" begin
         skeleton = parse_program("(rev_select (lambda (empty? \$0)) ??(list(list(int))) ??(list(list(int))))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
@@ -1571,7 +1568,7 @@ using DataStructures: OrderedDict, Accumulator
         )
     end
 
-    @testset "Invented abstractor" begin
+    @testcase "Invented abstractor" begin
         source = "#(lambda (lambda (repeat (cons \$1 \$0))))"
         expression = parse_program(source)
         tp = closed_inference(expression)
@@ -1589,7 +1586,7 @@ using DataStructures: OrderedDict, Accumulator
               [[1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2, 3]]
     end
 
-    @testset "Invented abstractor with same index" begin
+    @testcase "Invented abstractor with same index" begin
         source = "#(lambda (* \$0 \$0))"
         expression = parse_program(source)
         tp = closed_inference(expression)
@@ -1604,7 +1601,7 @@ using DataStructures: OrderedDict, Accumulator
         )
     end
 
-    @testset "Invented abstractor with same index combined" begin
+    @testcase "Invented abstractor with same index combined" begin
         source = "#(lambda (* \$0 (* \$0 \$0)))"
         expression = parse_program(source)
         tp = closed_inference(expression)
@@ -1616,7 +1613,7 @@ using DataStructures: OrderedDict, Accumulator
         @test compare_options(run_in_reverse(p, 64), Dict(UInt64(1) => 4))
     end
 
-    @testset "Invented abstractor with same index combined #2" begin
+    @testcase "Invented abstractor with same index combined #2" begin
         source = "#(lambda (* (* \$0 \$0) \$0))"
         expression = parse_program(source)
         tp = closed_inference(expression)
@@ -1628,7 +1625,7 @@ using DataStructures: OrderedDict, Accumulator
         @test compare_options(run_in_reverse(p, 64), Dict(UInt64(1) => 4))
     end
 
-    @testset "Invented abstractor with same index combined #3" begin
+    @testcase "Invented abstractor with same index combined #3" begin
         source = "#(lambda (* (* \$0 \$0) (* \$0 \$0)))"
         expression = parse_program(source)
         tp = closed_inference(expression)
@@ -1643,7 +1640,7 @@ using DataStructures: OrderedDict, Accumulator
         )
     end
 
-    @testset "Invented abstractor with range" begin
+    @testcase "Invented abstractor with range" begin
         source = "#(lambda (repeat (range \$0)))"
         expression = parse_program(source)
         tp = closed_inference(expression)
@@ -1658,7 +1655,7 @@ using DataStructures: OrderedDict, Accumulator
         )
     end
 
-    @testset "Invented abstractor with range in map2" begin
+    @testcase "Invented abstractor with range in map2" begin
         source = "#(lambda (repeat (range \$0)))"
         expression = parse_program(source)
         tp = closed_inference(expression)
@@ -1674,7 +1671,7 @@ using DataStructures: OrderedDict, Accumulator
         )
     end
 
-    @testset "Reversed map with rev_select" begin
+    @testcase "Reversed map with rev_select" begin
         skeleton = Apply(
             Apply(
                 every_primitive["map"],
@@ -1710,7 +1707,7 @@ using DataStructures: OrderedDict, Accumulator
         @test !is_reversible(skeleton)
     end
 
-    @testset "Reverse list elements" begin
+    @testcase "Reverse list elements" begin
         skeleton = parse_program("(rev_list_elements ??(list(tuple2(int, int))) ??(int))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
@@ -1733,7 +1730,7 @@ using DataStructures: OrderedDict, Accumulator
         @test run_with_arguments(p, [], Dict(UInt64(1) => [(1, 3), (2, 2)], UInt64(2) => 3)) == [3, 2, nothing]
     end
 
-    @testset "Reverse grid elements" begin
+    @testcase "Reverse grid elements" begin
         skeleton = parse_program("(rev_grid_elements ??(list(tuple2(tuple2(int, int), int))) ??(int) ??(int))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
@@ -1784,7 +1781,7 @@ using DataStructures: OrderedDict, Accumulator
         ) == [[3, 2, 1] [nothing, nothing, nothing]]
     end
 
-    @testset "Reverse zip2" begin
+    @testcase "Reverse zip2" begin
         skeleton = parse_program("(zip2 ??(list(int)) ??(list(color)))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
@@ -1797,7 +1794,7 @@ using DataStructures: OrderedDict, Accumulator
               [(1, 3), (2, 2), (3, 1)]
     end
 
-    @testset "Reverse zip_grid2" begin
+    @testcase "Reverse zip_grid2" begin
         skeleton = parse_program("(zip_grid2 ??(grid(int)) ??(grid(color)))")
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
@@ -1810,7 +1807,7 @@ using DataStructures: OrderedDict, Accumulator
               [[(1, 3), (2, 2), (3, 1)] [(4, 5), (9, 2), (2, 5)]]
     end
 
-    @testset "Reverse rev_fold" begin
+    @testcase "Reverse rev_fold" begin
         skeleton = parse_program("(rev_fold (lambda (lambda (cons \$1 \$0))) empty ??(list(int)))")
         @test is_reversible(skeleton)
 
@@ -1821,7 +1818,7 @@ using DataStructures: OrderedDict, Accumulator
         @test run_with_arguments(p, [], Dict(UInt64(1) => [1, 4, 1, 4, 2])) == [2, 4, 1, 4, 1]
     end
 
-    @testset "Reverse fold" begin
+    @testcase "Reverse fold" begin
         skeleton = parse_program("(fold (lambda (lambda (cons \$1 \$0))) ??(list(int)) ??(list(int)))")
         @test is_reversible(skeleton)
 
@@ -1856,7 +1853,7 @@ using DataStructures: OrderedDict, Accumulator
         @test run_with_arguments(p, [], Dict(UInt64(1) => [1, 4, 1, 4, 2], UInt64(2) => [])) == [1, 4, 1, 4, 2]
     end
 
-    @testset "Reverse fold with plus" begin
+    @testcase "Reverse fold with plus" begin
         skeleton = parse_program("(fold (lambda (lambda (+ \$0 \$1))) ??(list(t0)) ??(int))")
         @test is_reversible(skeleton)
 
@@ -1913,7 +1910,7 @@ using DataStructures: OrderedDict, Accumulator
         )
     end
 
-    @testset "Reverse fold with free var" begin
+    @testcase "Reverse fold with free var" begin
         skeleton = Apply(
             Apply(
                 Apply(
@@ -2086,7 +2083,7 @@ using DataStructures: OrderedDict, Accumulator
         )
     end
 
-    @testset "Reverse fold with free var with plus and mult" begin
+    @testcase "Reverse fold with free var with plus and mult" begin
         skeleton = Apply(
             Apply(
                 Apply(
@@ -2461,7 +2458,7 @@ using DataStructures: OrderedDict, Accumulator
         )
     end
 
-    @testset "Reverse fold with free var with plus" begin
+    @testcase "Reverse fold with free var with plus" begin
         skeleton = Apply(
             Apply(
                 Apply(
@@ -2543,7 +2540,7 @@ using DataStructures: OrderedDict, Accumulator
         )
     end
 
-    @testset "Reverse fold_set" begin
+    @testcase "Reverse fold_set" begin
         skeleton = parse_program("(fold_set (lambda (lambda (adjoin \$1 \$0))) ??(set(int)) ??(set(int)))")
         @test is_reversible(skeleton)
 
@@ -2631,7 +2628,7 @@ using DataStructures: OrderedDict, Accumulator
               Set([2, 4, 1, 6, 9])
     end
 
-    @testset "Reverse fold with concat" begin
+    @testcase "Reverse fold with concat" begin
         skeleton = parse_program("(fold (lambda (lambda (concat \$1 \$0))) ??(list(list(int))) ??(list(int)))")
         @test is_reversible(skeleton)
 
@@ -2757,7 +2754,7 @@ using DataStructures: OrderedDict, Accumulator
               [1, 4, 1, 4, 2, 3, 5, 2, 5]
     end
 
-    @testset "Reverse fold_h" begin
+    @testcase "Reverse fold_h" begin
         skeleton = parse_program("(fold_h (lambda (lambda (cons \$1 \$0))) ??(grid(int)) ??(list(list(int))))")
         @test is_reversible(skeleton)
 
@@ -2792,7 +2789,7 @@ using DataStructures: OrderedDict, Accumulator
         ) == [[1, 3, 9], [4, 6, 1], [1, 1, 4], [4, 5, 0], [2, 2, 4]]
     end
 
-    @testset "Reverse fold_h with plus" begin
+    @testcase "Reverse fold_h with plus" begin
         skeleton = parse_program("(fold_h (lambda (lambda (+ \$0 \$1))) ??(grid(int)) ??(list(int)))")
         @test is_reversible(skeleton)
 
@@ -2843,7 +2840,7 @@ using DataStructures: OrderedDict, Accumulator
         )
     end
 
-    @testset "Reverse fold_v" begin
+    @testcase "Reverse fold_v" begin
         skeleton = parse_program("(fold_v (lambda (lambda (cons \$1 \$0))) ??(grid(int)) ??(list(list(int))))")
         @test is_reversible(skeleton)
 
@@ -2882,7 +2879,7 @@ using DataStructures: OrderedDict, Accumulator
         ) == [[1, 4, 1, 4, 2], [3, 6, 1, 5, 2], [9, 1, 4, 0, 4]]
     end
 
-    @testset "Reverse fold_v with plus" begin
+    @testcase "Reverse fold_v with plus" begin
         skeleton = parse_program("(fold_v (lambda (lambda (+ \$0 \$1))) ??(grid(int)) ??(list(int)))")
         @test is_reversible(skeleton)
 
@@ -2932,7 +2929,7 @@ using DataStructures: OrderedDict, Accumulator
         )
     end
 
-    @testset "Reverse rev_groupby" begin
+    @testcase "Reverse rev_groupby" begin
         skeleton = parse_program("(rev_groupby (lambda (car \$0)) ??(list(int)) ??(set(tuple2(int, set(list(int))))))")
         @test is_reversible(skeleton)
 
@@ -2956,7 +2953,7 @@ using DataStructures: OrderedDict, Accumulator
               Set([(1, Set([[1, 2, 3], [1, 4, 2]])), (2, Set([[2]]))])
     end
 
-    @testset "Reverse rev_fold with rev_groupby" begin
+    @testcase "Reverse rev_fold with rev_groupby" begin
         skeleton = parse_program(
             "(rev_fold_set (lambda (lambda (rev_groupby (lambda (car \$0)) \$1 \$0))) empty_set ??(set(list(int))))",
         )
@@ -2973,7 +2970,7 @@ using DataStructures: OrderedDict, Accumulator
               Set([[1, 2, 3], [1, 4, 2], [2]])
     end
 
-    @testset "Reverse rev_greedy_cluster" begin
+    @testcase "Reverse rev_greedy_cluster" begin
         skeleton = parse_program(
             "(rev_greedy_cluster (lambda (lambda (all_set (lambda (eq? (car \$0) (car \$2))) \$0))) ??(list(list(int))) ??(set(set(list(int)))))",
         )
@@ -3000,7 +2997,7 @@ using DataStructures: OrderedDict, Accumulator
               Set([Set([[1, 2, 3], [1, 4, 2]]), Set([[2]])])
     end
 
-    @testset "Reverse rev_greedy_cluster by length" begin
+    @testcase "Reverse rev_greedy_cluster by length" begin
         skeleton = parse_program(
             "(rev_greedy_cluster (lambda (lambda (any_set (lambda (not (gt? (abs (- (length \$0) (length \$2))) 1))) \$0))) ??(list(list(int))) ??(set(set(list(int)))))",
         )
@@ -3043,7 +3040,7 @@ using DataStructures: OrderedDict, Accumulator
         ) == Set([Set([[1, 2, 3], [1, 4, 2, 2], [3, 5, 2, 5, 2]]), Set([[2]])])
     end
 
-    @testset "Reverse rev_fold_set with rev_greedy_cluster" begin
+    @testcase "Reverse rev_fold_set with rev_greedy_cluster" begin
         skeleton = parse_program(
             "(rev_fold_set (lambda (lambda (rev_greedy_cluster (lambda (lambda (any_set (lambda (not (gt? (abs (- (length \$0) (length \$2))) 1))) \$0))) \$1 \$0))) empty_set ??(set(list(int))))",
         )

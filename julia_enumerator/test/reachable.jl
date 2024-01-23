@@ -1,10 +1,6 @@
 
-using Test
-
 using JSON
-# if false
-#     include("../src/solver.jl")
-# end
+
 using solver:
     load_problems,
     parse_program,
@@ -1299,7 +1295,7 @@ using DataStructures
         end
     end
 
-    @testset "Repeat" begin
+    @testcase "Repeat" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "invert repeated",
@@ -1320,7 +1316,7 @@ using DataStructures
         check_reachable(payload, target_solution)
     end
 
-    @testset "Find const" begin
+    @testcase "Find const" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "find const",
@@ -1344,7 +1340,7 @@ using DataStructures
         check_reachable(payload, target_solution)
     end
 
-    @testset "Use eithers" begin
+    @testcase "Use eithers" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "use eithers",
@@ -1371,7 +1367,7 @@ using DataStructures
         check_reachable(payload, target_solution)
     end
 
-    @testset "Use eithers 2" begin
+    @testcase "Use eithers 2" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "use eithers",
@@ -1398,7 +1394,7 @@ using DataStructures
         check_reachable(payload, target_solution)
     end
 
-    @testset "Use eithers from input" begin
+    @testcase "Use eithers from input" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "use eithers",
@@ -1425,7 +1421,7 @@ using DataStructures
         check_reachable(payload, target_solution)
     end
 
-    @testset "Replace background" begin
+    @testcase "Replace background" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "replace background",
@@ -1452,7 +1448,7 @@ using DataStructures
         check_reachable(payload, target_solution)
     end
 
-    @testset "Add const" begin
+    @testcase "Add const" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "add const",
@@ -1470,7 +1466,7 @@ using DataStructures
         check_reachable(payload, target_solution)
     end
 
-    @testset "prepend-index-k with k=3" begin
+    @testcase "prepend-index-k with k=3" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "prepend-index-k with k=3",
@@ -1548,7 +1544,7 @@ using DataStructures
         check_reachable(payload, target_solution)
     end
 
-    @testset "drop-k with k=5" begin
+    @testcase "drop-k with k=5" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "drop-k with k=5",
@@ -1621,7 +1617,7 @@ using DataStructures
         check_reachable(payload, target_solution)
     end
 
-    @testset "Select background" begin
+    @testcase "Select background" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "Select background",
@@ -1682,7 +1678,7 @@ using DataStructures
         check_reachable(payload, target_solution)
     end
 
-    @testset "Select background reverse" begin
+    @testcase "Select background reverse" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "Select background",
@@ -1747,7 +1743,7 @@ using DataStructures
         check_reachable(payload, target_solution)
     end
 
-    @testset "Non-background cells" begin
+    @testcase "Non-background cells" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "Non-background cells",
@@ -1811,7 +1807,7 @@ using DataStructures
         check_reachable(payload, target_solution)
     end
 
-    @testset "Non-background cells reverse" begin
+    @testcase "Non-background cells reverse" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "Non-background cells",
@@ -1875,7 +1871,7 @@ using DataStructures
         check_reachable(payload, target_solution)
     end
 
-    @testset "Cluster nearby cells" begin
+    @testcase "Cluster nearby cells" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "Cluster nearby cells",
@@ -1946,7 +1942,7 @@ using DataStructures
         check_reachable(payload, target_solution)
     end
 
-    @testset "Cluster nearby cells reverse" begin
+    @testcase "Cluster nearby cells reverse" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "Cluster nearby cells",
@@ -2017,7 +2013,7 @@ using DataStructures
         check_reachable(payload, target_solution)
     end
 
-    @testset "Separate colors" begin
+    @testcase "Separate colors" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "Separate colors",
@@ -2070,7 +2066,7 @@ using DataStructures
         check_reachable(payload, target_solution)
     end
 
-    @testset "Separate colors reverse" begin
+    @testcase "Separate colors reverse" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "Separate colors",
@@ -2123,7 +2119,7 @@ using DataStructures
         check_reachable(payload, target_solution)
     end
 
-    @testset "Single object coordinates extraction" begin
+    @testcase "Single object coordinates extraction" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "Single object coordinates extraction",
@@ -2142,7 +2138,7 @@ using DataStructures
         check_reachable(payload, target_solution)
     end
 
-    @testset "Single object coordinates extraction with invented" begin
+    @testcase "Single object coordinates extraction with invented" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "Single object coordinates extraction",
@@ -2184,7 +2180,7 @@ using DataStructures
         check_reachable(payload, target_solution)
     end
 
-    @testset "Single object coordinates extraction reverse" begin
+    @testcase "Single object coordinates extraction reverse" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "Single object coordinates extraction",
@@ -2203,7 +2199,7 @@ using DataStructures
         check_reachable(payload, target_solution)
     end
 
-    @testset "Single object coordinates extraction with invented reverse" begin
+    @testcase "Single object coordinates extraction with invented reverse" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "Single object coordinates extraction",
@@ -2245,7 +2241,7 @@ using DataStructures
         check_reachable(payload, target_solution)
     end
 
-    @testset "Single object coordinates extraction 2" begin
+    @testcase "Single object coordinates extraction 2" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "Single object coordinates extraction",
@@ -2265,7 +2261,7 @@ using DataStructures
         check_reachable(payload, target_solution)
     end
 
-    @testset "Single object coordinates extraction reverse 2" begin
+    @testcase "Single object coordinates extraction reverse 2" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "Single object coordinates extraction",
@@ -2284,7 +2280,7 @@ using DataStructures
         check_reachable(payload, target_solution)
     end
 
-    @testset "Get object coordinates" begin
+    @testcase "Get object coordinates" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "Get object coordinates",
@@ -2312,7 +2308,7 @@ using DataStructures
         check_reachable(payload, target_solution)
     end
 
-    @testset "Get object coordinates reverse" begin
+    @testcase "Get object coordinates reverse" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "Get object coordinates",
@@ -2340,7 +2336,7 @@ using DataStructures
         check_reachable(payload, target_solution)
     end
 
-    @testset "Select similar shape objects" begin
+    @testcase "Select similar shape objects" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "Select similar shape objects",
@@ -2370,7 +2366,7 @@ using DataStructures
         check_reachable(payload, target_solution)
     end
 
-    @testset "Select similar shape objects reverse" begin
+    @testcase "Select similar shape objects reverse" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "Select similar shape objects",
@@ -2397,7 +2393,7 @@ using DataStructures
         check_reachable(payload, target_solution)
     end
 
-    @testset "Move objects" begin
+    @testcase "Move objects" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "Move objects",
@@ -2423,7 +2419,7 @@ using DataStructures
         check_reachable(payload, target_solution)
     end
 
-    @testset "Move objects reverse" begin
+    @testcase "Move objects reverse" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "Move objects",
@@ -2449,7 +2445,7 @@ using DataStructures
         check_reachable(payload, target_solution)
     end
 
-    @testset "0f39a9d9.json" begin
+    @testcase "0f39a9d9.json" begin
         payload = create_arc_task("0f39a9d9.json", "sortOfARC/")
         target_solution = "let \$v1, \$v2, \$v3 = rev(\$inp0 = (rev_fix_param (rev_select_grid (lambda (eq? \$0 \$v1)) \$v2 \$v3) \$v1 (lambda Const(color, 0)))) in
         let \$v4, \$v5, \$v6 = rev(\$v2 = (repeat_grid \$v4 \$v5 \$v6)) in
@@ -2470,74 +2466,74 @@ using DataStructures
         check_reachable(payload, target_solution; find_one = true)
     end
 
-    @testset "67a3c6ac.json" begin
+    @testcase "67a3c6ac.json" begin
         payload = create_arc_task("67a3c6ac.json")
         target_solution = "let \$v1 = rev(\$inp0 = (columns_to_grid \$v1)) in let \$v2 = rev(\$v1 = (reverse \$v2)) in (columns_to_grid \$v2)"
         check_reachable(payload, target_solution)
     end
 
-    @testset "68b16354.json" begin
+    @testcase "68b16354.json" begin
         payload = create_arc_task("68b16354.json")
         target_solution = "let \$v1 = rev(\$inp0 = (rows_to_grid \$v1)) in let \$v2 = rev(\$v1 = (reverse \$v2)) in (rows_to_grid \$v2)"
         check_reachable(payload, target_solution)
     end
 
-    @testset "74dd1130.json" begin
+    @testcase "74dd1130.json" begin
         payload = create_arc_task("74dd1130.json")
         target_solution = "let \$v1 = rev(\$inp0 = (columns_to_grid \$v1)) in (rows_to_grid \$v1)"
         check_reachable(payload, target_solution)
     end
 
-    @testset "ed36ccf7.json" begin
+    @testcase "ed36ccf7.json" begin
         payload = create_arc_task("ed36ccf7.json")
         target_solution = "let \$v1 = rev(\$inp0 = (columns_to_grid \$v1)) in let \$v2 = rev(\$v1 = (reverse \$v2)) in (rows_to_grid \$v2)"
         check_reachable(payload, target_solution)
     end
 
-    @testset "9dfd6313.json" begin
+    @testcase "9dfd6313.json" begin
         payload = create_arc_task("9dfd6313.json")
         target_solution = "let \$v1 = rev(\$inp0 = (columns_to_grid \$v1)) in (rows_to_grid \$v1)"
         check_reachable(payload, target_solution)
     end
 
-    @testset "6d0aefbc.json" begin
+    @testcase "6d0aefbc.json" begin
         payload = create_arc_task("6d0aefbc.json")
         target_solution = "let \$v1 = rev(\$inp0 = (columns_to_grid \$v1)) in let \$v2 = rev(\$v1 = (reverse \$v2)) in let \$v3::list(list(color)) = (concat \$v1 \$v2) in (columns_to_grid \$v3)"
         check_reachable(payload, target_solution)
     end
 
-    @testset "8be77c9e.json" begin
+    @testcase "8be77c9e.json" begin
         payload = create_arc_task("8be77c9e.json")
         target_solution = "let \$v1 = rev(\$inp0 = (rows_to_grid \$v1)) in let \$v2 = rev(\$v1 = (reverse \$v2)) in let \$v3::list(list(color)) = (concat \$v1 \$v2) in (rows_to_grid \$v3)"
         check_reachable(payload, target_solution)
     end
 
-    @testset "c9e6f938.json" begin
+    @testcase "c9e6f938.json" begin
         payload = create_arc_task("c9e6f938.json")
         target_solution = "let \$v1 = rev(\$inp0 = (columns_to_grid \$v1)) in let \$v2 = rev(\$v1 = (reverse \$v2)) in let \$v3::list(list(color)) = (concat \$v1 \$v2) in (columns_to_grid \$v3)"
         check_reachable(payload, target_solution)
     end
 
-    @testset "25ff71a9.json" begin
+    @testcase "25ff71a9.json" begin
         payload = create_arc_task("25ff71a9.json")
         # target_solution = "let \$v1 = rev(\$inp0 = (rows_to_grid \$v1)) in let \$v2::list(list(color)) = Const(list(list(color)), Vector{Any}[[0, 0, 0]]) in let \$v3, \$v4 = wrap(let \$v3, \$v4 = rev(\$v1 = (concat \$v3 \$v4)); let \$v4 = \$v2) in let \$v5::list(list(color)) = (concat \$v4 \$v3) in (rows_to_grid \$v5)"
         target_solution = "let \$v1 = rev(\$inp0 = (rows_to_grid \$v1)) in let \$v3, \$v4 = rev(\$v1 = (rev_fix_param (concat \$v3 \$v4) \$v4 (lambda Const(list(list(color)), Vector{Any}[[0, 0, 0]])))) in let \$v5::list(list(color)) = (concat \$v4 \$v3) in (rows_to_grid \$v5)"
         check_reachable(payload, target_solution)
     end
 
-    @testset "6fa7a44f.json" begin
+    @testcase "6fa7a44f.json" begin
         payload = create_arc_task("6fa7a44f.json")
         target_solution = "let \$v1 = rev(\$inp0 = (rows_to_grid \$v1)) in let \$v2 = rev(\$v1 = (reverse \$v2)) in let \$v3::list(list(color)) = (concat \$v1 \$v2) in (rows_to_grid \$v3)"
         check_reachable(payload, target_solution)
     end
 
-    @testset "a416b8f3.json" begin
+    @testcase "a416b8f3.json" begin
         payload = create_arc_task("a416b8f3.json")
         target_solution = "let \$v1 = rev(\$inp0 = (columns_to_grid \$v1)) in let \$v2::list(list(color)) = (concat \$v1 \$v1) in (columns_to_grid \$v2)"
         check_reachable(payload, target_solution)
     end
 
-    @testset "4c4377d9.json" begin
+    @testcase "4c4377d9.json" begin
         payload = create_arc_task("4c4377d9.json")
         target_solution = "let \$v1 = rev(\$inp0 = (rows_to_grid \$v1)) in let \$v2 = rev(\$v1 = (reverse \$v2)) in let \$v3::list(list(color)) = (concat \$v2 \$v1) in (rows_to_grid \$v3)"
         check_reachable(payload, target_solution)
