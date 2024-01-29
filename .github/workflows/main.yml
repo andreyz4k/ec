@@ -37,7 +37,7 @@ jobs:
         run: git diff --output=binaries_patch --binary
 
       - name: store patch
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: binaries_patch
           path: binaries_patch
@@ -69,20 +69,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - uses: syphar/restore-virtualenv@v1
-        id: cache-virtualenv
-
-      - uses: syphar/restore-pip-download-cache@v1
-        if: steps.cache-virtualenv.outputs.cache-hit != 'true'
+          cache: 'pip'
 
       - run: pip install -U pip
-        if: steps.cache-virtualenv.outputs.cache-hit != 'true'
 
       - run: pip install -r requirements.txt
-        if: steps.cache-virtualenv.outputs.cache-hit != 'true'
 
   test-python:
     runs-on: ubuntu-latest
@@ -92,12 +86,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
-      - uses: syphar/restore-virtualenv@v1
-        id: cache-virtualenv
+          cache: 'pip'
 
       - name: Test with pytest
         run: python -m pytest tests
@@ -165,7 +157,7 @@ jobs:
           version: ${{ matrix.version }}
 
       - name: Download binaries patch
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: binaries_patch
 
@@ -177,12 +169,12 @@ jobs:
           rm binaries_patch
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
 
-      - uses: syphar/restore-virtualenv@v1
-        id: cache-virtualenv
+      - run: pip install -r requirements.txt
 
       - uses: julia-actions/cache@v1
 
@@ -225,7 +217,7 @@ jobs:
           version: ${{ matrix.version }}
 
       - name: Download binaries patch
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: binaries_patch
 
@@ -237,18 +229,12 @@ jobs:
           rm binaries_patch
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
-      - uses: syphar/restore-virtualenv@v1
-        id: cache-virtualenv
-
-      - uses: syphar/restore-pip-download-cache@v1
-        if: steps.cache-virtualenv.outputs.cache-hit != 'true'
+          cache: 'pip'
 
       - run: pip install -r requirements.txt
-        if: steps.cache-virtualenv.outputs.cache-hit != 'true'
 
       - uses: julia-actions/cache@v1
 
@@ -289,7 +275,7 @@ jobs:
           version: ${{ matrix.version }}
 
       - name: Download binaries patch
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: binaries_patch
 
@@ -301,12 +287,12 @@ jobs:
           rm binaries_patch
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
 
-      - uses: syphar/restore-virtualenv@v1
-        id: cache-virtualenv
+      - run: pip install -r requirements.txt
 
       - uses: julia-actions/cache@v1
 
@@ -335,7 +321,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download binaries patch
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: binaries_patch
 
@@ -347,12 +333,12 @@ jobs:
           rm binaries_patch
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
 
-      - uses: syphar/restore-virtualenv@v1
-        id: cache-virtualenv
+      - run: pip install -r requirements.txt
 
       - name: run test
         run: python bin/list.py -t 2 -RS 5 -i 2
@@ -367,7 +353,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download binaries patch
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: binaries_patch
 
@@ -379,12 +365,12 @@ jobs:
           rm binaries_patch
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
 
-      - uses: syphar/restore-virtualenv@v1
-        id: cache-virtualenv
+      - run: pip install -r requirements.txt
 
       - name: run test
         run: python bin/text.py -t 2 -RS 5 -i 2
@@ -399,7 +385,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download binaries patch
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: binaries_patch
 
@@ -411,12 +397,12 @@ jobs:
           rm binaries_patch
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
 
-      - uses: syphar/restore-virtualenv@v1
-        id: cache-virtualenv
+      - run: pip install -r requirements.txt
 
       - name: run test
         continue-on-error: true
@@ -432,7 +418,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download binaries patch
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: binaries_patch
 
@@ -444,12 +430,12 @@ jobs:
           rm binaries_patch
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
 
-      - uses: syphar/restore-virtualenv@v1
-        id: cache-virtualenv
+      - run: pip install -r requirements.txt
 
       - name: run test
         run: python bin/tower.py -t 2 -RS 5 -i 2
@@ -464,7 +450,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download binaries patch
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: binaries_patch
 
@@ -476,12 +462,12 @@ jobs:
           rm binaries_patch
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
 
-      - uses: syphar/restore-virtualenv@v1
-        id: cache-virtualenv
+      - run: pip install -r requirements.txt
 
       - name: run test
         run: |
@@ -498,7 +484,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download binaries patch
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: binaries_patch
 
@@ -510,12 +496,12 @@ jobs:
           rm binaries_patch
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
 
-      - uses: syphar/restore-virtualenv@v1
-        id: cache-virtualenv
+      - run: pip install -r requirements.txt
 
       - name: run test
         run: python bin/rational.py -i 1 -t 1 --testingTimeout 1
@@ -531,7 +517,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download binaries patch
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: binaries_patch
 
@@ -543,12 +529,12 @@ jobs:
           rm binaries_patch
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
 
-      - uses: syphar/restore-virtualenv@v1
-        id: cache-virtualenv
+      - run: pip install -r requirements.txt
 
       - name: run test
         run: |
@@ -567,7 +553,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download binaries patch
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: binaries_patch
 
@@ -579,12 +565,12 @@ jobs:
           rm binaries_patch
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
 
-      - uses: syphar/restore-virtualenv@v1
-        id: cache-virtualenv
+      - run: pip install -r requirements.txt
 
       - name: run test
         run: python bin/regexes.py -i 1 -t 1 -RS 10 -R 10
