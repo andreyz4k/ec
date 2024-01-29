@@ -1178,7 +1178,7 @@ function enumerate_for_task(
         if isempty(pq)
             continue
         end
-        (br_id, is_explained), pr = peek(pq)
+        (br_id, is_explained) = draw(pq)
         q = (is_explained ? sc.branch_queues_explained : sc.branch_queues_unknown)[br_id]
         bp = dequeue!(q)
         enumeration_iteration(run_context, sc, finalizer, maxFreeParameters, g, q, bp, br_id, is_explained)

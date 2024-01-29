@@ -297,7 +297,9 @@ function unifying_expressions(
         possible_values = current_hole.possible_values
         const_candidates = _const_options(possible_values[1])
         for i in 2:length(possible_values)
-            const_candidates = filter(c -> _match_value(possible_values[i], c), const_candidates)
+            next_const_candidates = Set()
+            filter_const_options(const_candidates, possible_values[i], next_const_candidates)
+            const_candidates = next_const_candidates
             if isempty(const_candidates)
                 break
             end

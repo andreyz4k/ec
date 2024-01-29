@@ -1,5 +1,6 @@
 
 using DataStructures: PriorityQueue
+using NDPriorityQueues
 
 "Solution context"
 mutable struct SolutionContext
@@ -69,8 +70,8 @@ mutable struct SolutionContext
     type_weights::Dict{String,Float64}
     total_number_of_enumerated_programs::Int64
     iterations_count::Int64
-    pq_input::PriorityQueue{Tuple{UInt64,Bool},Float64,Base.Order.ForwardOrdering}
-    pq_output::PriorityQueue{Tuple{UInt64,Bool},Float64,Base.Order.ForwardOrdering}
+    pq_input::NDPriorityQueue{Tuple{UInt64,Bool},Float64}
+    pq_output::NDPriorityQueue{Tuple{UInt64,Bool},Float64}
     branch_queues_unknown::Dict{UInt64,PriorityQueue{BlockPrototype,Float64,Base.Order.ForwardOrdering}}
     branch_queues_explained::Dict{UInt64,PriorityQueue{BlockPrototype,Float64,Base.Order.ForwardOrdering}}
     branch_unknown_from_output::VectorStorage{Bool}
@@ -124,8 +125,8 @@ function create_starting_context(task::Task, type_weights, verbose)::SolutionCon
         type_weights,
         0,
         0,
-        PriorityQueue{Tuple{UInt64,Bool},Float64}(),
-        PriorityQueue{Tuple{UInt64,Bool},Float64}(),
+        NDPriorityQueue{Tuple{UInt64,Bool},Float64}(),
+        NDPriorityQueue{Tuple{UInt64,Bool},Float64}(),
         Dict(),
         Dict(),
         VectorStorage{Bool}(),
@@ -378,13 +379,13 @@ function update_branch_priority(sc::SolutionContext, branch_id::UInt64, is_known
         min_cost = peek(q)[2]
         if is_known
             pq[(branch_id, is_known)] =
-                (sc.explained_min_path_costs[branch_id] + min_cost) * sc.explained_complexity_factors[branch_id]
+                1 / ((sc.explained_min_path_costs[branch_id] + min_cost) * sc.explained_complexity_factors[branch_id])
             if sc.verbose
                 @info "Known $(sc.branch_known_from_input[branch_id] ? "in" : "out" ) branch $branch_id priority is $(pq[(branch_id, is_known)]) with path cost $(sc.explained_min_path_costs[branch_id]) + $(min_cost) and complexity factor $(sc.explained_complexity_factors[branch_id])"
             end
         else
             pq[(branch_id, is_known)] =
-                (sc.unknown_min_path_costs[branch_id] + min_cost) * sc.unknown_complexity_factors[branch_id]
+                1 / ((sc.unknown_min_path_costs[branch_id] + min_cost) * sc.unknown_complexity_factors[branch_id])
             if sc.verbose
                 @info "Unknown $(sc.branch_unknown_from_output[branch_id] ? "out" : "in" ) branch $branch_id priority is $(pq[(branch_id, is_known)]) with path cost $(sc.unknown_min_path_costs[branch_id]) + $(min_cost) and complexity factor $(sc.unknown_complexity_factors[branch_id])"
             end

@@ -419,20 +419,34 @@ end
 all_options(entry::EitherOptions) = union([all_options(op) for (_, op) in entry.options]...)
 all_options(value) = Set([value])
 
+function filter_const_options(current_candidates, value::EitherOptions, next_candidates)
+    for (_, option) in value.options
+        filter_const_options(current_candidates, option, next_candidates)
+    end
+end
+
+function filter_const_options(current_candidates, value, next_candidates)
+    if in(value, current_candidates)
+        push!(next_candidates, value)
+    end
+end
+
+function filter_const_options(current_candidates, value::Union{PatternWrapper,AbductibleValue}, next_candidates) end
+
 function _const_options(options::EitherOptions)
-    return vcat([_const_options(op) for (_, op) in options.options]...)
+    return union([_const_options(op) for (_, op) in options.options]...)
 end
 
 function _const_options(value)
-    return [value]
+    return Set([value])
 end
 
 function _const_options(value::PatternWrapper)
-    return []
+    return Set()
 end
 
 function _const_options(value::AbductibleValue)
-    return []
+    return Set()
 end
 
 match_at_index(entry::EitherEntry, index::Int, value) = _match_value(entry.values[index], value)
@@ -498,16 +512,27 @@ function _match_value(unknown_value::Set, known_value::Set)
     if length(unknown_value) != length(known_value)
         return false
     end
-    if isempty(unknown_value)
+    if unknown_value == known_value
         return true
     end
-    uv = first(unknown_value)
-    for kv in known_value
-        if _match_value(uv, kv)
-            return _match_value(setdiff(unknown_value, Set([uv])), setdiff(known_value, Set([kv])))
+    matched_indices = Set{Int}()
+    for uv in unknown_value
+        found = false
+        for (i, kv) in enumerate(known_value)
+            if in(i, matched_indices)
+                continue
+            end
+            if _match_value(uv, kv)
+                push!(matched_indices, i)
+                found = true
+                break
+            end
+        end
+        if !found
+            return false
         end
     end
-    return false
+    return true
 end
 
 _match_value(unknown_value::Set, known_value) = false
