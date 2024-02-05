@@ -725,7 +725,7 @@ using solver: load_problems, enumerate_for_task
             maximum_frontier,
             timeout,
             verbose,
-            true,
+            # true,
         )
         @test length(solutions) >= 1
         @test number_enumerated <= 20000

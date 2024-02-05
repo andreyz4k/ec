@@ -39,7 +39,8 @@ using solver:
     run_in_reverse,
     UnifyError,
     all_abstractors,
-    combine_arg_checkers
+    combine_arg_checkers,
+    TooManyOptionsException
 using DataStructures: OrderedDict, Accumulator
 
 @testset "Abstractors" begin
@@ -1622,7 +1623,7 @@ using DataStructures: OrderedDict, Accumulator
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
 
-        @test compare_options(run_in_reverse(p, 64), Dict(UInt64(1) => 4))
+        @test_throws TooManyOptionsException compare_options(run_in_reverse(p, 64), Dict(UInt64(1) => 4))
     end
 
     @testcase_log "Invented abstractor with same index combined #3" begin

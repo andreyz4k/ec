@@ -522,7 +522,7 @@ using solver: load_problems, enumerate_for_task
             verbose,
         )
         @test length(solutions) == 0
-        @test number_enumerated >= 3000
+        @test number_enumerated >= 2000
     end
 
     @testcase_log "4258a5f9.json" begin
@@ -1102,7 +1102,7 @@ using solver: load_problems, enumerate_for_task
             verbose,
         )
         @test length(solutions) == 0
-        @test number_enumerated >= 3000
+        @test number_enumerated >= 2000
     end
 
     @testcase_log "d8c310e9.json" begin

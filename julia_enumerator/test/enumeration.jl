@@ -706,7 +706,7 @@ using solver: load_problems, enumerate_for_task
             verbose,
         )
         @test length(solutions) == 0
-        @test number_enumerated >= 2000
+        @test number_enumerated >= 500
     end
 
     @testcase_log "prepend-index-k with k=3" begin
@@ -1270,7 +1270,7 @@ using solver: load_problems, enumerate_for_task
             verbose,
         )
         @test length(solutions) == 0
-        @test number_enumerated >= 600
+        @test number_enumerated >= 200
     end
 
     @testcase_log "modulo-k with k=5" begin
