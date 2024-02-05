@@ -1158,7 +1158,8 @@ function run_arc_tests(is_start)
         # f = "dreamcoder/domains/arc/ARC/data/training/90c28cc7.json"
         # f = "dreamcoder/domains/arc/ARC/data/training/23581191.json"
         # f = "dreamcoder/domains/arc/ARC/data/training/5c2c9af4.json"
-        f = "dreamcoder/domains/arc/ARC/data/training/d8c310e9.json"
+        # f = "dreamcoder/domains/arc/ARC/data/training/d8c310e9.json"
+        f = "dreamcoder/domains/arc/ARC/data/training/63613498.json"
         payloads = [create_arc_task(f)]
         # push!(payloads, create_arc_task(f))
         # payloads = payloads[3:end]
@@ -1587,12 +1588,14 @@ function run_arc_tests(is_start)
                 ),
             ],
         )
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         timeout = 60
         @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,

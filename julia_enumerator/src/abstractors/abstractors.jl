@@ -395,8 +395,11 @@ function _run_in_reverse(p, output, context, splitter::EitherOptions)
     # @info "Running in reverse $p $output $context"
     output_options = Dict()
     arguments_options = Dict[]
+    arguments_options_counts = Int[]
     filled_indices_options = DefaultDict(() -> Dict())
+    filled_indices_options_counts = DefaultDict(() -> 0)
     filled_vars_options = DefaultDict(() -> Dict())
+    filled_vars_options_counts = DefaultDict(() -> 0)
     for (h, _) in splitter.options
         fixed_hashes = Set([h])
         op_calculated_arguments = [fix_option_hashes(fixed_hashes, v) for v in context.calculated_arguments]
@@ -420,18 +423,31 @@ function _run_in_reverse(p, output, context, splitter::EitherOptions)
             if isempty(arguments_options)
                 for _ in 1:(length(new_context.predicted_arguments))
                     push!(arguments_options, Dict())
+                    push!(arguments_options_counts, 0)
                 end
             end
             output_options[h] = calculated_output
 
             for i in 1:length(new_context.predicted_arguments)
                 arguments_options[i][h] = new_context.predicted_arguments[i]
+                arguments_options_counts[i] += get_options_count(new_context.predicted_arguments[i])
+                if arguments_options_counts[i] > 100
+                    throw(TooManyOptionsException())
+                end
             end
             for (i, v) in new_context.filled_indices
                 filled_indices_options[i][h] = v
+                filled_indices_options_counts[i] += get_options_count(v)
+                if filled_indices_options_counts[i] > 100
+                    throw(TooManyOptionsException())
+                end
             end
             for (k, v) in new_context.filled_vars
                 filled_vars_options[k][h] = v
+                filled_vars_options_counts[k] += get_options_count(v)
+                if filled_vars_options_counts[k] > 100
+                    throw(TooManyOptionsException())
+                end
             end
         catch e
             if isa(e, InterruptException) || isa(e, MethodError)
@@ -704,7 +720,14 @@ end
 
 function run_in_reverse(p::Program, output)
     # @info p
+    # start_time = time()
     computed_output, context = _run_in_reverse(p, output, ReverseRunContext())
+    # elapsed = time() - start_time
+    # if elapsed > 2
+    #     @info "Reverse run took $elapsed seconds"
+    #     @info p
+    #     @info output
+    # end
     if computed_output != output
         error("Output mismatch $computed_output != $output")
     end

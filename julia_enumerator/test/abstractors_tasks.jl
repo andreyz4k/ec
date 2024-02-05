@@ -435,6 +435,7 @@ using solver: load_problems, enumerate_for_task
             "tuple3" => 1.0,
             "coord" => 1.0,
             "set" => 1.0,
+            "any" => 1.0,
         ),
         "programTimeout" => 3.0,
         "timeout" => 40,
@@ -471,11 +472,13 @@ using solver: load_problems, enumerate_for_task
                 prod_dict["logProbability"] = 3.0
             end
         end
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,
@@ -513,11 +516,13 @@ using solver: load_problems, enumerate_for_task
                 prod_dict["logProbability"] = 0.0
             end
         end
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,
@@ -550,11 +555,13 @@ using solver: load_problems, enumerate_for_task
                 "request" => "inp0:list(int) -> list(int)",
             ),
         )
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,
@@ -587,11 +594,13 @@ using solver: load_problems, enumerate_for_task
                 "request" => "inp0:list(int) -> list(int)",
             ),
         )
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,
@@ -624,11 +633,13 @@ using solver: load_problems, enumerate_for_task
                 "request" => "inp0:list(int) -> list(int)",
             ),
         )
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,
@@ -637,6 +648,37 @@ using solver: load_problems, enumerate_for_task
         @test length(solutions) >= 1
         @test number_enumerated <= 10000
     end
+
+    # powers_options = [1.0, 2.0, 3.0, 4.0, 5.0]
+    # complexity_options = [1.0]
+
+    # @testcase "Replace background $cost_power $complexity_power $block_cost_power $any_complexity" for cost_power in
+    #                                                                                                    powers_options,
+    #     complexity_power in powers_options,
+    #     block_cost_power in powers_options,
+    #     list_complexity in complexity_options,
+    #     set_complexity in complexity_options,
+    #     tuple2_complexity in complexity_options,
+    #     any_complexity in [0.0, 0.1, 0.5, 1.0, 2.0, 3.0]
+
+    #     hyperparameters = Dict{String,Any}(
+    #         "path_cost_power" => cost_power,
+    #         "complexity_power" => complexity_power,
+    #         "block_cost_power" => block_cost_power,
+    #     )
+    #     type_weights = Dict{String,Any}(
+    #         "int" => 1.0,
+    #         "list" => list_complexity,
+    #         "color" => 1.0,
+    #         "bool" => 1.0,
+    #         "float" => 1.0,
+    #         "grid" => 1.0,
+    #         "tuple2" => tuple2_complexity,
+    #         "tuple3" => 1.0,
+    #         "coord" => 1.0,
+    #         "set" => set_complexity,
+    #         "any" => any_complexity,
+    #     )
 
     @testcase_log "Replace background" begin
         payload = create_task(
@@ -672,18 +714,21 @@ using solver: load_problems, enumerate_for_task
             #     prod_dict["logProbability"] = 2.0
             # end
         end
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,
             verbose,
-            # true,
+            true,
         )
         @test length(solutions) >= 1
         @test number_enumerated <= 20000
     end
+    # end
 end

@@ -155,7 +155,8 @@ end
                 Dict{String,Any}("logProbability" => 0.0, "expression" => "concat", "is_reversible" => true),
             ],
         ),
-        "type_weights" => Dict{String,Any}("list" => 1.0, "int" => 1.0, "bool" => 1.0, "float" => 1.0),
+        "type_weights" =>
+            Dict{String,Any}("list" => 1.0, "int" => 1.0, "bool" => 1.0, "float" => 1.0, "any" => 1.0),
         "programTimeout" => 1,
         "timeout" => 20,
         "verbose" => false,
@@ -187,8 +188,9 @@ end
                 "name" => "copy",
             ),
         )
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
-        sc = create_starting_context(task, type_weights, false)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
+        sc = create_starting_context(task, type_weights, hyperparameters, false)
         inp_var_id::UInt64 = 1
         out_var_id::UInt64 = 2
         inp_branch_id::UInt64 = 1
@@ -253,8 +255,9 @@ end
                 "name" => "cdr",
             ),
         )
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
-        sc = create_starting_context(task, type_weights, false)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
+        sc = create_starting_context(task, type_weights, hyperparameters, false)
         inp_var_id::UInt64 = 1
         out_var_id::UInt64 = 2
         inp_branch_id::UInt64 = 1
@@ -372,8 +375,9 @@ end
                 "name" => "concat",
             ),
         )
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
-        sc = create_starting_context(task, type_weights, false)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
+        sc = create_starting_context(task, type_weights, hyperparameters, false)
         inp_var_id::UInt64 = 1
         out_var_id::UInt64 = 2
         inp_branch_id::UInt64 = 1

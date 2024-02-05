@@ -68,6 +68,7 @@ mutable struct SolutionContext
     target_branch_id::UInt64
     example_count::Int64
     type_weights::Dict{String,Float64}
+    hyperparameters::Dict{String,Any}
     total_number_of_enumerated_programs::Int64
     iterations_count::Int64
     pq_input::NDPriorityQueue{Tuple{UInt64,Bool},Float64}
@@ -81,7 +82,7 @@ mutable struct SolutionContext
     transaction_depth::Int
 end
 
-function create_starting_context(task::Task, type_weights, verbose)::SolutionContext
+function create_starting_context(task::Task, type_weights, hyperparameters, verbose)::SolutionContext
     argument_types = arguments_of_type(task.task_type)
     example_count = length(task.train_outputs)
     sc = SolutionContext(
@@ -123,6 +124,7 @@ function create_starting_context(task::Task, type_weights, verbose)::SolutionCon
         0,
         example_count,
         type_weights,
+        hyperparameters,
         0,
         0,
         NDPriorityQueue{Tuple{UInt64,Bool},Float64}(),
@@ -379,13 +381,23 @@ function update_branch_priority(sc::SolutionContext, branch_id::UInt64, is_known
         min_cost = peek(q)[2]
         if is_known
             pq[(branch_id, is_known)] =
-                1 / ((sc.explained_min_path_costs[branch_id] + min_cost) * sc.explained_complexity_factors[branch_id])
+                1 / (
+                    (
+                        sc.explained_min_path_costs[branch_id]^sc.hyperparameters["path_cost_power"] +
+                        min_cost^sc.hyperparameters["block_cost_power"]
+                    ) * sc.explained_complexity_factors[branch_id]^sc.hyperparameters["complexity_power"]
+                )
             if sc.verbose
                 @info "Known $(sc.branch_known_from_input[branch_id] ? "in" : "out" ) branch $branch_id priority is $(pq[(branch_id, is_known)]) with path cost $(sc.explained_min_path_costs[branch_id]) + $(min_cost) and complexity factor $(sc.explained_complexity_factors[branch_id])"
             end
         else
             pq[(branch_id, is_known)] =
-                1 / ((sc.unknown_min_path_costs[branch_id] + min_cost) * sc.unknown_complexity_factors[branch_id])
+                1 / (
+                    (
+                        sc.unknown_min_path_costs[branch_id]^sc.hyperparameters["path_cost_power"] +
+                        min_cost^sc.hyperparameters["block_cost_power"]
+                    ) * sc.unknown_complexity_factors[branch_id]^sc.hyperparameters["complexity_power"]
+                )
             if sc.verbose
                 @info "Unknown $(sc.branch_unknown_from_output[branch_id] ? "out" : "in" ) branch $branch_id priority is $(pq[(branch_id, is_known)]) with path cost $(sc.unknown_min_path_costs[branch_id]) + $(min_cost) and complexity factor $(sc.unknown_complexity_factors[branch_id])"
             end

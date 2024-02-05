@@ -151,6 +151,8 @@ struct TooManyOptionsException <: Exception end
 
 struct EitherOptions
     options::Dict{UInt64,Any}
+    hash_value::UInt64
+    options_count::Int
     function EitherOptions(options)
         if isempty(options)
             error("No options")
@@ -162,12 +164,19 @@ struct EitherOptions
         if all(v -> v == first_value, values(options))
             return first_value
         end
-        return new(options)
+        options_count = sum(get_options_count(v) for v in values(options))
+        if options_count > 100
+            throw(TooManyOptionsException())
+        end
+        return new(options, hash(options), options_count)
     end
 end
 
-Base.:(==)(v1::EitherOptions, v2::EitherOptions) = v1.options == v2.options
-Base.hash(v::EitherOptions, h::UInt64) = hash(v.options, h)
+Base.:(==)(v1::EitherOptions, v2::EitherOptions) = v1.hash_value == v2.hash_value && v1.options == v2.options
+Base.hash(v::EitherOptions, h::UInt64) = hash(v.hash_value, h)
+
+get_options_count(value::EitherOptions) = value.options_count
+get_options_count(value) = 1
 
 function _get_fixed_hashes(options::EitherOptions, value)
     out_hashes = Set()

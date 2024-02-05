@@ -23,7 +23,9 @@ function get_complexity_summary(values, t::TypeConstructor, accum)
     end
 end
 
-function get_complexity_summary(values::AnyObject, t::TypeVariable, accum) end
+function get_complexity_summary(values::AnyObject, t::TypeVariable, accum)
+    inc!(accum, "any")
+end
 
 function get_complexity_summary(values::AnyObject, t::TypeConstructor, accum)
     inc!(accum, t.name)

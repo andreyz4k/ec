@@ -37,10 +37,12 @@ end
 function run_solving_process(run_context, message)
     @info "running processing"
     @info message
-    task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, _verbose, program_timeout = load_problems(message)
+    task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, _verbose, program_timeout =
+        load_problems(message)
     run_context["program_timeout"] = program_timeout
     run_context["timeout"] = timeout
-    solutions, number_enumerated = enumerate_for_task(run_context, g, type_weights, task, maximum_frontier, timeout)
+    solutions, number_enumerated =
+        enumerate_for_task(run_context, g, type_weights, hyperparameters, task, maximum_frontier, timeout)
     return export_frontiers(number_enumerated, task, solutions)
 end
 

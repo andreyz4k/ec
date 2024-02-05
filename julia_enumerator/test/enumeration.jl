@@ -171,6 +171,7 @@ using solver: load_problems, enumerate_for_task
             "tuple3" => 1.0,
             "coord" => 1.0,
             "set" => 1.0,
+            "any" => 1.0,
         ),
         "programTimeout" => 3.0,
         "timeout" => 30,
@@ -232,11 +233,13 @@ using solver: load_problems, enumerate_for_task
                 "request" => "inp0:list(int) -> list(int)",
             ),
         )
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,
@@ -281,11 +284,13 @@ using solver: load_problems, enumerate_for_task
                 "request" => "inp0:list(int) -> bool",
             ),
         )
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,
@@ -295,6 +300,36 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated < 20000
     end
 
+    # powers_options = [1.0, 2.0, 3.0, 4.0, 5.0]
+    # complexity_options = [1.0]
+
+    # @testcase "try_enumerate append-index-k with k=5 $cost_power $complexity_power $block_cost_power $any_complexity" for cost_power in
+    #                                                                                                                       powers_options,
+    #     complexity_power in powers_options,
+    #     block_cost_power in powers_options,
+    #     list_complexity in complexity_options,
+    #     set_complexity in complexity_options,
+    #     tuple2_complexity in complexity_options,
+    #     any_complexity in [0.0, 0.1, 0.5, 1.0, 2.0, 3.0]
+
+    #     hyperparameters = Dict{String,Any}(
+    #         "path_cost_power" => cost_power,
+    #         "complexity_power" => complexity_power,
+    #         "block_cost_power" => block_cost_power,
+    #     )
+    #     type_weights = Dict{String,Any}(
+    #         "int" => 1.0,
+    #         "list" => list_complexity,
+    #         "color" => 1.0,
+    #         "bool" => 1.0,
+    #         "float" => 1.0,
+    #         "grid" => 1.0,
+    #         "tuple2" => tuple2_complexity,
+    #         "tuple3" => 1.0,
+    #         "coord" => 1.0,
+    #         "set" => set_complexity,
+    #         "any" => any_complexity,
+    #     )
     @testcase_log "try_enumerate append-index-k with k=5" begin
         payload = create_task(
             Dict{String,Any}(
@@ -366,11 +401,13 @@ using solver: load_problems, enumerate_for_task
                 "request" => "inp0:list(int) -> list(int)",
             ),
         )
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,
@@ -378,6 +415,7 @@ using solver: load_problems, enumerate_for_task
         )
         @test length(solutions) >= 2
         @test number_enumerated < 10000
+        # end
     end
 
     @testcase_log "try_enumerate len" begin
@@ -409,11 +447,13 @@ using solver: load_problems, enumerate_for_task
                 "request" => "inp0:list(int) -> int",
             ),
         )
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,
@@ -458,11 +498,13 @@ using solver: load_problems, enumerate_for_task
                 "request" => "inp0:list(int) -> bool",
             ),
         )
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,
@@ -525,11 +567,13 @@ using solver: load_problems, enumerate_for_task
                 "request" => "inp0:list(int) -> list(int)",
             ),
         )
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,
@@ -649,11 +693,13 @@ using solver: load_problems, enumerate_for_task
                 "request" => "inp0:list(list(bool)) -> list(list(bool))",
             ),
         )
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,
@@ -734,11 +780,13 @@ using solver: load_problems, enumerate_for_task
                 "request" => "inp0:list(int) -> list(int)",
             ),
         )
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,
@@ -816,11 +864,13 @@ using solver: load_problems, enumerate_for_task
                 "request" => "inp0:list(int) -> list(int)",
             ),
         )
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,
@@ -830,6 +880,33 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated >= 600
     end
 
+    # @testcase "drop-k with k=5 $cost_power $complexity_power $block_cost_power $any_complexity" for cost_power in
+    #                                                                                                 powers_options,
+    #     complexity_power in powers_options,
+    #     block_cost_power in powers_options,
+    #     list_complexity in complexity_options,
+    #     set_complexity in complexity_options,
+    #     tuple2_complexity in complexity_options,
+    #     any_complexity in [0.0, 0.1, 0.5, 1.0, 2.0, 3.0]
+
+    #     hyperparameters = Dict{String,Any}(
+    #         "path_cost_power" => cost_power,
+    #         "complexity_power" => complexity_power,
+    #         "block_cost_power" => block_cost_power,
+    #     )
+    #     type_weights = Dict{String,Any}(
+    #         "int" => 1.0,
+    #         "list" => list_complexity,
+    #         "color" => 1.0,
+    #         "bool" => 1.0,
+    #         "float" => 1.0,
+    #         "grid" => 1.0,
+    #         "tuple2" => tuple2_complexity,
+    #         "tuple3" => 1.0,
+    #         "coord" => 1.0,
+    #         "set" => set_complexity,
+    #         "any" => any_complexity,
+    #     )
     @testcase_log "drop-k with k=5" begin
         payload = create_task(
             Dict{String,Any}(
@@ -898,11 +975,13 @@ using solver: load_problems, enumerate_for_task
                 "request" => "inp0:list(int) -> list(int)",
             ),
         )
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,
@@ -910,6 +989,7 @@ using solver: load_problems, enumerate_for_task
         )
         @test length(solutions) > 0
         @test number_enumerated <= 20000
+        # end
     end
 
     @testcase_log "product" begin
@@ -950,11 +1030,13 @@ using solver: load_problems, enumerate_for_task
                 "request" => "inp0:list(int) -> int",
             ),
         )
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,
@@ -1129,7 +1211,8 @@ using solver: load_problems, enumerate_for_task
                     ),
                 ],
             ),
-            "type_weights" => Dict{String,Any}("int" => 1.0, "list" => 1.0, "bool" => 1.0, "float" => 1.0),
+            "type_weights" =>
+                Dict{String,Any}("int" => 1.0, "list" => 1.0, "bool" => 1.0, "float" => 1.0, "any" => 1.0),
             "task" => Dict{String,Any}(
                 "name" => "keep gt 3",
                 "maximumFrontier" => 10,
@@ -1174,11 +1257,13 @@ using solver: load_problems, enumerate_for_task
             "verbose" => false,
             "shatter" => 10,
         )
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,
@@ -1347,7 +1432,8 @@ using solver: load_problems, enumerate_for_task
                     ),
                 ],
             ),
-            "type_weights" => Dict{String,Any}("int" => 1.0, "list" => 1.0, "bool" => 1.0, "float" => 1.0),
+            "type_weights" =>
+                Dict{String,Any}("int" => 1.0, "list" => 1.0, "bool" => 1.0, "float" => 1.0, "any" => 1.0),
             "task" => Dict{String,Any}(
                 "name" => "modulo-k with k=5",
                 "maximumFrontier" => 10,
@@ -1389,11 +1475,13 @@ using solver: load_problems, enumerate_for_task
             "verbose" => false,
             "shatter" => 10,
         )
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,
@@ -1562,7 +1650,8 @@ using solver: load_problems, enumerate_for_task
                     ),
                 ],
             ),
-            "type_weights" => Dict{String,Any}("int" => 1.0, "list" => 1.0, "bool" => 1.0, "float" => 1.0),
+            "type_weights" =>
+                Dict{String,Any}("int" => 1.0, "list" => 1.0, "bool" => 1.0, "float" => 1.0, "any" => 1.0),
             "task" => Dict{String,Any}(
                 "name" => "prepend-k with k=3",
                 "maximumFrontier" => 10,
@@ -1619,11 +1708,13 @@ using solver: load_problems, enumerate_for_task
             "verbose" => false,
             "shatter" => 10,
         )
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,

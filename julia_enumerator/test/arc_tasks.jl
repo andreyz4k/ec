@@ -435,6 +435,7 @@ using solver: load_problems, enumerate_for_task
             "tuple3" => 1.0,
             "coord" => 1.0,
             "set" => 1.0,
+            "any" => 1.0,
         ),
         "programTimeout" => 3.0,
         "timeout" => 40,
@@ -470,11 +471,13 @@ using solver: load_problems, enumerate_for_task
     @testcase_log "a85d4709.json" begin
         payload = create_arc_task("a85d4709.json")
         @info payload["name"]
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,
@@ -487,11 +490,13 @@ using solver: load_problems, enumerate_for_task
     @testcase_log "5c2c9af4.json" begin
         payload = create_arc_task("5c2c9af4.json")
         @info payload["name"]
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,
@@ -504,11 +509,13 @@ using solver: load_problems, enumerate_for_task
     @testcase_log "23581191.json" begin
         payload = create_arc_task("23581191.json")
         @info payload["name"]
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,
@@ -521,11 +528,13 @@ using solver: load_problems, enumerate_for_task
     @testcase_log "4258a5f9.json" begin
         payload = create_arc_task("4258a5f9.json")
         @info payload["name"]
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,
@@ -538,11 +547,13 @@ using solver: load_problems, enumerate_for_task
     @testcase_log "f25ffba3.json" begin
         payload = create_arc_task("f25ffba3.json")
         @info payload["name"]
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,
@@ -976,11 +987,13 @@ using solver: load_problems, enumerate_for_task
             ],
         )
         @info payload["name"]
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,
@@ -993,11 +1006,13 @@ using solver: load_problems, enumerate_for_task
     @testcase_log "7837ac64.json" begin
         payload = create_arc_task("7837ac64.json")
         @info payload["name"]
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,
@@ -1010,11 +1025,13 @@ using solver: load_problems, enumerate_for_task
     @testcase_log "6fa7a44f.json" begin
         payload = create_arc_task("6fa7a44f.json")
         @info payload["name"]
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,
@@ -1032,11 +1049,13 @@ using solver: load_problems, enumerate_for_task
                 prod["logProbability"] = 0.0
             end
         end
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,
@@ -1049,11 +1068,13 @@ using solver: load_problems, enumerate_for_task
     @testcase_log "bbc9ae5d.json" begin
         payload = create_arc_task("bbc9ae5d.json")
         @info payload["name"]
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,
@@ -1066,13 +1087,15 @@ using solver: load_problems, enumerate_for_task
     @testcase_log "63613498.json" begin
         payload = create_arc_task("63613498.json")
         @info payload["name"]
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         # verbose = true
         # timeout = 600
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,
@@ -1085,13 +1108,15 @@ using solver: load_problems, enumerate_for_task
     @testcase_log "d8c310e9.json" begin
         payload = create_arc_task("d8c310e9.json")
         @info payload["name"]
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         # verbose = true
         # timeout = 600
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,
@@ -1110,11 +1135,13 @@ using solver: load_problems, enumerate_for_task
                 d["logProbability"] = 0.0
             end
         end
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,
@@ -1133,11 +1160,13 @@ using solver: load_problems, enumerate_for_task
                 d["logProbability"] = 0.0
             end
         end
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,
@@ -1571,11 +1600,13 @@ using solver: load_problems, enumerate_for_task
                 ),
             ],
         )
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,
@@ -2009,11 +2040,13 @@ using solver: load_problems, enumerate_for_task
                 ),
             ],
         )
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,
@@ -2446,11 +2479,13 @@ using solver: load_problems, enumerate_for_task
                 ),
             ],
         )
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,
@@ -2883,11 +2918,13 @@ using solver: load_problems, enumerate_for_task
                 ),
             ],
         )
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         solutions, number_enumerated = @time enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
             timeout,

@@ -1128,6 +1128,7 @@ function enumerate_for_task(
     run_context,
     g::ContextualGrammar,
     type_weights::Dict{String,Any},
+    hyperparameters::Dict{String,Any},
     task::Task,
     maximum_frontier::Int,
     timeout::Int,
@@ -1137,7 +1138,7 @@ function enumerate_for_task(
     #    Returns, for each task, (program,logPrior) as well as the total number of enumerated programs
     enumeration_timeout = get_enumeration_timeout(timeout)
 
-    sc = create_starting_context(task, type_weights, verbose)
+    sc = create_starting_context(task, type_weights, hyperparameters, verbose)
 
     # Store the hits in a priority queue
     # We will only ever maintain maximumFrontier best solutions

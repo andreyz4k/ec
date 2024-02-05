@@ -8,6 +8,25 @@ function load_problems(message)
     #     grammar = deserialize_contextual_grammar(grammar_payload)
     # end
     type_weights = message["type_weights"]
+    # hyperparameters = message["hyperparameters"]
+    hyperparameters = Dict{String,Any}("path_cost_power" => 1.0, "complexity_power" => 1.0, "block_cost_power" => 1.0)
+    type_weights["any"] = 0.0
+    # hyperparameters = Dict{String,Any}("path_cost_power" => 3.0, "complexity_power" => 1.0, "block_cost_power" => 1.0)
+    # type_weights["any"] = 0.0
+    # hyperparameters = Dict{String,Any}("path_cost_power" => 3.0, "complexity_power" => 2.0, "block_cost_power" => 1.0)
+    # type_weights["any"] = 0.0
+    # hyperparameters = Dict{String,Any}("path_cost_power" => 3.0, "complexity_power" => 3.0, "block_cost_power" => 1.0)
+    # type_weights["any"] = 0.0
+    # hyperparameters = Dict{String,Any}("path_cost_power" => 5.0, "complexity_power" => 1.0, "block_cost_power" => 1.0)
+    # type_weights["any"] = 0.1
+    # hyperparameters = Dict{String,Any}("path_cost_power" => 5.0, "complexity_power" => 1.0, "block_cost_power" => 2.0)
+    # type_weights["any"] = 0.5
+    # hyperparameters = Dict{String,Any}("path_cost_power" => 5.0, "complexity_power" => 1.0, "block_cost_power" => 2.0)
+    # type_weights["any"] = 2.0
+    # hyperparameters = Dict{String,Any}("path_cost_power" => 5.0, "complexity_power" => 2.0, "block_cost_power" => 2.0)
+    # type_weights["any"] = 0.0
+    # hyperparameters = Dict{String,Any}("path_cost_power" => 5.0, "complexity_power" => 2.0, "block_cost_power" => 2.0)
+    # type_weights["any"] = 2.0
     if haskey(message, "programTimeout")
         program_timeout = message["programTimeout"]
     else
@@ -42,5 +61,16 @@ function load_problems(message)
     timeout = message["timeout"]
     nCPUs = get(message, "nc", 1)
 
-    (task, maximum_frontier, grammar, type_weights, max_parameters, nCPUs, timeout, verbose, program_timeout)
+    (
+        task,
+        maximum_frontier,
+        grammar,
+        type_weights,
+        hyperparameters,
+        max_parameters,
+        nCPUs,
+        timeout,
+        verbose,
+        program_timeout,
+    )
 end

@@ -465,6 +465,7 @@ using DataStructures
             "tuple3" => 1.0,
             "coord" => 1.0,
             "set" => 1.0,
+            "any" => 1.0,
         ),
         "programTimeout" => 3.0,
         "timeout" => 40,
@@ -641,6 +642,7 @@ using DataStructures
             "tuple3" => 1.0,
             "coord" => 1.0,
             "set" => 1.0,
+            "any" => 1.0,
         ),
         "programTimeout" => 3.0,
         "timeout" => 30,
@@ -1207,7 +1209,8 @@ using DataStructures
     end
 
     function check_reachable(payload, target_solution, verbose_test = false; find_one = false)
-        task, maximum_frontier, g, type_weights, mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
+        task, maximum_frontier, g, type_weights, hyperparameters, mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
         mfp = 10
         run_context = Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout)
         target_program = parse_program(target_solution)
@@ -1216,7 +1219,7 @@ using DataStructures
             @info blocks
             @info vars_mapping
         end
-        sc = create_starting_context(task, type_weights, verbose_test)
+        sc = create_starting_context(task, type_weights, hyperparameters, verbose_test)
         enqueue_updates(sc, g)
         branches = Dict()
         for br_id in 1:sc.branches_count[]
