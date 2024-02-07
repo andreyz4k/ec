@@ -1175,10 +1175,15 @@ using DataStructures
         if verbose
             @info "Checking blocks $blocks"
         end
+        has_multiple_options = length([1 for b in blocks if _block_can_be_next(b, vars_mapping)]) > 1
         for bl in blocks
             if _block_can_be_next(bl, vars_mapping)
                 checked_any = true
-                sc_next = deepcopy(sc)
+                if has_multiple_options
+                    sc_next = deepcopy(sc)
+                else
+                    sc_next = sc
+                end
                 s, f = _simulate_block_search(
                     sc_next,
                     bl,
@@ -1266,7 +1271,7 @@ using DataStructures
         if verbose_test
             @info inner_mapping
         end
-        successful, failed = _check_reachable(
+        successful, failed = @time _check_reachable(
             sc,
             blocks,
             inner_mapping,
