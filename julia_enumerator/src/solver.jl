@@ -10,6 +10,7 @@ include("abstractors/abstractors.jl")
 include("data_complexity.jl")
 include("enumeration.jl")
 include("export.jl")
+include("sample.jl")
 include("profiling.jl")
 
 import Redis
@@ -53,7 +54,7 @@ function get_new_task(redis)
         try
             conn = get_conn(redis)
             # watch(conn, "tasks")
-            queue, message = Redis.blpop(conn, ["commands", "tasks"], 0)
+            queue, message = Redis.blpop(conn, ["commands", "tasks", "sample"], 0)
             if queue == "commands" && message == "stop"
                 # unwatch(conn)
                 Redis.rpush(conn, "commands", message)
@@ -76,10 +77,67 @@ end
 
 using JSON
 
+function process_solving_task(payload, timeout_container, redis, i)
+    timeout = payload["timeout"]
+    name = payload["name"]
+    @info "Running task number $i $name"
+    output = @time try
+        run_context = Dict{String,Any}("timeout_container" => timeout_container, "timeout" => timeout)
+        result = run_solving_process(run_context, payload)
+        if isnothing(result)
+            result = Dict("number_enumerated" => 0, "solutions" => [])
+        end
+        Dict("status" => "success", "payload" => result, "name" => name)
+    catch e
+        if isa(e, InterruptException)
+            @warn "Interrupted"
+            rethrow()
+        end
+        buf = IOBuffer()
+        bt = catch_backtrace()
+        showerror(buf, e, bt)
+        @error "Error while running task" exception = (e, bt)
+        Dict("status" => "error", "payload" => String(take!(buf)), "name" => name)
+    end
+    conn = get_conn(redis)
+    Redis.multi(conn)
+    Redis.rpush(conn, "results", JSON.json(output))
+    Redis.del(conn, "processing:$(myid())")
+    Redis.execute_command(conn, ["exec"])
+end
+
+function process_sampling_task(payload, timeout_container, redis, i)
+    timeout = payload["timeout"]
+    @info "Running sampling number $i"
+    @info payload
+    output = @time try
+        run_context = Dict{String,Any}("timeout_container" => timeout_container, "timeout" => timeout)
+        result = run_sampling_process(run_context, payload)
+
+        Dict("status" => "success", "payload" => result)
+    catch e
+        if isa(e, InterruptException)
+            @warn "Interrupted"
+            rethrow()
+        end
+        buf = IOBuffer()
+        bt = catch_backtrace()
+        showerror(buf, e, bt)
+        @error "Error while running task" exception = (e, bt)
+        Dict("status" => "error", "payload" => String(take!(buf)))
+    end
+    conn = get_conn(redis)
+    Redis.multi(conn)
+    Redis.rpush(conn, "sample_result", JSON.json(output))
+    Redis.del(conn, "processing:$(myid())")
+    Redis.execute_command(conn, ["exec"])
+end
+
 function worker_loop(timeout_container)
     @info "Starting worker loop"
     redis = RedisContext(Redis.RedisConnection())
-    i = 1
+    i = 0
+    j = 0
     while true
         try
             message = get_new_task(redis)
@@ -88,33 +146,14 @@ function worker_loop(timeout_container)
                 break
             end
             payload = JSON.parse(message)
-            timeout = payload["timeout"]
-            name = payload["name"]
-            @info "Running task number $i $name"
-            i += 1
-            output = @time try
-                run_context = Dict{String,Any}("timeout_container" => timeout_container, "timeout" => timeout)
-                result = run_solving_process(run_context, payload)
-                if isnothing(result)
-                    result = Dict("number_enumerated" => 0, "solutions" => [])
-                end
-                Dict("status" => "success", "payload" => result, "name" => name)
-            catch e
-                if isa(e, InterruptException)
-                    @warn "Interrupted"
-                    rethrow()
-                end
-                buf = IOBuffer()
-                bt = catch_backtrace()
-                showerror(buf, e, bt)
-                @error "Error while running task" exception = (e, bt)
-                Dict("status" => "error", "payload" => String(take!(buf)), "name" => name)
+            if payload["queue"] == "tasks"
+                i += 1
+                process_solving_task(payload, timeout_container, redis, i)
+            elseif payload["queue"] == "sample"
+                j += 1
+                process_sampling_task(payload, timeout_container, redis, j)
             end
-            conn = get_conn(redis)
-            Redis.multi(conn)
-            Redis.rpush(conn, "results", JSON.json(output))
-            Redis.del(conn, "processing:$(myid())")
-            Redis.execute_command(conn, ["exec"])
+
         catch e
             disconnect_redis(redis)
             bt = catch_backtrace()

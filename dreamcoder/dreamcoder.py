@@ -863,6 +863,7 @@ def sleep_recognition(
             helmholtzRatio=helmholtzRatio,
             auxLoss=auxiliaryLoss,
             vectorized=True,
+            solver=solver,
         ),
         recognizers,
         seedRandom=True,

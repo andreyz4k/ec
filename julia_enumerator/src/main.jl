@@ -101,7 +101,7 @@ function main()
                 if !isnothing(payload)
                     @warn "Rescheduling task from worker $pid"
                     Redis.multi(conn)
-                    Redis.rpush(conn, "tasks", payload)
+                    Redis.rpush(conn, payload["queue"], payload)
                     Redis.del(conn, processing_key)
                     Redis.execute_command(conn, ["exec"])
                 end

@@ -44,4 +44,5 @@ end
     include("objects_processing.jl")
     include("program_parser.jl")
     include("rev_fixers.jl")
+    include("sample.jl")
 end

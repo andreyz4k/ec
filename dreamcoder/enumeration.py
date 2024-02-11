@@ -519,9 +519,11 @@ def get_task_message(
         "name": task.name,
         "request": str(task.request),
         "maximumFrontier": maximum_frontiers,
-        "test_examples": [{"inputs": xs, "output": y} for xs, y in task.test_examples]
-        if task.test_examples
-        else [],
+        "test_examples": (
+            [{"inputs": xs, "output": y} for xs, y in task.test_examples]
+            if task.test_examples
+            else []
+        ),
     }
     if hasattr(task, "specialTask"):
         special, extra = task.specialTask
@@ -537,6 +539,7 @@ def get_task_message(
         "timeout": timeout,
         "verbose": False,
         "shatter": 5 if "turtle" in str(task.request) else 10,
+        "queue": "tasks",
     }
 
     if hasattr(task, "maxParameters") and task.maxParameters is not None:

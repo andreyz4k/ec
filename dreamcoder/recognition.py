@@ -1,3 +1,4 @@
+import redis
 from dreamcoder.enumeration import *
 from dreamcoder.grammar import *
 
@@ -1112,6 +1113,7 @@ class RecognitionModel(nn.Module):
         defaultRequest=None,
         auxLoss=False,
         vectorized=True,
+        solver=None,
     ):
         """
         helmholtzRatio: What fraction of the training data should be forward samples from the generative model?
@@ -1226,7 +1228,9 @@ class RecognitionModel(nn.Module):
                 )
 
             if randomHelmholtz:
-                newFrontiers = self.sampleManyHelmholtz(requests, helmholtzBatch, CPUs)
+                newFrontiers = self.sampleManyHelmholtz(
+                    requests, helmholtzBatch, CPUs, solver
+                )
                 newEntries = []
                 for f in newFrontiers:
                     e = HelmholtzEntry(f, self)
@@ -1448,6 +1452,63 @@ class RecognitionModel(nn.Module):
         self.trained = True
         return self
 
+    def parse_sample_response(self, response):
+        response = json.loads(response.decode("utf-8"))
+        if response["status"] == "error":
+            eprint("Error while sampling")
+            raise WorkerError(response["payload"])
+        else:
+            response = response["payload"]
+        if response["program"] is None or response["task"] is None:
+            return None, None
+        program = Program.parse(response["program"])
+        task = Task(
+            "Helmholtz",
+            Type.fromstring(response["task"]["request"]),
+            response["task"]["examples"],
+        )
+        return program, task
+
+    def sample_helmholtz_julia(self, requests, N):
+        r = redis.Redis(host="localhost", port=6379, db=0)
+        for _ in range(N):
+            request = random.choice(requests)
+            message = {
+                "request": str(request),
+                "DSL": self.generativeModel.json(),
+                "max_depth": 6,
+                "max_attempts": 100,
+                "timeout": 10,
+                "queue": "sample",
+            }
+            r.rpush("sample", json.dumps(message))
+
+        samples = []
+        eprint("Waiting for samples...")
+        for _ in range(N):
+            response = r.blpop("sample_result")[1]
+
+            try:
+                program, task = self.parse_sample_response(response)
+
+                if program is None or task is None:
+                    continue
+                if hasattr(self.featureExtractor, "lexicon"):
+                    if self.featureExtractor.tokenize(task.examples) is None:
+                        continue
+                ll = self.generativeModel.logLikelihood(request, program)
+                frontier = Frontier(
+                    [FrontierEntry(program=program, logLikelihood=0.0, logPrior=ll)],
+                    task=task,
+                )
+                samples.append(frontier)
+            except WorkerError:
+                raise
+            except:
+                eprint("Failure processing sample response: ", response)
+                raise
+        return samples
+
     def sampleHelmholtz(self, requests, statusUpdate=None, seed=None):
         if seed is not None:
             random.seed(seed)
@@ -1473,21 +1534,25 @@ class RecognitionModel(nn.Module):
         )
         return frontier
 
-    def sampleManyHelmholtz(self, requests, N, CPUs):
+    def sampleManyHelmholtz(self, requests, N, CPUs, solver):
         eprint("Sampling %d programs from the prior on %d CPUs..." % (N, CPUs))
         flushEverything()
-        frequency = N / 50
-        startingSeed = random.random()
 
-        # Sequentially for ensemble training.
-        samples = [
-            self.sampleHelmholtz(
-                requests,
-                statusUpdate="." if n % frequency == 0 else None,
-                seed=startingSeed + n,
-            )
-            for n in range(N)
-        ]
+        if solver == "julia":
+            samples = self.sample_helmholtz_julia(requests, N)
+        else:
+            frequency = N / 50
+            startingSeed = random.random()
+
+            # Sequentially for ensemble training.
+            samples = [
+                self.sampleHelmholtz(
+                    requests,
+                    statusUpdate="." if n % frequency == 0 else None,
+                    seed=startingSeed + n,
+                )
+                for n in range(N)
+            ]
 
         # (cathywong) Disabled for ensemble training.
         # samples = parallelMap(
