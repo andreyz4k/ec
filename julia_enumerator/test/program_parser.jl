@@ -63,6 +63,9 @@ using solver: parse_program, parse_type, TypeVariable
     parsing_test_case(
         "let \$v1, \$v2 = rev(\$inp0 = (tuple2 \$v1 \$v2)) in let \$v3::set(tuple2(int, int)) = Const(set(tuple2(int, int)), Set([(0, 0), (0, 2), (2, 0), (1, 1), (0, 1), (2, 2), (2, 1)])) in (rev_select_set (lambda (eq? (tuple2_second (tuple2_first \$0)) \$v3)) \$v1 \$v2)",
     )
+    parsing_test_case(
+        "Const(grid(t1), [[any_object any_object any_object any_object any_object; any_object any_object any_object any_object any_object; any_object any_object any_object any_object any_object; any_object any_object any_object any_object any_object; any_object any_object any_object any_object any_object; any_object any_object any_object any_object any_object; any_object any_object any_object any_object any_object; any_object any_object any_object any_object any_object; any_object any_object any_object any_object any_object; any_object any_object any_object any_object any_object; any_object any_object any_object any_object any_object; any_object any_object any_object any_object any_object]])",
+    )
 end
 
 @testset "Type parser" begin

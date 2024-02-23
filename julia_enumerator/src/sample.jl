@@ -929,6 +929,8 @@ function generate_var_values(var_type::TypeConstructor, examples_count)
     if var_type.name == "grid"
         heights = rand(1:20, examples_count)
         widths = rand(1:20, examples_count)
-        return [hcat([generate_var_values(var_type.arguments[1], h) for _ in 1:w]) for (h, w) in zip(heights, widths)]
+        return [
+            hcat([generate_var_values(var_type.arguments[1], h) for _ in 1:w]...) for (h, w) in zip(heights, widths)
+        ]
     end
 end

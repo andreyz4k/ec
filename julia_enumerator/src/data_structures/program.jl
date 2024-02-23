@@ -351,6 +351,7 @@ parse_object.matcher =
     (parse_token + Opt(e"{" + julia_type_def + e"}") + e"(" + (parse_object+e", ")[0:end] + parse_object + e")") |
     (parse_token + Opt(e"{" + julia_type_def + e"}") + e"()") |
     (e"[" + (parse_object+e", ")[0:end] + parse_object + e"]") |
+    (e"[" + (parse_object+Opt(e";")+e" ")[0:end] + parse_object + e"]") |
     (e"[]") |
     (e"(" + (parse_object+e", ")[0:end] + parse_object + e")") |
     (parse_token + Opt(e"{" + julia_type_def + e"}") + e"[" + (parse_object+e", ")[0:end] + parse_object + e"]") |
