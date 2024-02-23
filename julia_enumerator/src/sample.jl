@@ -16,6 +16,9 @@ function run_sampling_process(run_context, payload)
         load_sampling_payload(payload)
     run_context["timeout"] = program_timeout
     program, examples = sample_program(grammar, request, max_depth, max_block_depth, max_attempts, timeout, run_context)
+    if isnothing(program)
+        return Dict("program" => nothing, "task" => Dict("request" => string(request), "examples" => examples))
+    end
     result = Dict("program" => string(program), "task" => Dict("request" => string(request), "examples" => examples))
     # @info "Result: $result"
     return result
@@ -41,28 +44,33 @@ function sample_program(grammar, request, max_depth, max_block_depth, max_attemp
 
     failed_input_blocks = Set{Any}()
     output_var = UInt64(length(input_types) + 1)
-    output, examples = sample_input_program(
-        grammar,
-        [(0, UInt64(i), var_type) for (i, (var_name, var_type)) in enumerate(input_types)],
-        [],
-        Dict(),
-        [],
-        Dict(var_name => [] for var_name in keys(input_keys)),
-        input_block_attempts,
-        failed_input_blocks,
-        output_var,
-        return_of_type(request),
-        input_keys,
-        max_depth,
-        max_block_depth,
-        max_attempts,
-        timeout,
-        run_context,
-        var_counter,
-        examples_count,
-    )
-
-    return output, examples
+    try
+        return sample_input_program(
+            grammar,
+            [(0, UInt64(i), var_type) for (i, (var_name, var_type)) in enumerate(input_types)],
+            [],
+            Dict(),
+            [],
+            Dict(var_name => [] for var_name in keys(input_keys)),
+            input_block_attempts,
+            failed_input_blocks,
+            output_var,
+            return_of_type(request),
+            input_keys,
+            max_depth,
+            max_block_depth,
+            max_attempts,
+            timeout,
+            run_context,
+            var_counter,
+            examples_count,
+        )
+    catch e
+        if isa(e, SamplingError)
+            return nothing, nothing
+        end
+        rethrow()
+    end
 end
 
 function sample_distribution(d)

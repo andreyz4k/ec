@@ -429,14 +429,25 @@ using solver: run_sampling_process, _test_one_example, parse_program
         "queue" => "sample",
         "max_depth" => 6,
         "max_block_depth" => 10,
-        "request" => "inp0:list(int) -> list(int)",
     )
 
-    @testcase_log "Run sampling process" begin
-        result = @time run_sampling_process(Dict{String,Any}(), sample_payload)
-        program = parse_program(result["program"])
-        for example in result["task"]["examples"]
-            @test _test_one_example(program, example["inputs"], example["output"])
+    requests = [
+        "inp0:list(int) -> list(int)",
+        "inp0:grid(int) -> grid(int)",
+        "inp0:list(int) -> int",
+        "inp0:list(int) -> bool",
+        "inp0:list(bool) -> bool",
+        "inp0:int -> int",
+    ]
+
+    @testset "Run sampling process $request" for request in requests
+        @testcase_log "Run sampling process" begin
+            payload = merge(sample_payload, Dict("request" => request))
+            result = @time run_sampling_process(Dict{String,Any}(), payload)
+            program = parse_program(result["program"])
+            for example in result["task"]["examples"]
+                @test _test_one_example(program, example["inputs"], example["output"])
+            end
         end
     end
 end
