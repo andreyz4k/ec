@@ -9,5 +9,5 @@ function reverse_range(value)::Vector{Any}
 end
 
 @define_reverse_primitive "range" arrow(tint, tlist(tint)) (
-    n -> n > 10000 ? error("Range is too large") : collect(0:n-1)
+    n -> n > 10000 ? error("Range is too large") : (n <= 0 ? error("Negative range") : collect(0:n-1))
 ) reverse_range

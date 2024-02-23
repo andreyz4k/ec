@@ -174,7 +174,7 @@ Base.show(io::IO, block::ProgramBlock) = print(
     ", ",
     block.input_vars,
     ", ",
-    block.output_var,
+    string(block.output_var),
     ")",
 )
 
@@ -435,7 +435,11 @@ function wrap_any_object_call(f)
             end
         catch e
             if e isa MethodError && any(arg === any_object for arg in e.args)
-                return PatternWrapper(any_object)
+                if x === any_object
+                    return PatternWrapper(any_object)
+                else
+                    error("MethodError with any_object")
+                end
             else
                 rethrow()
             end
@@ -458,18 +462,19 @@ function (p::Apply)(environment, workspace)
         if x === nothing
             error("Parameter is nothing")
         elseif x isa PatternWrapper
-            if x.value === any_object
-                return wrap_any_object_call(f)(x.value)
-            else
-                try
-                    return _wrap_wildcard(f(x.value))
-                catch e
-                    if e isa MethodError && any(arg === any_object for arg in e.args)
-                        error("MethodError with any_object")
-                    end
-                    rethrow()
-                end
-            end
+            return wrap_any_object_call(f)(x.value)
+            # if x.value === any_object
+            #     return wrap_any_object_call(f)(x.value)
+            # else
+            #     try
+            #         return _wrap_wildcard(f(x.value))
+            #     catch e
+            #         if e isa MethodError && any(arg === any_object for arg in e.args)
+            #             error("MethodError with any_object")
+            #         end
+            #         rethrow()
+            #     end
+            # end
         else
             try
                 return f(x)

@@ -1477,8 +1477,10 @@ class RecognitionModel(nn.Module):
                 "request": str(request),
                 "DSL": self.generativeModel.json(),
                 "max_depth": 6,
+                "max_block_depth": 10,
                 "max_attempts": 100,
                 "timeout": 10,
+                "program_timeout": 2,
                 "queue": "sample",
             }
             r.rpush("sample", json.dumps(message))

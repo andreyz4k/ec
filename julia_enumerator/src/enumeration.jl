@@ -312,29 +312,29 @@ function block_state_successors(
     end
 end
 
-capture_free_vars(sc::SolutionContext, p::Program, context) = _capture_free_vars(sc, p, context, [])
+capture_free_vars(sc, p::Program, context) = _capture_free_vars(sc, p, context, [])
 
-_capture_free_vars(sc::SolutionContext, p::Program, context, captured_vars) = p, captured_vars
+_capture_free_vars(sc, p::Program, context, captured_vars) = p, captured_vars
 
-function _capture_free_vars(sc::SolutionContext, p::Apply, context, captured_vars)
+function _capture_free_vars(sc, p::Apply, context, captured_vars)
     new_f, captured_vars = _capture_free_vars(sc, p.f, context, captured_vars)
     new_x, captured_vars = _capture_free_vars(sc, p.x, context, captured_vars)
     Apply(new_f, new_x), captured_vars
 end
 
-function _capture_free_vars(sc::SolutionContext, p::Abstraction, context, captured_vars)
+function _capture_free_vars(sc, p::Abstraction, context, captured_vars)
     new_b, new_vars = _capture_free_vars(sc, p.b, context, captured_vars)
     Abstraction(new_b), new_vars
 end
 
-function _capture_free_vars(sc::SolutionContext, p::Hole, context, captured_vars)
+function _capture_free_vars(sc, p::Hole, context, captured_vars)
     _, t = apply_context(context, p.t)
     var_id = create_next_var(sc)
     push!(captured_vars, (var_id, t))
     FreeVar(t, var_id), captured_vars
 end
 
-function _capture_free_vars(sc::SolutionContext, p::FreeVar, context, captured_vars)
+function _capture_free_vars(sc, p::FreeVar, context, captured_vars)
     if isnothing(p.var_id)
         _, t = apply_context(context, p.t)
         var_id = create_next_var(sc)
