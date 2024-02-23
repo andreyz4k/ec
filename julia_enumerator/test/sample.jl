@@ -1,4 +1,4 @@
-using solver: run_sampling_process, _test_one_example
+using solver: run_sampling_process, _test_one_example, parse_program
 
 @testset "Sampling" begin
     sample_payload = Dict{String,Any}(
@@ -434,8 +434,9 @@ using solver: run_sampling_process, _test_one_example
 
     @testcase_log "Run sampling process" begin
         result = @time run_sampling_process(Dict{String,Any}(), sample_payload)
+        program = parse_program(result["program"])
         for example in result["task"]["examples"]
-            @test _test_one_example(result["program"], example["inputs"], example["output"])
+            @test _test_one_example(program, example["inputs"], example["output"])
         end
     end
 end

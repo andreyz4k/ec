@@ -34,10 +34,19 @@ def retrieveARCJSONTask(filename, directory):
     with open(directory + "/" + filename, "r") as f:
         loaded = json.load(f)
 
-    ioExamples = [((example["input"],), example["output"]) for example in loaded["train"]]
-    evalExamples = [((example["input"],), example["output"]) for example in loaded["test"]]
+    ioExamples = [
+        ((example["input"],), example["output"]) for example in loaded["train"]
+    ]
+    evalExamples = [
+        ((example["input"],), example["output"]) for example in loaded["test"]
+    ]
 
-    task = Task(filename, arrow(tgrid(tcolor), tgrid(tcolor)), ioExamples, test_examples=evalExamples)
+    task = Task(
+        filename,
+        arrow(tgrid(tcolor), tgrid(tcolor)),
+        ioExamples,
+        test_examples=evalExamples,
+    )
     task.specialTask = ("arc", 5)
     return task
 
@@ -53,7 +62,9 @@ def arc_options(parser):
         help="In seconds. default: 3.0",
         type=float,
     )
-    parser.add_argument("--featureExtractor", default="dummy", choices=["arcCNN", "dummy"])
+    parser.add_argument(
+        "--featureExtractor", default="dummy", choices=["arcCNN", "dummy"]
+    )
 
 
 class Flatten(nn.Module):
@@ -146,7 +157,9 @@ class ArcCNN(nn.Module):
             # Grab some random inputs
             xs = [randomInput(t) for t in tp.functionArguments()]
             try:
-                y = runWithTimeout(lambda: p.runWithArguments(xs), self.helmholtzEvaluationTimeout)
+                y = runWithTimeout(
+                    lambda: p.runWithArguments(xs), self.helmholtzEvaluationTimeout
+                )
                 examples.append((tuple(xs), y))
                 if len(examples) >= 1:
                     return Task("Helmholtz", tp, examples)
@@ -168,7 +181,9 @@ def main(args):
 
     import os
 
-    sort_of_arc_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sortOfARC")
+    sort_of_arc_dir = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "sortOfARC"
+    )
     tasks = retrieveARCJSONTasks(sort_of_arc_dir, None)
 
     dataDirectory = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ARC/data")
@@ -177,7 +192,7 @@ def main(args):
     holdoutTasks = retrieveARCJSONTasks(dataDirectory + "/evaluation")
 
     if args["solver"] == "julia":
-        tasks = [NamedVarsTask(t) for t in tasks]
+        tasks = [NamedVarsTask.from_task(t) for t in tasks]
         args["type_weights"] = TypeWeights(
             {
                 "list": 1.0,
@@ -206,6 +221,10 @@ def main(args):
         }
     )
 
-    featureExtractor = {"dummy": DummyFeatureExtractor, "arcCNN": ArcCNN}[args.pop("featureExtractor")]
+    featureExtractor = {"dummy": DummyFeatureExtractor, "arcCNN": ArcCNN}[
+        args.pop("featureExtractor")
+    ]
 
-    explorationCompression(baseGrammar, tasks, featureExtractor=featureExtractor, testingTasks=[], **args)
+    explorationCompression(
+        baseGrammar, tasks, featureExtractor=featureExtractor, testingTasks=[], **args
+    )

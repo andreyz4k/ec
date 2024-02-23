@@ -27,7 +27,7 @@ def julia_grammar():
 
 @pytest.fixture(scope="module")
 def base_task():
-    return NamedVarsTask(
+    return NamedVarsTask.from_task(
         Task(
             name="drop-k with k=1",
             request=arrow(tlist(tint), tlist(tint)),

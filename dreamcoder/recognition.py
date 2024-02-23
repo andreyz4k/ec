@@ -7,6 +7,8 @@ from dreamcoder.grammar import *
 
 import gc
 
+from dreamcoder.task import NamedVarsTask
+
 try:
     import torch
     import torch.nn as nn
@@ -1462,7 +1464,7 @@ class RecognitionModel(nn.Module):
         if response["program"] is None or response["task"] is None:
             return None, None
         program = Program.parse(response["program"])
-        task = Task(
+        task = NamedVarsTask(
             "Helmholtz",
             Type.fromstring(response["task"]["request"]),
             response["task"]["examples"],

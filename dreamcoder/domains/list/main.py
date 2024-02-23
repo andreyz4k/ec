@@ -9,7 +9,16 @@ from dreamcoder.dreamcoder import explorationCompression
 from dreamcoder.utilities import eprint, flatten, testTrainSplit
 from dreamcoder.grammar import Grammar
 from dreamcoder.task import NamedVarsTask, Task
-from dreamcoder.type import Context, TypeWeights, arrow, tbool, tlist, tint, t0, UnificationFailure
+from dreamcoder.type import (
+    Context,
+    TypeWeights,
+    arrow,
+    tbool,
+    tlist,
+    tint,
+    t0,
+    UnificationFailure,
+)
 from dreamcoder.domains.list.listPrimitives import (
     basePrimitives,
     julia,
@@ -18,7 +27,11 @@ from dreamcoder.domains.list.listPrimitives import (
     bootstrapTarget_extra,
     no_length,
 )
-from dreamcoder.domains.list.makeListTasks import make_list_bootstrap_tasks, sortBootstrap, EASYLISTTASKS
+from dreamcoder.domains.list.makeListTasks import (
+    make_list_bootstrap_tasks,
+    sortBootstrap,
+    EASYLISTTASKS,
+)
 
 
 def retrieveJSONTasks(filename, features=False):
@@ -42,7 +55,11 @@ def retrieveJSONTasks(filename, features=False):
             item["name"],
             arrow(TP[item["type"]["input"]], TP[item["type"]["output"]]),
             [((ex["i"],), ex["o"]) for ex in item["examples"]],
-            features=(None if not features else list_features([((ex["i"],), ex["o"]) for ex in item["examples"]])),
+            features=(
+                None
+                if not features
+                else list_features([((ex["i"],), ex["o"]) for ex in item["examples"]])
+            ),
             cache=False,
         )
         for item in loaded
@@ -70,7 +87,10 @@ def list_features(examples):
         return 0 if not l else sum(l) / len(l)
 
     imean = [mean(i) for (i,), o in examples]
-    ivar = [sum((v - imean[idx]) ** 2 for v in examples[idx][0][0]) for idx in range(len(examples))]
+    ivar = [
+        sum((v - imean[idx]) ** 2 for v in examples[idx][0][0])
+        for idx in range(len(examples))
+    ]
 
     # DISABLED length of each input and output
     # total difference between length of input and output
@@ -83,7 +103,10 @@ def list_features(examples):
     # DISABLED outputs if bools (-1/1), else 0s
     if ot == list:  # lists of ints or bools
         omean = [mean(o) for (i,), o in examples]
-        ovar = [sum((v - omean[idx]) ** 2 for v in examples[idx][1]) for idx in range(len(examples))]
+        ovar = [
+            sum((v - omean[idx]) ** 2 for v in examples[idx][1])
+            for idx in range(len(examples))
+        ]
 
         def cntr(l, o):
             return 0 if not l else len(set(l).difference(set(o))) / len(l)
@@ -161,7 +184,11 @@ try:
 
         def tokenize(self, examples):
             def sanitize(l):
-                return [z if z in self.lexicon else "?" for z_ in l for z in (z_ if isinstance(z_, list) else [z_])]
+                return [
+                    z if z in self.lexicon else "?"
+                    for z_ in l
+                    for z in (z_ if isinstance(z_, list) else [z_])
+                ]
 
             tokenized = []
             for xs, y in examples:
@@ -190,11 +217,16 @@ try:
 
         def __init__(self, tasks, testingTasks=[], cuda=False):
             self.lexicon = set(
-                flatten((t.examples for t in tasks + testingTasks), abort=lambda x: isinstance(x, str))
+                flatten(
+                    (t.examples for t in tasks + testingTasks),
+                    abort=lambda x: isinstance(x, str),
+                )
             ).union({"LIST_START", "LIST_END", "?"})
 
             # Calculate the maximum length
-            self.maximumLength = float("inf")  # Believe it or not this is actually important to have here
+            self.maximumLength = float(
+                "inf"
+            )  # Believe it or not this is actually important to have here
             self.maximumLength = max(
                 len(l)
                 for t in tasks + testingTasks
@@ -205,16 +237,28 @@ try:
             self.recomputeTasks = True
 
             super(LearnedFeatureExtractor, self).__init__(
-                lexicon=list(self.lexicon), tasks=tasks, cuda=cuda, H=self.H, bidirectional=True
+                lexicon=list(self.lexicon),
+                tasks=tasks,
+                cuda=cuda,
+                H=self.H,
+                bidirectional=True,
             )
-
 
 except:
     pass
 
 
 def train_necessary(t):
-    if t.name in {"head", "is-primes", "len", "pop", "repeat-many", "tail", "keep primes", "keep squares"}:
+    if t.name in {
+        "head",
+        "is-primes",
+        "len",
+        "pop",
+        "repeat-many",
+        "tail",
+        "keep primes",
+        "keep squares",
+    }:
         return True
     if any(
         t.name.startswith(x)
@@ -247,25 +291,58 @@ def train_necessary(t):
 
 
 def list_options(parser):
-    parser.add_argument("--noMap", action="store_true", default=False, help="Disable built-in map primitive")
-    parser.add_argument("--noUnfold", action="store_true", default=False, help="Disable built-in unfold primitive")
-    parser.add_argument("--noLength", action="store_true", default=False, help="Disable built-in length primitive")
+    parser.add_argument(
+        "--noMap",
+        action="store_true",
+        default=False,
+        help="Disable built-in map primitive",
+    )
+    parser.add_argument(
+        "--noUnfold",
+        action="store_true",
+        default=False,
+        help="Disable built-in unfold primitive",
+    )
+    parser.add_argument(
+        "--noLength",
+        action="store_true",
+        default=False,
+        help="Disable built-in length primitive",
+    )
     parser.add_argument(
         "--dataset",
         type=str,
         default="Lucas-old",
-        choices=["bootstrap", "sorting", "Lucas-old", "Lucas-depth1", "Lucas-depth2", "Lucas-depth3"],
+        choices=[
+            "bootstrap",
+            "sorting",
+            "Lucas-old",
+            "Lucas-depth1",
+            "Lucas-depth2",
+            "Lucas-depth3",
+        ],
     )
-    parser.add_argument("--maxTasks", type=int, default=None, help="truncate tasks to fit within this boundary")
+    parser.add_argument(
+        "--maxTasks",
+        type=int,
+        default=None,
+        help="truncate tasks to fit within this boundary",
+    )
     parser.add_argument(
         "--primitives",
         default="common",
         help="Which primitive set to use",
         choices=["McCarthy", "base", "rich", "common", "noLength", "julia"],
     )
-    parser.add_argument("--extractor", type=str, choices=["hand", "deep", "learned"], default="learned")
-    parser.add_argument("--split", metavar="TRAIN_RATIO", type=float, help="split test/train")
-    parser.add_argument("-H", "--hidden", type=int, default=64, help="number of hidden units")
+    parser.add_argument(
+        "--extractor", type=str, choices=["hand", "deep", "learned"], default="learned"
+    )
+    parser.add_argument(
+        "--split", metavar="TRAIN_RATIO", type=float, help="split test/train"
+    )
+    parser.add_argument(
+        "-H", "--hidden", type=int, default=64, help="number of hidden units"
+    )
     parser.add_argument("--random-seed", type=int, default=17)
     parser.add_argument(
         "-te",
@@ -285,7 +362,8 @@ def main(args):
 
     dataset = args.pop("dataset")
     tasks = {
-        "Lucas-old": lambda: retrieveJSONTasks("data/list_tasks.json") + sortBootstrap(),
+        "Lucas-old": lambda: retrieveJSONTasks("data/list_tasks.json")
+        + sortBootstrap(),
         "bootstrap": make_list_bootstrap_tasks,
         "sorting": sortBootstrap,
         "Lucas-depth1": lambda: retrieveJSONTasks("data/list_tasks2.json")[:105],
@@ -314,7 +392,15 @@ def main(args):
                     [
                         ((ls,), list(filter(lambda l: len(l) > 0, ls)))
                         for _ in range(15)
-                        for ls in [[[random.random() < 0.5 for _ in range(random.randint(0, 3))] for _ in range(4)]]
+                        for ls in [
+                            [
+                                [
+                                    random.random() < 0.5
+                                    for _ in range(random.randint(0, 3))
+                                ]
+                                for _ in range(4)
+                            ]
+                        ]
                     ],
                 ),
                 Task(
@@ -325,7 +411,11 @@ def main(args):
                         for _ in range(15)
                         for xs in [
                             [
-                                random.choice([0, 1, 4, 9, 16, 25]) if random.random() < 0.5 else random.randint(0, 9)
+                                (
+                                    random.choice([0, 1, 4, 9, 16, 25])
+                                    if random.random() < 0.5
+                                    else random.randint(0, 9)
+                                )
                                 for _ in range(7)
                             ]
                         ]
@@ -335,13 +425,26 @@ def main(args):
                     "keep primes",
                     arrow(tlist(tint), tlist(tint)),
                     [
-                        ((xs,), list(filter(lambda x: x in {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37}, xs)))
+                        (
+                            (xs,),
+                            list(
+                                filter(
+                                    lambda x: x
+                                    in {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37},
+                                    xs,
+                                )
+                            ),
+                        )
                         for _ in range(15)
                         for xs in [
                             [
-                                random.choice([2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37])
-                                if random.random() < 0.5
-                                else random.randint(0, 9)
+                                (
+                                    random.choice(
+                                        [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37]
+                                    )
+                                    if random.random() < 0.5
+                                    else random.randint(0, 9)
+                                )
                                 for _ in range(7)
                             ]
                         ]
@@ -394,7 +497,11 @@ def main(args):
     def isIdentityTask(t):
         return all(len(xs) == 1 and xs[0] == y for xs, y in t.examples)
 
-    eprint("Removed", sum(isIdentityTask(t) for t in tasks), "tasks that were just the identity function")
+    eprint(
+        "Removed",
+        sum(isIdentityTask(t) for t in tasks),
+        "tasks that were just the identity function",
+    )
     tasks = [t for t in tasks if not isIdentityTask(t)]
 
     prims = {
@@ -422,7 +529,7 @@ def main(args):
     )
 
     if args["solver"] == "julia":
-        tasks = [NamedVarsTask(t) for t in tasks]
+        tasks = [NamedVarsTask.from_task(t) for t in tasks]
         args["type_weights"] = TypeWeights(
             {
                 "list": 1.0,
@@ -470,7 +577,11 @@ def main(args):
         if True:
             test = [t for t in test if t.name not in EASYLISTTASKS]
 
-        eprint("Alotted {} tasks for training and {} for testing".format(len(train), len(test)))
+        eprint(
+            "Alotted {} tasks for training and {} for testing".format(
+                len(train), len(test)
+            )
+        )
     else:
         train = tasks
         test = []

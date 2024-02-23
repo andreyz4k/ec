@@ -16,7 +16,8 @@ function run_sampling_process(run_context, payload)
         load_sampling_payload(payload)
     run_context["timeout"] = program_timeout
     program, examples = sample_program(grammar, request, max_depth, max_block_depth, max_attempts, timeout, run_context)
-    result = Dict("program" => program, "task" => Dict("request" => string(request), "examples" => examples))
+    result = Dict("program" => string(program), "task" => Dict("request" => string(request), "examples" => examples))
+    # @info "Result: $result"
     return result
 end
 
@@ -133,7 +134,7 @@ function sample_input_program(
                 [(0, output_var, output_type, true)],
                 [],
                 filled_vars,
-                filled_blocks,
+                reverse(filled_blocks),
                 output_block_attempts,
                 Dict(output_var => Set{Any}()),
                 input_var_types,
@@ -153,8 +154,17 @@ function sample_input_program(
             )
         catch e
             if isa(e, TimeoutException)
-                # @info "Timeout $(filled_blocks[end])"
-                throw(SamplingBlockError(filled_blocks[end]))
+                err_block = filled_blocks[1]
+                non_terminal_vars = Set()
+                for block in filled_blocks
+                    if all(!in(v, non_terminal_vars) for v in block.output_vars)
+                        err_block = block
+                    end
+                    union!(non_terminal_vars, block.input_vars)
+                end
+                # @info "Timeout $(filled_blocks)"
+                # @info "Timeout $(err_block)"
+                throw(SamplingBlockError(err_block))
             else
                 rethrow()
             end
@@ -250,7 +260,7 @@ function sample_input_program(
                     vars_to_fill[1:end-1],
                     new_prev_blocks,
                     new_filled_vars,
-                    vcat(filled_blocks, reverse(new_filled_blocks)),
+                    vcat(filled_blocks, new_filled_blocks),
                     var_prev_blocks,
                     block_attempts,
                     failed_blocks,
@@ -307,6 +317,16 @@ function sample_input_program(
                         save_failed_block(new_p, new_vars, failed_blocks)
                     end
                     if (e isa SamplingBlockError && e.p == new_block)
+                        # @info "Checking failed blocks $failed_blocks"
+                        # @info "Filled blocks $filled_blocks"
+                        # @info "Prev blocks $prev_blocks"
+                        for block in Iterators.flatten([filled_blocks, (b for (b, _) in prev_blocks)])
+                            if check_failed_block(block.p, block.output_vars, failed_blocks)
+                                # @info "Block $block is in failed blocks"
+                                throw(SamplingBlockError(block))
+                            end
+                        end
+
                         throw(SamplingError())
                     else
                         rethrow()
@@ -477,6 +497,7 @@ function sample_output_program(
             end
             @assert false
         end
+        # @info "filled_blocks: $filled_blocks"
 
         output = filled_blocks[end].p
         for block in view(filled_blocks, length(filled_blocks)-1:-1:1)
@@ -757,6 +778,7 @@ function _sample_input_program(grammar, return_type, max_depth, var_counter, fai
     if isempty(new_vars)
         throw(SamplingError())
     end
+    # @info "Failed blocks $failed_blocks"
     if check_failed_block(new_p, [v_name for (v_name, _) in new_vars], failed_blocks)
         # @info "Failed block $new_p"
         throw(SamplingError())

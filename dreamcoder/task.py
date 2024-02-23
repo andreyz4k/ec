@@ -12,7 +12,9 @@ EVALUATIONTABLE = {}
 
 
 class Task(object):
-    def __init__(self, name, request, examples, features=None, cache=False, test_examples=None):
+    def __init__(
+        self, name, request, examples, features=None, cache=False, test_examples=None
+    ):
         """request: the type of this task
         examples: list of tuples of (input, output). input should be a tuple, with one entry for each argument
         cache: should program evaluations be cached?
@@ -35,7 +37,9 @@ class Task(object):
             return self.name + " (%s)" % self.supervision
 
     def __repr__(self):
-        return "Task(name={self.name}, request={self.request}, examples={self.examples})".format(self=self)
+        return "Task(name={self.name}, request={self.request}, examples={self.examples})".format(
+            self=self
+        )
 
     def __eq__(self, o):
         return self.name == o.name
@@ -122,11 +126,15 @@ class Task(object):
     @staticmethod
     def featureMeanAndStandardDeviation(tasks):
         dimension = len(tasks[0].features)
-        averages = [sum(t.features[j] for t in tasks) / float(len(tasks)) for j in range(dimension)]
-        variances = [
-            sum((t.features[j] - averages[j]) ** 2 for t in tasks) / float(len(tasks)) for j in range(dimension)
+        averages = [
+            sum(t.features[j] for t in tasks) / float(len(tasks))
+            for j in range(dimension)
         ]
-        standardDeviations = [v ** 0.5 for v in variances]
+        variances = [
+            sum((t.features[j] - averages[j]) ** 2 for t in tasks) / float(len(tasks))
+            for j in range(dimension)
+        ]
+        standardDeviations = [v**0.5 for v in variances]
         for j, s in enumerate(standardDeviations):
             if s == 0.0:
                 eprint("WARNING: Feature %d is always %f" % (j + 1, averages[j]))
@@ -190,18 +198,27 @@ class DifferentiableTask(Task):
 
         self.specialTask = ("differentiable", arguments)
 
-        super(DifferentiableTask, self).__init__(name, request, examples, features, cache=False)
+        super(DifferentiableTask, self).__init__(
+            name, request, examples, features, cache=False
+        )
 
     def logLikelihood(self, e, timeout=None):
-        assert timeout is None, "timeout not implemented for differentiable tasks, but not for any good reason."
+        assert (
+            timeout is None
+        ), "timeout not implemented for differentiable tasks, but not for any good reason."
         e, parameters = PlaceholderVisitor.execute(e)
         if self.maxParameters is not None and len(parameters) > self.maxParameters:
             return NEGATIVEINFINITY
-        if self.actualParameters is not None and len(parameters) > self.actualParameters:
+        if (
+            self.actualParameters is not None
+            and len(parameters) > self.actualParameters
+        ):
             return NEGATIVEINFINITY
         f = e.evaluate([])
 
-        loss = sum(self.loss(self.predict(f, xs), y) for xs, y in self.examples) / float(len(self.examples))
+        loss = sum(
+            self.loss(self.predict(f, xs), y) for xs, y in self.examples
+        ) / float(len(self.examples))
         if isinstance(loss, DN):
             try:
                 loss = loss.restartingOptimize(
@@ -229,24 +246,47 @@ class DifferentiableTask(Task):
 
 
 class NamedVarsTask(Task):
-    def __init__(self, task):
-        self.task = task
-        self.name = task.name
-        self.request = TypeNamedArgsConstructor(
-            task.request.name,
-            {f"inp{i}": a for i, a in enumerate(task.request.arguments[:-1])},
-            task.request.arguments[-1],
+    def __init__(
+        self,
+        name,
+        request,
+        examples,
+        features=None,
+        cache=False,
+        test_examples=None,
+        specialTask=None,
+    ):
+        self.name = name
+        self.request = request
+        self.examples = examples
+        self.features = features
+        self.cache = cache
+        self.test_examples = test_examples
+        if specialTask is not None:
+            self.specialTask = specialTask
+
+    @classmethod
+    def from_task(cls, task):
+        return cls(
+            task.name,
+            TypeNamedArgsConstructor(
+                task.request.name,
+                {f"inp{i}": a for i, a in enumerate(task.request.arguments[:-1])},
+                task.request.arguments[-1],
+            ),
+            [({f"inp{i}": v for i, v in enumerate(xs)}, y) for xs, y in task.examples],
+            task.features,
+            task.cache,
+            (
+                [
+                    ({f"inp{i}": v for i, v in enumerate(xs)}, y)
+                    for xs, y in task.test_examples
+                ]
+                if task.test_examples
+                else None
+            ),
+            task.specialTask if hasattr(task, "specialTask") else None,
         )
-        self.examples = [({f"inp{i}": v for i, v in enumerate(xs)}, y) for xs, y in task.examples]
-        self.features = task.features
-        self.cache = task.cache
-        self.test_examples = (
-            [({f"inp{i}": v for i, v in enumerate(xs)}, y) for xs, y in task.test_examples]
-            if task.test_examples
-            else None
-        )
-        if hasattr(task, "specialTask"):
-            self.specialTask = task.specialTask
 
 
 def squaredErrorLoss(prediction, target):
