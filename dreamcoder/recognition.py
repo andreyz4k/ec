@@ -1500,7 +1500,7 @@ class RecognitionModel(nn.Module):
                 if hasattr(self.featureExtractor, "lexicon"):
                     if self.featureExtractor.tokenize(task.examples) is None:
                         continue
-                ll = self.generativeModel.logLikelihood(request, program)
+                ll = self.generativeModel.logLikelihood(task.request, program)
                 frontier = Frontier(
                     [FrontierEntry(program=program, logLikelihood=0.0, logPrior=ll)],
                     task=task,
