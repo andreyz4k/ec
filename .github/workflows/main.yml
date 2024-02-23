@@ -106,9 +106,7 @@ jobs:
       fail-fast: false
       matrix:
         version:
-          - '1.9'
           - '1.10'
-          # - '1.8'
 
     steps:
       - name: Checkout code
@@ -148,9 +146,7 @@ jobs:
       fail-fast: false
       matrix:
         version:
-          - '1.9'
           - '1.10'
-          # - '1.8'
 
     steps:
       - name: Checkout code
@@ -206,9 +202,7 @@ jobs:
       fail-fast: false
       matrix:
         version:
-          - '1.9'
           - '1.10'
-          # - '1.8'
 
     steps:
       - name: Checkout code
@@ -266,9 +260,7 @@ jobs:
       fail-fast: false
       matrix:
         version:
-          - '1.9'
           - '1.10'
-          # - '1.8'
 
     steps:
       - name: Checkout code
@@ -324,9 +316,7 @@ jobs:
       fail-fast: false
       matrix:
         version:
-          - '1.9'
           - '1.10'
-          # - '1.8'
 
     steps:
       - name: Checkout code
