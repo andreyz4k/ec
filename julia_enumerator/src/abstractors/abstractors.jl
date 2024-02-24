@@ -514,25 +514,27 @@ function __run_in_reverse(p::Primitive, output::AbductibleValue, context)
         new_context.predicted_arguments = [_wrap_abductible(arg) for arg in new_context.predicted_arguments]
         return _wrap_abductible(calculated_output), new_context
     catch e
-        if isa(e, InterruptException)
-            rethrow()
-        end
-        results = []
-        for i in length(arguments_of_type(p.t))-1:-1:0
-            if ismissing(context.calculated_arguments[end-i])
-                push!(results, AbductibleValue(any_object))
-            else
-                push!(results, context.calculated_arguments[end-i])
+        # bt = catch_backtrace()
+        # @error e exception = (e, bt)
+        if isa(e, MethodError) && any(isa(arg, AbductibleValue) for arg in e.args)
+            results = []
+            for i in length(arguments_of_type(p.t))-1:-1:0
+                if ismissing(context.calculated_arguments[end-i])
+                    push!(results, AbductibleValue(any_object))
+                else
+                    push!(results, context.calculated_arguments[end-i])
+                end
             end
+            return output,
+            ReverseRunContext(
+                context.arguments,
+                vcat(context.predicted_arguments, results),
+                context.calculated_arguments,
+                context.filled_indices,
+                context.filled_vars,
+            )
         end
-        return output,
-        ReverseRunContext(
-            context.arguments,
-            vcat(context.predicted_arguments, results),
-            context.calculated_arguments,
-            context.filled_indices,
-            context.filled_vars,
-        )
+        rethrow()
     end
 end
 

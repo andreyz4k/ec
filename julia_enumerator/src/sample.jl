@@ -17,10 +17,12 @@ function run_sampling_process(run_context, payload)
     run_context["timeout"] = program_timeout
     program, examples = sample_program(grammar, request, max_depth, max_block_depth, max_attempts, timeout, run_context)
     if isnothing(program)
-        return Dict("program" => nothing, "task" => Dict("request" => string(request), "examples" => examples))
+        result = Dict("program" => nothing, "task" => Dict("request" => string(request), "examples" => examples))
+    else
+        result =
+            Dict("program" => string(program), "task" => Dict("request" => string(request), "examples" => examples))
     end
-    result = Dict("program" => string(program), "task" => Dict("request" => string(request), "examples" => examples))
-    # @info "Result: $result"
+    @info "Result: $result"
     return result
 end
 
@@ -57,6 +59,8 @@ function sample_program(grammar, request, max_depth, max_block_depth, max_attemp
             output_var,
             return_of_type(request),
             input_keys,
+            time(),
+            [0.0],
             max_depth,
             max_block_depth,
             max_attempts,
@@ -66,7 +70,7 @@ function sample_program(grammar, request, max_depth, max_block_depth, max_attemp
             examples_count,
         )
     catch e
-        if isa(e, SamplingError)
+        if isa(e, SamplingError) || isa(e, TimeoutException)
             return nothing, nothing
         end
         rethrow()
@@ -118,6 +122,8 @@ function sample_input_program(
     output_var,
     output_type,
     input_keys,
+    start_time,
+    output_sampling_time,
     max_depth,
     max_block_depth,
     max_attempts,
@@ -126,6 +132,10 @@ function sample_input_program(
     var_counter,
     examples_count,
 )
+    if time() - output_sampling_time[1] - start_time > timeout
+        # @info "Timeout $(output_sampling_time[1]) $(time() - output_sampling_time[1] - start_time)"
+        throw(TimeoutException())
+    end
     if isempty(vars_to_fill)
         # @info "input_blocks: $filled_blocks"
         # @info "input_vars: $filled_vars"
@@ -136,6 +146,7 @@ function sample_input_program(
         input_var_types = Set([v[1] for v in values(filled_vars)])
         # @info "input_var_types: $input_var_types"
 
+        out_sampling_start_time = time()
         try
             return sample_output_program(
                 grammar,
@@ -154,7 +165,7 @@ function sample_input_program(
                 max_depth,
                 max_block_depth,
                 max_attempts,
-                time(),
+                out_sampling_start_time,
                 timeout,
                 run_context,
                 var_counter,
@@ -176,6 +187,8 @@ function sample_input_program(
             else
                 rethrow()
             end
+        finally
+            output_sampling_time[1] += time() - out_sampling_start_time
         end
     end
     depth, var_name, var_type = vars_to_fill[end]
@@ -242,7 +255,7 @@ function sample_input_program(
                             end
                             if isnothing(ok)
                                 # @info "Timeout"
-                                throw(SamplingError())
+                                throw(SamplingBlockError(block))
                             end
                         catch e
                             if isa(e, EnumerationException)
@@ -275,6 +288,8 @@ function sample_input_program(
                     output_var,
                     output_type,
                     input_keys,
+                    start_time,
+                    output_sampling_time,
                     max_depth,
                     max_block_depth,
                     max_attempts,
@@ -312,6 +327,8 @@ function sample_input_program(
                         output_var,
                         output_type,
                         input_keys,
+                        start_time,
+                        output_sampling_time,
                         max_depth,
                         max_block_depth,
                         max_attempts,

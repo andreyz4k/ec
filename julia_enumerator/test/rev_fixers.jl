@@ -104,4 +104,12 @@ using solver:
         @test run_with_arguments(wrapped_p, [], Dict(UInt64(1) => 1, UInt64(2) => 6)) == 6
         @test run_with_arguments(wrapped_p, [], Dict(UInt64(1) => 2, UInt64(2) => 3)) == 6
     end
+
+    @testcase_log "Invalid fixer in abductible position" begin
+        p = parse_program(
+            "(map (lambda (fold (lambda (lambda (+ \$v3 (+ \$v3 (- \$0 \$1))))) (cons (rev_fix_param (+ \$v3 \$0) \$v3 (lambda (car (index 0 (cons empty empty))))) empty) (+ \$v4 1))) \$v5)",
+        )
+        @test is_reversible(p)
+        @test_throws ErrorException run_in_reverse(p, [20, 20, 11, 26, 26, 27, 17, 12, 13, 21, 28, 24])
+    end
 end
