@@ -58,6 +58,7 @@ function should_stop(conn)
 end
 
 using ArgParse
+using JSON
 
 function main()
     s = ArgParseSettings()
@@ -101,7 +102,8 @@ function main()
                 if !isnothing(payload)
                     @warn "Rescheduling task from worker $pid"
                     Redis.multi(conn)
-                    Redis.rpush(conn, payload["queue"], payload)
+                    queue = JSON.parse(payload)["queue"]
+                    Redis.rpush(conn, queue, payload)
                     Redis.del(conn, processing_key)
                     Redis.execute_command(conn, ["exec"])
                 end
