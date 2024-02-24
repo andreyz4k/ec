@@ -10,7 +10,7 @@ from dreamcoder.domains.arc.primitives import (
 from dreamcoder.grammar import Grammar
 from dreamcoder.program import Program
 from dreamcoder.task import NamedVarsTask, Task
-from dreamcoder.type import ARROW, TypeNamedArgsConstructor, tlist, tint, arrow
+from dreamcoder.type import ARROW, Type, TypeNamedArgsConstructor, tlist, tint, arrow
 
 
 @pytest.fixture(scope="module")
@@ -150,6 +150,16 @@ def test_program_likelihood(
     likelihood = base_grammar.logLikelihood(base_task.request, p)
     print(likelihood)
     assert likelihood == expected_likelihood
+
+
+def test_program_likelihood2(julia_grammar):
+    program = "let $v1, $v2 = rev($inp0 = (repeat $v1 $v2)) in (gt? (rev_fix_param (- 0 $v2) $v2 (lambda (- $0 $0))) 1)"
+    p = Program.parse(program)
+    request = Type.fromstring("inp0:list(int) -> bool")
+    print(p)
+    likelihood = julia_grammar.logLikelihood(request, p)
+    print(likelihood)
+    assert likelihood == -29.625680813928508
 
 
 def sample_wrapper_programs():

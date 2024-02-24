@@ -345,13 +345,13 @@ def primitives():
 
 
 def basePrimitives():
-    return [Primitive(str(j), tint, j) for j in range(6)] + [
+    return [Primitive(str(j), tint, j, is_reversible=True) for j in range(6)] + [
         Primitive("*", arrow(tint, tint, tint), _multiplication, is_reversible=True),
         Primitive("gt?", arrow(tint, tint, tbool), _gt),
         Primitive("is-prime", arrow(tint, tbool), _isPrime),
         Primitive("is-square", arrow(tint, tbool), _isSquare),
         # McCarthy
-        Primitive("empty", tlist(t0), []),
+        Primitive("empty", tlist(t0), [], is_reversible=True),
         Primitive("cons", arrow(t0, tlist(t0), tlist(t0)), _cons, is_reversible=True),
         Primitive("car", arrow(tlist(t0), t0), _car),
         Primitive("cdr", arrow(tlist(t0), tlist(t0)), _cdr),
