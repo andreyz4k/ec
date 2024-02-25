@@ -490,7 +490,8 @@ Base.:(==)(v1::PatternEntry, v2::PatternEntry) = v1.type_id == v2.type_id && v1.
 _match_value(unknown_value::AnyObject, known_value) = true
 _match_value(unknown_value::AnyObject, known_value::PatternWrapper) = true
 _match_value(unknown_value::PatternWrapper, known_value) = _match_value(unknown_value.value, known_value)
-_match_value(unknown_value::PatternWrapper, known_value::PatternWrapper) = unknown_value.value == known_value.value
+_match_value(unknown_value::PatternWrapper, known_value::PatternWrapper) =
+    _match_value(unknown_value.value, known_value.value)
 _match_value(unknown_value, known_value::PatternWrapper) = unknown_value == known_value.value
 _match_value(unknown_value::Array, known_value::PatternWrapper) = unknown_value == known_value.value
 _match_value(unknown_value::Tuple, known_value::PatternWrapper) = unknown_value == known_value.value

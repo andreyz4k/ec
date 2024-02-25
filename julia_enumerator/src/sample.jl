@@ -397,7 +397,7 @@ function _check_complete_blocks(
         if all(haskey(new_filled_vars, v) for v in block.input_vars)
             try
                 ok = @run_with_timeout run_context "timeout" begin
-                    # @info "Trying to evaluate program: $block.p"
+                    # @info "Trying to evaluate program: $block"
                     # @info "params: $(Dict(var_ind => new_filled_vars[var_ind] for var_ind in block.input_vars))"
 
                     calculated_output_values = [
@@ -413,24 +413,16 @@ function _check_complete_blocks(
                         for j in 1:examples_count
                             calculated_inputs = try_run_function(run_in_reverse, [block.p, calculated_output_values[j]])
                             # @info "calculated_inputs: $calculated_inputs"
-                            # TODO: add matching checks
-                            # for var_ind in inp_vars
-                            #     if isa(calculated_outputs[var_ind], AbductibleValue) || (
-                            #         isa(calculated_outputs[var_ind], EitherOptions) &&
-                            #         any(isa(x, AbductibleValue) for x in values(calculated_outputs[var_ind].options))
-                            #     )
-                            #         @info "Got abductible value"
-                            #         throw(SamplingBlockError(p))
-                            #     end
-                            #     if isa(calculated_outputs[var_ind], EitherOptions)
-                            #         @info "Got either options"
-                            #         throw(SamplingBlockError(p))
-                            #     end
-                            #     if calculated_outputs[var_ind] != new_filled_vars[var_ind][2][j]
-                            #         @info "outputs don't match"
-                            #         throw(SamplingError())
-                            #     end
-                            # end
+
+                            fixing_hashes = Set()
+                            for var_ind in block.input_vars
+                                expected_value = fix_option_hashes(fixing_hashes, calculated_inputs[var_ind])
+                                if !_match_value(expected_value, new_filled_vars[var_ind][2][j])
+                                    # @info "inputs don't match $(expected_value) $(new_filled_vars[var_ind][2][j])"
+                                    throw(SamplingError())
+                                end
+                                union!(fixing_hashes, get_fixed_hashes(expected_value, new_filled_vars[var_ind][2][j]))
+                            end
                         end
                     end
 

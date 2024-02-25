@@ -10,6 +10,9 @@ function reverse_zip2(values)
 end
 
 function zip2(values1, values2)
+    if size(values1) != size(values2)
+        error("Arrays must have the same size")
+    end
     values = Array{Any}(undef, size(values1))
     for i in eachindex(values)
         values[i] = (values1[i], values2[i])
