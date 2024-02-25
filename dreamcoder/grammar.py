@@ -604,9 +604,11 @@ class Grammar(object):
                 argumentType,
                 argument,
                 silent=silent,
-                checker=CustomArgChecker.combine(checker, custom_checkers[i])
-                if i < len(custom_checkers)
-                else checker,
+                checker=(
+                    CustomArgChecker.combine(checker, custom_checkers[i])
+                    if i < len(custom_checkers)
+                    else checker
+                ),
                 path=path + [(f, i)],
             )
             if newSummary is None:

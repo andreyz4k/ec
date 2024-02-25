@@ -297,7 +297,7 @@ def _match(l):
 
 
 def primitives():
-    return [Primitive(str(j), tint, j) for j in range(6)] + [
+    return [Primitive(str(j), tint, j, is_reversible=True) for j in range(6)] + [
         Primitive("empty", tlist(t0), [], is_reversible=True),
         Primitive("singleton", arrow(t0, tlist(t0)), _single),
         Primitive("range", arrow(tint, tlist(tint)), _range, is_reversible=True),

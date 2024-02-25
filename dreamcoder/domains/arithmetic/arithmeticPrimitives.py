@@ -1,4 +1,4 @@
-from dreamcoder.program import *
+from dreamcoder.program import Primitive, Curried
 from dreamcoder.type import *
 
 
@@ -41,11 +41,11 @@ def _power(a):
 
 real_power = Primitive("power", arrow(treal, treal, treal), _power)
 
-k1 = Primitive("1", tint, 1)
+k1 = Primitive("1", tint, 1, is_reversible=True)
 k_negative1 = Primitive("negative_1", tint, -1)
-k0 = Primitive("0", tint, 0)
+k0 = Primitive("0", tint, 0, is_reversible=True)
 for n in range(2, 10):
-    Primitive(str(n), tint, n)
+    Primitive(str(n), tint, n, is_reversible=True)
 
 f1 = Primitive("1.", treal, 1.0)
 f0 = Primitive("0.", treal, 0)
