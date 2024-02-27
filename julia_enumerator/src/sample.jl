@@ -368,12 +368,6 @@ function sample_input_program(
                 end
                 # @info "Timeout $(filled_blocks)"
                 # @info "Timeout $(err_block)"
-                f, a = application_parse(err_block.p)
-                if f == every_primitive["rev_fix_param"]
-                    throw(
-                        SamplingBlockError(ReverseProgramBlock(a[1], 0.0, err_block.input_vars, err_block.output_vars)),
-                    )
-                end
                 throw(SamplingBlockError(err_block))
             else
                 rethrow()
@@ -542,10 +536,28 @@ function sample_input_program(
                         examples_count,
                     )
                 catch e
-                    if e isa SamplingError || (e isa SamplingBlockError && e.p == new_block)
+                    if e isa SamplingError || (
+                        e isa SamplingBlockError && (
+                            e.p == new_block || (
+                                application_parse(e.p.p)[1] == every_primitive["rev_fix_param"] &&
+                                application_parse(e.p.p)[2][1] == new_p &&
+                                e.p.input_vars == new_block.input_vars &&
+                                e.p.output_vars == new_block.output_vars
+                            )
+                        )
+                    )
                         save_failed_block(new_p, new_vars, failed_blocks)
                     end
-                    if (e isa SamplingBlockError && e.p == new_block)
+                    if (
+                        e isa SamplingBlockError && (
+                            e.p == new_block || (
+                                application_parse(e.p.p)[1] == every_primitive["rev_fix_param"] &&
+                                application_parse(e.p.p)[2][1] == new_p &&
+                                e.p.input_vars == new_block.input_vars &&
+                                e.p.output_vars == new_block.output_vars
+                            )
+                        )
+                    )
                         # @info "Checking failed blocks $failed_blocks"
                         # @info "Filled blocks $filled_blocks"
                         # @info "Prev blocks $prev_blocks"
