@@ -444,10 +444,12 @@ using solver: run_sampling_process, _test_one_example, parse_program
         @testcase_log "Run sampling process $request" begin
             payload = merge(sample_payload, Dict("request" => request))
             result = @time run_sampling_process(Dict{String,Any}(), payload)
-            @info result
-            program = parse_program(result["program"])
-            for example in result["task"]["examples"]
-                @test _test_one_example(program, example["inputs"], example["output"])
+            @test !isnothing(result["program"])
+            if !isnothing(result["program"])
+                program = parse_program(result["program"])
+                for example in result["task"]["examples"]
+                    @test _test_one_example(program, example["inputs"], example["output"])
+                end
             end
         end
     end

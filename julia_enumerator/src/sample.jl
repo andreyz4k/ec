@@ -109,6 +109,191 @@ struct SamplingBlockError <: Exception
 end
 
 struct TimeoutException <: Exception end
+struct NeedsWrapping <: Exception end
+
+function _sample_wrapping_block(
+    grammar,
+    block,
+    inp_type,
+    out_vars,
+    context,
+    filled_vars,
+    block_attempts,
+    failed_blocks,
+    max_block_depth,
+    max_attempts,
+    run_context,
+    examples_count,
+)
+    # @info "Creating wrapper prototypes for $(block.p)"
+    calculated_input_values, calculated_output_values, fixer_vars = try
+        ok = @run_with_timeout run_context "timeout" begin
+            # @info "Trying to evaluate program: $(block.p)"
+            # @info "params: $(Dict(var_ind => filled_vars[var_ind] for var_ind in block.output_vars))"
+
+            calculated_input_values = [
+                try_evaluate_program(
+                    block.p,
+                    [],
+                    Dict(var_ind => filled_vars[var_ind][2][j] for var_ind in block.output_vars),
+                ) for j in 1:examples_count
+            ]
+            # @info "calculated_input_values: $calculated_input_values"
+
+            calculated_output_values = DefaultDict{UInt64,Any}(() -> [])
+            fixer_vars = Set()
+
+            for j in 1:examples_count
+                calculated_outputs = try_run_function(run_in_reverse, [block.p, calculated_input_values[j]])
+                # @info "calculated_outputs: $calculated_outputs"
+                for var_ind in block.output_vars
+                    push!(calculated_output_values[var_ind], calculated_outputs[var_ind])
+                    if isa(calculated_outputs[var_ind], AbductibleValue) ||
+                       isa(calculated_outputs[var_ind], EitherOptions)
+                        push!(fixer_vars, var_ind)
+                    end
+                end
+            end
+            true
+        end
+        if isnothing(ok)
+            # @info "Timeout"
+            throw(SamplingBlockError(block))
+        end
+        calculated_input_values, calculated_output_values, fixer_vars
+    catch e
+        if isa(e, EnumerationException)
+            # @info "Error while running program"
+            block_attempts[block.p] += 1
+            if block_attempts[block.p] > max_attempts
+                # @info "Too many attempts"
+                throw(SamplingBlockError(block))
+            end
+            throw(SamplingError())
+        else
+            rethrow()
+        end
+    end
+    # @info "Calculated input values: $calculated_input_values"
+    # @info "Calculated output values: $calculated_output_values"
+    # @info "Fixer vars: $fixer_vars"
+    wrapper_prototypes = []
+    for fixer_var in fixer_vars
+        var_ind = findfirst(v_info -> v_info[1] == fixer_var, out_vars)
+        unknown_type = out_vars[var_ind][2]
+
+        candidate_functions = unifying_expressions(
+            Tp[],
+            context,
+            Hole(inp_type, grammar.no_context, CustomArgChecker(true, -1, false, nothing), nothing),
+            Hole(inp_type, grammar.no_context, CustomArgChecker(true, -1, false, nothing), nothing),
+            [],
+        )
+
+        wrapper, arg_types, context, wrap_cost =
+            first(v for v in candidate_functions if v[1] == every_primitive["rev_fix_param"])
+
+        context = unify(context, unknown_type, arg_types[2])
+        context, fixer_type = apply_context(context, arg_types[3])
+
+        custom_arg_checkers = _get_custom_arg_checkers(wrapper)
+
+        wrapped_p = Apply(
+            Apply(Apply(wrapper, block.p), FreeVar(unknown_type, fixer_var)),
+            Hole(
+                fixer_type,
+                grammar.contextual_library[wrapper][3],
+                custom_arg_checkers[3],
+                calculated_output_values[fixer_var],
+            ),
+        )
+        push!(wrapper_prototypes, (wrapped_p, context))
+    end
+    # @info "wrapper_prototypes: $wrapper_prototypes"
+
+    i = 0
+    local_failed_blocks = Set{Any}()
+    while i < max_attempts
+        i += 1
+        try
+            skeleton, context = rand(wrapper_prototypes)
+            path = [RightTurn()]
+            while true
+                if is_reversible(skeleton) || (!isa(skeleton, Hole) && isempty(path))
+                    break
+                end
+                skeleton, path, context =
+                    _sampling_input_program_iteration(skeleton, path, context, max_block_depth, grammar)
+            end
+            # @info "Sampled wrapper: $skeleton"
+
+            if check_failed_block(skeleton, block.output_vars, failed_blocks) || in(skeleton, local_failed_blocks)
+                # @info "Failed block $skeleton"
+                throw(SamplingError())
+            end
+
+            try
+                ok = @run_with_timeout run_context "timeout" begin
+                    # @info "Trying to evaluate program: $skeleton"
+                    # @info "params: $(Dict(var_ind => filled_vars[var_ind] for var_ind in block.output_vars))"
+
+                    for j in 1:examples_count
+                        calculated_outputs = try_run_function(run_in_reverse, [skeleton, calculated_input_values[j]])
+                        # @info "calculated_outputs: $calculated_outputs"
+                        for var_ind in block.output_vars
+                            if isa(calculated_outputs[var_ind], AbductibleValue) ||
+                               isa(calculated_outputs[var_ind], EitherOptions)
+                                # @info "Got abductible or either value"
+                                throw(SamplingError())
+                            end
+
+                            if calculated_outputs[var_ind] != filled_vars[var_ind][2][j]
+                                # @info "outputs don't match"
+                                throw(SamplingError())
+                            end
+                        end
+                    end
+                    true
+                end
+                if isnothing(ok)
+                    # @info "Timeout"
+                    throw(SamplingBlockError(ReverseProgramBlock(skeleton, 0.0, block.input_vars, block.output_vars)))
+                end
+                # @info "Wrapper $skeleton is good"
+                return ReverseProgramBlock(skeleton, 0.0, block.input_vars, block.output_vars), calculated_input_values
+
+            catch e
+                # @info e
+                if e isa SamplingError || (e isa SamplingBlockError && e.p == skeleton) || isa(e, EnumerationException)
+                    push!(local_failed_blocks, skeleton)
+                end
+                if (e isa SamplingBlockError && e.p == skeleton)
+                    save_failed_block(skeleton, block.output_vars, failed_blocks)
+                    throw(SamplingError())
+                elseif isa(e, EnumerationException)
+                    # @info "Error while running program"
+                    block_attempts[skeleton] += 1
+                    if block_attempts[skeleton] > max_attempts
+                        # @info "Too many attempts"
+                        save_failed_block(skeleton, block.output_vars, failed_blocks)
+                    end
+                    throw(SamplingError())
+                else
+                    rethrow()
+                end
+            end
+
+        catch e
+            if e isa SamplingError
+                # @info "Sampling error"
+                continue
+            end
+            rethrow()
+        end
+    end
+
+    throw(SamplingBlockError(block))
+end
 
 function sample_input_program(
     grammar,
@@ -183,6 +368,12 @@ function sample_input_program(
                 end
                 # @info "Timeout $(filled_blocks)"
                 # @info "Timeout $(err_block)"
+                f, a = application_parse(err_block.p)
+                if f == every_primitive["rev_fix_param"]
+                    throw(
+                        SamplingBlockError(ReverseProgramBlock(a[1], 0.0, err_block.input_vars, err_block.output_vars)),
+                    )
+                end
                 throw(SamplingBlockError(err_block))
             else
                 rethrow()
@@ -204,7 +395,7 @@ function sample_input_program(
 
                 new_prev_blocks = []
                 new_filled_blocks = []
-                for (block, inp_type) in Iterators.reverse(prev_blocks)
+                for (block, inp_type, out_vars, context) in Iterators.reverse(prev_blocks)
                     if check_failed_block(block.p, block.output_vars, failed_blocks)
                         # @info "Block $block is in failed blocks"
                         throw(SamplingBlockError(block))
@@ -231,20 +422,13 @@ function sample_input_program(
                                         try_run_function(run_in_reverse, [block.p, calculated_input_values[j]])
                                     # @info "calculated_outputs: $calculated_outputs"
                                     for var_ind in block.output_vars
-                                        if isa(calculated_outputs[var_ind], AbductibleValue) || (
-                                            isa(calculated_outputs[var_ind], EitherOptions) && any(
-                                                isa(x, AbductibleValue) for
-                                                x in values(calculated_outputs[var_ind].options)
-                                            )
-                                        )
-                                            # @info "Got abductible value"
-                                            throw(SamplingBlockError(block))
+                                        if isa(calculated_outputs[var_ind], AbductibleValue) ||
+                                           isa(calculated_outputs[var_ind], EitherOptions)
+                                            # @info "Got abductible or either value"
+                                            throw(NeedsWrapping())
                                         end
-                                        if isa(calculated_outputs[var_ind], EitherOptions)
-                                            # @info "Got either options"
-                                            throw(SamplingBlockError(block))  # TODO: add param fixing here
-                                        end
-                                        if calculated_outputs[var_ind] != new_filled_vars[var_ind][2][j]  # TODO: add param fixing here
+
+                                        if calculated_outputs[var_ind] != new_filled_vars[var_ind][2][j]
                                             # @info "outputs don't match"
                                             throw(SamplingError())
                                         end
@@ -252,6 +436,7 @@ function sample_input_program(
                                 end
                                 new_filled_vars[block.input_vars[1]] = (inp_type, calculated_input_values)
                                 push!(new_filled_blocks, block)
+                                true
                             end
                             if isnothing(ok)
                                 # @info "Timeout"
@@ -266,12 +451,30 @@ function sample_input_program(
                                     throw(SamplingBlockError(block))
                                 end
                                 throw(SamplingError())
+                            elseif isa(e, NeedsWrapping)
+                                # @info "Needs wrapping"
+                                wrapped_block, calculated_input_values = _sample_wrapping_block(
+                                    grammar,
+                                    block,
+                                    inp_type,
+                                    out_vars,
+                                    context,
+                                    new_filled_vars,
+                                    block_attempts,
+                                    failed_blocks,
+                                    max_block_depth,
+                                    max_attempts,
+                                    run_context,
+                                    examples_count,
+                                )
+                                new_filled_vars[block.input_vars[1]] = (inp_type, calculated_input_values)
+                                push!(new_filled_blocks, wrapped_block)
                             else
                                 rethrow()
                             end
                         end
                     else
-                        push!(new_prev_blocks, (block, inp_type))
+                        push!(new_prev_blocks, (block, inp_type, out_vars, context))
                     end
                 end
                 reverse!(new_prev_blocks)
@@ -308,14 +511,15 @@ function sample_input_program(
         else
             push!(var_counter.counts, var_counter.counts[end])
             try
-                new_p, new_vars = _sample_input_program(grammar, var_type, max_block_depth, var_counter, failed_blocks)
+                new_p, new_vars, context =
+                    _sample_input_program(grammar, var_type, max_block_depth, var_counter, failed_blocks)
                 new_block = ReverseProgramBlock(new_p, 0.0, [var_name], [v_name for (v_name, _) in new_vars])
 
                 sampling_result = try
                     sample_input_program(
                         grammar,
                         vcat(vars_to_fill[1:end-1], [(depth + 1, v_name, v_type) for (v_name, v_type) in new_vars]),
-                        vcat(prev_blocks, [(new_block, var_type)]),
+                        vcat(prev_blocks, [(new_block, var_type, new_vars, context)]),
                         filled_vars,
                         filled_blocks,
                         merge(
@@ -428,6 +632,7 @@ function _check_complete_blocks(
 
                     new_filled_vars[block.output_var] = (block.type, calculated_output_values)
                     push!(new_filled_blocks, block)
+                    true
                 end
                 if isnothing(ok)
                     # @info "Timeout"
@@ -694,6 +899,95 @@ function check_failed_block(p, vars, failed_blocks)
     return norm_p in failed_blocks
 end
 
+function _sampling_input_program_iteration(skeleton, path, context, max_depth, grammar)
+    current_hole = follow_path(skeleton, path)
+    if !isa(current_hole, Hole)
+        error("Error during following path")
+    end
+    request = current_hole.t
+    context, request = apply_context(context, request)
+    # @info skeleton
+    if isarrow(request)
+        skeleton = modify_skeleton(
+            skeleton,
+            (Abstraction(
+                Hole(
+                    request.arguments[2],
+                    current_hole.grammar,
+                    CustomArgChecker(
+                        current_hole.candidates_filter.should_be_reversible,
+                        current_hole.candidates_filter.max_index + 1,
+                        current_hole.candidates_filter.can_have_free_vars,
+                        current_hole.candidates_filter.checker_function,
+                    ),
+                    current_hole.possible_values,
+                ),
+            )),
+            path,
+        )
+        path = vcat(path, [ArgTurn(request.arguments[1])])
+    else
+        environment = path_environment(path)
+        candidates = unifying_expressions(environment, context, current_hole, skeleton, path)
+        depth = length([1 for turn in path if !isa(turn, ArgTurn)])
+        if depth >= max_depth
+            # @info string(candidates)
+            candidates = filter!(x -> isempty(x[2]), candidates)
+        end
+        while true
+            # @info string(candidates)
+            if isempty(candidates)
+                # @info "No candidates"
+                throw(SamplingError())
+            end
+            candidate, argument_types, context = sample_distribution(candidates)
+            # @info candidate
+
+            if isa(candidate, Abstraction)
+                application_template = Apply(
+                    candidate,
+                    Hole(argument_types[1], grammar.no_context, current_hole.candidates_filter, nothing),
+                )
+                new_skeleton = modify_skeleton(skeleton, application_template, path)
+                new_path = vcat(path, [LeftTurn(), ArgTurn(argument_types[1])])
+            else
+                argument_requests = get_argument_requests(candidate, argument_types, grammar)
+
+                if isempty(argument_types)
+                    new_skeleton = modify_skeleton(skeleton, candidate, path)
+                    new_path = unwind_path(path, skeleton)
+                else
+                    application_template = candidate
+                    custom_arg_checkers = _get_custom_arg_checkers(candidate)
+                    custom_checkers_args_count = length(custom_arg_checkers)
+                    for i in 1:length(argument_types)
+                        if i > custom_checkers_args_count
+                            arg_checker = current_hole.candidates_filter
+                        else
+                            arg_checker = combine_arg_checkers(current_hole.candidates_filter, custom_arg_checkers[i])
+                        end
+
+                        application_template = Apply(
+                            application_template,
+                            Hole(argument_types[i], argument_requests[i], arg_checker, nothing),
+                        )
+                    end
+                    new_skeleton = modify_skeleton(skeleton, application_template, path)
+                    new_path = vcat(path, [LeftTurn() for _ in 2:length(argument_types)], [RightTurn()])
+                end
+            end
+            if !state_violates_symmetry(new_skeleton)
+                skeleton = new_skeleton
+                path = new_path
+                break
+            else
+                filter!(x -> x[1] != candidate, candidates)
+            end
+        end
+    end
+    return skeleton, path, context
+end
+
 function _sample_input_program(grammar, return_type, max_depth, var_counter, failed_blocks)
     context, type = instantiate(return_type, empty_context)
     path = []
@@ -702,91 +996,7 @@ function _sample_input_program(grammar, return_type, max_depth, var_counter, fai
         if is_reversible(skeleton) || (!isa(skeleton, Hole) && isempty(path))
             break
         end
-        current_hole = follow_path(skeleton, path)
-        if !isa(current_hole, Hole)
-            error("Error during following path")
-        end
-        request = current_hole.t
-        context, request = apply_context(context, request)
-        # @info skeleton
-        if isarrow(request)
-            skeleton = modify_skeleton(
-                skeleton,
-                (Abstraction(
-                    Hole(
-                        request.arguments[2],
-                        current_hole.grammar,
-                        CustomArgChecker(
-                            current_hole.candidates_filter.should_be_reversible,
-                            current_hole.candidates_filter.max_index + 1,
-                            current_hole.candidates_filter.can_have_free_vars,
-                            current_hole.candidates_filter.checker_function,
-                        ),
-                        current_hole.possible_values,
-                    ),
-                )),
-                path,
-            )
-            path = vcat(path, [ArgTurn(request.arguments[1])])
-        else
-            environment = path_environment(path)
-            candidates = unifying_expressions(environment, context, current_hole, skeleton, path)
-            depth = length([1 for turn in path if !isa(turn, ArgTurn)])
-            if depth >= max_depth
-                # @info string(candidates)
-                candidates = filter!(x -> isempty(x[2]), candidates)
-            end
-            while true
-                # @info string(candidates)
-                if isempty(candidates)
-                    throw(SamplingError())
-                end
-                candidate, argument_types, context = sample_distribution(candidates)
-                # @info candidate
-
-                if isa(candidate, Abstraction)
-                    application_template = Apply(
-                        candidate,
-                        Hole(argument_types[1], grammar.no_context, current_hole.candidates_filter, nothing),
-                    )
-                    new_skeleton = modify_skeleton(skeleton, application_template, path)
-                    new_path = vcat(path, [LeftTurn(), ArgTurn(argument_types[1])])
-                else
-                    argument_requests = get_argument_requests(candidate, argument_types, grammar)
-
-                    if isempty(argument_types)
-                        new_skeleton = modify_skeleton(skeleton, candidate, path)
-                        new_path = unwind_path(path, skeleton)
-                    else
-                        application_template = candidate
-                        custom_arg_checkers = _get_custom_arg_checkers(candidate)
-                        custom_checkers_args_count = length(custom_arg_checkers)
-                        for i in 1:length(argument_types)
-                            if i > custom_checkers_args_count
-                                arg_checker = current_hole.candidates_filter
-                            else
-                                arg_checker =
-                                    combine_arg_checkers(current_hole.candidates_filter, custom_arg_checkers[i])
-                            end
-
-                            application_template = Apply(
-                                application_template,
-                                Hole(argument_types[i], argument_requests[i], arg_checker, nothing),
-                            )
-                        end
-                        new_skeleton = modify_skeleton(skeleton, application_template, path)
-                        new_path = vcat(path, [LeftTurn() for _ in 2:length(argument_types)], [RightTurn()])
-                    end
-                end
-                if !state_violates_symmetry(new_skeleton)
-                    skeleton = new_skeleton
-                    path = new_path
-                    break
-                else
-                    filter!(x -> x[1] != candidate, candidates)
-                end
-            end
-        end
+        skeleton, path, context = _sampling_input_program_iteration(skeleton, path, context, max_depth, grammar)
     end
     # @info "Sampled program: $skeleton"
     new_p, new_vars = capture_free_vars(var_counter, skeleton, context)
@@ -800,7 +1010,7 @@ function _sample_input_program(grammar, return_type, max_depth, var_counter, fai
         # @info "Failed block $new_p"
         throw(SamplingError())
     end
-    return new_p, new_vars
+    return new_p, new_vars, context
 end
 
 function _sample_output_program(grammar, return_type, max_depth, var_counter, input_var_types, failed_blocks)
