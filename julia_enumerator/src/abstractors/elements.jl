@@ -13,6 +13,9 @@ end
 
 function collect_elements(elements, len)
     output = Array{Any}(nothing, len)
+    if nothing in elements
+        error("Can't have nothing in elements set")
+    end
     for (i, el) in elements
         output[i] = el
     end
@@ -35,6 +38,9 @@ end
 
 function collect_grid_elements(elements, len1, len2)
     output = Array{Any}(nothing, len1, len2)
+    if nothing in elements
+        error("Can't have nothing in elements set")
+    end
     for ((i, j), el) in elements
         output[i, j] = el
     end
