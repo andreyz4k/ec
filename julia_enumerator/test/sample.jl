@@ -427,7 +427,7 @@ using solver: run_sampling_process, _test_one_example, parse_program
         "timeout" => 10,
         "program_timeout" => 2,
         "queue" => "sample",
-        "max_depth" => 6,
+        "max_depth" => 3,
         "max_block_depth" => 10,
     )
 
