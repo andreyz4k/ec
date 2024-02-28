@@ -347,8 +347,10 @@ function sample_input_program(
                 Dict(output_var => Set{Any}()),
                 input_var_types,
                 Set(filled_blocks),
+                Set(),
                 filled_vars,
                 var_prev_blocks,
+                Dict(),
                 output_var,
                 input_keys,
                 max_depth,
@@ -685,8 +687,10 @@ function sample_output_program(
     failed_blocks,
     input_var_types,
     unused_input_blocks,
+    unused_output_blocks,
     input_vars,
     input_vars_prev_blocks,
+    output_var_next_blocks,
     output_var,
     input_keys,
     max_depth,
@@ -759,7 +763,7 @@ function sample_output_program(
 
         for example in examples
             if !_test_one_example(output, example["inputs"], example["output"])
-                @info "Example failed: $example"
+                @info "Example failed for $output: $example"
                 throw(SamplingError())
             end
         end
@@ -782,7 +786,7 @@ function sample_output_program(
                     value_options[var_name] = Set{Any}([
                         FreeVar(v_type, v_name) for (v_name, (v_type, v_data)) in input_vars if v_type == var_type
                     ])
-                    if has_data && isempty(unused_input_blocks)
+                    if has_data && isempty(unused_input_blocks) && isempty(unused_output_blocks)
                         union!(
                             value_options[var_name],
                             [SetConst(var_type, generate_const_var_value(var_type)) for _ in 1:5],
@@ -805,16 +809,24 @@ function sample_output_program(
                 if isa(new_p, FreeVar)
                     new_unused_input_blocks = setdiff(unused_input_blocks, input_vars_prev_blocks[new_p.var_id])
                     inp_vars = [new_p.var_id]
+                    if haskey(output_var_next_blocks, var_name)
+                        new_unused_output_blocks = copy(unused_output_blocks)
+                        delete!(new_unused_output_blocks, output_var_next_blocks[var_name])
+                    else
+                        new_unused_output_blocks = unused_output_blocks
+                    end
                 else
                     new_unused_input_blocks = unused_input_blocks
+                    new_unused_output_blocks = unused_output_blocks
                     inp_vars = []
                 end
                 new_block = ProgramBlock(new_p, var_type, 0.0, inp_vars, var_name, false)
 
                 new_vars = []
                 new_failed_blocks = failed_blocks
+                new_output_var_next_blocks = output_var_next_blocks
             else
-                new_p, new_vars = _sample_output_program(
+                new_p, new_vars, return_type = _sample_output_program(
                     grammar,
                     var_type,
                     max_block_depth,
@@ -823,8 +835,16 @@ function sample_output_program(
                     failed_blocks[var_name],
                 )
                 inp_vars = [v_name for (v_name, _, _) in new_vars]
-                new_block = ProgramBlock(new_p, var_type, 0.0, inp_vars, var_name, is_reversible(new_p))
+                new_block = ProgramBlock(new_p, return_type, 0.0, inp_vars, var_name, is_reversible(new_p))
                 new_unused_input_blocks = unused_input_blocks
+                new_unused_output_blocks = copy(unused_output_blocks)
+                if haskey(output_var_next_blocks, var_name)
+                    delete!(new_unused_output_blocks, output_var_next_blocks[var_name])
+                end
+                push!(new_unused_output_blocks, new_block)
+                new_output_var_next_blocks =
+                    merge(output_var_next_blocks, Dict(v_name => new_block for v_name in inp_vars))
+
                 new_failed_blocks = merge(failed_blocks, Dict(v_name => Set{Any}() for v_name in inp_vars))
             end
 
@@ -842,8 +862,10 @@ function sample_output_program(
                     new_failed_blocks,
                     input_var_types,
                     new_unused_input_blocks,
+                    new_unused_output_blocks,
                     input_vars,
                     input_vars_prev_blocks,
+                    new_output_var_next_blocks,
                     output_var,
                     input_keys,
                     max_depth,
@@ -1030,9 +1052,9 @@ function _sample_input_program(grammar, return_type, max_depth, var_counter, fai
 end
 
 function _sample_output_program(grammar, return_type, max_depth, var_counter, input_var_types, failed_blocks)
-    context, type = instantiate(return_type, empty_context)
+    context, return_type = instantiate(return_type, empty_context)
     path = []
-    skeleton = Hole(type, grammar.no_context, CustomArgChecker(false, -1, true, nothing), nothing)
+    skeleton = Hole(return_type, grammar.no_context, CustomArgChecker(false, -1, true, nothing), nothing)
     while true
         if is_reversible(skeleton) || (!isa(skeleton, Hole) && isempty(path))
             break
@@ -1144,7 +1166,8 @@ function _sample_output_program(grammar, return_type, max_depth, var_counter, in
         # @info "Failed block $new_p"
         throw(SamplingError())
     end
-    return new_p, new_vars
+    context, return_type = apply_context(context, return_type)
+    return new_p, new_vars, return_type
 end
 
 function _generate_random_var_values(var_type::TypeVariable, examples_count)
@@ -1184,11 +1207,11 @@ end
 
 function generate_var_values(var_type, examples_count)
     r = rand()
-    if r < 0.45 && !isempty(single_value_cache[var_type])
-        return [_wrap_wildcard(select_random(single_value_cache[var_type])) for _ in 1:examples_count]
-    end
-    if r < 0.9 && !isempty(multi_value_cache[examples_count][var_type])
+    if r < 0.45 && !isempty(multi_value_cache[examples_count][var_type])
         return [_wrap_wildcard(v) for v in select_random(multi_value_cache[examples_count][var_type])]
+    end
+    if r < 0.9 && !isempty(single_value_cache[var_type])
+        return [_wrap_wildcard(select_random(single_value_cache[var_type])) for _ in 1:examples_count]
     end
     return [_wrap_wildcard(v) for v in _generate_random_var_values(var_type, examples_count)]
 end
