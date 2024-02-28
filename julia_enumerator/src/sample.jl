@@ -39,7 +39,11 @@ function sample_program(grammar, request, max_depth, max_block_depth, max_attemp
     input_types = arguments_of_type(request)
     var_counter = SamplingVarCounter([length(input_types) + 1])
 
-    examples_count = 5
+    if !isempty(examples_counts)
+        examples_count = rand(examples_counts)
+    else
+        examples_count = 5
+    end
     input_block_attempts = DefaultDict(() -> 0)
 
     input_keys = Dict(UInt64(i) => var_name for (i, (var_name, _)) in enumerate(input_types))
@@ -382,7 +386,7 @@ function sample_input_program(
         r = rand() * max_depth
         if r < depth || isa(var_type, TypeVariable)
             try
-                var_values = [_wrap_wildcard(v) for v in generate_var_values(var_type, examples_count)]
+                var_values = generate_var_values(var_type, examples_count)
                 # @info "var_values: $var_values"
                 new_filled_vars = merge(filled_vars, Dict(var_name => (var_type, var_values)))
                 # @info "new_filled_vars: $new_filled_vars"
@@ -781,7 +785,7 @@ function sample_output_program(
                     if has_data && isempty(unused_input_blocks)
                         union!(
                             value_options[var_name],
-                            [SetConst(var_type, v) for v in generate_var_values(var_type, 5)],
+                            [SetConst(var_type, generate_const_var_value(var_type)) for _ in 1:5],
                         )
                     end
                 end
@@ -1143,33 +1147,55 @@ function _sample_output_program(grammar, return_type, max_depth, var_counter, in
     return new_p, new_vars
 end
 
-function generate_var_values(var_type::TypeVariable, examples_count)
+function _generate_random_var_values(var_type::TypeVariable, examples_count)
     return [any_object for _ in 1:examples_count]
 end
 
-function generate_var_values(var_type::TypeConstructor, examples_count)
+function _generate_random_var_values(var_type::TypeConstructor, examples_count)
     if var_type == tint
         return rand(1:20, examples_count)
+    end
+    if var_type == tcolor
+        return rand(0:9, examples_count)
     end
     if var_type == tbool
         return rand(Bool, examples_count)
     end
     if var_type.name == "list"
         lengths = rand(1:20, examples_count)
-        return [generate_var_values(var_type.arguments[1], l) for l in lengths]
+        return [_generate_random_var_values(var_type.arguments[1], l) for l in lengths]
     end
     if var_type.name == "tuple2"
-        return collect(zip([generate_var_values(t, examples_count) for t in var_type.arguments]...))
+        return collect(zip([_generate_random_var_values(t, examples_count) for t in var_type.arguments]...))
     end
     if var_type.name == "set"
         lengths = rand(1:20, examples_count)
-        return [Set(generate_var_values(var_type.arguments[1], l)) for l in lengths]
+        return [Set(_generate_random_var_values(var_type.arguments[1], l)) for l in lengths]
     end
     if var_type.name == "grid"
         heights = rand(1:20, examples_count)
         widths = rand(1:20, examples_count)
         return [
-            hcat([generate_var_values(var_type.arguments[1], h) for _ in 1:w]...) for (h, w) in zip(heights, widths)
+            hcat([_generate_random_var_values(var_type.arguments[1], h) for _ in 1:w]...) for
+            (h, w) in zip(heights, widths)
         ]
     end
+end
+
+function generate_var_values(var_type, examples_count)
+    r = rand()
+    if r < 0.45 && !isempty(single_value_cache[var_type])
+        return [_wrap_wildcard(select_random(single_value_cache[var_type])) for _ in 1:examples_count]
+    end
+    if r < 0.9 && !isempty(multi_value_cache[examples_count][var_type])
+        return [_wrap_wildcard(v) for v in select_random(multi_value_cache[examples_count][var_type])]
+    end
+    return [_wrap_wildcard(v) for v in _generate_random_var_values(var_type, examples_count)]
+end
+
+function generate_const_var_value(var_type)
+    if rand() < 0.95 && !isempty(single_value_cache[var_type])
+        return _wrap_wildcard(select_random(single_value_cache[var_type]))
+    end
+    return _wrap_wildcard(_generate_random_var_values(var_type, 1)[1])
 end

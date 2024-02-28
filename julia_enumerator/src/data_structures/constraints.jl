@@ -164,6 +164,7 @@ function _make_entry(sc, type_id, values)
     elseif any(isa(v, PatternWrapper) for v in values)
         return PatternEntry(type_id, values, complexity_summary, get_complexity(sc, complexity_summary))
     else
+        save_values_to_cache(sc.types[type_id], values)
         return ValueEntry(type_id, values, complexity_summary, get_complexity(sc, complexity_summary))
     end
 end

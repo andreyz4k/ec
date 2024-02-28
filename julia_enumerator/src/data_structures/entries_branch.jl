@@ -221,6 +221,7 @@ function updated_branches(
     if any(isa(value, PatternWrapper) for value in new_values)
         new_entry = PatternEntry(t_id, new_values, complexity_summary, get_complexity(sc, complexity_summary))
     else
+        save_values_to_cache(sc.types[t_id], new_values)
         new_entry = ValueEntry(t_id, new_values, complexity_summary, get_complexity(sc, complexity_summary))
     end
     new_entry_index = push!(sc.entries, new_entry)
@@ -298,6 +299,7 @@ function updated_branches(
     if any(isa(value, PatternWrapper) for value in new_values)
         new_entry = PatternEntry(t_id, new_values, complexity_summary, get_complexity(sc, complexity_summary))
     else
+        save_values_to_cache(sc.types[t_id], new_values)
         new_entry = ValueEntry(t_id, new_values, complexity_summary, get_complexity(sc, complexity_summary))
     end
     new_entry_index = push!(sc.entries, new_entry)
@@ -381,6 +383,7 @@ function updated_branches(
     if any(isa(value, PatternWrapper) for value in new_values)
         new_entry = PatternEntry(t_id, new_values, complexity_summary, get_complexity(sc, complexity_summary))
     else
+        save_values_to_cache(sc.types[t_id], new_values)
         new_entry = ValueEntry(t_id, new_values, complexity_summary, get_complexity(sc, complexity_summary))
     end
     new_entry_index = push!(sc.entries, new_entry)
@@ -666,6 +669,7 @@ function updated_branches(
     if any(isa(value, PatternWrapper) for value in new_values)
         new_entry = PatternEntry(t_id, new_values, complexity_summary, get_complexity(sc, complexity_summary))
     else
+        save_values_to_cache(sc.types[t_id], new_values)
         new_entry = ValueEntry(t_id, new_values, complexity_summary, get_complexity(sc, complexity_summary))
     end
     new_entry_index = push!(sc.entries, new_entry)

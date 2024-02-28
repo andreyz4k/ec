@@ -18,7 +18,7 @@ if __name__ == "__main__":
         maximumFrontier=10,
         topK=2,
         pseudoCounts=1.0,
-        helmholtzRatio=0.0,
+        helmholtzRatio=0.5,
         structurePenalty=1.0,
         CPUs=numberOfCPUs(),
         extras=arc_options,

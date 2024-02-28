@@ -423,6 +423,7 @@ function try_get_reversed_values(sc::SolutionContext, p::Program, context, path,
             has_abductibles = true
             new_entry = AbductibleEntry(t_id, vals, complexity_summary, get_complexity(sc, complexity_summary))
         else
+            save_values_to_cache(t, vals)
             new_entry = ValueEntry(t_id, vals, complexity_summary, get_complexity(sc, complexity_summary))
         end
         if new_entry == out_entry
@@ -1221,4 +1222,6 @@ function log_results(sc, hits)
 
     @info "Iterations count $(sc.iterations_count)"
     @info "Total number of valid blocks $(sc.total_number_of_enumerated_programs)"
+    @info "Single value cache sizes $(Dict(t => length(v.values) for (t, v) in single_value_cache))"
+    @info "Multi value cache sizes $(Dict(ec => Dict(t => length(v.values) for (t, v) in d) for (ec, d) in multi_value_cache))"
 end
