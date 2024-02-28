@@ -450,11 +450,16 @@ class Grammar(object):
                 checker=checker,
                 path=path,
             )
+
+            context, t = expression.var_type.instantiate(context)
+            context = context.unify(var_requests[expression.var_name], t)
+            t = t.apply(context)
+
             context, var_def_requests, def_summary = self.likelihoodSummary(
                 context,
                 environment,
                 workspace,
-                expression.var_type,
+                t,
                 expression.var_def,
                 silent=silent,
                 checker=CustomArgChecker(False, -1, True, None),

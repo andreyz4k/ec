@@ -253,7 +253,7 @@ jobs:
         run: python bin/arc.py -t 20 -RS 5 -i 1 -r 0.0
 
   test-arc-dreaming:
-    name: Test arc ${{ matrix.version }}
+    name: Test arc dreaming ${{ matrix.version }}
     needs: [ocaml-build, create-virtualenv]
     runs-on: ubuntu-latest
     strategy:

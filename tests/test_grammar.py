@@ -352,6 +352,12 @@ let $v23::grid(color) = (repeat_grid $v4 $v5 $v6) in \
             "logLikelihood": 0.0,
             "logPrior": -734.962541626727,
         },
+        {
+            "program": "let $v1 = rev($inp0 = (tuple2_first $v1)) in let $v2::grid(color) = (tuple2_first $v1) in let $v3::list(t1) = Const(list(t1), Main.solver.PatternWrapper([any_object, any_object, any_object, any_object, any_object, any_object, any_object, any_object, any_object, any_object, any_object, any_object, any_object, any_object, any_object])) in let $v4::t0 = (reverse $v3) in let $v5::tuple2(t0, grid(color)) = (tuple2 $v4 $v2) in let $v6::grid(color) = (tuple2_second $v5) in let $v7::list(list(color)) = (rows $v6) in (rows_to_grid $v7)",
+            "time": 1.820842981338501,
+            "logLikelihood": 0.0,
+            "logPrior": -45.21604376623512,
+        },
     ]
     return programs
 
