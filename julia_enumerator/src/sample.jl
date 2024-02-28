@@ -58,6 +58,8 @@ function sample_program(grammar, request, max_depth, max_block_depth, max_attemp
             Dict(),
             [],
             Dict(var_name => [] for var_name in keys(input_keys)),
+            Dict(UInt64(i) => Set() for i in 1:length(input_types)),
+            Dict(UInt64(i) => Set() for i in 1:length(input_types)),
             input_block_attempts,
             failed_input_blocks,
             output_var,
@@ -110,7 +112,10 @@ end
 struct SamplingError <: Exception end
 struct SamplingBlockError <: Exception
     p::Any
+    is_local::Bool
 end
+
+SamplingBlockError(p) = SamplingBlockError(p, false)
 
 struct TimeoutException <: Exception end
 struct NeedsWrapping <: Exception end
@@ -231,7 +236,8 @@ function _sample_wrapping_block(
             end
             # @info "Sampled wrapper: $skeleton"
 
-            if check_failed_block(skeleton, block.output_vars, failed_blocks) || in(skeleton, local_failed_blocks)
+            if check_failed_block(skeleton, block.output_vars, failed_blocks, local_failed_blocks) ||
+               in(skeleton, local_failed_blocks)
                 # @info "Failed block $skeleton"
                 throw(SamplingError())
             end
@@ -306,6 +312,8 @@ function sample_input_program(
     filled_vars,
     filled_blocks,
     var_prev_blocks,
+    input_prev_vars,
+    input_next_vars,
     block_attempts,
     failed_blocks,
     output_var,
@@ -351,6 +359,7 @@ function sample_input_program(
                 filled_vars,
                 var_prev_blocks,
                 Dict(),
+                Dict(),
                 output_var,
                 input_keys,
                 max_depth,
@@ -383,6 +392,7 @@ function sample_input_program(
         end
     end
     depth, var_name, var_type = vars_to_fill[end]
+    local_failed_blocks = Set{Any}()
     i = 0
     while i < max_attempts
         r = rand() * max_depth
@@ -396,7 +406,7 @@ function sample_input_program(
                 new_prev_blocks = []
                 new_filled_blocks = []
                 for (block, inp_type, out_vars, context) in Iterators.reverse(prev_blocks)
-                    if check_failed_block(block.p, block.output_vars, failed_blocks)
+                    if check_failed_block(block.p, block.output_vars, failed_blocks, local_failed_blocks)
                         # @info "Block $block is in failed blocks"
                         throw(SamplingBlockError(block))
                     end
@@ -416,6 +426,26 @@ function sample_input_program(
                                     ) for j in 1:examples_count
                                 ]
                                 # @info "calculated_input_values: $calculated_input_values"
+
+                                for next_var in input_next_vars[block.input_vars[1]]
+                                    if new_filled_vars[next_var][2] == calculated_input_values
+                                        # @info "Got the same value $calculated_input_values as downstream $(block.input_vars[1]) $next_var"
+                                        # @info "Block $block"
+                                        # @info "Filled blocks $new_filled_blocks"
+                                        # @info "Prev blocks $prev_blocks"
+                                        # @info "var_name $var_name"
+                                        # @info "depth $depth"
+                                        # @info "var_values $var_values"
+                                        for bl in new_filled_blocks
+                                            if in(next_var, bl.output_vars)
+                                                # @info "Error block $bl"
+                                                throw(SamplingBlockError(bl, true))
+                                            end
+                                        end
+                                        # @info "Error block $block"
+                                        throw(SamplingBlockError(block, true))
+                                    end
+                                end
 
                                 for j in 1:examples_count
                                     calculated_outputs =
@@ -486,6 +516,8 @@ function sample_input_program(
                     new_filled_vars,
                     vcat(filled_blocks, new_filled_blocks),
                     var_prev_blocks,
+                    input_prev_vars,
+                    input_next_vars,
                     block_attempts,
                     failed_blocks,
                     output_var,
@@ -511,9 +543,26 @@ function sample_input_program(
         else
             push!(var_counter.counts, var_counter.counts[end])
             try
-                new_p, new_vars, context, inp_type =
-                    _sample_input_program(grammar, var_type, max_block_depth, var_counter, failed_blocks)
-                new_block = ReverseProgramBlock(new_p, 0.0, [var_name], [v_name for (v_name, _) in new_vars])
+                new_p, new_vars, context, inp_type = _sample_input_program(
+                    grammar,
+                    var_type,
+                    max_block_depth,
+                    var_counter,
+                    failed_blocks,
+                    local_failed_blocks,
+                )
+                out_vars = [v_name for (v_name, _) in new_vars]
+                new_block = ReverseProgramBlock(new_p, 0.0, [var_name], out_vars)
+                new_input_prev_vars = copy(input_prev_vars)
+                new_input_next_vars = copy(input_next_vars)
+                block_prev_vars = union(new_input_prev_vars[var_name], [var_name])
+                for v_name in out_vars
+                    new_input_prev_vars[v_name] = block_prev_vars
+                    new_input_next_vars[v_name] = Set{Any}()
+                end
+                for prev_var in block_prev_vars
+                    new_input_next_vars[prev_var] = union(new_input_next_vars[prev_var], out_vars)
+                end
 
                 sampling_result = try
                     sample_input_program(
@@ -524,8 +573,10 @@ function sample_input_program(
                         filled_blocks,
                         merge(
                             var_prev_blocks,
-                            Dict(v_name => vcat(var_prev_blocks[var_name], [new_block]) for (v_name, _) in new_vars),
+                            Dict(v_name => vcat(var_prev_blocks[var_name], [new_block]) for v_name in out_vars),
                         ),
+                        new_input_prev_vars,
+                        new_input_next_vars,
                         block_attempts,
                         failed_blocks,
                         output_var,
@@ -552,7 +603,11 @@ function sample_input_program(
                             )
                         )
                     )
-                        save_failed_block(new_p, new_vars, failed_blocks)
+                        if e isa SamplingBlockError && e.is_local
+                            push!(local_failed_blocks, new_p)
+                        else
+                            save_failed_block(new_p, new_vars, failed_blocks)
+                        end
                     end
                     if (
                         e isa SamplingBlockError && (
@@ -568,7 +623,7 @@ function sample_input_program(
                         # @info "Filled blocks $filled_blocks"
                         # @info "Prev blocks $prev_blocks"
                         for block in Iterators.flatten([filled_blocks, (b for (b, _) in prev_blocks)])
-                            if check_failed_block(block.p, block.output_vars, failed_blocks)
+                            if check_failed_block(block.p, block.output_vars, failed_blocks, local_failed_blocks)
                                 # @info "Block $block is in failed blocks"
                                 throw(SamplingBlockError(block))
                             end
@@ -603,13 +658,16 @@ using Random
 function _check_complete_blocks(
     prev_blocks,
     new_filled_vars,
-    new_filled_blocks,
+    filled_blocks,
+    output_prev_vars,
     block_attempts,
     max_attempts,
     run_context,
     examples_count,
 )
     new_prev_blocks = []
+    new_filled_blocks = copy(filled_blocks)
+    new_output_prev_vars = copy(output_prev_vars)
 
     for block in Iterators.reverse(prev_blocks)
         # if p in failed_blocks
@@ -630,6 +688,25 @@ function _check_complete_blocks(
                         ) for j in 1:examples_count
                     ]
                     # @info "calculated_output_values: $calculated_output_values"
+
+                    bl_prev_vars = Set()
+                    for v in block.input_vars
+                        if haskey(new_output_prev_vars, v)
+                            union!(bl_prev_vars, new_output_prev_vars[v])
+                            push!(bl_prev_vars, v)
+                        end
+                    end
+                    new_output_prev_vars[block.output_var] = bl_prev_vars
+                    for prev_var in bl_prev_vars
+                        if new_filled_vars[prev_var][2] == calculated_output_values
+                            # @info "Got the same value $calculated_output_values as downstream $(block.output_var) $prev_var"
+                            # @info "Block $block"
+                            # @info "Filled blocks $new_filled_blocks"
+                            # @info "Prev blocks $prev_blocks"
+
+                            throw(SamplingError())
+                        end
+                    end
 
                     if block.is_reversible
                         for j in 1:examples_count
@@ -674,7 +751,7 @@ function _check_complete_blocks(
         end
     end
     reverse!(new_prev_blocks)
-    return new_prev_blocks
+    return new_prev_blocks, new_filled_blocks, new_output_prev_vars
 end
 
 function sample_output_program(
@@ -691,6 +768,7 @@ function sample_output_program(
     input_vars,
     input_vars_prev_blocks,
     output_var_next_blocks,
+    output_prev_vars,
     output_var,
     input_keys,
     max_depth,
@@ -707,19 +785,17 @@ function sample_output_program(
         throw(TimeoutException())
     end
 
-    new_filled_blocks = []
     filled_vars = copy(filled_vars)
-    prev_blocks = _check_complete_blocks(
+    prev_blocks, filled_blocks, new_output_prev_vars = _check_complete_blocks(
         prev_blocks,
         filled_vars,
-        new_filled_blocks,
+        filled_blocks,
+        output_prev_vars,
         block_attempts,
         max_attempts,
         run_context,
         examples_count,
     )
-
-    filled_blocks = vcat(filled_blocks, new_filled_blocks)
 
     if isempty(vars_to_fill)
         if !isempty(unused_input_blocks)
@@ -866,6 +942,7 @@ function sample_output_program(
                     input_vars,
                     input_vars_prev_blocks,
                     new_output_var_next_blocks,
+                    new_output_prev_vars,
                     output_var,
                     input_keys,
                     max_depth,
@@ -931,10 +1008,10 @@ function save_failed_block(p, vars, failed_blocks)
     push!(failed_blocks, norm_p)
 end
 
-function check_failed_block(p, vars, failed_blocks)
+function check_failed_block(p, vars, failed_blocks, local_failed_blocks)
     vars_map = Dict(v_name => UInt64(i) for (i, v_name) in enumerate(vars))
     norm_p = normalize_program(p, vars_map)
-    return norm_p in failed_blocks
+    return norm_p in failed_blocks || p in local_failed_blocks
 end
 
 function _sampling_input_program_iteration(skeleton, path, context, max_depth, grammar)
@@ -1026,7 +1103,7 @@ function _sampling_input_program_iteration(skeleton, path, context, max_depth, g
     return skeleton, path, context
 end
 
-function _sample_input_program(grammar, return_type, max_depth, var_counter, failed_blocks)
+function _sample_input_program(grammar, return_type, max_depth, var_counter, failed_blocks, local_failed_blocks)
     context, return_type = instantiate(return_type, empty_context)
     path = []
     skeleton = Hole(return_type, grammar.no_context, CustomArgChecker(true, -1, true, nothing), nothing)
@@ -1044,7 +1121,7 @@ function _sample_input_program(grammar, return_type, max_depth, var_counter, fai
         throw(SamplingError())
     end
     # @info "Failed blocks $failed_blocks"
-    if check_failed_block(new_p, [v_name for (v_name, _) in new_vars], failed_blocks)
+    if check_failed_block(new_p, [v_name for (v_name, _) in new_vars], failed_blocks, local_failed_blocks)
         # @info "Failed block $new_p"
         throw(SamplingError())
     end
