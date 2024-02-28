@@ -509,7 +509,7 @@ function sample_input_program(
         else
             push!(var_counter.counts, var_counter.counts[end])
             try
-                new_p, new_vars, context =
+                new_p, new_vars, context, inp_type =
                     _sample_input_program(grammar, var_type, max_block_depth, var_counter, failed_blocks)
                 new_block = ReverseProgramBlock(new_p, 0.0, [var_name], [v_name for (v_name, _) in new_vars])
 
@@ -517,7 +517,7 @@ function sample_input_program(
                     sample_input_program(
                         grammar,
                         vcat(vars_to_fill[1:end-1], [(depth + 1, v_name, v_type) for (v_name, v_type) in new_vars]),
-                        vcat(prev_blocks, [(new_block, var_type, new_vars, context)]),
+                        vcat(prev_blocks, [(new_block, inp_type, new_vars, context)]),
                         filled_vars,
                         filled_blocks,
                         merge(
@@ -1005,9 +1005,9 @@ function _sampling_input_program_iteration(skeleton, path, context, max_depth, g
 end
 
 function _sample_input_program(grammar, return_type, max_depth, var_counter, failed_blocks)
-    context, type = instantiate(return_type, empty_context)
+    context, return_type = instantiate(return_type, empty_context)
     path = []
-    skeleton = Hole(type, grammar.no_context, CustomArgChecker(true, -1, true, nothing), nothing)
+    skeleton = Hole(return_type, grammar.no_context, CustomArgChecker(true, -1, true, nothing), nothing)
     while true
         if is_reversible(skeleton) || (!isa(skeleton, Hole) && isempty(path))
             break
@@ -1026,7 +1026,7 @@ function _sample_input_program(grammar, return_type, max_depth, var_counter, fai
         # @info "Failed block $new_p"
         throw(SamplingError())
     end
-    return new_p, new_vars, context
+    return new_p, new_vars, context, return_type
 end
 
 function _sample_output_program(grammar, return_type, max_depth, var_counter, input_var_types, failed_blocks)
