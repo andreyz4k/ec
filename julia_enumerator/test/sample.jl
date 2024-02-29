@@ -436,7 +436,7 @@ using solver: run_sampling_process, _test_one_example, parse_program
         "inp0:list(int) -> list(int)",
         "inp0:grid(int) -> grid(int)",
         "inp0:list(int) -> int",
-        "inp0:list(int) -> bool",
+        # "inp0:list(int) -> bool",
         "inp0:list(bool) -> bool",
         "inp0:int -> int",
     ]

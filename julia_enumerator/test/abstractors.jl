@@ -3060,4 +3060,48 @@ using DataStructures: OrderedDict, Accumulator
             Dict(UInt64(1) => Set([Set([[1, 2, 3], [1, 4, 2, 2], [3, 5, 2, 5, 2]]), Set([[2]])])),
         ) == Set([[1, 2, 3], [1, 4, 2, 2], [3, 5, 2, 5, 2], [2]])
     end
+
+    @testcase_log "Reverse fold with concat and range" begin
+        skeleton = parse_program("(fold (lambda (lambda (concat \$0 (range \$1)))) ??(list(int)) ??(list(int)))")
+        @test is_reversible(skeleton)
+
+        p, _ = capture_free_vars(skeleton)
+
+        @test compare_options_subset(
+            run_in_reverse(p, [12, 4, 8, 11, 0, 8, 11]),
+            Dict(
+                UInt64(1) => EitherOptions(
+                    Dict{UInt64,Any}(
+                        0xc051555df3f52f90 => Any[0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                        0x58f65bfff9aff2b5 => Any[0, 0, 0, 0, 0, 0, 0],
+                        0xd4c0847c70a422be => Any[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                        0xe218a9c75cd0a8e5 => Any[0, 0, 0, 0, 0],
+                        0xe5f88ea7e065eaed => Any[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                        0x9c617295e48b296f => Any[0, 0, 0],
+                        0x7bebac37d5e5eb89 => Any[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                        0xc9970bcc3709cb64 => Any[0],
+                        0x00da77c6db754f1f => Any[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                        0x67446ae45e1e69f9 => Any[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                        0x4a4b94369d374257 => Any[0, 0, 0, 0],
+                        0x6dacb8f1d62b78de => Any[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                        0x27e029194b0f4979 => Any[],
+                        0x082d2f7a58693222 => Any[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                        0xb64b0c70faed7b57 => Any[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                        0x768b1bad4a071f7f => Any[0, 0, 0, 0, 0, 0],
+                        0xd4fa0a335b722d0e => Any[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                        0xba2a4bc6fd4702d8 => Any[0, 0, 0, 0, 0, 0, 0, 0],
+                        0xbad4eddfdbb89749 => Any[0, 0, 0, 0, 0, 0, 0, 0, 0],
+                        0xc79adcab7e05081c => Any[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                        0xd5fedbd27adb7015 => Any[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                        0xac2b4fc6c2c9430a => Any[0, 0],
+                        0x4b25e6664a7ae4ba => Any[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                    ),
+                ),
+                UInt64(2) => [12, 4, 8, 11, 0, 8, 11],
+            ),
+        )
+
+        @test run_with_arguments(p, [], Dict(UInt64(1) => [0], UInt64(2) => [12, 4, 8, 11, 0, 8, 11])) ==
+              [12, 4, 8, 11, 0, 8, 11]
+    end
 end

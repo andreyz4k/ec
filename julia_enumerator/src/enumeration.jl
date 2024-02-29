@@ -644,6 +644,7 @@ function try_run_function(f::Function, xs)
         #     triggered during program evaluation, we need to pass the
         #     exception on
         if isa(e, InterruptException)
+            @warn "Interrupted running $f with $xs"
             rethrow()
         elseif isa(e, UnknownPrimitive)
             error("Unknown primitive: $(e.name)")

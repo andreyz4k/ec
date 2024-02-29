@@ -129,8 +129,9 @@ macro run_with_timeout(run_context, timeout_key, expr)
                 end
             catch e
                 if isa(e, InterruptException)
-                    bt = catch_backtrace()
-                    @warn "Interrupted" exception = (e, bt)
+                    # bt = catch_backtrace()
+                    # @warn "Interrupted" exception = (e, bt)
+                    @warn "Interrupted"
                     clean_fired_timeout(timeout_container)
                 else
                     rethrow()

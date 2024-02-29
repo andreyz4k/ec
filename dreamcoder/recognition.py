@@ -1481,9 +1481,9 @@ class RecognitionModel(nn.Module):
                 "max_depth": 3,
                 "max_block_depth": 10,
                 "max_attempts": 100,
-                "timeout": 60,
+                "timeout": 40,
                 "output_timeout": 7,
-                "program_timeout": 2,
+                "program_timeout": 1,
                 "queue": "sample",
             }
             r.rpush("sample", json.dumps(message))
