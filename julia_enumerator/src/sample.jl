@@ -1280,6 +1280,7 @@ function _generate_random_var_values(var_type::TypeConstructor, examples_count)
             (h, w) in zip(heights, widths)
         ]
     end
+    @assert false
 end
 
 function generate_var_values(var_type, examples_count)

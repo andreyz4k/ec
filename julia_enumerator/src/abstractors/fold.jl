@@ -39,7 +39,7 @@ end
 
 function rev_fold_set(f, init, acc)
     output_options = Set()
-    queue = Set([(acc, Set())])
+    queue = Set{Any}([(acc, Set())])
     visited = Set()
 
     while !isempty(queue)
