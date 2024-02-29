@@ -1219,10 +1219,10 @@ function log_results(sc, hits)
             end
         end
         @info "Total incoming paths length $(sum(sum(length(path.main_path) + length(path.side_vars) for path in paths; init=0) for paths in values(sc.incoming_paths.values_stack[1]); init=0))"
+        @info "Single value cache sizes $(Dict(t => length(v.values) for (t, v) in single_value_cache))"
+        @info "Multi value cache sizes $(Dict(ec => Dict(t => length(v.values) for (t, v) in d) for (ec, d) in multi_value_cache))"
     end
 
     @info "Iterations count $(sc.iterations_count)"
     @info "Total number of valid blocks $(sc.total_number_of_enumerated_programs)"
-    @info "Single value cache sizes $(Dict(t => length(v.values) for (t, v) in single_value_cache))"
-    @info "Multi value cache sizes $(Dict(ec => Dict(t => length(v.values) for (t, v) in d) for (ec, d) in multi_value_cache))"
 end
