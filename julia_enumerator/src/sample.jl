@@ -7,15 +7,17 @@ function load_sampling_payload(payload)
     max_block_depth = payload["max_block_depth"]
     max_attempts = payload["max_attempts"]
     timeout = payload["timeout"]
+    output_timeout = payload["output_timeout"]
     program_timeout = payload["program_timeout"]
-    return grammar, request, max_depth, max_block_depth, max_attempts, timeout, program_timeout
+    return grammar, request, max_depth, max_block_depth, max_attempts, timeout, output_timeout, program_timeout
 end
 
 function run_sampling_process(run_context, payload)
-    grammar, request, max_depth, max_block_depth, max_attempts, timeout, program_timeout =
+    grammar, request, max_depth, max_block_depth, max_attempts, timeout, output_timeout, program_timeout =
         load_sampling_payload(payload)
     run_context["timeout"] = program_timeout
-    program, examples = sample_program(grammar, request, max_depth, max_block_depth, max_attempts, timeout, run_context)
+    program, examples =
+        sample_program(grammar, request, max_depth, max_block_depth, max_attempts, timeout, output_timeout, run_context)
     if isnothing(program)
         result = Dict("program" => nothing, "task" => Dict("request" => string(request), "examples" => examples))
     else
@@ -35,7 +37,16 @@ function create_next_var(sc::SamplingVarCounter)
     return sc.counts[end]
 end
 
-function sample_program(grammar, request, max_depth, max_block_depth, max_attempts, timeout, run_context)
+function sample_program(
+    grammar,
+    request,
+    max_depth,
+    max_block_depth,
+    max_attempts,
+    timeout,
+    output_timeout,
+    run_context,
+)
     input_types = arguments_of_type(request)
     var_counter = SamplingVarCounter([length(input_types) + 1])
 
@@ -66,11 +77,11 @@ function sample_program(grammar, request, max_depth, max_block_depth, max_attemp
             return_of_type(request),
             input_keys,
             time(),
-            [0.0],
             max_depth,
             max_block_depth,
             max_attempts,
             timeout,
+            output_timeout,
             run_context,
             var_counter,
             examples_count,
@@ -320,16 +331,16 @@ function sample_input_program(
     output_type,
     input_keys,
     start_time,
-    output_sampling_time,
     max_depth,
     max_block_depth,
     max_attempts,
     timeout,
+    output_timeout,
     run_context,
     var_counter,
     examples_count,
 )
-    if time() - output_sampling_time[1] - start_time > timeout
+    if time() - start_time > timeout
         # @info "Timeout $(output_sampling_time[1]) $(time() - output_sampling_time[1] - start_time)"
         throw(TimeoutException())
     end
@@ -366,7 +377,7 @@ function sample_input_program(
                 max_block_depth,
                 max_attempts,
                 out_sampling_start_time,
-                timeout,
+                output_timeout,
                 run_context,
                 var_counter,
                 examples_count,
@@ -387,8 +398,6 @@ function sample_input_program(
             else
                 rethrow()
             end
-        finally
-            output_sampling_time[1] += time() - out_sampling_start_time
         end
     end
     depth, var_name, var_type = vars_to_fill[end]
@@ -524,11 +533,11 @@ function sample_input_program(
                     output_type,
                     input_keys,
                     start_time,
-                    output_sampling_time,
                     max_depth,
                     max_block_depth,
                     max_attempts,
                     timeout,
+                    output_timeout,
                     run_context,
                     var_counter,
                     examples_count,
@@ -583,11 +592,11 @@ function sample_input_program(
                         output_type,
                         input_keys,
                         start_time,
-                        output_sampling_time,
                         max_depth,
                         max_block_depth,
                         max_attempts,
                         timeout,
+                        output_timeout,
                         run_context,
                         var_counter,
                         examples_count,
