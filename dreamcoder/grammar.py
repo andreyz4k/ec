@@ -1228,6 +1228,8 @@ class Grammar(object):
         return Grammar(
             self.logVariable.data.tolist()[0],
             [(l.data.tolist()[0], t, p) for l, t, p in self.productions],
+            self.logLambda.data.tolist()[0],
+            self.logFreeVariable.data.tolist()[0],
             continuationType=self.continuationType,
         )
 

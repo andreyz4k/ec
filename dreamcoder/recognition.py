@@ -86,7 +86,7 @@ class GrammarNetwork(nn.Module):
 
     def __init__(self, inputDimensionality, grammar):
         super(GrammarNetwork, self).__init__()
-        self.logProductions = nn.Linear(inputDimensionality, len(grammar) + 1)
+        self.logProductions = nn.Linear(inputDimensionality, len(grammar) + 3)
         self.grammar = grammar
 
     def forward(self, x):
@@ -94,11 +94,13 @@ class GrammarNetwork(nn.Module):
         Tensor-valued probabilities"""
         logProductions = self.logProductions(x)
         return Grammar(
-            logProductions[-1].view(1),  # logVariable
+            logProductions[-3].view(1),  # logVariable
             [
                 (logProductions[k].view(1), t, program)
                 for k, (_, t, program) in enumerate(self.grammar.productions)
             ],
+            logProductions[-2].view(1),  # logLambda
+            logProductions[-1].view(1),  # logFreeVariable
             continuationType=self.grammar.continuationType,
         )
 
@@ -112,11 +114,13 @@ class GrammarNetwork(nn.Module):
         logProductions = self.logProductions(xs)
 
         # uses[b][p] is # uses of primitive p by summary b
-        uses = np.zeros((B, len(self.grammar) + 1))
+        uses = np.zeros((B, len(self.grammar) + 3))
         for b, summary in enumerate(summaries):
             for p, production in enumerate(self.grammar.primitives):
                 uses[b, p] = summary.uses.get(production, 0.0)
             uses[b, len(self.grammar)] = summary.uses.get(Index(0), 0)
+            uses[b, len(self.grammar) + 1] = summary.uses.get(Abstraction(Hole()), 0)
+            uses[b, len(self.grammar) + 2] = summary.uses.get(FreeVariable(None), 0)
 
         numerator = (
             logProductions * maybe_cuda(torch.from_numpy(uses).float(), use_cuda)
@@ -128,7 +132,7 @@ class GrammarNetwork(nn.Module):
         alternativeSet = {normalizer for s in summaries for normalizer in s.normalizers}
         alternativeSet = list(alternativeSet)
 
-        mask = np.zeros((len(alternativeSet), len(self.grammar) + 1))
+        mask = np.zeros((len(alternativeSet), len(self.grammar) + 3))
         for tau in range(len(alternativeSet)):
             for p, production in enumerate(self.grammar.primitives):
                 mask[tau, p] = (
@@ -136,6 +140,12 @@ class GrammarNetwork(nn.Module):
                 )
             mask[tau, len(self.grammar)] = (
                 0.0 if Index(0) in alternativeSet[tau] else NEGATIVEINFINITY
+            )
+            mask[tau, len(self.grammar) + 1] = (
+                0.0 if Abstraction(Hole()) in alternativeSet[tau] else NEGATIVEINFINITY
+            )
+            mask[tau, len(self.grammar) + 2] = (
+                0.0 if FreeVariable(None) in alternativeSet[tau] else NEGATIVEINFINITY
             )
         mask = maybe_cuda(torch.tensor(mask).float(), use_cuda)
 
@@ -182,16 +192,18 @@ class ContextualGrammarNetwork_LowRank(nn.Module):
         # We had an extra grammar for when there is no parent and for when the parent is a variable
         self.n_grammars += 2
         self.transitionMatrix = LowRank(
-            inputDimensionality, self.n_grammars, len(grammar) + 1, R
+            inputDimensionality, self.n_grammars, len(grammar) + 3, R
         )
 
     def grammarFromVector(self, logProductions):
         return Grammar(
-            logProductions[-1].view(1),
+            logProductions[-3].view(1),
             [
                 (logProductions[k].view(1), t, program)
                 for k, (_, t, program) in enumerate(self.grammar.productions)
             ],
+            logProductions[-2].view(1),
+            logProductions[-1].view(1),
             continuationType=self.grammar.continuationType,
         )
 
@@ -213,7 +225,7 @@ class ContextualGrammarNetwork_LowRank(nn.Module):
 
     def vectorizedLogLikelihoods(self, x, summaries):
         B = len(summaries)
-        G = len(self.grammar) + 1
+        G = len(self.grammar) + 3
 
         # Which column of the transition matrix corresponds to which primitive
         primitiveColumn = {
@@ -232,7 +244,7 @@ class ContextualGrammarNetwork_LowRank(nn.Module):
         transitionMatrix = self.transitionMatrix(x)
 
         # uses[b][g][p] is # uses of primitive p by summary b for parent g
-        uses = np.zeros((B, self.n_grammars, len(self.grammar) + 1))
+        uses = np.zeros((B, self.n_grammars, len(self.grammar) + 3))
         for b, summary in enumerate(summaries):
             for e, ss in summary.library.items():
                 for g, s in zip(self.library[e], ss):
@@ -240,14 +252,26 @@ class ContextualGrammarNetwork_LowRank(nn.Module):
                     for p, production in enumerate(self.grammar.primitives):
                         uses[b, g, p] = s.uses.get(production, 0.0)
                     uses[b, g, len(self.grammar)] = s.uses.get(Index(0), 0)
+                    uses[b, g, len(self.grammar) + 1] = s.uses.get(
+                        Abstraction(Hole()), 0
+                    )
+                    uses[b, g, len(self.grammar) + 2] = s.uses.get(
+                        FreeVariable(None), 0
+                    )
 
             # noParent: this is the last network output
             for p, production in enumerate(self.grammar.primitives):
                 uses[b, self.n_grammars - 1, p] = summary.noParent.uses.get(
                     production, 0.0
                 )
-            uses[b, self.n_grammars - 1, G - 1] = summary.noParent.uses.get(
+            uses[b, self.n_grammars - 1, G - 3] = summary.noParent.uses.get(
                 Index(0), 0.0
+            )
+            uses[b, self.n_grammars - 1, G - 2] = summary.noParent.uses.get(
+                Abstraction(Hole()), 0.0
+            )
+            uses[b, self.n_grammars - 1, G - 1] = summary.noParent.uses.get(
+                FreeVariable(None), 0.0
             )
 
             # variableParent: this is the penultimate network output
@@ -255,8 +279,14 @@ class ContextualGrammarNetwork_LowRank(nn.Module):
                 uses[b, self.n_grammars - 2, p] = summary.variableParent.uses.get(
                     production, 0.0
                 )
-            uses[b, self.n_grammars - 2, G - 1] = summary.variableParent.uses.get(
+            uses[b, self.n_grammars - 2, G - 3] = summary.variableParent.uses.get(
                 Index(0), 0.0
+            )
+            uses[b, self.n_grammars - 2, G - 2] = summary.variableParent.uses.get(
+                Abstraction(Hole()), 0.0
+            )
+            uses[b, self.n_grammars - 2, G - 1] = summary.variableParent.uses.get(
+                FreeVariable(None), 0.0
             )
 
         uses = maybe_cuda(torch.tensor(uses).float(), use_cuda)
@@ -311,13 +341,13 @@ class ContextualGrammarNetwork_LowRank(nn.Module):
         use_cuda = xs.device.type == "cuda"
 
         B = xs.shape[0]
-        G = len(self.grammar) + 1
+        G = len(self.grammar) + 3
         assert len(summaries) == B
 
         # logProductions: Bx n_grammars x G
         logProductions = self.transitionMatrix(xs)
         # uses[b][g][p] is # uses of primitive p by summary b for parent g
-        uses = np.zeros((B, self.n_grammars, len(self.grammar) + 1))
+        uses = np.zeros((B, self.n_grammars, len(self.grammar) + 3))
         for b, summary in enumerate(summaries):
             for e, ss in summary.library.items():
                 for g, s in zip(self.library[e], ss):
@@ -325,14 +355,26 @@ class ContextualGrammarNetwork_LowRank(nn.Module):
                     for p, production in enumerate(self.grammar.primitives):
                         uses[b, g, p] = s.uses.get(production, 0.0)
                     uses[b, g, len(self.grammar)] = s.uses.get(Index(0), 0)
+                    uses[b, g, len(self.grammar) + 1] = s.uses.get(
+                        Abstraction(Hole()), 0
+                    )
+                    uses[b, g, len(self.grammar) + 2] = s.uses.get(
+                        FreeVariable(None), 0
+                    )
 
             # noParent: this is the last network output
             for p, production in enumerate(self.grammar.primitives):
                 uses[b, self.n_grammars - 1, p] = summary.noParent.uses.get(
                     production, 0.0
                 )
-            uses[b, self.n_grammars - 1, G - 1] = summary.noParent.uses.get(
+            uses[b, self.n_grammars - 1, G - 3] = summary.noParent.uses.get(
                 Index(0), 0.0
+            )
+            uses[b, self.n_grammars - 1, G - 2] = summary.noParent.uses.get(
+                Abstraction(Hole()), 0.0
+            )
+            uses[b, self.n_grammars - 1, G - 1] = summary.noParent.uses.get(
+                FreeVariable(None), 0.0
             )
 
             # variableParent: this is the penultimate network output
@@ -340,8 +382,14 @@ class ContextualGrammarNetwork_LowRank(nn.Module):
                 uses[b, self.n_grammars - 2, p] = summary.variableParent.uses.get(
                     production, 0.0
                 )
-            uses[b, self.n_grammars - 2, G - 1] = summary.variableParent.uses.get(
+            uses[b, self.n_grammars - 2, G - 3] = summary.variableParent.uses.get(
                 Index(0), 0.0
+            )
+            uses[b, self.n_grammars - 2, G - 2] = summary.variableParent.uses.get(
+                Abstraction(Hole()), 0.0
+            )
+            uses[b, self.n_grammars - 2, G - 1] = summary.variableParent.uses.get(
+                FreeVariable(None), 0.0
             )
 
         numerator = (
@@ -380,8 +428,18 @@ class ContextualGrammarNetwork_LowRank(nn.Module):
                     mask[tau, p] = (
                         0.0 if production in alternativeSet[tau] else NEGATIVEINFINITY
                     )
-                mask[tau, G - 1] = (
+                mask[tau, G - 3] = (
                     0.0 if Index(0) in alternativeSet[tau] else NEGATIVEINFINITY
+                )
+                mask[tau, G - 2] = (
+                    0.0
+                    if Abstraction(Hole()) in alternativeSet[tau]
+                    else NEGATIVEINFINITY
+                )
+                mask[tau, G - 1] = (
+                    0.0
+                    if FreeVariable(None) in alternativeSet[tau]
+                    else NEGATIVEINFINITY
                 )
             mask = maybe_cuda(torch.tensor(mask).float(), use_cuda)
 
@@ -453,9 +511,9 @@ class ContextualGrammarNetwork_Mask(nn.Module):
         # We had an extra grammar for when there is no parent and for when the parent is a variable
         self.n_grammars += 2
         self._transitionMatrix = nn.Parameter(
-            nn.init.xavier_uniform(torch.Tensor(self.n_grammars, len(grammar) + 1))
+            nn.init.xavier_uniform(torch.Tensor(self.n_grammars, len(grammar) + 3))
         )
-        self._logProductions = nn.Linear(inputDimensionality, len(grammar) + 1)
+        self._logProductions = nn.Linear(inputDimensionality, len(grammar) + 3)
 
     def transitionMatrix(self, x):
         if len(x.shape) == 1:  # not batched
@@ -469,11 +527,13 @@ class ContextualGrammarNetwork_Mask(nn.Module):
 
     def grammarFromVector(self, logProductions):
         return Grammar(
-            logProductions[-1].view(1),
+            logProductions[-3].view(1),
             [
                 (logProductions[k].view(1), t, program)
                 for k, (_, t, program) in enumerate(self.grammar.productions)
             ],
+            logProductions[-2].view(1),
+            logProductions[-1].view(1),
             continuationType=self.grammar.continuationType,
         )
 
@@ -499,13 +559,13 @@ class ContextualGrammarNetwork_Mask(nn.Module):
         use_cuda = xs.device.type == "cuda"
 
         B = xs.shape[0]
-        G = len(self.grammar) + 1
+        G = len(self.grammar) + 3
         assert len(summaries) == B
 
         # logProductions: Bx n_grammars x G
         logProductions = self.transitionMatrix(xs)
         # uses[b][g][p] is # uses of primitive p by summary b for parent g
-        uses = np.zeros((B, self.n_grammars, len(self.grammar) + 1))
+        uses = np.zeros((B, self.n_grammars, len(self.grammar) + 3))
         for b, summary in enumerate(summaries):
             for e, ss in summary.library.items():
                 for g, s in zip(self.library[e], ss):
@@ -513,14 +573,26 @@ class ContextualGrammarNetwork_Mask(nn.Module):
                     for p, production in enumerate(self.grammar.primitives):
                         uses[b, g, p] = s.uses.get(production, 0.0)
                     uses[b, g, len(self.grammar)] = s.uses.get(Index(0), 0)
+                    uses[b, g, len(self.grammar) + 1] = s.uses.get(
+                        Abstraction(Hole()), 0
+                    )
+                    uses[b, g, len(self.grammar) + 2] = s.uses.get(
+                        FreeVariable(None), 0
+                    )
 
             # noParent: this is the last network output
             for p, production in enumerate(self.grammar.primitives):
                 uses[b, self.n_grammars - 1, p] = summary.noParent.uses.get(
                     production, 0.0
                 )
-            uses[b, self.n_grammars - 1, G - 1] = summary.noParent.uses.get(
+            uses[b, self.n_grammars - 1, G - 3] = summary.noParent.uses.get(
                 Index(0), 0.0
+            )
+            uses[b, self.n_grammars - 1, G - 2] = summary.noParent.uses.get(
+                Abstraction(Hole()), 0.0
+            )
+            uses[b, self.n_grammars - 1, G - 1] = summary.noParent.uses.get(
+                FreeVariable(None), 0.0
             )
 
             # variableParent: this is the penultimate network output
@@ -528,8 +600,14 @@ class ContextualGrammarNetwork_Mask(nn.Module):
                 uses[b, self.n_grammars - 2, p] = summary.variableParent.uses.get(
                     production, 0.0
                 )
-            uses[b, self.n_grammars - 2, G - 1] = summary.variableParent.uses.get(
+            uses[b, self.n_grammars - 2, G - 3] = summary.variableParent.uses.get(
                 Index(0), 0.0
+            )
+            uses[b, self.n_grammars - 2, G - 2] = summary.variableParent.uses.get(
+                Abstraction(Hole()), 0.0
+            )
+            uses[b, self.n_grammars - 2, G - 1] = summary.variableParent.uses.get(
+                FreeVariable(None), 0.0
             )
 
         numerator = (
@@ -568,8 +646,18 @@ class ContextualGrammarNetwork_Mask(nn.Module):
                     mask[tau, p] = (
                         0.0 if production in alternativeSet[tau] else NEGATIVEINFINITY
                     )
-                mask[tau, G - 1] = (
+                mask[tau, G - 3] = (
                     0.0 if Index(0) in alternativeSet[tau] else NEGATIVEINFINITY
+                )
+                mask[tau, G - 2] = (
+                    0.0
+                    if Abstraction(Hole()) in alternativeSet[tau]
+                    else NEGATIVEINFINITY
+                )
+                mask[tau, G - 1] = (
+                    0.0
+                    if FreeVariable(None) in alternativeSet[tau]
+                    else NEGATIVEINFINITY
                 )
             mask = maybe_cuda(torch.tensor(mask).float(), use_cuda)
 
@@ -637,16 +725,18 @@ class ContextualGrammarNetwork(nn.Module):
         # We had an extra grammar for when there is no parent and for when the parent is a variable
         self.n_grammars += 2
         self.network = nn.Linear(
-            inputDimensionality, (self.n_grammars) * (len(grammar) + 1)
+            inputDimensionality, (self.n_grammars) * (len(grammar) + 3)
         )
 
     def grammarFromVector(self, logProductions):
         return Grammar(
-            logProductions[-1].view(1),
+            logProductions[-3].view(1),
             [
                 (logProductions[k].view(1), t, program)
                 for k, (_, t, program) in enumerate(self.grammar.productions)
             ],
+            logProductions[-2].view(1),
+            logProductions[-1].view(1),
             continuationType=self.grammar.continuationType,
         )
 
@@ -671,13 +761,13 @@ class ContextualGrammarNetwork(nn.Module):
         returns B-dimensional vector containing log likelihood of each summary"""
 
         B = xs.shape[0]
-        G = len(self.grammar) + 1
+        G = len(self.grammar) + 3
         assert len(summaries) == B
 
         # logProductions: Bx n_grammars x G
         logProductions = self.network(xs).view(B, self.n_grammars, G)
         # uses[b][g][p] is # uses of primitive p by summary b for parent g
-        uses = np.zeros((B, self.n_grammars, len(self.grammar) + 1))
+        uses = np.zeros((B, self.n_grammars, len(self.grammar) + 3))
         for b, summary in enumerate(summaries):
             for e, ss in summary.library.items():
                 for g, s in zip(self.library[e], ss):
@@ -685,14 +775,26 @@ class ContextualGrammarNetwork(nn.Module):
                     for p, production in enumerate(self.grammar.primitives):
                         uses[b, g, p] = s.uses.get(production, 0.0)
                     uses[b, g, len(self.grammar)] = s.uses.get(Index(0), 0)
+                    uses[b, g, len(self.grammar) + 1] = s.uses.get(
+                        Abstraction(Hole()), 0
+                    )
+                    uses[b, g, len(self.grammar) + 2] = s.uses.get(
+                        FreeVariable(None), 0
+                    )
 
             # noParent: this is the last network output
             for p, production in enumerate(self.grammar.primitives):
                 uses[b, self.n_grammars - 1, p] = summary.noParent.uses.get(
                     production, 0.0
                 )
-            uses[b, self.n_grammars - 1, G - 1] = summary.noParent.uses.get(
+            uses[b, self.n_grammars - 1, G - 3] = summary.noParent.uses.get(
                 Index(0), 0.0
+            )
+            uses[b, self.n_grammars - 1, G - 2] = summary.noParent.uses.get(
+                Abstraction(Hole()), 0.0
+            )
+            uses[b, self.n_grammars - 1, G - 1] = summary.noParent.uses.get(
+                FreeVariable(None), 0.0
             )
 
             # variableParent: this is the penultimate network output
@@ -700,8 +802,14 @@ class ContextualGrammarNetwork(nn.Module):
                 uses[b, self.n_grammars - 2, p] = summary.variableParent.uses.get(
                     production, 0.0
                 )
-            uses[b, self.n_grammars - 2, G - 1] = summary.variableParent.uses.get(
+            uses[b, self.n_grammars - 2, G - 3] = summary.variableParent.uses.get(
                 Index(0), 0.0
+            )
+            uses[b, self.n_grammars - 2, G - 2] = summary.variableParent.uses.get(
+                Abstraction(Hole()), 0.0
+            )
+            uses[b, self.n_grammars - 2, G - 1] = summary.variableParent.uses.get(
+                FreeVariable(None), 0.0
             )
 
         numerator = (
@@ -738,8 +846,14 @@ class ContextualGrammarNetwork(nn.Module):
                 mask[tau, p] = (
                     0.0 if production in alternativeSet[tau] else NEGATIVEINFINITY
                 )
-            mask[tau, G - 1] = (
+            mask[tau, G - 3] = (
                 0.0 if Index(0) in alternativeSet[tau] else NEGATIVEINFINITY
+            )
+            mask[tau, G - 2] = (
+                0.0 if Abstraction(Hole()) in alternativeSet[tau] else NEGATIVEINFINITY
+            )
+            mask[tau, G - 1] = (
+                0.0 if FreeVariable(None) in alternativeSet[tau] else NEGATIVEINFINITY
             )
         mask = maybe_cuda(torch.tensor(mask).float(), use_cuda)
 
