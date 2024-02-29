@@ -703,13 +703,13 @@ using solver: load_problems, enumerate_for_task
                 "request" => "inp0:list(int) -> list(int)",
             ),
         )
-        payload["DSL"]["logVariable"] = 3.0
+        payload["DSL"]["logVariable"] = 4.0
         for prod_dict in payload["DSL"]["productions"]
             if prod_dict["expression"] == "repeat" ||
                prod_dict["expression"] == "eq?" ||
                prod_dict["expression"] == "rev_select" ||
                prod_dict["expression"] == "rev_fix_param"
-                prod_dict["logProbability"] = 3.0
+                prod_dict["logProbability"] = 4.0
             end
         end
         task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
