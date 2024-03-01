@@ -76,8 +76,15 @@ def _eq(x):
 specialCharacters = {" ": "SPACE", ")": "RPAREN", "(": "LPAREN"}
 
 primitives = (
-    [Primitive("char-eq?", arrow(tcharacter, tcharacter, tboolean), _eq), Primitive("STRING", tstr, None)]
-    + [Primitive("'%s'" % d, tcharacter, d) for d in delimiters if d not in specialCharacters]
+    [
+        Primitive("char-eq?", arrow(tcharacter, tcharacter, tboolean), _eq),
+        Primitive("STRING", tstr, None),
+    ]
+    + [
+        Primitive("'%s'" % d, tcharacter, d)
+        for d in delimiters
+        if d not in specialCharacters
+    ]
     + [Primitive(name, tcharacter, value) for value, name in specialCharacters.items()]
 )
 
@@ -105,7 +112,7 @@ targetTextPrimitives = (
     ]
     + primitives
     + [
-        Primitive("empty", tlist(t0), []),
+        Primitive("empty", tlist(t0), [], is_reversible=True),
         Primitive("cons", arrow(t0, tlist(t0), tlist(t0)), _cons, is_reversible=True),
         Primitive("car", arrow(tlist(t0), t0), _car),
         Primitive("cdr", arrow(tlist(t0), tlist(t0)), _cdr),

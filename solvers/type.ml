@@ -5,7 +5,7 @@ type tp =
   | TID of int
   | TCon of string * tp list * bool
   | TNCon of string * (string * tp) list * tp * bool
-[@@deriving equal]
+[@@deriving equal, show]
 
 let is_polymorphic = function TID _ -> true | TCon (_, _, p) -> p | TNCon (_, _, _, p) -> p
 
@@ -352,7 +352,7 @@ let type_parser : tp parsing =
   let number = token_parser Char.is_digit in
 
   let rec type_parser () : tp parsing = t_simple () <|> t_func ()
-  and t_simple () = tid_parser <|> tcon_simple <|> tcon () <|> tncon ()
+  and t_simple () = tcon_simple <|> tcon () <|> tid_parser <|> tncon ()
   and t_func () = tcon_arrow () <|> tncon_arrow ()
   and t_param () =
     t_simple ()
@@ -425,6 +425,10 @@ let type_of_string (s : string) : tp option = run_parser type_parser s
 let type_parsing_test_case s =
   let top = type_of_string s in
   match top with None -> false | Some t -> String.( = ) s (string_of_type t)
+
+let%test _ =
+  let t = type_of_string "t0" in
+  match t with Some (TID x) when x = 0 -> true | _ -> false
 
 let%test _ = type_parsing_test_case "t0"
 let%test _ = type_parsing_test_case "t1"

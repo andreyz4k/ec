@@ -61,8 +61,9 @@ let string_of_grammar g =
   ^ string_of_float g.logVariable ^ "\tt0\t$_\n"
   ^ join ~separator:"\n"
       (g.library
-      |> List.map ~f:(fun (p, t, l, _, _) ->
-             Float.to_string l ^ "\t" ^ string_of_type t ^ "\t" ^ string_of_program p))
+      |> List.map ~f:(fun (p, t, l, _, r) ->
+             Float.to_string l ^ "\t" ^ string_of_type t ^ "\t" ^ string_of_program p ^ "\t"
+             ^ string_of_bool r))
 
 let grammar_log_weight g p =
   if is_index p then g.logVariable
@@ -159,6 +160,7 @@ let unifying_expressions ?(reversible_only = false) g environment request contex
                let return_type = return_of_type t in
                if not (might_unify return_type request) then None
                else
+                 let context, _t = instantiate_type context t in
                  let context, arguments = u context request in
                  Some (p, arguments, context, ll)
            with UnificationFailure -> None)
@@ -243,7 +245,9 @@ let summary_likelihood (g : grammar) (s : likelihood_summary) =
 let merge_workspaces context ws1 ws2 =
   Hashtbl.merge ws1 ws2 ~f:(fun ~key:_ -> function
     | `Both (a, b) ->
-        let new_context = unify !context a b in
+        let new_context, a = instantiate_type !context a in
+        let new_context, b = instantiate_type new_context b in
+        let new_context = unify new_context a b in
         context := new_context;
         Some (applyContext new_context a |> snd)
     | `Left a -> Some a
@@ -274,25 +278,13 @@ let make_likelihood_summary g request expression =
     | _ -> (
         (* not a function - must be an application instead of a lambda *)
         match p with
-        | LetClause (name, Const (t, k), body) ->
+        | LetClause (name, t, def, body) ->
             let merged_workspace =
               merge_workspaces context workspace
                 (Hashtbl.of_alist_exn (module String) [ (name, t) ])
             in
             let var_requests = summarize ~reversible_only r environment merged_workspace body in
-            let var_def_requests =
-              summarize ~reversible_only t environment workspace (Const (t, k))
-            in
-            let out_var_requests = merge_workspaces context var_requests var_def_requests in
-            Hashtbl.remove out_var_requests name;
-            out_var_requests
-        | LetClause (name, def, body) ->
-            let var_requests = summarize ~reversible_only r environment workspace body in
-            let var_def_requests =
-              summarize ~reversible_only
-                (Hashtbl.find_exn var_requests name)
-                environment workspace def
-            in
+            let var_def_requests = summarize ~reversible_only t environment workspace def in
             let out_var_requests = merge_workspaces context var_requests var_def_requests in
             Hashtbl.remove out_var_requests name;
             out_var_requests
@@ -307,23 +299,6 @@ let make_likelihood_summary g request expression =
             in
             Hashtbl.set var_body_requests ~key:inp_name ~data:inp_name_request;
             var_body_requests
-        | WrapEither (_vars, inp_name, fixer, def, f, body) ->
-            let inp_name_request = Hashtbl.find_exn workspace inp_name in
-            let var_requests =
-              summarize ~reversible_only:true inp_name_request environment workspace def
-            in
-            let merged_workspace = merge_workspaces context workspace var_requests in
-            let var_body_requests =
-              summarize ~reversible_only r environment merged_workspace body
-            in
-            let var_fixer_requests =
-              summarize ~reversible_only
-                (Hashtbl.find_exn var_requests fixer)
-                environment merged_workspace f
-            in
-            Hashtbl.set var_body_requests ~key:inp_name ~data:inp_name_request;
-            Hashtbl.merge var_body_requests var_fixer_requests ~f:(fun ~key:_ -> function
-              | `Left x -> Some x | `Right x -> Some x | `Both (_x, y) -> Some y)
         | FreeVar name -> Hashtbl.of_alist_exn (module String) [ (name, r) ]
         | Const _ -> Hashtbl.create (module String)
         | _ -> (
@@ -432,7 +407,13 @@ let deserialize_grammar g =
     g |> member "productions" |> to_list
     |> List.map ~f:(fun p ->
            let source = p |> member "expression" |> to_string in
-           let e = parse_program source |> safe_get_some ("Error parsing: " ^ source) in
+           let e =
+             match parse_program source with
+             | Some ex -> ex
+             | None ->
+                 let t = p |> member "type" |> to_string |> type_of_string |> get_some in
+                 primitive source t unit_reference
+           in
            let t =
              try infer_program_type empty_context [] e |> snd
              with UnificationFailure -> raise (Failure ("Could not type " ^ source))

@@ -1,37 +1,299 @@
 
-function run_tests()
-    payloads = Any[
-        Dict{String,Any}(
-            "DSL" => Dict{String,Any}(
-                "logVariable" => 0.0,
-                "productions" => Any[
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "map"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "unfold"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "range"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "index"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "fold"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "length"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "if"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "+"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "-"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "empty"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "cons"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "car"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "cdr"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "empty?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "0"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "1"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "*"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "mod"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "gt?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "eq?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "is-prime"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "is-square"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "repeat"),
-                ],
+sample_payload = Dict{String,Any}(
+    "DSL" => Dict{String,Any}(
+        "logVariable" => 0.004643052816390991,
+        "productions" => Any[
+            Dict{String,Any}(
+                "logProbability" => 0.08516222983598709,
+                "expression" => "map",
+                "is_reversible" => true,
+                "type" => "(t0 -> t1) -> list(t0) -> list(t1)",
             ),
-            "type_weights" => Dict{String,Any}("int" => 1.0, "list" => 1.0, "bool" => 1.0, "float" => 1.0),
-            "task" => Dict{String,Any}(
+            Dict{String,Any}(
+                "logProbability" => -0.007101915776729584,
+                "expression" => "map_grid",
+                "is_reversible" => true,
+                "type" => "(t0 -> t1) -> grid(t0) -> grid(t1)",
+            ),
+            Dict{String,Any}(
+                "logProbability" => 0.08516222983598709,
+                "expression" => "map2",
+                "is_reversible" => true,
+                "type" => "(t0 -> t1 -> t2) -> list(t0) -> list(t1) -> list(t2)",
+            ),
+            Dict{String,Any}(
+                "logProbability" => -0.007101915776729584,
+                "expression" => "map2_grid",
+                "is_reversible" => true,
+                "type" => "(t0 -> t1 -> t2) -> grid(t0) -> grid(t1) -> grid(t2)",
+            ),
+            Dict{String,Any}(
+                "logProbability" => 0.5722317695617676,
+                "expression" => "unfold",
+                "is_reversible" => false,
+                "type" => "(t0 -> bool) -> (t0 -> t1) -> (t0 -> t0) -> t0 -> list(t1)",
+            ),
+            Dict{String,Any}(
+                "logProbability" => 0.04759052395820618,
+                "expression" => "range",
+                "is_reversible" => true,
+                "type" => "int -> list(int)",
+            ),
+            Dict{String,Any}(
+                "logProbability" => -0.4778462052345276,
+                "expression" => "index",
+                "is_reversible" => false,
+                "type" => "int -> list(t0) -> t0",
+            ),
+            Dict{String,Any}(
+                "logProbability" => 0.16173744201660156,
+                "expression" => "index2",
+                "is_reversible" => false,
+                "type" => "int -> int -> grid(t0) -> t0",
+            ),
+            Dict{String,Any}(
+                "logProbability" => -0.4394384026527405,
+                "expression" => "fold",
+                "is_reversible" => false,
+                "type" => "(t0 -> t1 -> t1) -> list(t0) -> t1 -> t1",
+            ),
+            Dict{String,Any}(
+                "logProbability" => -0.36862489581108093,
+                "expression" => "fold_h",
+                "is_reversible" => false,
+                "type" => "(t0 -> t1 -> t1) -> grid(t0) -> list(t1) -> list(t1)",
+            ),
+            Dict{String,Any}(
+                "logProbability" => -0.05522885173559189,
+                "expression" => "fold_v",
+                "is_reversible" => false,
+                "type" => "(t0 -> t1 -> t1) -> grid(t0) -> list(t1) -> list(t1)",
+            ),
+            Dict{String,Any}(
+                "logProbability" => -0.2832038700580597,
+                "expression" => "length",
+                "is_reversible" => false,
+                "type" => "list(t0) -> int",
+            ),
+            Dict{String,Any}(
+                "logProbability" => -0.2645815908908844,
+                "expression" => "height",
+                "is_reversible" => false,
+                "type" => "grid(t0) -> int",
+            ),
+            Dict{String,Any}(
+                "logProbability" => 0.43067336082458496,
+                "expression" => "width",
+                "is_reversible" => false,
+                "type" => "grid(t0) -> int",
+            ),
+            Dict{String,Any}(
+                "logProbability" => -0.3024436831474304,
+                "expression" => "if",
+                "is_reversible" => false,
+                "type" => "bool -> t0 -> t0 -> t0",
+            ),
+            Dict{String,Any}(
+                "logProbability" => 0.08787669241428375,
+                "expression" => "+",
+                "is_reversible" => false,
+                "type" => "int -> int -> int",
+            ),
+            Dict{String,Any}(
+                "logProbability" => -0.21282225847244263,
+                "expression" => "-",
+                "is_reversible" => false,
+                "type" => "int -> int -> int",
+            ),
+            Dict{String,Any}(
+                "logProbability" => -0.0012596286833286285,
+                "expression" => "empty",
+                "is_reversible" => false,
+                "type" => "list(t0)",
+            ),
+            Dict{String,Any}(
+                "logProbability" => 0.19104759395122528,
+                "expression" => "cons",
+                "is_reversible" => true,
+                "type" => "t0 -> list(t0) -> list(t0)",
+            ),
+            Dict{String,Any}(
+                "logProbability" => 0.5415846705436707,
+                "expression" => "car",
+                "is_reversible" => false,
+                "type" => "list(t0) -> t0",
+            ),
+            Dict{String,Any}(
+                "logProbability" => 0.27894705533981323,
+                "expression" => "cdr",
+                "is_reversible" => false,
+                "type" => "list(t0) -> list(t0)",
+            ),
+            Dict{String,Any}(
+                "logProbability" => -0.13995766639709473,
+                "expression" => "empty?",
+                "is_reversible" => false,
+                "type" => "list(t0) -> bool",
+            ),
+            Dict{String,Any}(
+                "logProbability" => -0.7610877156257629,
+                "expression" => "*",
+                "is_reversible" => false,
+                "type" => "int -> int -> int",
+            ),
+            Dict{String,Any}(
+                "logProbability" => 0.09879685938358307,
+                "expression" => "mod",
+                "is_reversible" => false,
+                "type" => "int -> int -> int",
+            ),
+            Dict{String,Any}(
+                "logProbability" => 0.2819819450378418,
+                "expression" => "gt?",
+                "is_reversible" => false,
+                "type" => "int -> int -> bool",
+            ),
+            Dict{String,Any}(
+                "logProbability" => 0.06551016867160797,
+                "expression" => "eq?",
+                "is_reversible" => false,
+                "type" => "t0 -> t0 -> bool",
+            ),
+            Dict{String,Any}(
+                "logProbability" => -0.22693437337875366,
+                "expression" => "is-prime",
+                "is_reversible" => false,
+                "type" => "int -> bool",
+            ),
+            Dict{String,Any}(
+                "logProbability" => -0.1811308115720749,
+                "expression" => "is-square",
+                "is_reversible" => false,
+                "type" => "int -> bool",
+            ),
+            Dict{String,Any}(
+                "logProbability" => 0.20824111998081207,
+                "expression" => "repeat",
+                "is_reversible" => true,
+                "type" => "t0 -> int -> list(t0)",
+            ),
+            Dict{String,Any}(
+                "logProbability" => 0.5051954388618469,
+                "expression" => "concat",
+                "is_reversible" => true,
+                "type" => "list(t0) -> list(t0) -> list(t0)",
+            ),
+            Dict{String,Any}(
+                "logProbability" => 0.28117895126342773,
+                "expression" => "rows",
+                "is_reversible" => true,
+                "type" => "grid(t0) -> list(list(t0))",
+            ),
+            Dict{String,Any}(
+                "logProbability" => 0.07839452475309372,
+                "expression" => "columns",
+                "is_reversible" => true,
+                "type" => "grid(t0) -> list(list(t0))",
+            ),
+            Dict{String,Any}(
+                "logProbability" => 0.14351551234722137,
+                "expression" => "rows_to_grid",
+                "is_reversible" => true,
+                "type" => "list(list(t0)) -> grid(t0)",
+            ),
+            Dict{String,Any}(
+                "logProbability" => 0.13544370234012604,
+                "expression" => "columns_to_grid",
+                "is_reversible" => true,
+                "type" => "list(list(t0)) -> grid(t0)",
+            ),
+            Dict{String,Any}(
+                "logProbability" => -0.14936356246471405,
+                "expression" => "rev_select",
+                "is_reversible" => true,
+                "type" => "(t0 -> bool) -> list(t0) -> list(t0) -> list(t0)",
+            ),
+            Dict{String,Any}(
+                "logProbability" => -0.3992577791213989,
+                "expression" => "rev_select_grid",
+                "is_reversible" => true,
+                "type" => "(t0 -> bool) -> grid(t0) -> grid(t0) -> grid(t0)",
+            ),
+            Dict{String,Any}(
+                "logProbability" => 0.19241996109485626,
+                "expression" => "0",
+                "is_reversible" => false,
+                "type" => "int",
+            ),
+            Dict{String,Any}(
+                "logProbability" => 0.3595008850097656,
+                "expression" => "1",
+                "is_reversible" => false,
+                "type" => "int",
+            ),
+        ],
+    ),
+    "type_weights" => Dict{String,Any}(
+        "int" => 1.0,
+        "list" => 1.0,
+        "color" => 1.0,
+        "bool" => 1.0,
+        "float" => 1.0,
+        "grid" => 1.0,
+        "tuple2" => 1.0,
+        "tuple3" => 1.0,
+        "coord" => 1.0,
+        "set" => 1.0,
+    ),
+    "programTimeout" => 3.0,
+    "timeout" => 60,
+    "verbose" => false,
+    "shatter" => 10,
+)
+
+function create_task(task_dict)
+    result = copy(sample_payload)
+    result["task"] = task_dict
+    result["name"] = task_dict["name"]
+    return result
+end
+
+function create_arc_task(filename)
+    arc_task = JSON.parsefile(filename)
+    task_dict = Dict{String,Any}(
+        "name" => filename,
+        "maximumFrontier" => 10,
+        "extras" => 5,
+        "request" => Dict{String,Any}(
+            "arguments" => Dict{String,Any}(
+                "inp0" => Dict{String,Any}(
+                    "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "color")],
+                    "constructor" => "grid",
+                ),
+            ),
+            "output" => Dict{String,Any}(
+                "arguments" => Any[Dict{String,Any}("arguments" => Any[], "constructor" => "color")],
+                "constructor" => "grid",
+            ),
+            "constructor" => "->",
+        ),
+        "specialTask" => "arc",
+    )
+    task_dict["examples"] = Any[
+        Dict{String,Any}("inputs" => Dict{String,Any}("inp0" => example["input"]), "output" => example["output"])
+        for example in arc_task["train"]
+    ]
+    task_dict["test_examples"] = Any[
+        Dict{String,Any}("inputs" => Dict{String,Any}("inp0" => example["input"]), "output" => example["output"])
+        for example in arc_task["test"]
+    ]
+    return create_task(task_dict)
+end
+
+function run_tests(is_start)
+    payloads = Any[
+        create_task(
+            Dict{String,Any}(
                 "name" => "invert repeated",
                 "maximumFrontier" => 10,
                 "examples" => Any[
@@ -57,43 +319,9 @@ function run_tests()
                     "constructor" => "->",
                 ),
             ),
-            "name" => "invert repeated",
-            "programTimeout" => 1,
-            "timeout" => 40,
-            "verbose" => false,
-            "shatter" => 10,
         ),
-        Dict{String,Any}(
-            "DSL" => Dict{String,Any}(
-                "logVariable" => 0.0,
-                "productions" => Any[
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "map"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "unfold"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "range"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "index"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "fold"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "length"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "if"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "+"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "-"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "empty"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "cons"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "car"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "cdr"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "empty?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "0"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "1"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "*"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "mod"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "gt?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "eq?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "is-prime"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "is-square"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "repeat"),
-                ],
-            ),
-            "type_weights" => Dict{String,Any}("int" => 1.0, "list" => 1.0, "bool" => 1.0, "float" => 1.0),
-            "task" => Dict{String,Any}(
+        create_task(
+            Dict{String,Any}(
                 "name" => "find const",
                 "maximumFrontier" => 10,
                 "examples" => Any[
@@ -122,44 +350,9 @@ function run_tests()
                     "constructor" => "->",
                 ),
             ),
-            "name" => "find const",
-            "programTimeout" => 1,
-            "timeout" => 20,
-            "verbose" => false,
-            "shatter" => 10,
         ),
-        Dict{String,Any}(
-            "DSL" => Dict{String,Any}(
-                "logVariable" => 0.0,
-                "productions" => Any[
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "map"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "unfold"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "range"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "index"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "fold"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "length"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "if"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "+"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "-"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "empty"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "cons"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "car"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "cdr"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "empty?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "0"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "1"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "*"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "mod"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "gt?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "eq?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "is-prime"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "is-square"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "repeat"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "concat"),
-                ],
-            ),
-            "type_weights" => Dict{String,Any}("int" => 1.0, "list" => 1.0, "bool" => 1.0, "float" => 1.0),
-            "task" => Dict{String,Any}(
+        create_task(
+            Dict{String,Any}(
                 "name" => "use eithers",
                 "maximumFrontier" => 10,
                 "examples" => Any[
@@ -191,44 +384,9 @@ function run_tests()
                     "constructor" => "->",
                 ),
             ),
-            "name" => "use eithers",
-            "programTimeout" => 1,
-            "timeout" => 20,
-            "verbose" => false,
-            "shatter" => 10,
         ),
-        Dict{String,Any}(
-            "DSL" => Dict{String,Any}(
-                "logVariable" => 0.0,
-                "productions" => Any[
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "map"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "unfold"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "range"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "index"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "fold"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "length"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "if"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "+"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "-"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "empty"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "cons"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "car"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "cdr"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "empty?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "0"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "1"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "*"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "mod"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "gt?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "eq?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "is-prime"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "is-square"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "repeat"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "concat"),
-                ],
-            ),
-            "type_weights" => Dict{String,Any}("int" => 1.0, "list" => 1.0, "bool" => 1.0, "float" => 1.0),
-            "task" => Dict{String,Any}(
+        create_task(
+            Dict{String,Any}(
                 "name" => "use eithers",
                 "maximumFrontier" => 10,
                 "examples" => Any[
@@ -260,44 +418,9 @@ function run_tests()
                     "constructor" => "->",
                 ),
             ),
-            "name" => "use eithers",
-            "programTimeout" => 1,
-            "timeout" => 80,
-            "verbose" => false,
-            "shatter" => 10,
         ),
-        Dict{String,Any}(
-            "DSL" => Dict{String,Any}(
-                "logVariable" => 0.0,
-                "productions" => Any[
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "map"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "unfold"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "range"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "index"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "fold"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "length"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "if"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "+"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "-"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "empty"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "cons"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "car"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "cdr"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "empty?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "0"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "1"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "*"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "mod"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "gt?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "eq?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "is-prime"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "is-square"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "repeat"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "concat"),
-                ],
-            ),
-            "type_weights" => Dict{String,Any}("int" => 1.0, "list" => 1.0, "bool" => 1.0, "float" => 1.0),
-            "task" => Dict{String,Any}(
+        create_task(
+            Dict{String,Any}(
                 "name" => "use eithers",
                 "maximumFrontier" => 10,
                 "examples" => Any[
@@ -329,43 +452,9 @@ function run_tests()
                     "constructor" => "->",
                 ),
             ),
-            "name" => "use eithers",
-            "programTimeout" => 1,
-            "timeout" => 30,
-            "verbose" => false,
-            "shatter" => 10,
         ),
-        Dict{String,Any}(
-            "DSL" => Dict{String,Any}(
-                "logVariable" => 0.0,
-                "productions" => Any[
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "map"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "unfold"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "range"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "index"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "fold"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "length"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "if"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "+"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "-"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "empty"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "cons"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "car"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "cdr"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "empty?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "0"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "1"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "*"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "mod"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "gt?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "eq?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "is-prime"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "is-square"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "repeat"),
-                ],
-            ),
-            "type_weights" => Dict{String,Any}("int" => 1.0, "list" => 1.0, "bool" => 1.0, "float" => 1.0),
-            "task" => Dict{String,Any}(
+        create_task(
+            Dict{String,Any}(
                 "name" => "add-k with k=1",
                 "maximumFrontier" => 10,
                 "examples" => Any[
@@ -421,43 +510,9 @@ function run_tests()
                     "constructor" => "->",
                 ),
             ),
-            "name" => "add-k with k=1",
-            "programTimeout" => 1,
-            "timeout" => 20,
-            "verbose" => false,
-            "shatter" => 10,
         ),
-        Dict{String,Any}(
-            "DSL" => Dict{String,Any}(
-                "logVariable" => 0.0,
-                "productions" => Any[
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "map"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "unfold"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "range"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "index"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "fold"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "length"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "if"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "+"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "-"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "empty"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "cons"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "car"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "cdr"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "empty?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "0"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "1"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "*"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "mod"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "gt?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "eq?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "is-prime"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "is-square"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "repeat"),
-                ],
-            ),
-            "type_weights" => Dict{String,Any}("int" => 1.0, "list" => 1.0, "bool" => 1.0, "float" => 1.0),
-            "task" => Dict{String,Any}(
+        create_task(
+            Dict{String,Any}(
                 "name" => "empty",
                 "maximumFrontier" => 10,
                 "examples" => Any[
@@ -498,43 +553,9 @@ function run_tests()
                     "constructor" => "->",
                 ),
             ),
-            "name" => "empty",
-            "programTimeout" => 1,
-            "timeout" => 30,
-            "verbose" => false,
-            "shatter" => 10,
         ),
-        Dict{String,Any}(
-            "DSL" => Dict{String,Any}(
-                "logVariable" => 0.0,
-                "productions" => Any[
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "map"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "unfold"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "range"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "index"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "fold"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "length"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "if"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "+"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "-"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "empty"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "cons"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "car"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "cdr"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "empty?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "0"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "1"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "*"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "mod"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "gt?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "eq?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "is-prime"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "is-square"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "repeat"),
-                ],
-            ),
-            "type_weights" => Dict{String,Any}("int" => 1.0, "list" => 1.0, "bool" => 1.0, "float" => 1.0),
-            "task" => Dict{String,Any}(
+        create_task(
+            Dict{String,Any}(
                 "name" => "append-index-k with k=5",
                 "maximumFrontier" => 10,
                 "examples" => Any[
@@ -614,43 +635,9 @@ function run_tests()
                     "constructor" => "->",
                 ),
             ),
-            "name" => "append-index-k with k=5",
-            "programTimeout" => 1,
-            "timeout" => 20,
-            "verbose" => false,
-            "shatter" => 10,
         ),
-        Dict{String,Any}(
-            "DSL" => Dict{String,Any}(
-                "logVariable" => 0.0,
-                "productions" => Any[
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "map"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "unfold"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "range"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "index"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "fold"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "length"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "if"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "+"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "-"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "empty"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "cons"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "car"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "cdr"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "empty?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "0"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "1"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "*"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "mod"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "gt?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "eq?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "is-prime"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "is-square"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "repeat"),
-                ],
-            ),
-            "type_weights" => Dict{String,Any}("int" => 1.0, "list" => 1.0, "bool" => 1.0, "float" => 1.0),
-            "task" => Dict{String,Any}(
+        create_task(
+            Dict{String,Any}(
                 "name" => "len",
                 "maximumFrontier" => 10,
                 "examples" => Any[
@@ -685,43 +672,9 @@ function run_tests()
                     "constructor" => "->",
                 ),
             ),
-            "name" => "len",
-            "programTimeout" => 1,
-            "timeout" => 20,
-            "verbose" => false,
-            "shatter" => 10,
         ),
-        Dict{String,Any}(
-            "DSL" => Dict{String,Any}(
-                "logVariable" => 0.0,
-                "productions" => Any[
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "map"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "unfold"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "range"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "index"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "fold"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "length"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "if"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "+"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "-"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "empty"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "cons"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "car"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "cdr"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "empty?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "0"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "1"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "*"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "mod"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "gt?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "eq?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "is-prime"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "is-square"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "repeat"),
-                ],
-            ),
-            "type_weights" => Dict{String,Any}("int" => 1.0, "list" => 1.0, "bool" => 1.0, "float" => 1.0),
-            "task" => Dict{String,Any}(
+        create_task(
+            Dict{String,Any}(
                 "name" => "is-mod-k with k=1",
                 "maximumFrontier" => 10,
                 "examples" => Any[
@@ -762,42 +715,9 @@ function run_tests()
                     "constructor" => "->",
                 ),
             ),
-            "name" => "is-mod-k with k=1",
-            "programTimeout" => 1,
-            "timeout" => 30,
-            "verbose" => false,
-            "shatter" => 10,
         ),
-        Dict{String,Any}(
-            "DSL" => Dict{String,Any}(
-                "logVariable" => 0.0,
-                "productions" => Any[
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "map"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "unfold"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "range"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "index"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "fold"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "length"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "if"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "+"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "-"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "empty"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "cons"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "car"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "cdr"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "empty?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "0"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "1"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "*"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "mod"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "gt?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "eq?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "is-prime"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "is-square"),
-                ],
-            ),
-            "type_weights" => Dict{String,Any}("int" => 1.0, "list" => 1.0, "bool" => 1.0, "float" => 1.0),
-            "task" => Dict{String,Any}(
+        create_task(
+            Dict{String,Any}(
                 "name" => "prepend-k with k=0",
                 "maximumFrontier" => 10,
                 "examples" => Any[
@@ -859,42 +779,9 @@ function run_tests()
                     "constructor" => "->",
                 ),
             ),
-            "name" => "prepend-k with k=0",
-            "programTimeout" => 1.0,
-            "timeout" => 20,
-            "verbose" => false,
-            "shatter" => 10,
         ),
-        Dict{String,Any}(
-            "DSL" => Dict{String,Any}(
-                "logVariable" => 0.0,
-                "productions" => Any[
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "map"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "unfold"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "range"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "index"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "fold"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "length"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "if"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "+"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "-"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "empty"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "cons"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "car"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "cdr"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "empty?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "0"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "1"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "*"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "mod"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "gt?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "eq?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "is-prime"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "is-square"),
-                ],
-            ),
-            "type_weights" => Dict{String,Any}("int" => 1.0, "list" => 1.0, "bool" => 1.0, "float" => 1.0),
-            "task" => Dict{String,Any}(
+        create_task(
+            Dict{String,Any}(
                 "name" => "remove empty lists",
                 "maximumFrontier" => 10,
                 "examples" => Any[
@@ -952,7 +839,8 @@ function run_tests()
                     ),
                     Dict{String,Any}(
                         "output" => Any[Any[true, true], Any[true], Any[true, true]],
-                        "inputs" => Dict{String,Any}("inp0" => Any[Any[true, true], Any[true], Any[true, true], Any[]]),
+                        "inputs" =>
+                            Dict{String,Any}("inp0" => Any[Any[true, true], Any[true], Any[true, true], Any[]]),
                     ),
                     Dict{String,Any}(
                         "output" => Any[Any[true, true], Any[true, false], Any[false]],
@@ -986,10 +874,12 @@ function run_tests()
                     ),
                     Dict{String,Any}(
                         "output" => Any[Any[false, false], Any[false], Any[false]],
-                        "inputs" => Dict{String,Any}("inp0" => Any[Any[false, false], Any[false], Any[], Any[false]]),
+                        "inputs" =>
+                            Dict{String,Any}("inp0" => Any[Any[false, false], Any[false], Any[], Any[false]]),
                     ),
                     Dict{String,Any}(
-                        "output" => Any[Any[false, false, true], Any[true, true], Any[true], Any[false, true, true]],
+                        "output" =>
+                            Any[Any[false, false, true], Any[true, true], Any[true], Any[false, true, true]],
                         "inputs" => Dict{String,Any}(
                             "inp0" => Any[Any[false, false, true], Any[true, true], Any[true], Any[false, true, true]],
                         ),
@@ -1016,42 +906,9 @@ function run_tests()
                     "constructor" => "->",
                 ),
             ),
-            "name" => "remove empty lists",
-            "programTimeout" => 1.0,
-            "timeout" => 30,
-            "verbose" => false,
-            "shatter" => 10,
         ),
-        Dict{String,Any}(
-            "DSL" => Dict{String,Any}(
-                "logVariable" => 0.0,
-                "productions" => Any[
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "map"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "unfold"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "range"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "index"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "fold"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "length"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "if"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "+"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "-"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "empty"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "cons"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "car"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "cdr"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "empty?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "0"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "1"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "*"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "mod"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "gt?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "eq?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "is-prime"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "is-square"),
-                ],
-            ),
-            "type_weights" => Dict{String,Any}("int" => 1.0, "list" => 1.0, "bool" => 1.0, "float" => 1.0),
-            "task" => Dict{String,Any}(
+        create_task(
+            Dict{String,Any}(
                 "name" => "prepend-index-k with k=3",
                 "maximumFrontier" => 10,
                 "examples" => Any[
@@ -1131,42 +988,9 @@ function run_tests()
                     "constructor" => "->",
                 ),
             ),
-            "name" => "prepend-index-k with k=3",
-            "programTimeout" => 1.0,
-            "timeout" => 30,
-            "verbose" => false,
-            "shatter" => 10,
         ),
-        Dict{String,Any}(
-            "DSL" => Dict{String,Any}(
-                "logVariable" => 0.0,
-                "productions" => Any[
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "map"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "unfold"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "range"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "index"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "fold"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "length"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "if"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "+"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "-"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "empty"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "cons"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "car"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "cdr"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "empty?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "0"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "1"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "*"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "mod"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "gt?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "eq?"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "is-prime"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "is-square"),
-                ],
-            ),
-            "type_weights" => Dict{String,Any}("int" => 1.0, "list" => 1.0, "bool" => 1.0, "float" => 1.0),
-            "task" => Dict{String,Any}(
+        create_task(
+            Dict{String,Any}(
                 "name" => "range +1 maximum list",
                 "maximumFrontier" => 10,
                 "examples" => Any[
@@ -1243,48 +1067,9 @@ function run_tests()
                     "constructor" => "->",
                 ),
             ),
-            "name" => "range +1 maximum list",
-            "programTimeout" => 1.0,
-            "timeout" => 30,
-            "verbose" => false,
-            "shatter" => 10,
         ),
-        Dict{String,Any}(
-            "DSL" => Dict{String,Any}(
-                "logVariable" => 0.0,
-                "productions" => Any[
-                    Dict{String,Any}(
-                        "logProbability" => -1.0052030244719696,
-                        "expression" => "#(lambda (repeat (car \$0)))",
-                    ),
-                    Dict{String,Any}("logProbability" => -1.1838572807461039, "expression" => "map"),
-                    Dict{String,Any}("logProbability" => -1.1838572807461039, "expression" => "unfold"),
-                    Dict{String,Any}("logProbability" => -1.151067457923113, "expression" => "range"),
-                    Dict{String,Any}("logProbability" => -1.2171832600950525, "expression" => "index"),
-                    Dict{String,Any}("logProbability" => -1.289518413628755, "expression" => "fold"),
-                    Dict{String,Any}("logProbability" => -0.15480969927313604, "expression" => "length"),
-                    Dict{String,Any}("logProbability" => -1.289518413628755, "expression" => "if"),
-                    Dict{String,Any}("logProbability" => -0.2798682255709619, "expression" => "+"),
-                    Dict{String,Any}("logProbability" => -0.28075781620381113, "expression" => "-"),
-                    Dict{String,Any}("logProbability" => -1.1829561919230245, "expression" => "empty"),
-                    Dict{String,Any}("logProbability" => -0.6393550838729674, "expression" => "cons"),
-                    Dict{String,Any}("logProbability" => -1.1873062388074977, "expression" => "car"),
-                    Dict{String,Any}("logProbability" => -1.10830595095433, "expression" => "cdr"),
-                    Dict{String,Any}("logProbability" => 0.0, "expression" => "empty?"),
-                    Dict{String,Any}("logProbability" => -0.28075781620381113, "expression" => "0"),
-                    Dict{String,Any}("logProbability" => -0.2746779886310846, "expression" => "1"),
-                    Dict{String,Any}("logProbability" => -0.2804706638162737, "expression" => "*"),
-                    Dict{String,Any}("logProbability" => -0.28075781620381113, "expression" => "mod"),
-                    Dict{String,Any}("logProbability" => -0.039175630977758225, "expression" => "gt?"),
-                    Dict{String,Any}("logProbability" => -0.039175630977758225, "expression" => "eq?"),
-                    Dict{String,Any}("logProbability" => -0.039175630977758225, "expression" => "is-prime"),
-                    Dict{String,Any}("logProbability" => -0.039175630977758225, "expression" => "is-square"),
-                    Dict{String,Any}("logProbability" => -1.123559515428262, "expression" => "repeat"),
-                    Dict{String,Any}("logProbability" => -0.40787379882733443, "expression" => "concat"),
-                ],
-            ),
-            "type_weights" => Dict{String,Any}("int" => 1.0, "list" => 1.0, "bool" => 1.0, "float" => 1.0),
-            "task" => Dict{String,Any}(
+        create_task(
+            Dict{String,Any}(
                 "name" => "slice-k-n with k=2 and n=1",
                 "maximumFrontier" => 10,
                 "examples" => Any[
@@ -1352,109 +1137,468 @@ function run_tests()
                     "constructor" => "->",
                 ),
             ),
-            "name" => "slice-k-n with k=2 and n=1",
-            "programTimeout" => 1,
-            "timeout" => 40,
-            "verbose" => false,
-            "shatter" => 10,
         ),
     ]
+end
 
-    function _check_worker_timeouts(lk, active_timeouts)
-        function (t)
-            lock(lk) do
-                for depth in length(active_timeouts):-1:1
-                    threshold_time, status, retries = active_timeouts[depth]
-                    if status == 1
-                        if threshold_time + 10 < time()
-                            # active_timeouts[depth] = time(), 1, retries + 1
-                            if retries >= 3
-                                @warn "Killing worker because retried too many times $retries"
-                                # rmprocs(pid, waitfor = 0)
-                            else
-                                @warn "Interrupting worker again $retries"
-                                # interrupt(pid)
-                            end
-                        end
-                        break
-                    elseif threshold_time < time()
-                        max_depth = length(active_timeouts)
-                        last_threshold, _, _ = active_timeouts[max_depth]
-                        # active_timeouts[max_depth] = last_threshold, 1, retries + 1
-                        @warn "Interrupting worker "
-                        # interrupt(pid)
-                        break
-                    end
-                end
-            end
-        end
+function run_arc_tests(is_start)
+
+    #get files in directory
+    files = readdir("dreamcoder/domains/arc/ARC/data/training", join = true)
+
+    if is_start
+        payloads = [create_arc_task(file) for file in files[1:3]]
+        # payloads = vcat(payloads[1:2], arc_payloads)
+    else
+        # payloads = [create_arc_task(file) for file in files[4:15]]
+        # f = "dreamcoder/domains/arc/ARC/data/training/50cb2852.json"
+        # push!(payloads, create_arc_task(f))
+        # f = "dreamcoder/domains/arc/ARC/data/training/8731374e.json"
+        # f = "dreamcoder/domains/arc/ARC/data/training/80af3007.json"
+        # f = "dreamcoder/domains/arc/ARC/data/training/90c28cc7.json"
+        # f = "dreamcoder/domains/arc/ARC/data/training/23581191.json"
+        # f = "dreamcoder/domains/arc/ARC/data/training/5c2c9af4.json"
+        # f = "dreamcoder/domains/arc/ARC/data/training/d8c310e9.json"
+        f = "dreamcoder/domains/arc/ARC/data/training/63613498.json"
+        payloads = [create_arc_task(f)]
+        # push!(payloads, create_arc_task(f))
+        # payloads = payloads[3:end]
     end
-
-    function _handle_timeout_messages(lk, timeout_request_channel, timeout_response_channel, active_timeouts)
-        while true
-            message = take!(timeout_request_channel)
-            lock(lk) do
-                if message[1] == 0
-                    _, threshold_time = message
-                    if length(active_timeouts) > 0 && active_timeouts[end][2] == 1
-                        put!(timeout_response_channel, -1)
-                    else
-                        push!(active_timeouts, (threshold_time, 0, 0))
-                        put!(timeout_response_channel, length(active_timeouts))
-                    end
-                elseif message[1] == 1
-                    _, depth, expected_status = message
-                    if depth > length(active_timeouts)
-                        put!(timeout_response_channel, 2)
-                    else
-                        if depth < length(active_timeouts)
-                            _, current_status, _ = active_timeouts[end]
-                            threshold_time, _, _ = active_timeouts[depth]
-                            if current_status == expected_status
-                                while depth < length(active_timeouts)
-                                    pop!(active_timeouts)
-                                end
-                            end
-                        else
-                            threshold_time, current_status, _ = active_timeouts[depth]
-                        end
-                        if current_status == expected_status
-                            pop!(active_timeouts)
-                            put!(timeout_response_channel, 0)
-                        else
-                            put!(timeout_response_channel, 1)
-                        end
-                    end
-                end
-            end
-        end
-    end
-
-    function start_timeout_monitor()
-        lk = ReentrantLock()
-        timeout_request_channel = RemoteChannel(() -> Channel{Tuple}(1))
-        timeout_response_channel = RemoteChannel(() -> Channel{Int}(1))
-        active_timeouts = []
-        Timer(_check_worker_timeouts(lk, active_timeouts), 1, interval = 1)
-        @async _handle_timeout_messages(lk, timeout_request_channel, timeout_response_channel, active_timeouts)
-        return timeout_request_channel, timeout_response_channel
-    end
-
-    req_channel, resp_channel = start_timeout_monitor()
 
     for payload in payloads
-        task, maximum_frontier, g, type_weights, _mfp, _nc, timeout, verbose, program_timeout = load_problems(payload)
-        enumerate_for_task(
-            Dict{String,Any}(
-                "program_timeout" => program_timeout,
-                "timeout" => timeout,
-                "timeout_request_channel" => req_channel,
-                "timeout_response_channel" => resp_channel,
-            ),
+        @info payload["name"]
+        payload["DSL"] = Dict{String,Any}(
+            "logVariable" => 0.18440093100070953,
+            "logFreeVar" => 3.0,
+            "logLambda" => -3.0,
+            "productions" => Any[
+                Dict{String,Any}(
+                    "logProbability" => 0.26229602098464966,
+                    "expression" => "map",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1) -> list(t0) -> list(t1)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.17433375120162964,
+                    "expression" => "map_set",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1) -> set(t0) -> set(t1)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.020587414503097534,
+                    "expression" => "map_grid",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1) -> grid(t0) -> grid(t1)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.25952717661857605,
+                    "expression" => "map2",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1 -> t2) -> list(t0) -> list(t1) -> list(t2)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.7479397058486938,
+                    "expression" => "map2_grid",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1 -> t2) -> grid(t0) -> grid(t1) -> grid(t2)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.09426483511924744,
+                    "expression" => "unfold",
+                    "is_reversible" => false,
+                    "type" => "(t0 -> bool) -> (t0 -> t1) -> (t0 -> t0) -> t0 -> list(t1)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.31616055965423584,
+                    "expression" => "range",
+                    "is_reversible" => true,
+                    "type" => "int -> list(int)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.24963818490505219,
+                    "expression" => "index",
+                    "is_reversible" => false,
+                    "type" => "int -> list(t0) -> t0",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.6580096483230591,
+                    "expression" => "index2",
+                    "is_reversible" => false,
+                    "type" => "int -> int -> grid(t0) -> t0",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.24903573095798492,
+                    "expression" => "fold",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1 -> t1) -> list(t0) -> t1 -> t1",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.043374061584472656,
+                    "expression" => "fold_set",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1 -> t1) -> set(t0) -> t1 -> t1",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.05344507470726967,
+                    "expression" => "fold_h",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1 -> t1) -> grid(t0) -> list(t1) -> list(t1)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.01714884489774704,
+                    "expression" => "fold_v",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1 -> t1) -> grid(t0) -> list(t1) -> list(t1)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.024114713072776794,
+                    "expression" => "length",
+                    "is_reversible" => false,
+                    "type" => "list(t0) -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.33626657724380493,
+                    "expression" => "height",
+                    "is_reversible" => false,
+                    "type" => "grid(t0) -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.36573341488838196,
+                    "expression" => "width",
+                    "is_reversible" => false,
+                    "type" => "grid(t0) -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.01316140592098236,
+                    "expression" => "if",
+                    "is_reversible" => false,
+                    "type" => "bool -> t0 -> t0 -> t0",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.0700928121805191,
+                    "expression" => "+",
+                    "is_reversible" => true,
+                    "type" => "int -> int -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.18608686327934265,
+                    "expression" => "-",
+                    "is_reversible" => true,
+                    "type" => "int -> int -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.05018486827611923,
+                    "expression" => "empty",
+                    "is_reversible" => false,
+                    "type" => "list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.05018486827611923,
+                    "expression" => "empty_set",
+                    "is_reversible" => false,
+                    "type" => "set(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.26301681995391846,
+                    "expression" => "cons",
+                    "is_reversible" => true,
+                    "type" => "t0 -> list(t0) -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.26301681995391846,
+                    "expression" => "adjoin",
+                    "is_reversible" => true,
+                    "type" => "t0 -> set(t0) -> set(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.11566320061683655,
+                    "expression" => "car",
+                    "is_reversible" => false,
+                    "type" => "list(t0) -> t0",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.4045564830303192,
+                    "expression" => "cdr",
+                    "is_reversible" => false,
+                    "type" => "list(t0) -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.04355373978614807,
+                    "expression" => "empty?",
+                    "is_reversible" => false,
+                    "type" => "list(t0) -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.21377874910831451,
+                    "expression" => "*",
+                    "is_reversible" => true,
+                    "type" => "int -> int -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.4629265069961548,
+                    "expression" => "mod",
+                    "is_reversible" => false,
+                    "type" => "int -> int -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.28995591402053833,
+                    "expression" => "gt?",
+                    "is_reversible" => false,
+                    "type" => "int -> int -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.20868434011936188,
+                    "expression" => "eq?",
+                    "is_reversible" => false,
+                    "type" => "t0 -> t0 -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.3835919499397278,
+                    "expression" => "is-prime",
+                    "is_reversible" => false,
+                    "type" => "int -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.26428088545799255,
+                    "expression" => "is-square",
+                    "is_reversible" => false,
+                    "type" => "int -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.27473536133766174,
+                    "expression" => "repeat",
+                    "is_reversible" => true,
+                    "type" => "t0 -> int -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.20100094377994537,
+                    "expression" => "repeat_grid",
+                    "is_reversible" => true,
+                    "type" => "t0 -> int -> int -> grid(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.1020718663930893,
+                    "expression" => "concat",
+                    "is_reversible" => true,
+                    "type" => "list(t0) -> list(t0) -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.3644667863845825,
+                    "expression" => "rows",
+                    "is_reversible" => true,
+                    "type" => "grid(t0) -> list(list(t0))",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.08203943073749542,
+                    "expression" => "columns",
+                    "is_reversible" => true,
+                    "type" => "grid(t0) -> list(list(t0))",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.34513404965400696,
+                    "expression" => "rows_to_grid",
+                    "is_reversible" => true,
+                    "type" => "list(list(t0)) -> grid(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.302104651927948,
+                    "expression" => "columns_to_grid",
+                    "is_reversible" => true,
+                    "type" => "list(list(t0)) -> grid(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.0025863386690616608,
+                    "expression" => "rev_select",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> bool) -> list(t0) -> list(t0) -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.0025863386690616608,
+                    "expression" => "rev_select_set",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> bool) -> set(t0) -> set(t0) -> set(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.3118687868118286,
+                    "expression" => "rev_select_grid",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> bool) -> grid(t0) -> grid(t0) -> grid(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.3658756911754608,
+                    "expression" => "rev_list_elements",
+                    "is_reversible" => true,
+                    "type" => "set(tuple2(int, t0)) -> int -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.16821910440921783,
+                    "expression" => "rev_grid_elements",
+                    "is_reversible" => true,
+                    "type" => "set(tuple2(tuple2(int, int), t0)) -> int -> int -> grid(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.19650761783123016,
+                    "expression" => "zip2",
+                    "is_reversible" => true,
+                    "type" => "list(t0) -> list(t1) -> list(tuple2(t0, t1))",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.04930289089679718,
+                    "expression" => "zip_grid2",
+                    "is_reversible" => true,
+                    "type" => "list(t0) -> list(t1) -> list(tuple2(t0, t1))",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.04608079418540001,
+                    "expression" => "tuple2",
+                    "is_reversible" => true,
+                    "type" => "t0 -> t1 -> tuple2(t0, t1)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.04608079418540001,
+                    "expression" => "tuple2_first",
+                    "is_reversible" => true,
+                    "type" => "tuple2(t0, t1) -> t0",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.7565436363220215,
+                    "expression" => "tuple2_second",
+                    "is_reversible" => true,
+                    "type" => "tuple2(t0, t1) -> t1",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.24813920259475708,
+                    "expression" => "reverse",
+                    "is_reversible" => true,
+                    "type" => "list(t0) -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.39079853892326355,
+                    "expression" => "rev_fold",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1 -> t1) -> t1 -> t1 -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.3027239739894867,
+                    "expression" => "rev_fold_set",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1 -> t1) -> t1 -> t1 -> set(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.05734211206436157,
+                    "expression" => "list_to_set",
+                    "is_reversible" => false,
+                    "type" => "list(t0) -> set(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "rev_groupby",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1) -> t0 -> set(tuple2(t1, set(t0))) -> set(tuple2(t1, set(t0)))",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "rev_greedy_cluster",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> set(t0) -> bool) -> t0 -> set(set(t0)) -> set(set(t0))",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "not",
+                    "is_reversible" => true,
+                    "type" => "bool -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "and",
+                    "is_reversible" => true,
+                    "type" => "bool -> bool -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "or",
+                    "is_reversible" => true,
+                    "type" => "bool -> bool -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "all",
+                    "is_reversible" => false,
+                    "type" => "(t0 -> bool) -> list(t0) -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "any",
+                    "is_reversible" => false,
+                    "type" => "(t0 -> bool) -> list(t0) -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "all_set",
+                    "is_reversible" => false,
+                    "type" => "(t0 -> bool) -> set(t0) -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "any_set",
+                    "is_reversible" => false,
+                    "type" => "(t0 -> bool) -> set(t0) -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "abs",
+                    "is_reversible" => true,
+                    "type" => "int -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.15116432309150696,
+                    "expression" => "0",
+                    "is_reversible" => false,
+                    "type" => "int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0043089985847473145,
+                    "expression" => "1",
+                    "is_reversible" => false,
+                    "type" => "int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 1.0,
+                    "expression" => "rev_fix_param",
+                    "is_reversible" => true,
+                    "type" => "t0 -> t1 -> (t0 -> t1) -> t0",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "max_int",
+                    "is_reversible" => false,
+                    "type" => "int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "min_int",
+                    "is_reversible" => false,
+                    "type" => "int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.0,
+                    "expression" => "collect",
+                    "is_reversible" => true,
+                    "type" => "set(t0) -> list(t0)",
+                ),
+            ],
+        )
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
+        timeout = 60
+        @time enumerate_for_task(
+            Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
+            hyperparameters,
             task,
             maximum_frontier,
+            timeout,
             verbose,
         )
     end

@@ -1,3 +1,4 @@
+import redis
 from dreamcoder.enumeration import *
 from dreamcoder.grammar import *
 
@@ -6,6 +7,8 @@ from dreamcoder.grammar import *
 
 import gc
 
+from dreamcoder.task import NamedVarsTask
+
 try:
     import torch
     import torch.nn as nn
@@ -13,12 +16,16 @@ try:
     from torch.autograd import Variable
     from torch.nn.utils.rnn import pack_padded_sequence
 except:
-    eprint("WARNING: Could not import torch. This is only okay when doing pypy compression.")
+    eprint(
+        "WARNING: Could not import torch. This is only okay when doing pypy compression."
+    )
 
 try:
     import numpy as np
 except:
-    eprint("WARNING: Could not import np. This is only okay when doing pypy compression.")
+    eprint(
+        "WARNING: Could not import np. This is only okay when doing pypy compression."
+    )
 
 import json
 
@@ -79,7 +86,7 @@ class GrammarNetwork(nn.Module):
 
     def __init__(self, inputDimensionality, grammar):
         super(GrammarNetwork, self).__init__()
-        self.logProductions = nn.Linear(inputDimensionality, len(grammar) + 1)
+        self.logProductions = nn.Linear(inputDimensionality, len(grammar) + 3)
         self.grammar = grammar
 
     def forward(self, x):
@@ -87,8 +94,13 @@ class GrammarNetwork(nn.Module):
         Tensor-valued probabilities"""
         logProductions = self.logProductions(x)
         return Grammar(
-            logProductions[-1].view(1),  # logVariable
-            [(logProductions[k].view(1), t, program) for k, (_, t, program) in enumerate(self.grammar.productions)],
+            logProductions[-3].view(1),  # logVariable
+            [
+                (logProductions[k].view(1), t, program)
+                for k, (_, t, program) in enumerate(self.grammar.productions)
+            ],
+            logProductions[-2].view(1),  # logLambda
+            logProductions[-1].view(1),  # logFreeVariable
             continuationType=self.grammar.continuationType,
         )
 
@@ -102,29 +114,47 @@ class GrammarNetwork(nn.Module):
         logProductions = self.logProductions(xs)
 
         # uses[b][p] is # uses of primitive p by summary b
-        uses = np.zeros((B, len(self.grammar) + 1))
+        uses = np.zeros((B, len(self.grammar) + 3))
         for b, summary in enumerate(summaries):
             for p, production in enumerate(self.grammar.primitives):
                 uses[b, p] = summary.uses.get(production, 0.0)
             uses[b, len(self.grammar)] = summary.uses.get(Index(0), 0)
+            uses[b, len(self.grammar) + 1] = summary.uses.get(Abstraction(Hole()), 0)
+            uses[b, len(self.grammar) + 2] = summary.uses.get(FreeVariable(None), 0)
 
-        numerator = (logProductions * maybe_cuda(torch.from_numpy(uses).float(), use_cuda)).sum(1)
-        numerator += maybe_cuda(torch.tensor([summary.constant for summary in summaries]).float(), use_cuda)
+        numerator = (
+            logProductions * maybe_cuda(torch.from_numpy(uses).float(), use_cuda)
+        ).sum(1)
+        numerator += maybe_cuda(
+            torch.tensor([summary.constant for summary in summaries]).float(), use_cuda
+        )
 
         alternativeSet = {normalizer for s in summaries for normalizer in s.normalizers}
         alternativeSet = list(alternativeSet)
 
-        mask = np.zeros((len(alternativeSet), len(self.grammar) + 1))
+        mask = np.zeros((len(alternativeSet), len(self.grammar) + 3))
         for tau in range(len(alternativeSet)):
             for p, production in enumerate(self.grammar.primitives):
-                mask[tau, p] = 0.0 if production in alternativeSet[tau] else NEGATIVEINFINITY
-            mask[tau, len(self.grammar)] = 0.0 if Index(0) in alternativeSet[tau] else NEGATIVEINFINITY
+                mask[tau, p] = (
+                    0.0 if production in alternativeSet[tau] else NEGATIVEINFINITY
+                )
+            mask[tau, len(self.grammar)] = (
+                0.0 if Index(0) in alternativeSet[tau] else NEGATIVEINFINITY
+            )
+            mask[tau, len(self.grammar) + 1] = (
+                0.0 if Abstraction(Hole()) in alternativeSet[tau] else NEGATIVEINFINITY
+            )
+            mask[tau, len(self.grammar) + 2] = (
+                0.0 if FreeVariable(None) in alternativeSet[tau] else NEGATIVEINFINITY
+            )
         mask = maybe_cuda(torch.tensor(mask).float(), use_cuda)
 
         # mask: Rx|G|
         # logProductions: Bx|G|
         # Want: mask + logProductions : BxRx|G| = z
-        z = mask.repeat(B, 1, 1) + logProductions.repeat(len(alternativeSet), 1, 1).transpose(1, 0)
+        z = mask.repeat(B, 1, 1) + logProductions.repeat(
+            len(alternativeSet), 1, 1
+        ).transpose(1, 0)
         # z: BxR
         z = torch.logsumexp(z, 2)  # pytorch 1.0 dependency
 
@@ -161,42 +191,60 @@ class ContextualGrammarNetwork_LowRank(nn.Module):
 
         # We had an extra grammar for when there is no parent and for when the parent is a variable
         self.n_grammars += 2
-        self.transitionMatrix = LowRank(inputDimensionality, self.n_grammars, len(grammar) + 1, R)
+        self.transitionMatrix = LowRank(
+            inputDimensionality, self.n_grammars, len(grammar) + 3, R
+        )
 
     def grammarFromVector(self, logProductions):
         return Grammar(
+            logProductions[-3].view(1),
+            [
+                (logProductions[k].view(1), t, program)
+                for k, (_, t, program) in enumerate(self.grammar.productions)
+            ],
+            logProductions[-2].view(1),
             logProductions[-1].view(1),
-            [(logProductions[k].view(1), t, program) for k, (_, t, program) in enumerate(self.grammar.productions)],
             continuationType=self.grammar.continuationType,
         )
 
     def forward(self, x):
-        assert len(x.size()) == 1, "contextual grammar doesn't currently support batching"
+        assert (
+            len(x.size()) == 1
+        ), "contextual grammar doesn't currently support batching"
 
         transitionMatrix = self.transitionMatrix(x)
 
         return ContextualGrammar(
             self.grammarFromVector(transitionMatrix[-1]),
             self.grammarFromVector(transitionMatrix[-2]),
-            {prim: [self.grammarFromVector(transitionMatrix[j]) for j in js] for prim, js in self.library.items()},
+            {
+                prim: [self.grammarFromVector(transitionMatrix[j]) for j in js]
+                for prim, js in self.library.items()
+            },
         )
 
     def vectorizedLogLikelihoods(self, x, summaries):
         B = len(summaries)
-        G = len(self.grammar) + 1
+        G = len(self.grammar) + 3
 
         # Which column of the transition matrix corresponds to which primitive
-        primitiveColumn = {p: c for c, (_1, _2, p) in enumerate(self.grammar.productions)}
+        primitiveColumn = {
+            p: c for c, (_1, _2, p) in enumerate(self.grammar.productions)
+        }
         primitiveColumn[Index(0)] = G - 1
         # Which row of the transition matrix corresponds to which context
-        contextRow = {(parent, index): r for parent, indices in self.library.items() for index, r in enumerate(indices)}
+        contextRow = {
+            (parent, index): r
+            for parent, indices in self.library.items()
+            for index, r in enumerate(indices)
+        }
         contextRow[(None, None)] = self.n_grammars - 1
         contextRow[(Index(0), None)] = self.n_grammars - 2
 
         transitionMatrix = self.transitionMatrix(x)
 
         # uses[b][g][p] is # uses of primitive p by summary b for parent g
-        uses = np.zeros((B, self.n_grammars, len(self.grammar) + 1))
+        uses = np.zeros((B, self.n_grammars, len(self.grammar) + 3))
         for b, summary in enumerate(summaries):
             for e, ss in summary.library.items():
                 for g, s in zip(self.library[e], ss):
@@ -204,16 +252,42 @@ class ContextualGrammarNetwork_LowRank(nn.Module):
                     for p, production in enumerate(self.grammar.primitives):
                         uses[b, g, p] = s.uses.get(production, 0.0)
                     uses[b, g, len(self.grammar)] = s.uses.get(Index(0), 0)
+                    uses[b, g, len(self.grammar) + 1] = s.uses.get(
+                        Abstraction(Hole()), 0
+                    )
+                    uses[b, g, len(self.grammar) + 2] = s.uses.get(
+                        FreeVariable(None), 0
+                    )
 
             # noParent: this is the last network output
             for p, production in enumerate(self.grammar.primitives):
-                uses[b, self.n_grammars - 1, p] = summary.noParent.uses.get(production, 0.0)
-            uses[b, self.n_grammars - 1, G - 1] = summary.noParent.uses.get(Index(0), 0.0)
+                uses[b, self.n_grammars - 1, p] = summary.noParent.uses.get(
+                    production, 0.0
+                )
+            uses[b, self.n_grammars - 1, G - 3] = summary.noParent.uses.get(
+                Index(0), 0.0
+            )
+            uses[b, self.n_grammars - 1, G - 2] = summary.noParent.uses.get(
+                Abstraction(Hole()), 0.0
+            )
+            uses[b, self.n_grammars - 1, G - 1] = summary.noParent.uses.get(
+                FreeVariable(None), 0.0
+            )
 
             # variableParent: this is the penultimate network output
             for p, production in enumerate(self.grammar.primitives):
-                uses[b, self.n_grammars - 2, p] = summary.variableParent.uses.get(production, 0.0)
-            uses[b, self.n_grammars - 2, G - 1] = summary.variableParent.uses.get(Index(0), 0.0)
+                uses[b, self.n_grammars - 2, p] = summary.variableParent.uses.get(
+                    production, 0.0
+                )
+            uses[b, self.n_grammars - 2, G - 3] = summary.variableParent.uses.get(
+                Index(0), 0.0
+            )
+            uses[b, self.n_grammars - 2, G - 2] = summary.variableParent.uses.get(
+                Abstraction(Hole()), 0.0
+            )
+            uses[b, self.n_grammars - 2, G - 1] = summary.variableParent.uses.get(
+                FreeVariable(None), 0.0
+            )
 
         uses = maybe_cuda(torch.tensor(uses).float(), use_cuda)
         numerator = uses.view(B, -1) @ transitionMatrix.view(-1)
@@ -251,7 +325,9 @@ class ContextualGrammarNetwork_LowRank(nn.Module):
         for parent, index, alternatives in alternativeSet:
             r = transitionMatrix[contextRow[(parent, index)]]
             entries = r[[primitiveColumn[alternative] for alternative in alternatives]]
-            alternativeNormalizer[(parent, index, alternatives)] = torch.logsumexp(entries, dim=0)
+            alternativeNormalizer[(parent, index, alternatives)] = torch.logsumexp(
+                entries, dim=0
+            )
 
         # Concatenate the normalizers into a vector
         normalizerKeys = list(alternativeSet.keys())
@@ -265,13 +341,13 @@ class ContextualGrammarNetwork_LowRank(nn.Module):
         use_cuda = xs.device.type == "cuda"
 
         B = xs.shape[0]
-        G = len(self.grammar) + 1
+        G = len(self.grammar) + 3
         assert len(summaries) == B
 
         # logProductions: Bx n_grammars x G
         logProductions = self.transitionMatrix(xs)
         # uses[b][g][p] is # uses of primitive p by summary b for parent g
-        uses = np.zeros((B, self.n_grammars, len(self.grammar) + 1))
+        uses = np.zeros((B, self.n_grammars, len(self.grammar) + 3))
         for b, summary in enumerate(summaries):
             for e, ss in summary.library.items():
                 for g, s in zip(self.library[e], ss):
@@ -279,18 +355,48 @@ class ContextualGrammarNetwork_LowRank(nn.Module):
                     for p, production in enumerate(self.grammar.primitives):
                         uses[b, g, p] = s.uses.get(production, 0.0)
                     uses[b, g, len(self.grammar)] = s.uses.get(Index(0), 0)
+                    uses[b, g, len(self.grammar) + 1] = s.uses.get(
+                        Abstraction(Hole()), 0
+                    )
+                    uses[b, g, len(self.grammar) + 2] = s.uses.get(
+                        FreeVariable(None), 0
+                    )
 
             # noParent: this is the last network output
             for p, production in enumerate(self.grammar.primitives):
-                uses[b, self.n_grammars - 1, p] = summary.noParent.uses.get(production, 0.0)
-            uses[b, self.n_grammars - 1, G - 1] = summary.noParent.uses.get(Index(0), 0.0)
+                uses[b, self.n_grammars - 1, p] = summary.noParent.uses.get(
+                    production, 0.0
+                )
+            uses[b, self.n_grammars - 1, G - 3] = summary.noParent.uses.get(
+                Index(0), 0.0
+            )
+            uses[b, self.n_grammars - 1, G - 2] = summary.noParent.uses.get(
+                Abstraction(Hole()), 0.0
+            )
+            uses[b, self.n_grammars - 1, G - 1] = summary.noParent.uses.get(
+                FreeVariable(None), 0.0
+            )
 
             # variableParent: this is the penultimate network output
             for p, production in enumerate(self.grammar.primitives):
-                uses[b, self.n_grammars - 2, p] = summary.variableParent.uses.get(production, 0.0)
-            uses[b, self.n_grammars - 2, G - 1] = summary.variableParent.uses.get(Index(0), 0.0)
+                uses[b, self.n_grammars - 2, p] = summary.variableParent.uses.get(
+                    production, 0.0
+                )
+            uses[b, self.n_grammars - 2, G - 3] = summary.variableParent.uses.get(
+                Index(0), 0.0
+            )
+            uses[b, self.n_grammars - 2, G - 2] = summary.variableParent.uses.get(
+                Abstraction(Hole()), 0.0
+            )
+            uses[b, self.n_grammars - 2, G - 1] = summary.variableParent.uses.get(
+                FreeVariable(None), 0.0
+            )
 
-        numerator = (logProductions * maybe_cuda(torch.tensor(uses).float(), use_cuda)).view(B, -1).sum(1)
+        numerator = (
+            (logProductions * maybe_cuda(torch.tensor(uses).float(), use_cuda))
+            .view(B, -1)
+            .sum(1)
+        )
 
         constant = np.zeros(B)
         for b, summary in enumerate(summaries):
@@ -319,13 +425,31 @@ class ContextualGrammarNetwork_LowRank(nn.Module):
             mask = np.zeros((len(alternativeSet), G))
             for tau in range(len(alternativeSet)):
                 for p, production in enumerate(self.grammar.primitives):
-                    mask[tau, p] = 0.0 if production in alternativeSet[tau] else NEGATIVEINFINITY
-                mask[tau, G - 1] = 0.0 if Index(0) in alternativeSet[tau] else NEGATIVEINFINITY
+                    mask[tau, p] = (
+                        0.0 if production in alternativeSet[tau] else NEGATIVEINFINITY
+                    )
+                mask[tau, G - 3] = (
+                    0.0 if Index(0) in alternativeSet[tau] else NEGATIVEINFINITY
+                )
+                mask[tau, G - 2] = (
+                    0.0
+                    if Abstraction(Hole()) in alternativeSet[tau]
+                    else NEGATIVEINFINITY
+                )
+                mask[tau, G - 1] = (
+                    0.0
+                    if FreeVariable(None) in alternativeSet[tau]
+                    else NEGATIVEINFINITY
+                )
             mask = maybe_cuda(torch.tensor(mask).float(), use_cuda)
 
-            z = mask.repeat(self.n_grammars, 1, 1).repeat(B, 1, 1, 1) + logProductions.repeat(
-                len(alternativeSet), 1, 1, 1
-            ).transpose(0, 1).transpose(1, 2)
+            z = mask.repeat(self.n_grammars, 1, 1).repeat(
+                B, 1, 1, 1
+            ) + logProductions.repeat(len(alternativeSet), 1, 1, 1).transpose(
+                0, 1
+            ).transpose(
+                1, 2
+            )
             z = torch.logsumexp(z, 3)  # pytorch 1.0 dependency
 
             N = np.zeros((B, self.n_grammars, len(alternativeSet)))
@@ -337,21 +461,29 @@ class ContextualGrammarNetwork_LowRank(nn.Module):
                             N[b, g, r] = s.normalizers.get(alternatives, 0.0)
                 # noParent: this is the last network output
                 for r, alternatives in enumerate(alternativeSet):
-                    N[b, self.n_grammars - 1, r] = summary.noParent.normalizers.get(alternatives, 0.0)
+                    N[b, self.n_grammars - 1, r] = summary.noParent.normalizers.get(
+                        alternatives, 0.0
+                    )
                 # variableParent: this is the penultimate network output
                 for r, alternatives in enumerate(alternativeSet):
-                    N[b, self.n_grammars - 2, r] = summary.variableParent.normalizers.get(alternatives, 0.0)
+                    N[b, self.n_grammars - 2, r] = (
+                        summary.variableParent.normalizers.get(alternatives, 0.0)
+                    )
             N = maybe_cuda(torch.tensor(N).float(), use_cuda)
             denominator = (N * z).sum(1).sum(1)
         else:
             gs = [self(xs[b]) for b in range(B)]
-            denominator = torch.cat([summary.denominator(g) for summary, g in zip(summaries, gs)])
+            denominator = torch.cat(
+                [summary.denominator(g) for summary, g in zip(summaries, gs)]
+            )
 
         ll = numerator - denominator
 
         if False:  # verifying that batching works correctly
             gs = [self(xs[b]) for b in range(B)]
-            _l = torch.cat([summary.logLikelihood(g) for summary, g in zip(summaries, gs)])
+            _l = torch.cat(
+                [summary.logLikelihood(g) for summary, g in zip(summaries, gs)]
+            )
             assert torch.all((ll - _l).abs() < 0.0001)
         return ll
 
@@ -378,8 +510,10 @@ class ContextualGrammarNetwork_Mask(nn.Module):
 
         # We had an extra grammar for when there is no parent and for when the parent is a variable
         self.n_grammars += 2
-        self._transitionMatrix = nn.Parameter(nn.init.xavier_uniform(torch.Tensor(self.n_grammars, len(grammar) + 1)))
-        self._logProductions = nn.Linear(inputDimensionality, len(grammar) + 1)
+        self._transitionMatrix = nn.Parameter(
+            nn.init.xavier_uniform(torch.Tensor(self.n_grammars, len(grammar) + 3))
+        )
+        self._logProductions = nn.Linear(inputDimensionality, len(grammar) + 3)
 
     def transitionMatrix(self, x):
         if len(x.shape) == 1:  # not batched
@@ -393,20 +527,30 @@ class ContextualGrammarNetwork_Mask(nn.Module):
 
     def grammarFromVector(self, logProductions):
         return Grammar(
+            logProductions[-3].view(1),
+            [
+                (logProductions[k].view(1), t, program)
+                for k, (_, t, program) in enumerate(self.grammar.productions)
+            ],
+            logProductions[-2].view(1),
             logProductions[-1].view(1),
-            [(logProductions[k].view(1), t, program) for k, (_, t, program) in enumerate(self.grammar.productions)],
             continuationType=self.grammar.continuationType,
         )
 
     def forward(self, x):
-        assert len(x.size()) == 1, "contextual grammar doesn't currently support batching"
+        assert (
+            len(x.size()) == 1
+        ), "contextual grammar doesn't currently support batching"
 
         transitionMatrix = self.transitionMatrix(x)
 
         return ContextualGrammar(
             self.grammarFromVector(transitionMatrix[-1]),
             self.grammarFromVector(transitionMatrix[-2]),
-            {prim: [self.grammarFromVector(transitionMatrix[j]) for j in js] for prim, js in self.library.items()},
+            {
+                prim: [self.grammarFromVector(transitionMatrix[j]) for j in js]
+                for prim, js in self.library.items()
+            },
         )
 
     def batchedLogLikelihoods(self, xs, summaries):
@@ -415,13 +559,13 @@ class ContextualGrammarNetwork_Mask(nn.Module):
         use_cuda = xs.device.type == "cuda"
 
         B = xs.shape[0]
-        G = len(self.grammar) + 1
+        G = len(self.grammar) + 3
         assert len(summaries) == B
 
         # logProductions: Bx n_grammars x G
         logProductions = self.transitionMatrix(xs)
         # uses[b][g][p] is # uses of primitive p by summary b for parent g
-        uses = np.zeros((B, self.n_grammars, len(self.grammar) + 1))
+        uses = np.zeros((B, self.n_grammars, len(self.grammar) + 3))
         for b, summary in enumerate(summaries):
             for e, ss in summary.library.items():
                 for g, s in zip(self.library[e], ss):
@@ -429,18 +573,48 @@ class ContextualGrammarNetwork_Mask(nn.Module):
                     for p, production in enumerate(self.grammar.primitives):
                         uses[b, g, p] = s.uses.get(production, 0.0)
                     uses[b, g, len(self.grammar)] = s.uses.get(Index(0), 0)
+                    uses[b, g, len(self.grammar) + 1] = s.uses.get(
+                        Abstraction(Hole()), 0
+                    )
+                    uses[b, g, len(self.grammar) + 2] = s.uses.get(
+                        FreeVariable(None), 0
+                    )
 
             # noParent: this is the last network output
             for p, production in enumerate(self.grammar.primitives):
-                uses[b, self.n_grammars - 1, p] = summary.noParent.uses.get(production, 0.0)
-            uses[b, self.n_grammars - 1, G - 1] = summary.noParent.uses.get(Index(0), 0.0)
+                uses[b, self.n_grammars - 1, p] = summary.noParent.uses.get(
+                    production, 0.0
+                )
+            uses[b, self.n_grammars - 1, G - 3] = summary.noParent.uses.get(
+                Index(0), 0.0
+            )
+            uses[b, self.n_grammars - 1, G - 2] = summary.noParent.uses.get(
+                Abstraction(Hole()), 0.0
+            )
+            uses[b, self.n_grammars - 1, G - 1] = summary.noParent.uses.get(
+                FreeVariable(None), 0.0
+            )
 
             # variableParent: this is the penultimate network output
             for p, production in enumerate(self.grammar.primitives):
-                uses[b, self.n_grammars - 2, p] = summary.variableParent.uses.get(production, 0.0)
-            uses[b, self.n_grammars - 2, G - 1] = summary.variableParent.uses.get(Index(0), 0.0)
+                uses[b, self.n_grammars - 2, p] = summary.variableParent.uses.get(
+                    production, 0.0
+                )
+            uses[b, self.n_grammars - 2, G - 3] = summary.variableParent.uses.get(
+                Index(0), 0.0
+            )
+            uses[b, self.n_grammars - 2, G - 2] = summary.variableParent.uses.get(
+                Abstraction(Hole()), 0.0
+            )
+            uses[b, self.n_grammars - 2, G - 1] = summary.variableParent.uses.get(
+                FreeVariable(None), 0.0
+            )
 
-        numerator = (logProductions * maybe_cuda(torch.tensor(uses).float(), use_cuda)).view(B, -1).sum(1)
+        numerator = (
+            (logProductions * maybe_cuda(torch.tensor(uses).float(), use_cuda))
+            .view(B, -1)
+            .sum(1)
+        )
 
         constant = np.zeros(B)
         for b, summary in enumerate(summaries):
@@ -469,13 +643,31 @@ class ContextualGrammarNetwork_Mask(nn.Module):
             mask = np.zeros((len(alternativeSet), G))
             for tau in range(len(alternativeSet)):
                 for p, production in enumerate(self.grammar.primitives):
-                    mask[tau, p] = 0.0 if production in alternativeSet[tau] else NEGATIVEINFINITY
-                mask[tau, G - 1] = 0.0 if Index(0) in alternativeSet[tau] else NEGATIVEINFINITY
+                    mask[tau, p] = (
+                        0.0 if production in alternativeSet[tau] else NEGATIVEINFINITY
+                    )
+                mask[tau, G - 3] = (
+                    0.0 if Index(0) in alternativeSet[tau] else NEGATIVEINFINITY
+                )
+                mask[tau, G - 2] = (
+                    0.0
+                    if Abstraction(Hole()) in alternativeSet[tau]
+                    else NEGATIVEINFINITY
+                )
+                mask[tau, G - 1] = (
+                    0.0
+                    if FreeVariable(None) in alternativeSet[tau]
+                    else NEGATIVEINFINITY
+                )
             mask = maybe_cuda(torch.tensor(mask).float(), use_cuda)
 
-            z = mask.repeat(self.n_grammars, 1, 1).repeat(B, 1, 1, 1) + logProductions.repeat(
-                len(alternativeSet), 1, 1, 1
-            ).transpose(0, 1).transpose(1, 2)
+            z = mask.repeat(self.n_grammars, 1, 1).repeat(
+                B, 1, 1, 1
+            ) + logProductions.repeat(len(alternativeSet), 1, 1, 1).transpose(
+                0, 1
+            ).transpose(
+                1, 2
+            )
             z = torch.logsumexp(z, 3)  # pytorch 1.0 dependency
 
             N = np.zeros((B, self.n_grammars, len(alternativeSet)))
@@ -487,21 +679,29 @@ class ContextualGrammarNetwork_Mask(nn.Module):
                             N[b, g, r] = s.normalizers.get(alternatives, 0.0)
                 # noParent: this is the last network output
                 for r, alternatives in enumerate(alternativeSet):
-                    N[b, self.n_grammars - 1, r] = summary.noParent.normalizers.get(alternatives, 0.0)
+                    N[b, self.n_grammars - 1, r] = summary.noParent.normalizers.get(
+                        alternatives, 0.0
+                    )
                 # variableParent: this is the penultimate network output
                 for r, alternatives in enumerate(alternativeSet):
-                    N[b, self.n_grammars - 2, r] = summary.variableParent.normalizers.get(alternatives, 0.0)
+                    N[b, self.n_grammars - 2, r] = (
+                        summary.variableParent.normalizers.get(alternatives, 0.0)
+                    )
             N = maybe_cuda(torch.tensor(N).float(), use_cuda)
             denominator = (N * z).sum(1).sum(1)
         else:
             gs = [self(xs[b]) for b in range(B)]
-            denominator = torch.cat([summary.denominator(g) for summary, g in zip(summaries, gs)])
+            denominator = torch.cat(
+                [summary.denominator(g) for summary, g in zip(summaries, gs)]
+            )
 
         ll = numerator - denominator
 
         if False:  # verifying that batching works correctly
             gs = [self(xs[b]) for b in range(B)]
-            _l = torch.cat([summary.logLikelihood(g) for summary, g in zip(summaries, gs)])
+            _l = torch.cat(
+                [summary.logLikelihood(g) for summary, g in zip(summaries, gs)]
+            )
             assert torch.all((ll - _l).abs() < 0.0001)
         return ll
 
@@ -524,23 +724,35 @@ class ContextualGrammarNetwork(nn.Module):
 
         # We had an extra grammar for when there is no parent and for when the parent is a variable
         self.n_grammars += 2
-        self.network = nn.Linear(inputDimensionality, (self.n_grammars) * (len(grammar) + 1))
+        self.network = nn.Linear(
+            inputDimensionality, (self.n_grammars) * (len(grammar) + 3)
+        )
 
     def grammarFromVector(self, logProductions):
         return Grammar(
+            logProductions[-3].view(1),
+            [
+                (logProductions[k].view(1), t, program)
+                for k, (_, t, program) in enumerate(self.grammar.productions)
+            ],
+            logProductions[-2].view(1),
             logProductions[-1].view(1),
-            [(logProductions[k].view(1), t, program) for k, (_, t, program) in enumerate(self.grammar.productions)],
             continuationType=self.grammar.continuationType,
         )
 
     def forward(self, x):
-        assert len(x.size()) == 1, "contextual grammar doesn't currently support batching"
+        assert (
+            len(x.size()) == 1
+        ), "contextual grammar doesn't currently support batching"
 
         allVars = self.network(x).view(self.n_grammars, -1)
         return ContextualGrammar(
             self.grammarFromVector(allVars[-1]),
             self.grammarFromVector(allVars[-2]),
-            {prim: [self.grammarFromVector(allVars[j]) for j in js] for prim, js in self.library.items()},
+            {
+                prim: [self.grammarFromVector(allVars[j]) for j in js]
+                for prim, js in self.library.items()
+            },
         )
 
     def batchedLogLikelihoods(self, xs, summaries):
@@ -549,13 +761,13 @@ class ContextualGrammarNetwork(nn.Module):
         returns B-dimensional vector containing log likelihood of each summary"""
 
         B = xs.shape[0]
-        G = len(self.grammar) + 1
+        G = len(self.grammar) + 3
         assert len(summaries) == B
 
         # logProductions: Bx n_grammars x G
         logProductions = self.network(xs).view(B, self.n_grammars, G)
         # uses[b][g][p] is # uses of primitive p by summary b for parent g
-        uses = np.zeros((B, self.n_grammars, len(self.grammar) + 1))
+        uses = np.zeros((B, self.n_grammars, len(self.grammar) + 3))
         for b, summary in enumerate(summaries):
             for e, ss in summary.library.items():
                 for g, s in zip(self.library[e], ss):
@@ -563,18 +775,48 @@ class ContextualGrammarNetwork(nn.Module):
                     for p, production in enumerate(self.grammar.primitives):
                         uses[b, g, p] = s.uses.get(production, 0.0)
                     uses[b, g, len(self.grammar)] = s.uses.get(Index(0), 0)
+                    uses[b, g, len(self.grammar) + 1] = s.uses.get(
+                        Abstraction(Hole()), 0
+                    )
+                    uses[b, g, len(self.grammar) + 2] = s.uses.get(
+                        FreeVariable(None), 0
+                    )
 
             # noParent: this is the last network output
             for p, production in enumerate(self.grammar.primitives):
-                uses[b, self.n_grammars - 1, p] = summary.noParent.uses.get(production, 0.0)
-            uses[b, self.n_grammars - 1, G - 1] = summary.noParent.uses.get(Index(0), 0.0)
+                uses[b, self.n_grammars - 1, p] = summary.noParent.uses.get(
+                    production, 0.0
+                )
+            uses[b, self.n_grammars - 1, G - 3] = summary.noParent.uses.get(
+                Index(0), 0.0
+            )
+            uses[b, self.n_grammars - 1, G - 2] = summary.noParent.uses.get(
+                Abstraction(Hole()), 0.0
+            )
+            uses[b, self.n_grammars - 1, G - 1] = summary.noParent.uses.get(
+                FreeVariable(None), 0.0
+            )
 
             # variableParent: this is the penultimate network output
             for p, production in enumerate(self.grammar.primitives):
-                uses[b, self.n_grammars - 2, p] = summary.variableParent.uses.get(production, 0.0)
-            uses[b, self.n_grammars - 2, G - 1] = summary.variableParent.uses.get(Index(0), 0.0)
+                uses[b, self.n_grammars - 2, p] = summary.variableParent.uses.get(
+                    production, 0.0
+                )
+            uses[b, self.n_grammars - 2, G - 3] = summary.variableParent.uses.get(
+                Index(0), 0.0
+            )
+            uses[b, self.n_grammars - 2, G - 2] = summary.variableParent.uses.get(
+                Abstraction(Hole()), 0.0
+            )
+            uses[b, self.n_grammars - 2, G - 1] = summary.variableParent.uses.get(
+                FreeVariable(None), 0.0
+            )
 
-        numerator = (logProductions * maybe_cuda(torch.tensor(uses).float(), use_cuda)).view(B, -1).sum(1)
+        numerator = (
+            (logProductions * maybe_cuda(torch.tensor(uses).float(), use_cuda))
+            .view(B, -1)
+            .sum(1)
+        )
 
         constant = np.zeros(B)
         for b, summary in enumerate(summaries):
@@ -601,13 +843,27 @@ class ContextualGrammarNetwork(nn.Module):
         mask = np.zeros((len(alternativeSet), G))
         for tau in range(len(alternativeSet)):
             for p, production in enumerate(self.grammar.primitives):
-                mask[tau, p] = 0.0 if production in alternativeSet[tau] else NEGATIVEINFINITY
-            mask[tau, G - 1] = 0.0 if Index(0) in alternativeSet[tau] else NEGATIVEINFINITY
+                mask[tau, p] = (
+                    0.0 if production in alternativeSet[tau] else NEGATIVEINFINITY
+                )
+            mask[tau, G - 3] = (
+                0.0 if Index(0) in alternativeSet[tau] else NEGATIVEINFINITY
+            )
+            mask[tau, G - 2] = (
+                0.0 if Abstraction(Hole()) in alternativeSet[tau] else NEGATIVEINFINITY
+            )
+            mask[tau, G - 1] = (
+                0.0 if FreeVariable(None) in alternativeSet[tau] else NEGATIVEINFINITY
+            )
         mask = maybe_cuda(torch.tensor(mask).float(), use_cuda)
 
-        z = mask.repeat(self.n_grammars, 1, 1).repeat(B, 1, 1, 1) + logProductions.repeat(
-            len(alternativeSet), 1, 1, 1
-        ).transpose(0, 1).transpose(1, 2)
+        z = mask.repeat(self.n_grammars, 1, 1).repeat(
+            B, 1, 1, 1
+        ) + logProductions.repeat(len(alternativeSet), 1, 1, 1).transpose(
+            0, 1
+        ).transpose(
+            1, 2
+        )
         z = torch.logsumexp(z, 3)  # pytorch 1.0 dependency
 
         N = np.zeros((B, self.n_grammars, len(alternativeSet)))
@@ -619,10 +875,14 @@ class ContextualGrammarNetwork(nn.Module):
                         N[b, g, r] = s.normalizers.get(alternatives, 0.0)
             # noParent: this is the last network output
             for r, alternatives in enumerate(alternativeSet):
-                N[b, self.n_grammars - 1, r] = summary.noParent.normalizers.get(alternatives, 0.0)
+                N[b, self.n_grammars - 1, r] = summary.noParent.normalizers.get(
+                    alternatives, 0.0
+                )
             # variableParent: this is the penultimate network output
             for r, alternatives in enumerate(alternativeSet):
-                N[b, self.n_grammars - 2, r] = summary.variableParent.normalizers.get(alternatives, 0.0)
+                N[b, self.n_grammars - 2, r] = summary.variableParent.normalizers.get(
+                    alternatives, 0.0
+                )
         N = maybe_cuda(torch.tensor(N).float(), use_cuda)
 
         denominator = (N * z).sum(1).sum(1)
@@ -630,7 +890,9 @@ class ContextualGrammarNetwork(nn.Module):
 
         if False:  # verifying that batching works correctly
             gs = [self(xs[b]) for b in range(B)]
-            _l = torch.cat([summary.logLikelihood(g) for summary, g in zip(summaries, gs)])
+            _l = torch.cat(
+                [summary.logLikelihood(g) for summary, g in zip(summaries, gs)]
+            )
             assert torch.all((ll - _l).abs() < 0.0001)
 
         return ll
@@ -660,7 +922,9 @@ class RecognitionModel(nn.Module):
         # feature extractor were added to our parameters as well
         if hasattr(featureExtractor, "parameters"):
             for parameter in featureExtractor.parameters():
-                assert any(myParameter is parameter for myParameter in self.parameters())
+                assert any(
+                    myParameter is parameter for myParameter in self.parameters()
+                )
 
         # Build the multilayer perceptron that is sandwiched between the feature extractor and the grammar
         if activation == "sigmoid":
@@ -675,7 +939,12 @@ class RecognitionModel(nn.Module):
             *[
                 layer
                 for j in range(len(hidden))
-                for layer in [nn.Linear(([featureExtractor.outputDimensionality] + hidden)[j], hidden[j]), activation()]
+                for layer in [
+                    nn.Linear(
+                        ([featureExtractor.outputDimensionality] + hidden)[j], hidden[j]
+                    ),
+                    activation(),
+                ]
             ]
         )
 
@@ -690,16 +959,22 @@ class RecognitionModel(nn.Module):
         self.contextual = contextual
         if self.contextual:
             if mask:
-                self.grammarBuilder = ContextualGrammarNetwork_Mask(self.outputDimensionality, grammar)
+                self.grammarBuilder = ContextualGrammarNetwork_Mask(
+                    self.outputDimensionality, grammar
+                )
             else:
-                self.grammarBuilder = ContextualGrammarNetwork_LowRank(self.outputDimensionality, grammar, rank)
+                self.grammarBuilder = ContextualGrammarNetwork_LowRank(
+                    self.outputDimensionality, grammar, rank
+                )
         else:
             self.grammarBuilder = GrammarNetwork(self.outputDimensionality, grammar)
 
         self.grammar = ContextualGrammar.fromGrammar(grammar) if contextual else grammar
         self.generativeModel = grammar
 
-        self._auxiliaryPrediction = nn.Linear(self.featureExtractor.outputDimensionality, len(self.grammar.primitives))
+        self._auxiliaryPrediction = nn.Linear(
+            self.featureExtractor.outputDimensionality, len(self.grammar.primitives)
+        )
         self._auxiliaryLoss = nn.BCEWithLogitsLoss()
 
         if cuda:
@@ -707,7 +982,9 @@ class RecognitionModel(nn.Module):
 
         if previousRecognitionModel:
             self._MLP.load_state_dict(previousRecognitionModel._MLP.state_dict())
-            self.featureExtractor.load_state_dict(previousRecognitionModel.featureExtractor.state_dict())
+            self.featureExtractor.load_state_dict(
+                previousRecognitionModel.featureExtractor.state_dict()
+            )
 
     def auxiliaryLoss(self, frontier, features):
         # Compute a vector of uses
@@ -715,7 +992,12 @@ class RecognitionModel(nn.Module):
 
         def uses(summary):
             if hasattr(summary, "uses"):
-                return torch.tensor([float(int(p in summary.uses)) for p in self.generativeModel.primitives])
+                return torch.tensor(
+                    [
+                        float(int(p in summary.uses))
+                        for p in self.generativeModel.primitives
+                    ]
+                )
             assert hasattr(summary, "noParent")
             u = uses(summary.noParent) + uses(summary.variableParent)
             for ss in summary.library.values():
@@ -731,7 +1013,10 @@ class RecognitionModel(nn.Module):
         return al
 
     def taskEmbeddings(self, tasks):
-        return {task: self.featureExtractor.featuresOfTask(task).data.cpu().numpy() for task in tasks}
+        return {
+            task: self.featureExtractor.featuresOfTask(task).data.cpu().numpy()
+            for task in tasks
+        }
 
     def forward(self, features):
         """returns either a Grammar or a ContextualGrammar
@@ -743,7 +1028,8 @@ class RecognitionModel(nn.Module):
         """Returns the actual outputDimensionality weight vectors for each of the primitives."""
         auxiliaryWeights = self._auxiliaryPrediction.weight.data.cpu().numpy()
         primitivesDict = {
-            self.grammar.primitives[i]: auxiliaryWeights[i, :] for i in range(len(self.grammar.primitives))
+            self.grammar.primitives[i]: auxiliaryWeights[i, :]
+            for i in range(len(self.grammar.primitives))
         }
         return primitivesDict
 
@@ -786,12 +1072,18 @@ class RecognitionModel(nn.Module):
 
     def grammarLogProductionDistanceToTask(self, task, tasks):
         """Returns the cosine similarity of all other tasks to a given task."""
-        taskLogits = self.grammarLogProductionsOfTask(task).unsqueeze(0)  # Change to [1, D]
-        assert taskLogits is not None, "Grammar log productions are not defined for this task."
+        taskLogits = self.grammarLogProductionsOfTask(task).unsqueeze(
+            0
+        )  # Change to [1, D]
+        assert (
+            taskLogits is not None
+        ), "Grammar log productions are not defined for this task."
         otherTasks = [t for t in tasks if t is not task]  # [nTasks -1 , D]
 
         # Build matrix of all other tasks.
-        otherLogits = torch.stack([self.grammarLogProductionsOfTask(t) for t in otherTasks])
+        otherLogits = torch.stack(
+            [self.grammarLogProductionsOfTask(t) for t in otherTasks]
+        )
         cos = nn.CosineSimilarity(dim=1, eps=1e-6)
         cosMatrix = cos(taskLogits, otherLogits)
         return cosMatrix.data.cpu().numpy()
@@ -811,15 +1103,24 @@ class RecognitionModel(nn.Module):
 
     def taskAuxiliaryLossLayer(self, tasks):
         return {
-            task: self._auxiliaryPrediction(self.featureExtractor.featuresOfTask(task)).view(-1).data.cpu().numpy()
+            task: self._auxiliaryPrediction(self.featureExtractor.featuresOfTask(task))
+            .view(-1)
+            .data.cpu()
+            .numpy()
             for task in tasks
         }
 
     def taskGrammarFeatureLogProductions(self, tasks):
-        return {task: self.grammarFeatureLogProductionsOfTask(task).data.cpu().numpy() for task in tasks}
+        return {
+            task: self.grammarFeatureLogProductionsOfTask(task).data.cpu().numpy()
+            for task in tasks
+        }
 
     def taskGrammarLogProductions(self, tasks):
-        return {task: self.grammarLogProductionsOfTask(task).data.cpu().numpy() for task in tasks}
+        return {
+            task: self.grammarLogProductionsOfTask(task).data.cpu().numpy()
+            for task in tasks
+        }
 
     def taskGrammarStartProductions(self, tasks):
         return {
@@ -830,11 +1131,17 @@ class RecognitionModel(nn.Module):
 
     def taskHiddenStates(self, tasks):
         return {
-            task: self._MLP(self.featureExtractor.featuresOfTask(task)).view(-1).data.cpu().numpy() for task in tasks
+            task: self._MLP(self.featureExtractor.featuresOfTask(task))
+            .view(-1)
+            .data.cpu()
+            .numpy()
+            for task in tasks
         }
 
     def taskGrammarEntropies(self, tasks):
-        return {task: self.grammarEntropyOfTask(task).data.cpu().numpy() for task in tasks}
+        return {
+            task: self.grammarEntropyOfTask(task).data.cpu().numpy() for task in tasks
+        }
 
     def frontierKL(self, frontier, auxiliary=False, vectorized=True):
         features = self.featureExtractor.featuresOfTask(frontier.task)
@@ -851,7 +1158,9 @@ class RecognitionModel(nn.Module):
         else:
             features = self._MLP(features).unsqueeze(0)
 
-            ll = self.grammarBuilder.batchedLogLikelihoods(features, [entry.program]).view(-1)
+            ll = self.grammarBuilder.batchedLogLikelihoods(
+                features, [entry.program]
+            ).view(-1)
             return -ll, al
 
     def frontierBiasOptimal(self, frontier, auxiliary=False, vectorized=True):
@@ -859,10 +1168,17 @@ class RecognitionModel(nn.Module):
             features = self.featureExtractor.featuresOfTask(frontier.task)
             if features is None:
                 return None, None
-            al = self.auxiliaryLoss(frontier, features if auxiliary else features.detach())
+            al = self.auxiliaryLoss(
+                frontier, features if auxiliary else features.detach()
+            )
             g = self(features)
             summaries = [entry.program for entry in frontier]
-            likelihoods = torch.cat([entry.program.logLikelihood(g) + entry.logLikelihood for entry in frontier])
+            likelihoods = torch.cat(
+                [
+                    entry.program.logLikelihood(g) + entry.logLikelihood
+                    for entry in frontier
+                ]
+            )
             best = likelihoods.max()
             return -best, al
 
@@ -873,7 +1189,9 @@ class RecognitionModel(nn.Module):
         al = self.auxiliaryLoss(frontier, features if auxiliary else features.detach())
         features = self._MLP(features)
         features = features.expand(batchSize, features.size(-1))  # TODO
-        lls = self.grammarBuilder.batchedLogLikelihoods(features, [entry.program for entry in frontier])
+        lls = self.grammarBuilder.batchedLogLikelihoods(
+            features, [entry.program for entry in frontier]
+        )
         actual_ll = torch.Tensor([entry.logLikelihood for entry in frontier])
         lls = lls + (actual_ll.cuda() if self.use_cuda else actual_ll)
         ml = -lls.max()  # Beware that inputs to max change output type
@@ -883,7 +1201,9 @@ class RecognitionModel(nn.Module):
         return Frontier(
             [
                 FrontierEntry(
-                    program=self.grammar.closedLikelihoodSummary(frontier.task.request, e.program),
+                    program=self.grammar.closedLikelihoodSummary(
+                        frontier.task.request, e.program
+                    ),
                     logLikelihood=e.logLikelihood,
                     logPrior=e.logPrior,
                 )
@@ -909,6 +1229,7 @@ class RecognitionModel(nn.Module):
         defaultRequest=None,
         auxLoss=False,
         vectorized=True,
+        solver=None,
     ):
         """
         helmholtzRatio: What fraction of the training data should be forward samples from the generative model?
@@ -929,7 +1250,11 @@ class RecognitionModel(nn.Module):
                 defaultRequest is not None
             ), "You are trying to random Helmholtz training, but don't have any frontiers. Therefore we would not know the type of the program to sample. Try specifying defaultRequest=..."
             requests = [defaultRequest]
-        frontiers = [frontier.topK(topK).normalize() for frontier in frontiers if not frontier.empty]
+        frontiers = [
+            frontier.topK(topK).normalize()
+            for frontier in frontiers
+            if not frontier.empty
+        ]
         if len(frontiers) == 0:
             eprint(
                 "You didn't give me any nonempty replay frontiers to learn from. Going to learn from 100% Helmholtz samples"
@@ -944,7 +1269,9 @@ class RecognitionModel(nn.Module):
                 self.request = frontier.task.request
                 self.task = None
                 self.programs = [e.program for e in frontier]
-                self.frontier = Thunk(lambda: owner.replaceProgramsWithLikelihoodSummaries(frontier))
+                self.frontier = Thunk(
+                    lambda: owner.replaceProgramsWithLikelihoodSummaries(frontier)
+                )
                 self.owner = owner
 
             def clear(self):
@@ -1008,11 +1335,18 @@ class RecognitionModel(nn.Module):
             )
             if updateCPUs > 1:
                 eprint(
-                    "Updating Helmholtz tasks with", updateCPUs, "CPUs", "while using", getThisMemoryUsage(), "memory"
+                    "Updating Helmholtz tasks with",
+                    updateCPUs,
+                    "CPUs",
+                    "while using",
+                    getThisMemoryUsage(),
+                    "memory",
                 )
 
             if randomHelmholtz:
-                newFrontiers = self.sampleManyHelmholtz(requests, helmholtzBatch, CPUs)
+                newFrontiers = self.sampleManyHelmholtz(
+                    requests, helmholtzBatch, CPUs, solver
+                )
                 newEntries = []
                 for f in newFrontiers:
                     e = HelmholtzEntry(f, self)
@@ -1025,7 +1359,11 @@ class RecognitionModel(nn.Module):
             # Save some memory by freeing up the tasks as we go through them
             if self.featureExtractor.recomputeTasks:
                 for hi in range(
-                    max(0, helmholtzIndex[0] - helmholtzBatch, min(helmholtzIndex[0], len(helmholtzFrontiers)))
+                    max(
+                        0,
+                        helmholtzIndex[0] - helmholtzBatch,
+                        min(helmholtzIndex[0], len(helmholtzFrontiers)),
+                    )
                 ):
                     helmholtzFrontiers[hi].clear()
 
@@ -1034,14 +1372,23 @@ class RecognitionModel(nn.Module):
                 newTasks = self.featureExtractor.tasksOfPrograms(
                     [
                         random.choice(hf.programs)
-                        for hf in helmholtzFrontiers[helmholtzIndex[0] : helmholtzIndex[0] + helmholtzBatch]
+                        for hf in helmholtzFrontiers[
+                            helmholtzIndex[0] : helmholtzIndex[0] + helmholtzBatch
+                        ]
                     ],
-                    [hf.request for hf in helmholtzFrontiers[helmholtzIndex[0] : helmholtzIndex[0] + helmholtzBatch]],
+                    [
+                        hf.request
+                        for hf in helmholtzFrontiers[
+                            helmholtzIndex[0] : helmholtzIndex[0] + helmholtzBatch
+                        ]
+                    ],
                 )
             else:
                 newTasks = [
                     hf.calculateTask()
-                    for hf in helmholtzFrontiers[helmholtzIndex[0] : helmholtzIndex[0] + helmholtzBatch]
+                    for hf in helmholtzFrontiers[
+                        helmholtzIndex[0] : helmholtzIndex[0] + helmholtzBatch
+                    ]
                 ]
 
                 """
@@ -1053,7 +1400,9 @@ class RecognitionModel(nn.Module):
                                        seedRandom=True)
                 """
             badIndices = []
-            endingIndex = min(helmholtzIndex[0] + helmholtzBatch, len(helmholtzFrontiers))
+            endingIndex = min(
+                helmholtzIndex[0] + helmholtzBatch, len(helmholtzFrontiers)
+            )
             for i in range(helmholtzIndex[0], endingIndex):
                 helmholtzFrontiers[i].task = newTasks[i - helmholtzIndex[0]]
                 if helmholtzFrontiers[i].task is None:
@@ -1066,11 +1415,19 @@ class RecognitionModel(nn.Module):
         # We replace each program in the frontier with its likelihoodSummary
         # This is because calculating likelihood summaries requires juggling types
         # And type stuff is expensive!
-        frontiers = [self.replaceProgramsWithLikelihoodSummaries(f).normalize() for f in frontiers]
+        frontiers = [
+            self.replaceProgramsWithLikelihoodSummaries(f).normalize()
+            for f in frontiers
+        ]
 
         eprint(
             "(ID=%d): Training a recognition model from %d frontiers, %d%% Helmholtz, feature extractor %s."
-            % (self.id, len(frontiers), int(helmholtzRatio * 100), self.featureExtractor.__class__.__name__)
+            % (
+                self.id,
+                len(frontiers),
+                int(helmholtzRatio * 100),
+                self.featureExtractor.__class__.__name__,
+            )
         )
         eprint(
             "(ID=%d): Got %d Helmholtz frontiers - random Helmholtz training? : %s"
@@ -1088,7 +1445,14 @@ class RecognitionModel(nn.Module):
 
         optimizer = torch.optim.Adam(self.parameters(), lr=lr, eps=1e-3, amsgrad=True)
         start = time.time()
-        losses, descriptionLengths, realLosses, dreamLosses, realMDL, dreamMDL = [], [], [], [], [], []
+        losses, descriptionLengths, realLosses, dreamLosses, realMDL, dreamMDL = (
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+        )
         classificationLosses = []
         totalGradientSteps = 0
         epochs = 9999999
@@ -1113,15 +1477,23 @@ class RecognitionModel(nn.Module):
                     frontier = getHelmholtz()
                 self.zero_grad()
                 loss, classificationLoss = (
-                    self.frontierBiasOptimal(frontier, auxiliary=auxLoss, vectorized=vectorized)
+                    self.frontierBiasOptimal(
+                        frontier, auxiliary=auxLoss, vectorized=vectorized
+                    )
                     if biasOptimal
-                    else self.frontierKL(frontier, auxiliary=auxLoss, vectorized=vectorized)
+                    else self.frontierKL(
+                        frontier, auxiliary=auxLoss, vectorized=vectorized
+                    )
                 )
                 if loss is None:
                     if not dreaming:
-                        eprint("ERROR: Could not extract features during experience replay.")
+                        eprint(
+                            "ERROR: Could not extract features during experience replay."
+                        )
                         eprint("Task is:", frontier.task)
-                        eprint("Aborting - we need to be able to extract features of every actual task.")
+                        eprint(
+                            "Aborting - we need to be able to extract features of every actual task."
+                        )
                         assert False
                     else:
                         continue
@@ -1153,9 +1525,18 @@ class RecognitionModel(nn.Module):
                         "\t(dream loss):",
                         mean(dreamLosses),
                     )
-                eprint("(ID=%d): " % self.id, "\tvs MDL (w/o neural net)", mean(descriptionLengths))
+                eprint(
+                    "(ID=%d): " % self.id,
+                    "\tvs MDL (w/o neural net)",
+                    mean(descriptionLengths),
+                )
                 if realMDL and dreamMDL:
-                    eprint("\t\t(real MDL): ", mean(realMDL), "\t(dream MDL):", mean(dreamMDL))
+                    eprint(
+                        "\t\t(real MDL): ",
+                        mean(realMDL),
+                        "\t(dream MDL):",
+                        mean(dreamMDL),
+                    )
                 eprint(
                     "(ID=%d): " % self.id,
                     "\t%d cumulative gradient steps. %f steps/sec"
@@ -1163,16 +1544,89 @@ class RecognitionModel(nn.Module):
                 )
                 eprint(
                     "(ID=%d): " % self.id,
-                    "\t%d-way auxiliary classification loss" % len(self.grammar.primitives),
+                    "\t%d-way auxiliary classification loss"
+                    % len(self.grammar.primitives),
                     sum(classificationLosses) / len(classificationLosses),
                 )
-                losses, descriptionLengths, realLosses, dreamLosses, realMDL, dreamMDL = [], [], [], [], [], []
+                (
+                    losses,
+                    descriptionLengths,
+                    realLosses,
+                    dreamLosses,
+                    realMDL,
+                    dreamMDL,
+                ) = ([], [], [], [], [], [])
                 classificationLosses = []
                 gc.collect()
 
-        eprint("(ID=%d): " % self.id, " Trained recognition model in", time.time() - start, "seconds")
+        eprint(
+            "(ID=%d): " % self.id,
+            " Trained recognition model in",
+            time.time() - start,
+            "seconds",
+        )
         self.trained = True
         return self
+
+    def parse_sample_response(self, response):
+        response = json.loads(response.decode("utf-8"))
+        if response["status"] == "error":
+            eprint("Error while sampling")
+            raise WorkerError(response["payload"])
+        else:
+            response = response["payload"]
+        if response["program"] is None or response["task"] is None:
+            return None, None
+        program = Program.parse(response["program"])
+        task = NamedVarsTask(
+            "Helmholtz",
+            Type.fromstring(response["task"]["request"]),
+            response["task"]["examples"],
+        )
+        return program, task
+
+    def sample_helmholtz_julia(self, requests, N):
+        r = redis.Redis(host="localhost", port=6379, db=0)
+        for _ in range(N):
+            request = random.choice(requests)
+            message = {
+                "request": str(request),
+                "DSL": self.generativeModel.json(),
+                "max_depth": 3,
+                "max_block_depth": 10,
+                "max_attempts": 100,
+                "timeout": 40,
+                "output_timeout": 7,
+                "program_timeout": 1,
+                "queue": "sample",
+            }
+            r.rpush("sample", json.dumps(message))
+
+        samples = []
+        eprint("Waiting for samples...")
+        for _ in range(N):
+            response = r.blpop("sample_result")[1]
+
+            try:
+                program, task = self.parse_sample_response(response)
+
+                if program is None or task is None:
+                    continue
+                if hasattr(self.featureExtractor, "lexicon"):
+                    if self.featureExtractor.tokenize(task.examples) is None:
+                        continue
+                ll = self.generativeModel.logLikelihood(task.request, program)
+                frontier = Frontier(
+                    [FrontierEntry(program=program, logLikelihood=0.0, logPrior=ll)],
+                    task=task,
+                )
+                samples.append(frontier)
+            except WorkerError:
+                raise
+            except:
+                eprint("Failure processing sample response: ", response)
+                raise
+        return samples
 
     def sampleHelmholtz(self, requests, statusUpdate=None, seed=None):
         if seed is not None:
@@ -1194,20 +1648,30 @@ class RecognitionModel(nn.Module):
                 return None
 
         ll = self.generativeModel.logLikelihood(request, program)
-        frontier = Frontier([FrontierEntry(program=program, logLikelihood=0.0, logPrior=ll)], task=task)
+        frontier = Frontier(
+            [FrontierEntry(program=program, logLikelihood=0.0, logPrior=ll)], task=task
+        )
         return frontier
 
-    def sampleManyHelmholtz(self, requests, N, CPUs):
+    def sampleManyHelmholtz(self, requests, N, CPUs, solver):
         eprint("Sampling %d programs from the prior on %d CPUs..." % (N, CPUs))
         flushEverything()
-        frequency = N / 50
-        startingSeed = random.random()
 
-        # Sequentially for ensemble training.
-        samples = [
-            self.sampleHelmholtz(requests, statusUpdate="." if n % frequency == 0 else None, seed=startingSeed + n)
-            for n in range(N)
-        ]
+        if solver == "julia":
+            samples = self.sample_helmholtz_julia(requests, N)
+        else:
+            frequency = N / 50
+            startingSeed = random.random()
+
+            # Sequentially for ensemble training.
+            samples = [
+                self.sampleHelmholtz(
+                    requests,
+                    statusUpdate="." if n % frequency == 0 else None,
+                    seed=startingSeed + n,
+                )
+                for n in range(N)
+            ]
 
         # (cathywong) Disabled for ensemble training.
         # samples = parallelMap(
@@ -1240,7 +1704,11 @@ class RecognitionModel(nn.Module):
         with timing("Evaluated recognition model"):
             grammars = {task: self.grammarOfTask(task) for task in tasks}
             # untorch seperately to make sure you filter out None grammars
-            grammars = {task: grammar.untorch() for task, grammar in grammars.items() if grammar is not None}
+            grammars = {
+                task: grammar.untorch()
+                for task, grammar in grammars.items()
+                if grammar is not None
+            }
 
         return multicoreEnumeration(
             grammars,
@@ -1281,7 +1749,8 @@ class RecurrentFeatureExtractor(nn.Module):
 
         # maps from a requesting type to all of the inputs that we ever saw with that request
         self.requestToInputs = {
-            tp: [list(map(fst, t.examples)) for t in tasks if t.request == tp] for tp in {t.request for t in tasks}
+            tp: [list(map(fst, t.examples)) for t in tasks if t.request == tp]
+            for tp in {t.request for t in tasks}
         }
 
         inputTypes = {t for task in tasks for t in task.request.functionArguments()}
@@ -1297,7 +1766,8 @@ class RecurrentFeatureExtractor(nn.Module):
             for tp in inputTypes
         }
         self.requestToNumberOfExamples = {
-            tp: [len(t.examples) for t in tasks if t.request == tp] for tp in {t.request for t in tasks}
+            tp: [len(t.examples) for t in tasks if t.request == tp]
+            for tp in {t.request for t in tasks}
         }
         self.helmholtzTimeout = helmholtzTimeout
         self.helmholtzEvaluationTimeout = helmholtzEvaluationTimeout
@@ -1349,7 +1819,10 @@ class RecurrentFeatureExtractor(nn.Module):
 
     def symbolEmbeddings(self):
         return {
-            s: self.encoder(variable([self.symbolToIndex[s]])).squeeze(0).data.cpu().numpy()
+            s: self.encoder(variable([self.symbolToIndex[s]]))
+            .squeeze(0)
+            .data.cpu()
+            .numpy()
             for s in self.lexicon
             if not (s in self.specialSymbols)
         }
@@ -1389,7 +1862,11 @@ class RecurrentFeatureExtractor(nn.Module):
         return x, sizes
 
     def examplesEncoding(self, examples):
-        examples = sorted(examples, key=lambda xs_y: sum(len(z) + 1 for z in xs_y[0]) + len(xs_y[1]), reverse=True)
+        examples = sorted(
+            examples,
+            key=lambda xs_y: sum(len(z) + 1 for z in xs_y[0]) + len(xs_y[1]),
+            reverse=True,
+        )
         x, sizes = self.packExamples(examples)
         outputs, hidden = self.model(x)
         # outputs, sizes = pad_packed_sequence(outputs)
@@ -1447,9 +1924,13 @@ class RecurrentFeatureExtractor(nn.Module):
                 # Grab some random inputs
                 xs = [randomInput(t) for t in tp.functionArguments()]
                 try:
-                    y = runWithTimeout(lambda: p.runWithArguments(xs), self.helmholtzEvaluationTimeout)
+                    y = runWithTimeout(
+                        lambda: p.runWithArguments(xs), self.helmholtzEvaluationTimeout
+                    )
                     examples.append((tuple(xs), y))
-                    if len(examples) >= random.choice(self.requestToNumberOfExamples[tp]):
+                    if len(examples) >= random.choice(
+                        self.requestToNumberOfExamples[tp]
+                    ):
                         return Task("Helmholtz", tp, examples)
                 except:
                     continue
@@ -1461,7 +1942,10 @@ class RecurrentFeatureExtractor(nn.Module):
                 ys = []
                 for xs in xss:
                     try:
-                        y = runWithTimeout(lambda: p.runWithArguments(xs), self.helmholtzEvaluationTimeout)
+                        y = runWithTimeout(
+                            lambda: p.runWithArguments(xs),
+                            self.helmholtzEvaluationTimeout,
+                        )
                     except:
                         break
                     ys.append(y)
@@ -1510,7 +1994,9 @@ class LowRank(nn.Module):
             B = sz[0]
             needToSqueeze = False
         else:
-            assert False, "LowRank expects either a 1-dimensional tensor or a 2-dimensional tensor"
+            assert (
+                False
+            ), "LowRank expects either a 1-dimensional tensor or a 2-dimensional tensor"
 
         if self.factored:
             a = self.A(x).view(B, self.m, self.r)
@@ -1592,8 +2078,12 @@ class ImageFeatureExtractor(nn.Module):
         )
 
         # Each layer of the encoder halves the dimension, except for the last layer which flattens
-        outputImageDimensionality = self.resizedDimension / (2 ** (len(self.encoder) - 1))
-        self.outputDimensionality = int(z_dim * outputImageDimensionality * outputImageDimensionality)
+        outputImageDimensionality = self.resizedDimension / (
+            2 ** (len(self.encoder) - 1)
+        )
+        self.outputDimensionality = int(
+            z_dim * outputImageDimensionality * outputImageDimensionality
+        )
 
     def forward(self, v):
         """1 channel: v: BxWxW or v:WxW

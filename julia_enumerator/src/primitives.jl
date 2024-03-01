@@ -1,9 +1,18 @@
 
-function _unfold(x, p, h, n)
+function _unfold(is_end, ext_item, next_state, state)
     acc = []
-    while !p(x)
-        push!(acc, h(x))
-        x = n(x)
+    i = 0
+    while !is_end(state)
+        push!(acc, ext_item(state))
+        new_state = next_state(state)
+        i += 1
+        if new_state == state
+            error("Infinite loop")
+        end
+        if i > 10000
+            error("Too many iterations")
+        end
+        state = new_state
     end
     acc
 end
@@ -60,43 +69,35 @@ _is_prime(n) = in(
     ]),
 )
 
-@define_primitive("map", arrow(arrow(t0, t1), tlist(t0), tlist(t1)), (f -> (xs -> map(f, xs))))
 @define_primitive(
     "unfold",
-    arrow(t0, arrow(t0, tbool), arrow(t0, t1), arrow(t0, t0), tlist(t1)),
-    (x -> (p -> (h -> (n -> _unfold(x, p, h, n))))),
+    arrow(arrow(t0, tbool), arrow(t0, t1), arrow(t0, t0), t0, tlist(t1)),
+    (is_end -> (ext_item -> (next_state -> (state -> _unfold(is_end, ext_item, next_state, state))))),
 )
-@define_primitive("range", arrow(tint, tlist(tint)), (n -> collect(0:n-1)))
 @define_primitive("index", arrow(tint, tlist(t0), t0), (j -> (l -> l[j])))
-@define_primitive("tuple2_first", arrow(ttuple2(t0, t1), t0), (t -> t[1]))
-@define_primitive("tuple2_second", arrow(ttuple2(t0, t1), t1), (t -> t[2]))
-@define_primitive(
-    "fold",
-    arrow(tlist(t0), t1, arrow(t0, t1, t1), t1),
-    (itr -> (init -> (op -> foldr((v, acc) -> op(v)(acc), itr, init = init)))),
-)
+@define_primitive("index2", arrow(tint, tint, tgrid(t0), t0), (i -> (j -> (l -> l[i, j]))))
 @define_primitive("length", arrow(tlist(t0), tint), length)
+@define_primitive("height", arrow(tgrid(t0), tint), (g -> size(g, 1)))
+@define_primitive("width", arrow(tgrid(t0), tint), (g -> size(g, 2)))
 
 # built-ins
 @define_primitive("if", arrow(tbool, t0, t0, t0), (c -> (t -> (f -> c ? t : f))))
-@define_primitive("+", arrow(tint, tint, tint), (a -> (b -> a + b)))
-@define_primitive("-", arrow(tint, tint, tint), (a -> (b -> a - b)))
-@define_primitive("empty", tlist(t0), [])
-@define_primitive("cons", arrow(t0, tlist(t0), tlist(t0)), (x -> (y -> vcat([x], y))))
 @define_primitive("car", arrow(tlist(t0), t0), (l -> l[1]))
 @define_primitive("cdr", arrow(tlist(t0), tlist(t0)), (l -> isempty(l) ? error("Empty list") : l[2:end]))
 @define_primitive("empty?", arrow(tlist(t0), tbool), isempty)
 
-[@define_primitive(string(j), tint, j) for j in 0:1]
+@define_primitive("max_int", tint, typemax(Int64))
+@define_primitive("min_int", tint, typemin(Int64))
 
-@define_primitive("*", arrow(tint, tint, tint), (a -> (b -> a * b)))
 @define_primitive("mod", arrow(tint, tint, tint), (a -> (b -> a % b)))
 @define_primitive("gt?", arrow(tint, tint, tbool), (a -> (b -> a > b)))
 @define_primitive("eq?", arrow(t0, t0, tbool), (a -> (b -> a == b)))
 @define_primitive("is-prime", arrow(tint, tbool), _is_prime)
 @define_primitive("is-square", arrow(tint, tbool), (n -> floor(sqrt(n))^2 == n))
 
-@define_primitive("repeat", arrow(t0, tint, tlist(t0)), (x -> (n -> fill(x, n))))
-@define_primitive("zip2", arrow(tlist(t0), tlist(t1), tlist(ttuple2(t0, t1))), (a -> (b -> zip(a, b))))
+@define_primitive("list_to_set", arrow(tlist(t0), tset(t0)), Set)
 
-@define_primitive("concat", arrow(tlist(t0), tlist(t0), tlist(t0)), (a -> (b -> vcat(a, b))))
+@define_primitive("all", arrow(arrow(t0, tbool), tlist(t0), tbool), (f -> (l -> all(f, l))))
+@define_primitive("any", arrow(arrow(t0, tbool), tlist(t0), tbool), (f -> (l -> any(f, l))))
+@define_primitive("all_set", arrow(arrow(t0, tbool), tset(t0), tbool), (f -> (l -> all(f, l))))
+@define_primitive("any_set", arrow(arrow(t0, tbool), tset(t0), tbool), (f -> (l -> any(f, l))))

@@ -1,5 +1,15 @@
 from cProfile import label
-from dreamcoder.program import Primitive, Program
+from dreamcoder.program import (
+    Abstraction,
+    Application,
+    CustomArgChecker,
+    FreeVariable,
+    Hole,
+    Index,
+    Invented,
+    Primitive,
+    Program,
+)
 from dreamcoder.grammar import Grammar
 from dreamcoder.type import tlist, tint, tbool, arrow, t0, t1, t2
 
@@ -97,8 +107,8 @@ def _reducei(f):
     return lambda x0: lambda l: reduce(lambda a, t: f(t[0])(a)(t[1]), enumerate(l), x0)
 
 
-def _fold(l):
-    return lambda x0: lambda f: reduce(lambda a, x: f(x)(a), l[::-1], x0)
+def _fold(f):
+    return lambda l: lambda x0: reduce(lambda a, x: f(x)(a), l[::-1], x0)
 
 
 def _eq(x):
@@ -134,7 +144,9 @@ def _index(j):
 
 
 def _replace(f):
-    return lambda lnew: lambda lin: _flatten(lnew if f(i)(x) else [x] for i, x in enumerate(lin))
+    return lambda lnew: lambda lin: _flatten(
+        lnew if f(i)(x) else [x] for i, x in enumerate(lin)
+    )
 
 
 def _isPrime(n):
@@ -218,8 +230,8 @@ def _find(x):
     return _inner
 
 
-def _unfold(x):
-    return lambda p: lambda h: lambda n: __unfold(p, f, n, x)
+def _unfold(p):
+    return lambda h: lambda n: lambda x: __unfold(p, h, n, x)
 
 
 def __unfold(p, f, n, x, recursion_limit=50):
@@ -258,7 +270,9 @@ def curry(f):
 
 
 def _fix2(a1):
-    return lambda a2: lambda body: _fix((a1, a2))(lambda r: lambda n_l: body(curry(r))(n_l[0])(n_l[1]))
+    return lambda a2: lambda body: _fix((a1, a2))(
+        lambda r: lambda n_l: body(curry(r))(n_l[0])(n_l[1])
+    )
 
 
 def _repeat(x):
@@ -269,9 +283,13 @@ def _concat(a):
     return lambda b: a + b
 
 
-primitiveRecursion1 = Primitive("fix1", arrow(t0, arrow(arrow(t0, t1), t0, t1), t1), _fix)
+primitiveRecursion1 = Primitive(
+    "fix1", arrow(t0, arrow(arrow(t0, t1), t0, t1), t1), _fix
+)
 
-primitiveRecursion2 = Primitive("fix2", arrow(t0, t1, arrow(arrow(t0, t1, t2), t0, t1, t2), t2), _fix2)
+primitiveRecursion2 = Primitive(
+    "fix2", arrow(t0, t1, arrow(arrow(t0, t1, t2), t0, t1, t2), t2), _fix2
+)
 
 
 def _match(l):
@@ -279,23 +297,25 @@ def _match(l):
 
 
 def primitives():
-    return [Primitive(str(j), tint, j) for j in range(6)] + [
-        Primitive("empty", tlist(t0), []),
+    return [Primitive(str(j), tint, j, is_reversible=True) for j in range(6)] + [
+        Primitive("empty", tlist(t0), [], is_reversible=True),
         Primitive("singleton", arrow(t0, tlist(t0)), _single),
         Primitive("range", arrow(tint, tlist(tint)), _range, is_reversible=True),
         Primitive("++", arrow(tlist(t0), tlist(t0), tlist(t0)), _append),
         # Primitive("map", arrow(arrow(t0, t1), tlist(t0), tlist(t1)), _map),
         Primitive("mapi", arrow(arrow(tint, t0, t1), tlist(t0), tlist(t1)), _mapi),
         # Primitive("reduce", arrow(arrow(t1, t0, t1), t1, tlist(t0), t1), _reduce),
-        Primitive("reducei", arrow(arrow(tint, t1, t0, t1), t1, tlist(t0), t1), _reducei),
+        Primitive(
+            "reducei", arrow(arrow(tint, t1, t0, t1), t1, tlist(t0), t1), _reducei
+        ),
         Primitive("true", tbool, True),
         Primitive("not", arrow(tbool, tbool), _not),
         Primitive("and", arrow(tbool, tbool, tbool), _and),
         Primitive("or", arrow(tbool, tbool, tbool), _or),
         # Primitive("if", arrow(tbool, t0, t0, t0), _if),
         Primitive("sort", arrow(tlist(tint), tlist(tint)), sorted),
-        Primitive("+", arrow(tint, tint, tint), _addition),
-        Primitive("*", arrow(tint, tint, tint), _multiplication),
+        Primitive("+", arrow(tint, tint, tint), _addition, is_reversible=True),
+        Primitive("*", arrow(tint, tint, tint), _multiplication, is_reversible=True),
         Primitive("negate", arrow(tint, tint), _negate),
         Primitive("mod", arrow(tint, tint, tint), _mod),
         Primitive("eq?", arrow(t0, t0, tbool), _eq),
@@ -307,7 +327,7 @@ def primitives():
         # (lambda (reduce (lambda (lambda (++ $1 $0))) empty $0))
         Primitive("sum", arrow(tlist(tint), tint), sum),
         # (lambda (lambda (reduce (lambda (lambda (+ $0 $1))) 0 $0)))
-        Primitive("reverse", arrow(tlist(t0), tlist(t0)), _reverse),
+        Primitive("reverse", arrow(tlist(t0), tlist(t0)), _reverse, is_reversible=True),
         # (lambda (reduce (lambda (lambda (++ (singleton $0) $1))) empty $0))
         Primitive("all", arrow(arrow(t0, tbool), tlist(t0), tbool), _all),
         # (lambda (lambda (reduce (lambda (lambda (and $0 $1))) true (map $1 $0))))
@@ -325,53 +345,93 @@ def primitives():
 
 
 def basePrimitives():
-    return [Primitive(str(j), tint, j) for j in range(6)] + [
-        Primitive("*", arrow(tint, tint, tint), _multiplication),
+    return [Primitive(str(j), tint, j, is_reversible=True) for j in range(6)] + [
+        Primitive("*", arrow(tint, tint, tint), _multiplication, is_reversible=True),
         Primitive("gt?", arrow(tint, tint, tbool), _gt),
         Primitive("is-prime", arrow(tint, tbool), _isPrime),
         Primitive("is-square", arrow(tint, tbool), _isSquare),
         # McCarthy
-        Primitive("empty", tlist(t0), []),
+        Primitive("empty", tlist(t0), [], is_reversible=True),
         Primitive("cons", arrow(t0, tlist(t0), tlist(t0)), _cons, is_reversible=True),
         Primitive("car", arrow(tlist(t0), t0), _car),
         Primitive("cdr", arrow(tlist(t0), tlist(t0)), _cdr),
         Primitive("empty?", arrow(tlist(t0), tbool), _isEmpty),
         Primitive("if", arrow(tbool, t0, t0, t0), _if),
         Primitive("eq?", arrow(t0, t0, tbool), _eq),
-        Primitive("+", arrow(tint, tint, tint), _addition),
-        Primitive("-", arrow(tint, tint, tint), _subtraction),
+        Primitive("+", arrow(tint, tint, tint), _addition, is_reversible=True),
+        Primitive("-", arrow(tint, tint, tint), _subtraction, is_reversible=True),
     ]
 
 
-zip_primitive = Primitive("zip", arrow(tlist(t0), tlist(t1), arrow(t0, t1, t2), tlist(t2)), _zip)
+zip_primitive = Primitive(
+    "zip", arrow(tlist(t0), tlist(t1), arrow(t0, t1, t2), tlist(t2)), _zip
+)
+
+
+def _has_no_holes(p):
+    if isinstance(p, Hole):
+        return False
+    if isinstance(p, Application):
+        return _has_no_holes(p.f) and _has_no_holes(p.x)
+    if isinstance(p, Abstraction):
+        return _has_no_holes(p.body)
+    return True
+
+
+def _is_reversible_subfunction(p):
+    return p.is_reversible and _has_no_holes(p)
+
+
+def _is_possible_subfunction(p, path):
+    if isinstance(p, Index):
+        return p.i != 0 or not isinstance(path[-1][0], Abstraction)
+    if isinstance(p, FreeVariable):
+        return True
+    if isinstance(p, Primitive) or isinstance(p, Invented):
+        return True
+    assert False
 
 
 def bootstrapTarget():
     """These are the primitives that we hope to learn from the bootstrapping procedure"""
     return [
         # learned primitives
-        Primitive("map", arrow(arrow(t0, t1), tlist(t0), tlist(t1)), _map, is_reversible=True),
-        Primitive("unfold", arrow(t0, arrow(t0, tbool), arrow(t0, t1), arrow(t0, t0), tlist(t1)), _unfold),
+        Primitive(
+            "map",
+            arrow(arrow(t0, t1), tlist(t0), tlist(t1)),
+            _map,
+            is_reversible=True,
+        ),
+        Primitive(
+            "unfold",
+            arrow(arrow(t0, tbool), arrow(t0, t1), arrow(t0, t0), t0, tlist(t1)),
+            _unfold,
+        ),
         Primitive("range", arrow(tint, tlist(tint)), _range, is_reversible=True),
         Primitive("index", arrow(tint, tlist(t0), t0), _index),
-        Primitive("fold", arrow(tlist(t0), t1, arrow(t0, t1, t1), t1), _fold),
+        Primitive(
+            "fold",
+            arrow(arrow(t0, t1, t1), tlist(t0), t1, t1),
+            _fold,
+            is_reversible=True,
+        ),
         Primitive("length", arrow(tlist(t0), tint), len),
         # built-ins
         Primitive("if", arrow(tbool, t0, t0, t0), _if),
-        Primitive("+", arrow(tint, tint, tint), _addition),
-        Primitive("-", arrow(tint, tint, tint), _subtraction),
-        Primitive("empty", tlist(t0), []),
+        Primitive("+", arrow(tint, tint, tint), _addition, is_reversible=True),
+        Primitive("-", arrow(tint, tint, tint), _subtraction, is_reversible=True),
+        Primitive("empty", tlist(t0), [], is_reversible=True),
         Primitive("cons", arrow(t0, tlist(t0), tlist(t0)), _cons, is_reversible=True),
         Primitive("car", arrow(tlist(t0), t0), _car),
         Primitive("cdr", arrow(tlist(t0), tlist(t0)), _cdr),
         Primitive("empty?", arrow(tlist(t0), tbool), _isEmpty),
-    ] + [Primitive(str(j), tint, j) for j in range(2)]
+    ] + [Primitive(str(j), tint, j, is_reversible=True) for j in range(2)]
 
 
 def bootstrapTarget_extra():
     """This is the bootstrap target plus list domain specific stuff"""
     return bootstrapTarget() + [
-        Primitive("*", arrow(tint, tint, tint), _multiplication),
+        Primitive("*", arrow(tint, tint, tint), _multiplication, is_reversible=True),
         Primitive("mod", arrow(tint, tint, tint), _mod),
         Primitive("gt?", arrow(tint, tint, tbool), _gt),
         Primitive("eq?", arrow(t0, t0, tbool), _eq),
@@ -380,17 +440,73 @@ def bootstrapTarget_extra():
     ]
 
 
+def _is_fixable_param(p):
+    return isinstance(p, Index) or isinstance(p, FreeVariable)
+
+
+def _is_possible_fixable_param(p, path):
+    # TODO: implement real algorithm here
+    if isinstance(p, Index):
+        return True
+    if isinstance(p, FreeVariable):
+        return True
+    return False
+
+
 def julia():
-    return bootstrapTarget_extra() + [
+    return [
         Primitive("repeat", arrow(t0, tint, tlist(t0)), _repeat, is_reversible=True),
-        Primitive("concat", arrow(tlist(t0), tlist(t0), tlist(t0)), _concat, is_reversible=True),
-    ]
+        Primitive(
+            "concat",
+            arrow(tlist(t0), tlist(t0), tlist(t0)),
+            _concat,
+            is_reversible=True,
+        ),
+        Primitive(
+            "map",
+            arrow(arrow(t0, t1), tlist(t0), tlist(t1)),
+            _map,
+            is_reversible=True,
+            custom_args_checkers=[
+                (
+                    _is_reversible_subfunction,
+                    CustomArgChecker(None, None, None, _is_possible_subfunction),
+                )
+            ],
+        ),
+        Primitive(
+            "fold",
+            arrow(arrow(t0, t1, t1), tlist(t0), t1, t1),
+            _fold,
+            is_reversible=True,
+            custom_args_checkers=[
+                (
+                    _is_reversible_subfunction,
+                    CustomArgChecker(None, None, None, _is_possible_subfunction),
+                )
+            ],
+        ),
+        Primitive(
+            "rev_fix_param",
+            arrow(t0, t1, arrow(t0, t1), t0),
+            None,
+            is_reversible=True,
+            custom_args_checkers=[
+                (_is_reversible_subfunction, CustomArgChecker(True, None, None, None)),
+                (
+                    _is_fixable_param,
+                    CustomArgChecker(None, None, None, _is_possible_fixable_param),
+                ),
+                (_has_no_holes, CustomArgChecker(False, -1, False, None)),
+            ],
+        ),
+    ] + [p for p in bootstrapTarget_extra() if p.name != "map" and p.name != "fold"]
 
 
 def no_length():
     """this is the primitives without length because one of the reviewers wanted this"""
     return [p for p in bootstrapTarget() if p.name != "length"] + [
-        Primitive("*", arrow(tint, tint, tint), _multiplication),
+        Primitive("*", arrow(tint, tint, tint), _multiplication, is_reversible=True),
         Primitive("mod", arrow(tint, tint, tint), _mod),
         Primitive("gt?", arrow(tint, tint, tbool), _gt),
         Primitive("eq?", arrow(t0, t0, tbool), _eq),
@@ -402,7 +518,7 @@ def no_length():
 def McCarthyPrimitives():
     "These are < primitives provided by 1959 lisp as introduced by McCarthy"
     return [
-        Primitive("empty", tlist(t0), []),
+        Primitive("empty", tlist(t0), [], is_reversible=True),
         Primitive("cons", arrow(t0, tlist(t0), tlist(t0)), _cons, is_reversible=True),
         Primitive("car", arrow(tlist(t0), t0), _car),
         Primitive("cdr", arrow(tlist(t0), tlist(t0)), _cdr),
@@ -418,9 +534,9 @@ def McCarthyPrimitives():
         Primitive("gt?", arrow(tint, tint, tbool), _gt),
         Primitive("if", arrow(tbool, t0, t0, t0), _if),
         Primitive("eq?", arrow(t0, t0, tbool), _eq),
-        Primitive("+", arrow(tint, tint, tint), _addition),
-        Primitive("-", arrow(tint, tint, tint), _subtraction),
-    ] + [Primitive(str(j), tint, j) for j in range(2)]
+        Primitive("+", arrow(tint, tint, tint), _addition, is_reversible=True),
+        Primitive("-", arrow(tint, tint, tint), _subtraction, is_reversible=True),
+    ] + [Primitive(str(j), tint, j, is_reversible=True) for j in range(2)]
 
 
 if __name__ == "__main__":
@@ -469,7 +585,9 @@ if __name__ == "__main__":
     print()
 
     print("multiply")
-    p = Program.parse("(lambda (lambda (lambda (if (eq? $0 0) 0 (+ $1 ($2 $1 (- $0 1)))))))")
+    p = Program.parse(
+        "(lambda (lambda (lambda (if (eq? $0 0) 0 (+ $1 ($2 $1 (- $0 1)))))))"
+    )
     print(g.logLikelihood(arrow(arrow(tint, tint, tint), tint, tint, tint), p))
     print()
 
@@ -479,29 +597,48 @@ if __name__ == "__main__":
     print()
 
     print("countdown primitive")
-    p = Program.parse("(lambda (lambda (if (eq? $0 0) empty (cons (+ $0 1) ($1 (- $0 1))))))")
+    p = Program.parse(
+        "(lambda (lambda (if (eq? $0 0) empty (cons (+ $0 1) ($1 (- $0 1))))))"
+    )
     print(g.logLikelihood(arrow(arrow(tint, tlist(tint)), arrow(tint, tlist(tint))), p))
     print(_fix(9)(p.evaluate([])))
     print("countdown w/ better primitives")
-    p = Program.parse("(lambda (lambda (if (eq0 $0) empty (cons (+1 $0) ($1 (-1 $0))))))")
+    p = Program.parse(
+        "(lambda (lambda (if (eq0 $0) empty (cons (+1 $0) ($1 (-1 $0))))))"
+    )
     print(g.logLikelihood(arrow(arrow(tint, tlist(tint)), arrow(tint, tlist(tint))), p))
 
     print()
 
     print("prepend zeros")
-    p = Program.parse("(lambda (lambda (lambda (if (eq? $1 0) $0 (cons 0 ($2 (- $1 1) $0))))))")
-    print(g.logLikelihood(arrow(arrow(tint, tlist(tint), tlist(tint)), tint, tlist(tint), tlist(tint)), p))
+    p = Program.parse(
+        "(lambda (lambda (lambda (if (eq? $1 0) $0 (cons 0 ($2 (- $1 1) $0))))))"
+    )
+    print(
+        g.logLikelihood(
+            arrow(
+                arrow(tint, tlist(tint), tlist(tint)), tint, tlist(tint), tlist(tint)
+            ),
+            p,
+        )
+    )
     print()
     assert False
 
-    p = Program.parse("(lambda (fix1 $0 (lambda (lambda (if (empty? $0) 0 (+ 1 ($1 (cdr $0))))))))")
+    p = Program.parse(
+        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) 0 (+ 1 ($1 (cdr $0))))))))"
+    )
     print(p.evaluate([])(list(range(17))))
     print(g.logLikelihood(arrow(tlist(tbool), tint), p))
 
     p = Program.parse("(lambda (lambda (if (empty? $0) 0 (+ 1 ($1 (cdr $0))))))")
-    print(g.logLikelihood(arrow(arrow(tlist(tbool), tint), arrow(tlist(tbool), tint)), p))
+    print(
+        g.logLikelihood(arrow(arrow(tlist(tbool), tint), arrow(tlist(tbool), tint)), p)
+    )
 
-    p = Program.parse("(lambda (fix1 $0 (lambda (lambda (if (empty? $0) 0 (+ (car $0) ($1 (cdr $0))))))))")
+    p = Program.parse(
+        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) 0 (+ (car $0) ($1 (cdr $0))))))))"
+    )
 
     print(p.evaluate([])(list(range(4))))
     print(g.logLikelihood(arrow(tlist(tint), tint), p))
@@ -511,14 +648,25 @@ if __name__ == "__main__":
     print(g.logLikelihood(arrow(arrow(tlist(tint), tint), tlist(tint), tint), p))
 
     print("take")
-    p = Program.parse("(lambda (lambda (lambda (if (eq? $1 0) empty (cons (car $0) ($2 (- $1 1) (cdr $0)))))))")
+    p = Program.parse(
+        "(lambda (lambda (lambda (if (eq? $1 0) empty (cons (car $0) ($2 (- $1 1) (cdr $0)))))))"
+    )
     print(p)
-    print(g.logLikelihood(arrow(arrow(tint, tlist(tint), tlist(tint)), tint, tlist(tint), tlist(tint)), p))
+    print(
+        g.logLikelihood(
+            arrow(
+                arrow(tint, tlist(tint), tlist(tint)), tint, tlist(tint), tlist(tint)
+            ),
+            p,
+        )
+    )
     assert False
 
     print(p.evaluate([])(list(range(4))))
     print(g.logLikelihood(arrow(tlist(tint), tlist(tint)), p))
 
-    p = Program.parse("""(lambda (fix (lambda (lambda (match $0 0 (lambda (lambda (+ $1 ($3 $0))))))) $0))""")
+    p = Program.parse(
+        """(lambda (fix (lambda (lambda (match $0 0 (lambda (lambda (+ $1 ($3 $0))))))) $0))"""
+    )
     print(p.evaluate([])(list(range(4))))
     print(g.logLikelihood(arrow(tlist(tint), tint), p))

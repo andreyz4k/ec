@@ -74,7 +74,9 @@ class Program(object):
         for _ in range(a):
             e = Abstraction(e)
 
-        assert self.infer() == e.infer(), "FATAL: uncurry has a bug. %s : %s, but uncurried to %s : %s" % (
+        assert (
+            self.infer() == e.infer()
+        ), "FATAL: uncurry has a bug. %s : %s, but uncurried to %s : %s" % (
             self,
             self.infer(),
             e,
@@ -126,7 +128,13 @@ class Program(object):
 
     @property
     def is_reversible(self):
-        return False
+        return self._is_reversible({}, []) is not None
+
+    def _is_reversible(self, environment, args):
+        return None
+
+    def fill_args(self, environment):
+        return self
 
     @property
     def isIndex(self):
@@ -169,16 +177,13 @@ class Program(object):
         return False
 
     @property
-    def isWrapEither(self):
-        return False
-
-    @property
     def isConst(self):
         return False
 
     @staticmethod
     def parse(s):
         s = parseSExpression(s)
+
         # eprint(s)
         def p(e):
             if isinstance(e, list):
@@ -190,18 +195,16 @@ class Program(object):
                     return Abstraction(p(e[1]))
                 if e[0] == "let":
                     if e[-3][0] == "rev":
-                        return LetRevClause([v[1:] for v in e[1:-4]], e[-3][1][1:], p(e[-3][3]), p(e[-1]))
-                    elif e[-3][0] == "wrap":
-                        return WrapEither(
+                        return LetRevClause(
                             [v[1:] for v in e[1:-4]],
-                            e[-3][1][-3][1][1:],
-                            e[-3][1][-1][1][1:],
-                            p(e[-3][1][-3][-1]),
-                            p(e[-3][1][-1][-1]),
+                            e[-3][1][1:],
+                            p(e[-3][3]),
                             p(e[-1]),
                         )
                     else:
-                        return LetClause(e[1][1:], p(e[3]), p(e[5]))
+                        return LetClause(
+                            e[1][0][1:], Type.fromstring(e[1][1]), p(e[3]), p(e[5])
+                        )
                 if e[0] == "Const":
                     return Constant(Type.fromstring(e[1]), e[2])
                 f = p(e[0])
@@ -230,7 +233,15 @@ class Program(object):
     def _parse(s, n):
         while n < len(s) and s[n].isspace():
             n += 1
-        for p in [Application, Abstraction, Index, Invented, FragmentVariable, Hole, Primitive]:
+        for p in [
+            Application,
+            Abstraction,
+            Index,
+            Invented,
+            FragmentVariable,
+            Hole,
+            Primitive,
+        ]:
             try:
                 return p._parse(s, n)
             except ParseFailure:
@@ -300,16 +311,46 @@ class Application(Program):
             self.trueBranch = None
             self.branch = None
 
-    @property
-    def is_reversible(self):
-        if self.f.is_reversible:
-            if isinstance(self.x, Hole):
-                return self.x.t.isArrow()
-            elif isinstance(self.x, Index):
-                return True
-            elif isinstance(self.x, Abstraction) or isinstance(self.x, Application):
-                return self.x.is_reversible
-        return False
+    def fill_args(self, environment):
+        return Application(self.f.fill_args(environment), self.x.fill_args(environment))
+
+    def _is_reversible(self, environment, args):
+        checkers = self.f._is_reversible(environment, args + [self.x])
+        if checkers is None:
+            return None
+        filled_x = self.x.fill_args(environment)
+        if not checkers:
+            if isinstance(filled_x, Hole):
+                if filled_x.t.isArrow():
+                    return checkers
+                return None
+            elif isinstance(filled_x, Index) or isinstance(filled_x, FreeVariable):
+                return checkers
+            checker = None
+        else:
+            checker = checkers[0]
+
+        if checker is None:
+            res = filled_x.is_reversible
+        else:
+            res = checker(filled_x)
+        if res:
+            return checkers[1:]
+        return None
+
+    def _get_custom_arg_checkers(self, checker, indices_checkers):
+        checkers, indices_checkers = self.f._get_custom_arg_checkers(
+            checker, indices_checkers
+        )
+        if checkers:
+            _, indices_checkers = self.x._get_custom_arg_checkers(
+                checkers[0], indices_checkers
+            )
+        else:
+            _, indices_checkers = self.x._get_custom_arg_checkers(
+                None, indices_checkers
+            )
+        return checkers[1:], indices_checkers
 
     def betaReduce(self):
         # See if either the function or the argument can be reduced
@@ -330,7 +371,9 @@ class Application(Program):
         return b.substitute(Index(0), v.shift(1)).shift(-1)
 
     def isBetaLong(self):
-        return (not self.f.isAbstraction) and self.f.isBetaLong() and self.x.isBetaLong()
+        return (
+            (not self.f.isAbstraction) and self.f.isBetaLong() and self.x.isBetaLong()
+        )
 
     def freeVariables(self):
         return self.f.freeVariables() | self.x.freeVariables()
@@ -350,7 +393,9 @@ class Application(Program):
         return True
 
     def __eq__(self, other):
-        return isinstance(other, Application) and self.f == other.f and self.x == other.x
+        return (
+            isinstance(other, Application) and self.f == other.f and self.x == other.x
+        )
 
     def __hash__(self):
         if self.hashCode is None:
@@ -360,11 +405,25 @@ class Application(Program):
     """Because Python3 randomizes the hash function, we need to never pickle the hash"""
 
     def __getstate__(self):
-        return self.f, self.x, self.isConditional, self.falseBranch, self.trueBranch, self.branch
+        return (
+            self.f,
+            self.x,
+            self.isConditional,
+            self.falseBranch,
+            self.trueBranch,
+            self.branch,
+        )
 
     def __setstate__(self, state):
         try:
-            self.f, self.x, self.isConditional, self.falseBranch, self.trueBranch, self.branch = state
+            (
+                self.f,
+                self.x,
+                self.isConditional,
+                self.falseBranch,
+                self.trueBranch,
+                self.branch,
+            ) = state
         except ValueError:
             # backward compatibility
             assert "x" in state
@@ -491,6 +550,24 @@ class Index(Program):
     def __hash__(self):
         return self.i
 
+    def _get_custom_arg_checkers(self, checker, indices_checkers):
+        if checker is None:
+            return [], indices_checkers
+        if self.i in indices_checkers:
+            if checker == indices_checkers[self.i]:
+                return [], indices_checkers
+            indices_checkers[self.i] = CustomArgChecker.combine(
+                checker, indices_checkers[self.i]
+            )
+            return [], indices_checkers
+        indices_checkers[self.i] = checker
+        return [], indices_checkers
+
+    def fill_args(self, environment):
+        if self.i in environment:
+            return environment[self.i]
+        return self
+
     def visit(self, visitor, *arguments, **keywords):
         return visitor.index(self, *arguments, **keywords)
 
@@ -583,9 +660,28 @@ class Abstraction(Program):
         self.body = body
         self.hashCode = None
 
-    @property
-    def is_reversible(self):
-        return self.body.is_reversible
+    def _is_reversible(self, environment, args):
+        environment = {i + 1: c for (i, c) in environment.items()}
+        if args:
+            environment[0] = args[-1]
+        return self.body._is_reversible(environment, args[:-1])
+
+    def fill_args(self, environment):
+        return Abstraction(
+            self.body.fill_args({i + 1: c for (i, c) in environment.items()})
+        )
+
+    def _get_custom_arg_checkers(self, checker, indices_checkers):
+        checkers, indices_checkers = self.body._get_custom_arg_checkers(
+            checker, {i + 1: c for (i, c) in indices_checkers.items()}
+        )
+        if 0 in indices_checkers:
+            out_checkers = [indices_checkers[0]] + checkers
+        elif checkers:
+            out_checkers = [None] + checkers
+        else:
+            out_checkers = []
+        return out_checkers, {i - 1: c for (i, c) in indices_checkers.items() if i > 0}
 
     @property
     def isAbstraction(self):
@@ -639,7 +735,9 @@ class Abstraction(Program):
 
     def inferType(self, context, environment, freeVariables):
         (context, argumentType) = context.makeVariable()
-        (context, returnType) = self.body.inferType(context, [argumentType] + environment, freeVariables)
+        (context, returnType) = self.body.inferType(
+            context, [argumentType] + environment, freeVariables
+        )
         return (context, arrow(argumentType, returnType).apply(context))
 
     def shift(self, offset, depth=0):
@@ -680,17 +778,40 @@ class Abstraction(Program):
 class Primitive(Program):
     GLOBALS = {}
 
-    def __init__(self, name, ty, value, is_reversible=False):
+    def __init__(self, name, ty, value, is_reversible=False, custom_args_checkers=None):
         self.tp = ty
         self.name = name
         self.value = value
         self.isreversible = is_reversible
+        self.custom_args_checkers = custom_args_checkers or []
         if name not in Primitive.GLOBALS:
             Primitive.GLOBALS[name] = self
 
-    @property
-    def is_reversible(self):
-        return self.isreversible
+    def get_custom_arg_checkers(self):
+        return [c[1] for c in self.custom_args_checkers]
+
+    def _get_custom_arg_checkers(self, checker, indices_checkers):
+        if checker is None:
+            return [c[1] for c in self.custom_args_checkers], indices_checkers
+        arg_count = len(self.tp.functionArguments())
+        if self.isreversible:
+            custom_checkers = self.custom_args_checkers
+            out_checkers = []
+            for c in custom_checkers:
+                if c[1] == checker:
+                    out_checkers.append(c[1])
+                else:
+                    combined = CustomArgChecker.combine(checker, c[1])
+                    out_checkers.append(combined)
+            for _ in range(arg_count - len(custom_checkers)):
+                out_checkers.append(checker)
+            return out_checkers, indices_checkers
+        return [checker] * arg_count, indices_checkers
+
+    def _is_reversible(self, environment, args):
+        if self.isreversible:
+            return [c[0] for c in self.custom_args_checkers]
+        return None
 
     @property
     def isPrimitive(self):
@@ -781,9 +902,17 @@ class Invented(Program):
         self.tp = self.body.infer()
         self.hashCode = None
 
-    @property
-    def is_reversible(self):
-        return self.body.is_reversible
+    def _is_reversible(self, environment, args):
+        return self.body._is_reversible(environment, args)
+
+    def fill_args(self, environment):
+        return self.body.fill_args(environment)
+
+    def get_custom_arg_checkers(self):
+        return self._get_custom_arg_checkers(None, {})[0]
+
+    def _get_custom_arg_checkers(self, checker, indices_checkers):
+        return self.body._get_custom_arg_checkers(checker, indices_checkers)
 
     @property
     def isInvented(self):
@@ -976,13 +1105,50 @@ Hole.single = Hole()
 
 
 class LetClause(Program):
-    def __init__(self, var_name, var_def, body):
+    def __init__(self, var_name, var_type, var_def, body):
         self.var_name = var_name
+        self.var_type = var_type
         self.var_def = var_def
         self.body = body
+        self.hashCode = None
 
     def show(self, isFunction):
-        return "let $%s = %s in %s" % (self.var_name, self.var_def.show(False), self.body.show(False))
+        return "let $%s::%s = %s in %s" % (
+            self.var_name,
+            self.var_type.show(False),
+            self.var_def.show(False),
+            self.body.show(False),
+        )
+
+    def __eq__(self, __o) -> bool:
+        return (
+            isinstance(__o, LetClause)
+            and self.var_name == __o.var_name
+            and self.var_type == __o.var_type
+            and self.var_def == __o.var_def
+            and self.body == __o.body
+        )
+
+    def __hash__(self):
+        if self.hashCode is None:
+            self.hashCode = hash(
+                (
+                    hash(self.var_name),
+                    hash(self.var_type),
+                    hash(self.var_def),
+                    hash(self.body),
+                )
+            )
+        return self.hashCode
+
+    """Because Python3 randomizes the hash function, we need to never pickle the hash"""
+
+    def __getstate__(self):
+        return self.var_name, self.var_type, self.var_def, self.body
+
+    def __setstate__(self, state):
+        self.var_name, self.var_type, self.var_def, self.body = state
+        self.hashCode = None
 
     @property
     def isLetClause(self):
@@ -995,6 +1161,7 @@ class LetRevClause(Program):
         self.inp_var_name = inp_var_name
         self.vars_def = vars_def
         self.body = body
+        self.hashCode = None
 
     def show(self, isFunction):
         return "let %s = rev($%s = %s) in %s" % (
@@ -1004,29 +1171,38 @@ class LetRevClause(Program):
             self.body.show(False),
         )
 
-    @property
-    def isLetRevClause(self):
-        return True
-
-
-class WrapEither(Program):
-    def __init__(self, var_names, inp_var_name, fixer_var_name, vars_def, fixer_var, body):
-        self.var_names = var_names
-        self.inp_var_name = inp_var_name
-        self.fixer_var_name = fixer_var_name
-        self.vars_def = vars_def
-        self.fixer_var = fixer_var
-        self.body = body
-
-    def show(self, isFunction):
-        vars_list = ", ".join(f"${v}" for v in self.var_names)
+    def __eq__(self, __o) -> bool:
         return (
-            f"let {vars_list} = wrap(let {vars_list} = rev(${self.inp_var_name} = {self.vars_def.show(False)});"
-            + f" let ${self.fixer_var_name} = {self.fixer_var.show(False)}) in {self.body.show(False)}"
+            isinstance(__o, LetRevClause)
+            and self.var_names == __o.var_names
+            and self.inp_var_name == __o.inp_var_name
+            and self.vars_def == __o.vars_def
+            and self.body == __o.body
         )
 
+    def __hash__(self):
+        if self.hashCode is None:
+            self.hashCode = hash(
+                (
+                    hash(tuple(self.var_names)),
+                    hash(self.inp_var_name),
+                    hash(self.vars_def),
+                    hash(self.body),
+                )
+            )
+        return self.hashCode
+
+    """Because Python3 randomizes the hash function, we need to never pickle the hash"""
+
+    def __getstate__(self):
+        return self.var_names, self.inp_var_name, self.vars_def, self.body
+
+    def __setstate__(self, state):
+        self.var_names, self.inp_var_name, self.vars_def, self.body = state
+        self.hashCode = None
+
     @property
-    def isWrapEither(self):
+    def isLetRevClause(self):
         return True
 
 
@@ -1040,6 +1216,12 @@ class FreeVariable(Program):
         else:
             return "FREE_VAR"
 
+    def __eq__(self, __o) -> bool:
+        return isinstance(__o, FreeVariable) and self.name == __o.name
+
+    def __hash__(self) -> int:
+        return hash(self.name)
+
     @property
     def isFreeVariable(self):
         return True
@@ -1049,13 +1231,97 @@ class Constant(Program):
     def __init__(self, tp, value):
         self.tp = tp
         self.value = value
+        self.hashCode = None
 
     def show(self, isFunction):
         return f"Const({self.tp.show(False)}, {self.value})"
 
+    def __eq__(self, __o) -> bool:
+        return (
+            isinstance(__o, Constant) and self.tp == __o.tp and self.value == __o.value
+        )
+
+    def __hash__(self):
+        if self.hashCode is None:
+            self.hashCode = hash(self.value)
+
+        return self.hashCode
+
+    """Because Python3 randomizes the hash function, we need to never pickle the hash"""
+
+    def __getstate__(self):
+        return self.tp, self.value
+
+    def __setstate__(self, state):
+        self.tp, self.value = state
+        self.hashCode = None
+
     @property
     def isConst(self):
         return True
+
+
+class CustomArgChecker:
+    def __init__(
+        self, should_be_reversible, max_index, can_have_free_vars, checker_funciton
+    ):
+        self.should_be_reversible = should_be_reversible
+        self.max_index = max_index
+        self.can_have_free_vars = can_have_free_vars
+        self.checker_funciton = checker_funciton
+
+    def __eq__(self, other) -> bool:
+        return (
+            self.should_be_reversible == other.should_be_reversible
+            and self.max_index == other.max_index
+            and self.can_have_free_vars == other.can_have_free_vars
+            and self.checker_funciton == other.checker_funciton
+        )
+
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.should_be_reversible,
+                self.max_index,
+                self.can_have_free_vars,
+                self.checker_funciton,
+            )
+        )
+
+    def __repr__(self) -> str:
+        return f"CustomArgChecker({self.should_be_reversible}, {self.max_index}, {self.can_have_free_vars}, {self.checker_funciton})"
+
+    @staticmethod
+    def combine(old, new):
+        if new.should_be_reversible is None:
+            should_be_reversible = old.should_be_reversible
+        else:
+            should_be_reversible = new.should_be_reversible
+
+        if new.max_index is None:
+            max_index = old.max_index
+        elif old.max_index is None:
+            max_index = new.max_index
+        else:
+            max_index = min(old.max_index, new.max_index)
+
+        if new.can_have_free_vars is None:
+            can_have_free_vars = old.can_have_free_vars
+        else:
+            can_have_free_vars = new.can_have_free_vars
+
+        if new.checker_funciton is None:
+            checker_funciton = old.checker_funciton
+        elif old.checker_funciton is None:
+            checker_funciton = new.checker_funciton
+        else:
+
+            def checker_funciton(p, path):
+                return old.checker_funciton(p, path) and new.checker_funciton(p, path)
+
+        return CustomArgChecker(
+            should_be_reversible, max_index, can_have_free_vars, checker_funciton
+        )
 
 
 class ShareVisitor(object):
@@ -1170,7 +1436,9 @@ class Mutator:
     def logLikelihood(self, tp, e, env):
         summary = None
         try:
-            _, summary = self.grammar.likelihoodSummary(Context.EMPTY, env, tp, e, silent=True)
+            _, summary = self.grammar.likelihoodSummary(
+                Context.EMPTY, env, tp, e, silent=True
+            )
         except AssertionError as err:
             # print(f"closedLikelihoodSummary failed on tp={tp}, e={e}, error={err}")
             pass
@@ -1251,7 +1519,10 @@ class PrettyVisitor(object):
 
     def application(self, e, environment, isFunction, isAbstraction):
         self.toplevel = False
-        s = "%s %s" % (e.f.visit(self, environment, True, False), e.x.visit(self, environment, False, False))
+        s = "%s %s" % (
+            e.f.visit(self, environment, True, False),
+            e.x.visit(self, environment, False, False),
+        )
         if isFunction:
             return s
         else:
@@ -1308,7 +1579,11 @@ class EtaLongVisitor(object):
         if not request.isArrow():
             raise EtaExpandFailure()
 
-        return Abstraction(e.body.visit(self, request.arguments[1], [request.arguments[0]] + environment))
+        return Abstraction(
+            e.body.visit(
+                self, request.arguments[1], [request.arguments[0]] + environment
+            )
+        )
 
     def _application(self, e, request, environment):
         l = self.makeLong(e, request)
@@ -1387,7 +1662,8 @@ class StripPrimitiveVisitor:
 
 class ReplacePrimitiveValueVisitor:
     """Intended to be used after StripPrimitiveVisitor.
-    Replaces all primitive.value's with their corresponding entry in Primitive.GLOBALS"""
+    Replaces all primitive.value's with their corresponding entry in Primitive.GLOBALS
+    """
 
     def invented(self, e):
         return Invented(e.body.visit(self))
@@ -1444,5 +1720,7 @@ def untokeniseProgram(l):
 if __name__ == "__main__":
     from dreamcoder.domains.arithmetic.arithmeticPrimitives import *
 
-    e = Program.parse("(#(lambda (?? (+ 1 $0))) (lambda (?? (+ 1 $0))) (lambda (?? (+ 1 $0))) - * (+ +))")
+    e = Program.parse(
+        "(#(lambda (?? (+ 1 $0))) (lambda (?? (+ 1 $0))) (lambda (?? (+ 1 $0))) - * (+ +))"
+    )
     eprint(e)

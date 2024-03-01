@@ -1,30 +1,37 @@
 
 using DataStructures
 
-get_enumeration_timeout(timeout) = time() + timeout
-enumeration_timed_out(timeout) = time() > timeout
+get_enumeration_timeout(timeout)::Float64 = time() + timeout
+enumeration_timed_out(timeout)::Bool = time() > timeout
 
-get_argument_requests(::Index, argument_types, cg) = [(at, cg.variable_context) for at in argument_types]
+get_argument_requests(::Index, argument_types, cg) = [cg.variable_context for at in argument_types]
 get_argument_requests(::FreeVar, argumet_types, cg) = []
-get_argument_requests(candidate, argument_types, cg) = zip(argument_types, cg.contextual_library[candidate])
+get_argument_requests(::SetConst, argumet_types, cg) = []
+get_argument_requests(candidate, argument_types, cg) = cg.contextual_library[candidate]
 
 struct WrongPath <: Exception end
 
-follow_path(skeleton::Apply, path) =
-    if isa(path[1], LeftTurn)
+function follow_path(skeleton::Apply, path)
+    if isempty(path)
+        skeleton
+    elseif isa(path[1], LeftTurn)
         follow_path(skeleton.f, view(path, 2:length(path)))
     elseif isa(path[1], RightTurn)
         follow_path(skeleton.x, view(path, 2:length(path)))
     else
         throw(WrongPath())
     end
+end
 
-follow_path(skeleton::Abstraction, path) =
-    if isa(path[1], ArgTurn)
+function follow_path(skeleton::Abstraction, path)
+    if isempty(path)
+        skeleton
+    elseif isa(path[1], ArgTurn)
         follow_path(skeleton.b, view(path, 2:length(path)))
     else
         throw(WrongPath())
     end
+end
 
 follow_path(skeleton::Hole, path) =
     if isempty(path)
@@ -33,9 +40,14 @@ follow_path(skeleton::Hole, path) =
         throw(WrongPath())
     end
 
-follow_path(::Any, path) = throw(WrongPath())
+follow_path(skeleton::Program, path) =
+    if isempty(path)
+        skeleton
+    else
+        throw(WrongPath())
+    end
 
-path_environment(path) = reverse([t.type for t in path if isa(t, ArgTurn)])
+path_environment(path) = reverse(Tp[t.type for t in path if isa(t, ArgTurn)])
 
 modify_skeleton(skeleton::Abstraction, template, path) =
     if isa(path[1], ArgTurn)
@@ -95,22 +107,25 @@ violates_symmetry(::Program, a, n) = false
 
 const illegal_combinations1 = Set([
     #  McCarthy primitives
-    (0, "car", "cons"),
-    (0, "car", "empty"),
-    (0, "cdr", "cons"),
-    (0, "cdr", "empty"),
-    (1, "-", "0"),
-    (0, "+", "+"),
-    (0, "*", "*"),
-    (0, "empty?", "cons"),
-    (0, "empty?", "empty"),
-    (0, "zero?", "0"),
-    (0, "zero?", "1"),
-    (0, "zero?", "-1"),
+    (1, "car", "cons"),
+    (1, "car", "empty"),
+    (1, "car", "repeat"),
+    (1, "cdr", "cons"),
+    (1, "cdr", "empty"),
+    (2, "-", "0"),
+    (1, "+", "+"),
+    (1, "*", "*"),
+    (1, "empty?", "cons"),
+    (1, "empty?", "empty"),
+    (1, "zero?", "0"),
+    (1, "zero?", "1"),
+    (1, "zero?", "-1"),
     #  bootstrap target
-    (1, "map", "empty"),
-    (0, "fold", "empty"),
-    (1, "index", "empty"),
+    (2, "map", "empty"),
+    (2, "fold", "empty"),
+    (2, "index", "empty"),
+    (2, "index", "repeat"),
+    (3, "index2", "repeat_grid"),
 ])
 
 const illegal_combinations2 = Set([
@@ -134,21 +149,71 @@ function violates_symmetry(f::Primitive, a, n)
 end
 
 has_index(p::Index, i) = p.n == i
-has_index(p::Hole, i) = true
+has_index(p::Hole, i) = p.candidates_filter.max_index >= i
 has_index(p::Primitive, i) = false
 has_index(p::Invented, i) = false
 has_index(p::Apply, i) = has_index(p.f, i) || has_index(p.x, i)
 has_index(p::FreeVar, i) = false
 has_index(p::Abstraction, i) = has_index(p.b, i + 1)
 
-state_violates_symmetry(p::Abstraction)::Bool = state_violates_symmetry(p.b) || !has_index(p.b, 0)
-function state_violates_symmetry(p::Apply)::Bool
-    (f, a) = application_parse(p)
-    return state_violates_symmetry(f) ||
-           any(state_violates_symmetry, a) ||
-           any(violates_symmetry(f, x, n) for (n, x) in enumerate(a))
+new_free_vars_count(p::FreeVar) = isnothing(p.var_id) ? 1 : 0
+new_free_vars_count(p::Abstraction) = new_free_vars_count(p.b)
+new_free_vars_count(p::Apply) = new_free_vars_count(p.f) + new_free_vars_count(p.x)
+new_free_vars_count(p) = 0
+
+subprograms_equal(p1, p2, var_shift) = p1 == p2
+subprograms_equal(p1::Apply, p2::Apply, var_shift) =  # TODO: new free vars count can be optimized
+    subprograms_equal(p1.f, p2.f, var_shift) && subprograms_equal(p1.x, p2.x, var_shift + new_free_vars_count(p1.f))
+
+subprograms_equal(p1::Abstraction, p2::Abstraction, var_shift) = subprograms_equal(p1.b, p2.b, var_shift)
+
+function subprograms_equal(p1::FreeVar, p2::FreeVar, var_shift)
+    if !isnothing(p1.var_id)
+        return p1.var_id == p2.var_id
+    end
+    if !isnothing(p2.var_id)
+        return p2.var_id == "r$(var_shift + 1)"
+    end
+    return false
 end
-state_violates_symmetry(::Program)::Bool = false
+
+state_violates_symmetry(p::Abstraction, var_shift = 0)::Bool =
+    state_violates_symmetry(p.b, var_shift) || !has_index(p.b, 0)
+
+function state_violates_symmetry(p::Apply, var_shift = 0)::Bool
+    (f, a) = application_parse(p)
+    if f == every_primitive["rev_fix_param"]
+        if isa(a[1], FreeVar) || isa(a[1], Index)
+            return true
+        end
+        if isa(a[3], Abstraction)
+            a[3] = a[3].b
+        end
+    end
+    if state_violates_symmetry(f, var_shift)
+        return true
+    end
+    if f == every_primitive["eq?"] && _has_no_holes(a[1]) && _has_no_holes(a[2])
+        if subprograms_equal(a[1], a[2], var_shift)
+            return true
+        end
+    end
+    if f == every_primitive["if"] && _has_no_holes(a[2]) && _has_no_holes(a[3])
+        cond_var_shift = new_free_vars_count(a[1])
+        if subprograms_equal(a[2], a[3], var_shift + cond_var_shift)
+            return true
+        end
+    end
+    var_shift += new_free_vars_count(f)
+    for (n, x) in enumerate(a)
+        if state_violates_symmetry(x, var_shift) || violates_symmetry(f, x, n)
+            return true
+        end
+        var_shift += new_free_vars_count(x)
+    end
+    return false
+end
+state_violates_symmetry(::Program, var_shift = 0)::Bool = false
 
 function block_state_successors(
     maxFreeParameters,
@@ -160,42 +225,74 @@ function block_state_successors(
         error("Error during following path")
     end
     request = current_hole.t
-    g = current_hole.grammar
 
     context = state.context
     context, request = apply_context(context, request)
     if isarrow(request)
         return [
             EnumerationState(
-                modify_skeleton(state.skeleton, (Abstraction(Hole(request.arguments[2], g))), state.path),
+                modify_skeleton(
+                    state.skeleton,
+                    (Abstraction(
+                        Hole(
+                            request.arguments[2],
+                            current_hole.grammar,
+                            CustomArgChecker(
+                                current_hole.candidates_filter.should_be_reversible,
+                                current_hole.candidates_filter.max_index + 1,
+                                current_hole.candidates_filter.can_have_free_vars,
+                                current_hole.candidates_filter.checker_function,
+                            ),
+                            current_hole.possible_values,
+                        ),
+                    )),
+                    state.path,
+                ),
                 context,
                 vcat(state.path, [ArgTurn(request.arguments[1])]),
                 state.cost,
                 state.free_parameters,
-                state.abstractors_only,
             ),
         ]
     else
         environment = path_environment(state.path)
-        candidates = unifying_expressions(g, environment, request, context, state.abstractors_only)
-        if !isa(state.skeleton, Hole)
-            push!(candidates, (FreeVar(request, nothing), [], context, g.log_variable))
-        end
+        candidates = unifying_expressions(environment, context, current_hole, state.skeleton, state.path)
 
         states = map(candidates) do (candidate, argument_types, context, ll)
-            new_free_parameters = number_of_free_parameters(candidate)
-            argument_requests = get_argument_requests(candidate, argument_types, cg)
-
-            if isempty(argument_types)
-                new_skeleton = modify_skeleton(state.skeleton, candidate, state.path)
-                new_path = unwind_path(state.path, new_skeleton)
-            else
-                application_template = candidate
-                for (a, at) in argument_requests
-                    application_template = Apply(application_template, Hole(a, at))
-                end
+            if isa(candidate, Abstraction)
+                new_free_parameters = 0
+                application_template = Apply(
+                    candidate,
+                    Hole(argument_types[1], cg.no_context, current_hole.candidates_filter, nothing),
+                )
                 new_skeleton = modify_skeleton(state.skeleton, application_template, state.path)
-                new_path = vcat(state.path, [LeftTurn() for _ in 2:length(argument_types)], [RightTurn()])
+                new_path = vcat(state.path, [LeftTurn(), ArgTurn(argument_types[1])])
+            else
+                new_free_parameters = number_of_free_parameters(candidate)
+                argument_requests = get_argument_requests(candidate, argument_types, cg)
+
+                if isempty(argument_types)
+                    new_skeleton = modify_skeleton(state.skeleton, candidate, state.path)
+                    new_path = unwind_path(state.path, new_skeleton)
+                else
+                    application_template = candidate
+                    custom_arg_checkers = _get_custom_arg_checkers(candidate)
+                    custom_checkers_args_count = length(custom_arg_checkers)
+                    for i in 1:length(argument_types)
+                        if i > custom_checkers_args_count
+                            arg_checker = current_hole.candidates_filter
+                        else
+                            arg_checker = combine_arg_checkers(current_hole.candidates_filter, custom_arg_checkers[i])
+                        end
+
+                        application_template = Apply(
+                            application_template,
+                            Hole(argument_types[i], argument_requests[i], arg_checker, nothing),
+                        )
+                    end
+                    new_skeleton = modify_skeleton(state.skeleton, application_template, state.path)
+                    new_path = vcat(state.path, [LeftTurn() for _ in 2:length(argument_types)], [RightTurn()])
+                end
             end
             return EnumerationState(
                 new_skeleton,
@@ -203,7 +300,6 @@ function block_state_successors(
                 new_path,
                 state.cost + ll,
                 state.free_parameters + new_free_parameters,
-                state.abstractors_only,
             )
         end
         return filter(
@@ -216,93 +312,141 @@ function block_state_successors(
     end
 end
 
-capture_free_vars(sc::SolutionContext, p::Program, context) = p, []
+capture_free_vars(sc, p::Program, context) = _capture_free_vars(sc, p, context, [])
 
-function capture_free_vars(sc::SolutionContext, p::Apply, context)
-    new_f, new_vars_f = capture_free_vars(sc, p.f, context)
-    new_x, new_vars_x = capture_free_vars(sc, p.x, context)
-    Apply(new_f, new_x), vcat(new_vars_f, new_vars_x)
+_capture_free_vars(sc, p::Program, context, captured_vars) = p, captured_vars
+
+function _capture_free_vars(sc, p::Apply, context, captured_vars)
+    new_f, captured_vars = _capture_free_vars(sc, p.f, context, captured_vars)
+    new_x, captured_vars = _capture_free_vars(sc, p.x, context, captured_vars)
+    Apply(new_f, new_x), captured_vars
 end
 
-function capture_free_vars(sc::SolutionContext, p::Abstraction, context)
-    new_b, new_vars = capture_free_vars(sc, p.b, context)
+function _capture_free_vars(sc, p::Abstraction, context, captured_vars)
+    new_b, new_vars = _capture_free_vars(sc, p.b, context, captured_vars)
     Abstraction(new_b), new_vars
 end
 
-function capture_free_vars(sc::SolutionContext, p::FreeVar, context)
+function _capture_free_vars(sc, p::Hole, context, captured_vars)
     _, t = apply_context(context, p.t)
     var_id = create_next_var(sc)
-    FreeVar(t, var_id), [(var_id, t)]
+    push!(captured_vars, (var_id, t))
+    FreeVar(t, var_id), captured_vars
 end
 
-function try_run_reversed_with_value(reverse_program, value)
-    try_run_function(reverse_program, [value])
-end
-
-function try_run_reversed_with_value(reverse_program, value::EitherOptions)
-    hashes = []
-    outputs = []
-    for (h, val) in value.options
-        outs = try_run_reversed_with_value(reverse_program, val)
-        if isnothing(outs)
-            return nothing
-        end
-        push!(hashes, h)
-        push!(outputs, outs)
+function _capture_free_vars(sc, p::FreeVar, context, captured_vars)
+    if isnothing(p.var_id)
+        _, t = apply_context(context, p.t)
+        var_id = create_next_var(sc)
+        push!(captured_vars, (var_id, t))
+    else
+        i = parse(Int, p.var_id[2:end])
+        var_id, t = captured_vars[i]
     end
-    results = []
-    for values in zip(outputs...)
-        values = collect(values)
-        if allequal(values)
-            push!(results, values[1])
-        else
-            options = Dict(h => v for (h, v) in zip(hashes, values))
-            push!(results, EitherOptions(options))
-        end
-    end
-    return results
+    FreeVar(t, var_id), captured_vars
 end
 
-function try_get_reversed_values(sc::SolutionContext, p::Program, context, output_branch_id, cost, is_known)
-    p, reverse_program = get_reversed_filled_program(p)
+function check_reversed_program_forward(p, vars, inputs, expected_output)
+    if any(isa(v, EitherOptions) for v in inputs)
+        either_val = first(v for v in inputs if isa(v, EitherOptions))
+        hashes = keys(either_val.options)
+        for (i, h) in enumerate(hashes)
+            if i > 10
+                break
+            end
+            inps = [fix_option_hashes([h], v) for v in inputs]
+            exp_out = fix_option_hashes([h], expected_output)
+            check_reversed_program_forward(p, vars, inps, exp_out)
+        end
+    elseif any(isa(v, PatternWrapper) for v in inputs)
+        inps = [isa(v, PatternWrapper) ? v.value : v for v in inputs]
+        check_reversed_program_forward(p, vars, inps, expected_output)
+    else
+        output = try
+            try_evaluate_program(p, [], Dict(v_id => v for ((v_id, _), v) in zip(vars, inputs)))
+        catch e
+            if isa(e, InterruptException)
+                rethrow()
+            end
+            @error(p)
+            @error(vars)
+            @error inputs
+            @error expected_output
+            @error e
+            error("Can't run reversed program forward")
+        end
+        if output != expected_output
+            @error(p)
+            @error(vars)
+            @error inputs
+            @error output
+            @error expected_output
+            # error("Can't run reversed program forward")
+        end
+    end
+end
+
+function try_get_reversed_values(sc::SolutionContext, p::Program, context, path, output_branch_id, cost, is_known)
     out_entry = sc.entries[sc.branch_entries[output_branch_id]]
 
-    calculated_values = []
+    new_p, new_vars = capture_free_vars(sc, p, context)
+    new_vars_count = length(new_vars)
+
+    calculated_values = DefaultDict(() -> [])
     for value in out_entry.values
-        calculated_value = try_run_reversed_with_value(reverse_program, value)
-        if isnothing(calculated_value)
-            return nothing
+        calculated_value = try_run_function(run_in_reverse, [new_p, value])
+        if length(calculated_value) != new_vars_count
+            @warn p
+            @warn new_p
+            @warn new_vars
+            @warn value
+            @warn calculated_value
         end
-        push!(calculated_values, calculated_value)
+        # check_reversed_program_forward(new_p, new_vars, calculated_value, value)
+        for (k, v) in calculated_value
+            push!(calculated_values[k], v)
+        end
     end
 
-    new_p, new_vars = capture_free_vars(sc, p, context)
-
     new_entries = []
-    for ((var_id, t), values) in zip(new_vars, zip(calculated_values...))
-        values = collect(values)
-        complexity_summary = get_complexity_summary(values, t)
+    has_abductibles = false
+
+    for (var_id, t) in new_vars
+        vals = calculated_values[var_id]
+        complexity_summary = get_complexity_summary(vals, t)
         t_id = push!(sc.types, t)
-        if any(isa(value, EitherOptions) for value in values)
-            new_entry = EitherEntry(t_id, values, complexity_summary, get_complexity(sc, complexity_summary))
+        if any(isa(value, EitherOptions) for value in vals)
+            new_entry = EitherEntry(t_id, vals, complexity_summary, get_complexity(sc, complexity_summary))
+        elseif any(isa(value, PatternWrapper) for value in vals)
+            new_entry = PatternEntry(t_id, vals, complexity_summary, get_complexity(sc, complexity_summary))
+        elseif any(isa(value, AbductibleValue) for value in vals)
+            has_abductibles = true
+            new_entry = AbductibleEntry(t_id, vals, complexity_summary, get_complexity(sc, complexity_summary))
         else
-            new_entry = ValueEntry(t_id, values, complexity_summary, get_complexity(sc, complexity_summary))
+            save_values_to_cache(t, vals)
+            new_entry = ValueEntry(t_id, vals, complexity_summary, get_complexity(sc, complexity_summary))
+        end
+        if new_entry == out_entry
+            throw(EnumerationException())
         end
         push!(new_entries, (var_id, new_entry))
     end
 
-    complexity_factor =
-        (is_known ? sc.explained_complexity_factors : sc.unknown_complexity_factors)[output_branch_id] -
-        out_entry.complexity + sum(entry.complexity for (_, entry) in new_entries)
+    complexity_factor = (is_known ? sc.explained_complexity_factors : sc.unknown_complexity_factors)[output_branch_id]
+    if !has_abductibles
+        complexity_factor -= out_entry.complexity - sum(entry.complexity for (_, entry) in new_entries; init = 0.0)
+    end
 
     new_branches = []
-    either_branch_ids = Int[]
-    either_var_ids = Int[]
+    either_branch_ids = UInt64[]
+    either_var_ids = UInt64[]
+    abductible_branch_ids = UInt64[]
+    abductible_var_ids = UInt64[]
 
     if is_known
-        out_related_complexity_branches = sc.related_explained_complexity_branches[output_branch_id, :]
+        out_related_complexity_branches = get_connected_from(sc.related_explained_complexity_branches, output_branch_id)
     else
-        out_related_complexity_branches = sc.related_unknown_complexity_branches[output_branch_id, :]
+        out_related_complexity_branches = get_connected_from(sc.related_unknown_complexity_branches, output_branch_id)
     end
 
     for (var_id, entry) in new_entries
@@ -310,131 +454,187 @@ function try_get_reversed_values(sc::SolutionContext, p::Program, context, outpu
         branch_id = increment!(sc.branches_count)
         sc.branch_entries[branch_id] = entry_index
         sc.branch_vars[branch_id] = var_id
-        sc.branch_types[branch_id, entry.type_id] = entry.type_id
+        sc.branch_types[branch_id, entry.type_id] = true
         if is_known
             sc.explained_min_path_costs[branch_id] = cost + sc.explained_min_path_costs[output_branch_id]
             sc.explained_complexity_factors[branch_id] = complexity_factor
             sc.unused_explained_complexities[branch_id] = entry.complexity
             sc.added_upstream_complexities[branch_id] = sc.added_upstream_complexities[output_branch_id]
-            sc.related_explained_complexity_branches[branch_id, :] = out_related_complexity_branches
+            sc.related_explained_complexity_branches[branch_id, out_related_complexity_branches] = true
         else
             sc.branch_is_unknown[branch_id] = true
             sc.branch_unknown_from_output[branch_id] = sc.branch_unknown_from_output[output_branch_id]
             sc.unknown_min_path_costs[branch_id] = cost + sc.unknown_min_path_costs[output_branch_id]
             sc.unknown_complexity_factors[branch_id] = complexity_factor
             sc.unmatched_complexities[branch_id] = entry.complexity
-            sc.related_unknown_complexity_branches[branch_id, :] = out_related_complexity_branches
+            sc.related_unknown_complexity_branches[branch_id, out_related_complexity_branches] = true
         end
         sc.complexities[branch_id] = entry.complexity
 
         if isa(entry, EitherEntry)
             push!(either_branch_ids, branch_id)
             push!(either_var_ids, var_id)
+        elseif isa(entry, AbductibleEntry)
+            push!(abductible_branch_ids, branch_id)
+            push!(abductible_var_ids, var_id)
         end
 
         push!(new_branches, (var_id, branch_id, entry.type_id))
     end
+
     if length(new_branches) > 1
         for (_, branch_id, _) in new_branches
             inds = [b_id for (_, b_id, _) in new_branches if b_id != branch_id]
             if is_known
-                sc.related_explained_complexity_branches[branch_id, inds] = 1
+                sc.related_explained_complexity_branches[branch_id, inds] = true
             else
-                sc.related_unknown_complexity_branches[branch_id, inds] = 1
+                sc.related_unknown_complexity_branches[branch_id, inds] = true
             end
         end
     end
     if length(either_branch_ids) >= 1
-        active_constraints = nonzeroinds(sc.constrained_branches[output_branch_id, :])
+        active_constraints = keys(get_connected_from(sc.constrained_branches, output_branch_id))
         if length(active_constraints) == 0
             new_constraint_id = increment!(sc.constraints_count)
             # @info "Added new constraint with either $new_constraint_id"
-            active_constraints = Int[new_constraint_id]
+            active_constraints = UInt64[new_constraint_id]
         end
-        sc.constrained_branches[either_branch_ids, active_constraints] = either_var_ids
-        sc.constrained_vars[either_var_ids, active_constraints] = either_branch_ids
+        for constraint_id in active_constraints
+            sc.constrained_branches[either_branch_ids, constraint_id] = either_var_ids
+            sc.constrained_vars[either_var_ids, constraint_id] = either_branch_ids
+        end
     end
 
-    return new_p, reverse_program, new_branches, either_var_ids, either_branch_ids
+    return new_p, new_branches, either_var_ids, abductible_var_ids, either_branch_ids, abductible_branch_ids
 end
 
-function try_get_reversed_inputs(sc, p::Program, context, output_branch_id, cost)
-    reverse_results = try_get_reversed_values(sc, p, context, output_branch_id, cost, false)
-    if !isnothing(reverse_results)
-        new_p, _, inputs, _, _ = reverse_results
-        return new_p, inputs
-    end
+function try_get_reversed_inputs(sc, p::Program, context, path, output_branch_id, cost)
+    new_p, inputs, _, _, _, _ = try_get_reversed_values(sc, p, context, path, output_branch_id, cost, false)
+    return new_p, inputs
 end
 
-function create_wrapping_block(
+function _fill_holes(p::Hole, context)
+    new_context, t = apply_context(context, p.t)
+    FreeVar(t, nothing), new_context
+end
+function _fill_holes(p::Apply, context)
+    new_f, new_context = _fill_holes(p.f, context)
+    new_x, new_context = _fill_holes(p.x, new_context)
+    Apply(new_f, new_x), new_context
+end
+function _fill_holes(p::Abstraction, context)
+    new_b, new_context = _fill_holes(p.b, context)
+    Abstraction(new_b), new_context
+end
+_fill_holes(p::Program, context) = p, context
+
+function create_wrapping_program_prototype(
     sc::SolutionContext,
-    block,
+    p,
     cost,
     input_var,
     input_branch,
     output_vars,
-    var_id,
+    var_id::UInt64,
     branch_id,
+    input_type,
+    context,
+    cg::ContextualGrammar,
 )
+    var_ind = findfirst(v_info -> v_info[1] == var_id, output_vars)
+
     unknown_type_id = [t_id for (v_id, _, t_id) in output_vars if v_id == var_id][1]
-    new_var = create_next_var(sc)
 
-    new_branch_id = increment!(sc.branches_count)
-    sc.branch_entries[new_branch_id] = sc.branch_entries[branch_id]
-    sc.branch_is_unknown[new_branch_id] = true
-    sc.branch_vars[new_branch_id] = new_var
-    sc.branch_types[new_branch_id, unknown_type_id] = unknown_type_id
-    sc.complexities[new_branch_id] = sc.complexities[branch_id]
+    g = cg.no_context
 
-    # constraints = nonzeroinds(sc.constrained_branches[branch_id, :])
-    new_constraint_id = increment!(sc.constraints_count)
-    sc.constrained_branches[new_branch_id, new_constraint_id] = new_var
-    sc.constrained_vars[new_var, new_constraint_id] = new_branch_id
-    out_var_ids = [v_id for (v_id, _, _) in output_vars]
-    out_branch_ids = [b_id for (_, b_id, _) in output_vars]
-    sc.constrained_branches[out_branch_ids, new_constraint_id] = out_var_ids
-    sc.constrained_vars[out_var_ids, new_constraint_id] = out_branch_ids
+    candidate_functions = unifying_expressions(
+        Tp[],
+        context,
+        Hole(input_type, g, CustomArgChecker(true, -1, false, nothing), nothing),
+        Hole(input_type, g, CustomArgChecker(true, -1, false, nothing), nothing),
+        [],
+    )
 
-    sc.unknown_min_path_costs[new_branch_id] = sc.explained_min_path_costs[branch_id]
-    sc.unknown_complexity_factors[new_branch_id] = sc.explained_complexity_factors[branch_id]
-    sc.unmatched_complexities[new_branch_id] = sc.complexities[branch_id]
-    # sc.related_unknown_complexity_branches[new_branch_id, :] = out_related_complexity_branches
+    wrapper, arg_types, new_context, wrap_cost =
+        first(v for v in candidate_functions if v[1] == every_primitive["rev_fix_param"])
 
-    wrapper_block = WrapEitherBlock(block, var_id, cost, [input_var, new_var], [v_id for (v_id, _, _) in output_vars])
-    wrapper_block_id = push!(sc.blocks, wrapper_block)
-    target_outputs = Dict(v_id => b_id for (v_id, b_id, _) in output_vars)
-    input_branches = Dict(input_var => input_branch, new_var => new_branch_id)
-    return wrapper_block_id, input_branches, target_outputs
+    unknown_type = sc.types[unknown_type_id]
+    new_context = unify(new_context, unknown_type, arg_types[2])
+    new_context, fixer_type = apply_context(new_context, arg_types[3])
+
+    unknown_entry = sc.entries[sc.branch_entries[branch_id]]
+    custom_arg_checkers = _get_custom_arg_checkers(wrapper)
+    filled_p, new_context = _fill_holes(p, new_context)
+
+    wrapped_p = Apply(
+        Apply(Apply(wrapper, filled_p), FreeVar(unknown_type, "r$var_ind")),
+        Hole(fixer_type, cg.contextual_library[wrapper][3], custom_arg_checkers[3], unknown_entry.values),
+    )
+
+    state = EnumerationState(
+        wrapped_p,
+        new_context,
+        [RightTurn()],
+        cost + wrap_cost + 0.001,
+        number_of_free_parameters(filled_p),
+    )
+
+    new_bp = BlockPrototype(state, input_type, nothing, (input_var, input_branch), true)
+    return new_bp
 end
 
-function create_reversed_block(sc, p::Program, context, input_var::Tuple{Int,Int}, cost)
-    reverse_results = try_get_reversed_values(sc, p, context, input_var[2], cost, true)
-
-    if !isnothing(reverse_results)
-        new_p, reverse_program, output_vars, either_var_ids, either_branch_ids = reverse_results
-        block =
-            ReverseProgramBlock(new_p, reverse_program, cost, [input_var[1]], [v_id for (v_id, _, _) in output_vars])
-        if isempty(either_var_ids)
-            block_id = push!(sc.blocks, block)
-            return [(
-                block_id,
-                Dict(input_var[1] => input_var[2]),
-                Dict(v_id => b_id for (v_id, b_id, _) in output_vars),
-            )]
-        else
-            results = []
-            for (var_id, branch_id) in zip(either_var_ids, either_branch_ids)
-                push!(
-                    results,
-                    create_wrapping_block(sc, block, cost, input_var[1], input_var[2], output_vars, var_id, branch_id),
-                )
-            end
-            return results
+function create_reversed_block(
+    sc::SolutionContext,
+    p::Program,
+    context,
+    path,
+    input_var::Tuple{UInt64,UInt64},
+    cost,
+    input_type,
+    g,
+)
+    new_p, output_vars, either_var_ids, abductible_var_ids, either_branch_ids, abductible_branch_ids =
+        try_get_reversed_values(sc, p, context, path, input_var[2], cost, true)
+    if isempty(output_vars)
+        throw(EnumerationException())
+    end
+    block = ReverseProgramBlock(new_p, cost, [input_var[1]], [v_id for (v_id, _, _) in output_vars])
+    if isempty(either_var_ids) && isempty(abductible_var_ids)
+        block_id = push!(sc.blocks, block)
+        return [(
+            block_id,
+            Dict{UInt64,UInt64}(input_var[1] => input_var[2]),
+            Dict{UInt64,UInt64}(v_id => b_id for (v_id, b_id, _) in output_vars),
+        )],
+        []
+    else
+        unfinished_prototypes = []
+        for (var_id, branch_id) in
+            Iterators.flatten([zip(either_var_ids, either_branch_ids), zip(abductible_var_ids, abductible_branch_ids)])
+            push!(
+                unfinished_prototypes,
+                create_wrapping_program_prototype(
+                    sc,
+                    p,
+                    cost,
+                    input_var[1],
+                    input_var[2],
+                    output_vars,
+                    var_id,
+                    branch_id,
+                    input_type,
+                    context,
+                    g,
+                ),
+            )
         end
+        drop_changes!(sc, sc.transaction_depth - 1)
+        start_transaction!(sc, sc.transaction_depth + 1)
+        return [], unfinished_prototypes
     end
 end
 
-function try_run_function(f, xs)
+function try_run_function(f::Function, xs)
     try
         f(xs...)
     catch e
@@ -444,183 +644,167 @@ function try_run_function(f, xs)
         #     triggered during program evaluation, we need to pass the
         #     exception on
         if isa(e, InterruptException)
+            @warn "Interrupted running $f with $xs"
             rethrow()
         elseif isa(e, UnknownPrimitive)
             error("Unknown primitive: $(e.name)")
         elseif isa(e, MethodError)
+            @error f
             @error(xs)
-            @error(workspace)
             rethrow()
         else
             # @error e
-            return nothing
+            throw(EnumerationException())
         end
     end
 end
 
 function try_evaluate_program(p, xs, workspace)
-    try_run_function(run_analyzed_with_arguments, [p, xs, workspace])
+    try_run_function(run_with_arguments, [p, xs, workspace])
 end
 
-function try_run_block(sc::SolutionContext, block::ProgramBlock, fixed_branches, target_output)
+function _update_block_type(block_type, input_types)
+    if !is_polymorphic(block_type)
+        return block_type
+    end
+    context, block_type = instantiate(block_type, empty_context)
+    for (arg_type, inp_type) in zip(arguments_of_type(block_type), input_types)
+        context, inp_type = instantiate(inp_type, context)
+        context = unify(context, arg_type, inp_type)
+    end
+    context, block_type = apply_context(context, block_type)
+    return block_type
+end
+
+function try_run_block(
+    sc::SolutionContext,
+    block::ProgramBlock,
+    block_id,
+    fixed_branches,
+    target_output,
+    is_new_block,
+    created_paths,
+)
     inputs = []
     for _ in 1:sc.example_count
         push!(inputs, Dict())
     end
+    input_types = []
+    has_non_consts = false
     for var_id in block.input_vars
         fixed_branch_id = fixed_branches[var_id]
-        entry = sc.entries[sc.branch_entries[fixed_branch_id]]
-        for (i, input) in enumerate(entry.values)
-            inputs[i][var_id] = input
+        if sc.branch_is_not_const[fixed_branch_id]
+            has_non_consts = true
         end
+        entry = sc.entries[sc.branch_entries[fixed_branch_id]]
+        push!(input_types, sc.types[entry.type_id])
+        for i in 1:sc.example_count
+            inputs[i][var_id] = entry.values[i]
+        end
+    end
+    if !has_non_consts && length(block.input_vars) > 0
+        if sc.verbose
+            @info "Aborting $block_id $(block.p) because all inputs are const"
+        end
+        throw(EnumerationException())
     end
 
     out_branch_id = target_output[block.output_var]
     expected_output = sc.entries[sc.branch_entries[out_branch_id]]
-    out_matcher = get_matching_seq(expected_output)
 
-    bm = Strict
     outs = []
-    for (xs, matcher) in zip(inputs, out_matcher)
+    for i in 1:sc.example_count
+        xs = inputs[i]
         out_value = try
-            try_evaluate_program(block.analized_p, [], xs)
+            try_evaluate_program(block.p, [], xs)
         catch e
-            @error xs
-            @error block.p
+            if !isa(e, EnumerationException)
+                @error e
+                @error xs
+                @error block.p
+            end
             rethrow()
         end
-        if isnothing(out_value)
-            return NoMatch, []
-        end
-        m = matcher(out_value)
-        if m == NoMatch
-            return NoMatch, []
-        else
-            bm = min(bm, m)
+        if isnothing(out_value) || !match_at_index(expected_output, i, out_value)
+            if sc.verbose
+                if isnothing(out_value)
+                    @info "Got nothing for $(block.p) $xs"
+                else
+                    @info "Can't match $out_value for $(block.p) with $expected_output at $i"
+                end
+            end
+            throw(EnumerationException())
         end
         push!(outs, out_value)
     end
-    new_out_branches, is_new_next_block, allow_fails, next_blocks, set_explained =
-        value_updates(sc, block, target_output, outs, fixed_branches)
-    return bm, new_out_branches, is_new_next_block, allow_fails, next_blocks, set_explained
+    return value_updates(
+        sc,
+        block,
+        block_id,
+        _update_block_type(block.type, input_types),
+        target_output,
+        outs,
+        fixed_branches,
+        is_new_block,
+        created_paths,
+    )
 end
 
-function try_run_block(sc::SolutionContext, block::ReverseProgramBlock, fixed_branches, target_output)
+function try_run_block(
+    sc::SolutionContext,
+    block::ReverseProgramBlock,
+    block_id,
+    fixed_branches,
+    target_output,
+    is_new_block,
+    created_paths,
+)
     inputs = []
+
+    for _ in 1:sc.example_count
+        push!(inputs, [])
+    end
     for var_id in block.input_vars
         fixed_branch_id = fixed_branches[var_id]
         entry = sc.entries[sc.branch_entries[fixed_branch_id]]
-        push!(inputs, entry.values)
-    end
-    bm = Strict
-    out_matchers = []
-    out_branches = []
-
-    for var_id in block.output_vars
-        out_branch_id = target_output[var_id]
-        push!(out_branches, out_branch_id)
-        expected_output = sc.entries[sc.branch_entries[out_branch_id]]
-        out_matcher = get_matching_seq(expected_output)
-        push!(out_matchers, out_matcher)
+        for i in 1:sc.example_count
+            push!(inputs[i], entry.values[i])
+        end
     end
 
-    outs = []
-    input_vals = zip(inputs...)
+    out_entries = Dict(var_id => sc.entries[sc.branch_entries[target_output[var_id]]] for var_id in block.output_vars)
 
-    for (xs, matchers) in zip(input_vals, zip(out_matchers...))
+    outs = DefaultDict(() -> [])
+
+    for i in 1:sc.example_count
+        xs = inputs[i]
         out_values = try
-            try_run_function(block.reverse_program, xs)
+            try_run_function(run_in_reverse, vcat([block.p], xs))
         catch e
             @error xs
             @error block.p
             rethrow()
         end
         if isnothing(out_values)
-            return NoMatch, []
+            throw(EnumerationException())
         end
-        for (out_value, matcher) in zip(out_values, matchers)
-            m = matcher(out_value)
-            if m == NoMatch
-                return NoMatch, []
-            else
-                bm = min(bm, m)
+        for (v_id, v) in out_values
+            if !match_at_index(out_entries[v_id], i, v)
+                throw(EnumerationException())
             end
-        end
-        push!(outs, out_values)
-    end
-    new_out_branches, is_new_next_block, allow_fails, next_blocks, set_explained =
-        value_updates(sc, block, target_output, outs, fixed_branches)
-
-    return bm, new_out_branches, is_new_next_block, allow_fails, next_blocks, set_explained
-end
-
-function try_run_block(sc::SolutionContext, block::WrapEitherBlock, fixed_branches, target_output)
-    inputs = []
-    main_block = block.main_block
-    for var_id in main_block.input_vars
-        fixed_branch_id = fixed_branches[var_id]
-        entry = sc.entries[sc.branch_entries[fixed_branch_id]]
-        push!(inputs, entry.values)
-    end
-    bm = Strict
-    out_matchers = []
-    out_branches = []
-
-    for var_id in main_block.output_vars
-        out_branch_id = target_output[var_id]
-        push!(out_branches, out_branch_id)
-        expected_output = sc.entries[sc.branch_entries[out_branch_id]]
-        out_matcher = get_matching_seq(expected_output)
-        push!(out_matchers, out_matcher)
-    end
-
-    outs = []
-    input_vals = zip(inputs...)
-
-    for xs in input_vals
-        out_values = try
-            try_run_function(main_block.reverse_program, xs)
-        catch e
-            @error xs
-            @error main_block.p
-            rethrow()
-        end
-        if isnothing(out_values)
-            return NoMatch, []
-        end
-        push!(outs, out_values)
-    end
-    targets = Dict(out_var => collect(values) for (out_var, values) in zip(main_block.output_vars, zip(outs...)))
-    fixer_branch_id = fixed_branches[block.input_vars[2]]
-    fixer_entry = sc.entries[sc.branch_entries[fixer_branch_id]]
-
-    fixed_hashes =
-        [_get_fixed_hashes(options, value) for (options, value) in zip(targets[block.fixer_var], fixer_entry.values)]
-
-    fixed_values = Dict()
-    for (var_id, target_values) in targets
-        if var_id == block.fixer_var
-            fixed_values[var_id] = fixer_entry.values
-        else
-            fixed_values[var_id] = _fix_option_hashes(fixed_hashes, target_values)
-        end
-        out_branch_id = target_output[var_id]
-        expected_output = sc.entries[sc.branch_entries[out_branch_id]]
-        out_matcher = get_matching_seq(expected_output)
-        for (out_value, matcher) in zip(fixed_values[var_id], out_matcher)
-            m = matcher(out_value)
-            if m == NoMatch
-                return NoMatch, []
-            else
-                bm = min(bm, m)
-            end
+            push!(outs[v_id], v)
         end
     end
-    outputs = collect(zip([fixed_values[v_id] for v_id in block.output_vars]...))
-    new_out_branches, is_new_next_block, allow_fails, next_blocks, set_explained =
-        value_updates(sc, block, target_output, outputs, fixed_branches)
-
-    return bm, new_out_branches, is_new_next_block, allow_fails, next_blocks, set_explained
+    return value_updates(
+        sc,
+        block,
+        block_id,
+        target_output,
+        [outs[v_id] for v_id in block.output_vars],
+        fixed_branches,
+        is_new_block,
+        created_paths,
+    )
 end
 
 function try_run_block_with_downstream(
@@ -632,38 +816,65 @@ function try_run_block_with_downstream(
     created_paths,
 )
     if sc.verbose
-        @info "Running $block_id $(sc.blocks[block_id]) with inputs $fixed_branches and output $target_output"
+        inputs = Dict(
+            var_id => (
+                fixed_branches[var_id],
+                sc.branch_entries[fixed_branches[var_id]],
+                sc.types[sc.entries[sc.branch_entries[fixed_branches[var_id]]].type_id],
+                sc.branch_is_not_const[fixed_branches[var_id]],
+                sc.entries[sc.branch_entries[fixed_branches[var_id]]],
+            ) for var_id in sc.blocks[block_id].input_vars
+        )
+        outputs = Dict(
+            var_id => (
+                br_id,
+                sc.branch_entries[br_id],
+                sc.types[sc.entries[sc.branch_entries[br_id]].type_id],
+                sc.entries[sc.branch_entries[br_id]],
+            ) for (var_id, br_id) in target_output
+        )
+        @info "Running $block_id $(sc.blocks[block_id]) with inputs $inputs and output $outputs"
     end
     # @info fixed_branches
     block = sc.blocks[block_id]
-    result = try_run_block(sc, block, fixed_branches, target_output)
-    # @info result
-    if isnothing(result) || result[1] == NoMatch
-        return NoMatch
-    else
-        bm, out_branches, is_new_next_block, allow_fails, next_blocks, set_explained = result
-        # @info target_output
-        # @info out_branches
 
-        # @info "Is new block $is_new_block is new next block $is_new_next_block set explained $set_explained"
+    out_branches, is_new_next_block, allow_fails, next_blocks, set_explained, block_created_paths =
+        try_run_block(sc, block, block_id, fixed_branches, target_output, is_new_block, created_paths)
+    # @info target_output
+    # @info out_branches
 
-        block_created_paths =
-            get_new_paths_for_block(sc, block_id, is_new_block, created_paths, out_branches, fixed_branches)
-        new_paths = merge(created_paths, block_created_paths)
+    if sc.verbose
+        @info "Is new block $is_new_block is new next block $is_new_next_block set explained $set_explained"
+        @info "Created paths for $block_id: $block_created_paths"
+        @info "Next blocks: $next_blocks"
+    end
+    new_paths = merge(created_paths, block_created_paths)
 
-        if is_new_block
-            _save_block_branch_connections(sc, block_id, block, fixed_branches, Int[b_id for (_, b_id) in out_branches])
+    if is_new_block
+        _save_block_branch_connections(sc, block_id, block, fixed_branches, UInt64[b_id for (_, b_id) in out_branches])
+    end
+    if is_new_block || set_explained
+        update_complexity_factors_known(sc, block, fixed_branches, out_branches)
+    end
+
+    for (b_id, downstream_branches, downstream_target) in next_blocks
+        next_block = sc.blocks[b_id]
+        if !have_valid_paths(sc, [downstream_branches[v_id] for v_id in next_block.input_vars])
+            continue
         end
-        if is_new_block || set_explained
-            update_complexity_factors_known(sc, block, fixed_branches, out_branches)
-        end
-
-        for (b_id, downstream_branches, downstream_target) in next_blocks
-            next_block = sc.blocks[b_id]
-            if !have_valid_paths(sc, [downstream_branches[v_id] for v_id in next_block.input_vars])
-                continue
+        if allow_fails
+            transaction(sc) do
+                try_run_block_with_downstream(
+                    sc,
+                    b_id,
+                    downstream_branches,
+                    downstream_target,
+                    is_new_next_block,
+                    new_paths,
+                )
             end
-            down_match = try_run_block_with_downstream(
+        else
+            try_run_block_with_downstream(
                 sc,
                 b_id,
                 downstream_branches,
@@ -671,18 +882,7 @@ function try_run_block_with_downstream(
                 is_new_next_block,
                 new_paths,
             )
-            if down_match == NoMatch
-                if allow_fails
-                    continue
-                else
-                    return NoMatch
-                end
-            else
-                bm = min(down_match, bm)
-            end
         end
-
-        return bm
     end
 end
 
@@ -691,38 +891,28 @@ function add_new_block(sc::SolutionContext, block_id, inputs, target_output)
     if sc.verbose
         @info "Adding block $block_id $(sc.blocks[block_id]) $inputs $target_output"
     end
-    block = sc.blocks[block_id]
-    update_prev_follow_vars(sc, block)
+    update_prev_follow_vars(sc, block_id)
     if all(sc.branch_is_explained[branch_id] for (var_id, branch_id) in inputs)
         if length(inputs) > 1
             error("Not implemented, fix active constraints")
         end
-        best_match = try_run_block_with_downstream(sc, block_id, inputs, target_output, true, Dict())
+        try_run_block_with_downstream(sc, block_id, inputs, target_output, true, Dict())
         # assert_context_consistency(sc)
-        if best_match == NoMatch
-            return nothing
-        else
-            if sc.verbose
-                @info "Inserted block $block_id"
-            end
-            result = update_context(sc)
-            assert_context_consistency(sc)
-            return result
-        end
     else
-        _save_block_branch_connections(sc, block_id, block, inputs, Int[b_id for (_, b_id) in target_output])
+        block = sc.blocks[block_id]
+        _save_block_branch_connections(sc, block_id, block, inputs, UInt64[b_id for (_, b_id) in target_output])
         if all(sc.branch_is_unknown[branch_id] for (var_id, branch_id) in inputs)
             update_complexity_factors_unknown(sc, inputs, target_output[block.output_var])
         else
             # error("Not implemented")
         end
-        if sc.verbose
-            @info "Inserted block $block_id"
-        end
-        result = update_context(sc)
-        assert_context_consistency(sc)
-        return result
     end
+    if sc.verbose
+        @info "Inserted block $block_id"
+    end
+    result = update_context(sc)
+    assert_context_consistency(sc)
+    return result
 end
 
 include("extract_solution.jl")
@@ -746,7 +936,7 @@ function enqueue_updates(sc::SolutionContext, g)
     for branch_id in updated_factors_unknown_branches
         if in(branch_id, new_unknown_branches)
             enqueue_unknown_var(sc, branch_id, g)
-        else
+        elseif haskey(sc.branch_queues_unknown, branch_id)
             update_branch_priority(sc, branch_id, false)
         end
     end
@@ -763,14 +953,23 @@ function enqueue_updates(sc::SolutionContext, g)
     assert_context_consistency(sc)
 end
 
-function enumeration_iteration_finished_input(sc, bp)
+function enumeration_iteration_finished_input(sc, bp, g)
     state = bp.state
     if bp.reverse
         # @info "Try get reversed for $bp"
-        abstractor_results = create_reversed_block(sc, state.skeleton, state.context, bp.output_var, state.cost)
-        return abstractor_results
+        return create_reversed_block(
+            sc,
+            state.skeleton,
+            state.context,
+            state.path,
+            bp.output_var,
+            state.cost,
+            return_of_type(bp.request),
+            g,
+        )
     else
-        arg_types = [sc.types[reduce(any, sc.branch_types[branch_id, :])] for (_, branch_id) in bp.input_vars]
+        arg_types =
+            [sc.types[first(get_connected_from(sc.branch_types, branch_id))] for (_, branch_id) in bp.input_vars]
         p_type = arrow(arg_types..., return_of_type(bp.request))
         new_block = ProgramBlock(
             state.skeleton,
@@ -781,27 +980,26 @@ function enumeration_iteration_finished_input(sc, bp)
             false,
         )
         new_block_id = push!(sc.blocks, new_block)
-        input_branches = Dict(var_id => branch_id for (var_id, branch_id) in bp.input_vars)
-        target_output = Dict(bp.output_var[1] => bp.output_var[2])
-        return [(new_block_id, input_branches, target_output)]
+        input_branches = Dict{UInt64,UInt64}(var_id => branch_id for (var_id, branch_id) in bp.input_vars)
+        target_output = Dict{UInt64,UInt64}(bp.output_var[1] => bp.output_var[2])
+        return [(new_block_id, input_branches, target_output)], []
     end
 end
 
 function enumeration_iteration_finished_output(sc::SolutionContext, bp::BlockPrototype)
     state = bp.state
     is_reverse = is_reversible(state.skeleton)
-    if is_reverse
+    output_branch_id = bp.output_var[2]
+    output_entry = sc.entries[sc.branch_entries[output_branch_id]]
+    if is_reverse &&
+       !isa(output_entry, AbductibleEntry) &&
+       !(isa(output_entry, PatternEntry) && all(v == PatternWrapper(any_object) for v in output_entry.values))
         # @info "Try get reversed for $bp"
-        abstractor_results = try_get_reversed_inputs(sc, state.skeleton, state.context, bp.output_var[2], state.cost)
-        if !isnothing(abstractor_results)
-            p, input_vars = abstractor_results
-        else
-            return
-        end
+        p, input_vars =
+            try_get_reversed_inputs(sc, state.skeleton, state.context, state.path, bp.output_var[2], state.cost)
     elseif isnothing(bp.input_vars)
         p, new_vars = capture_free_vars(sc, state.skeleton, state.context)
         input_vars = []
-        output_branch_id = bp.output_var[2]
         min_path_cost = sc.unknown_min_path_costs[output_branch_id] + state.cost
         complexity_factor = sc.unknown_complexity_factors[output_branch_id]
         for (var_id, t) in new_vars
@@ -811,7 +1009,7 @@ function enumeration_iteration_finished_output(sc::SolutionContext, bp::BlockPro
             branch_id = increment!(sc.branches_count)
             sc.branch_entries[branch_id] = entry_index
             sc.branch_vars[branch_id] = var_id
-            sc.branch_types[branch_id, t_id] = t_id
+            sc.branch_types[branch_id, t_id] = true
             sc.branch_is_unknown[branch_id] = true
             sc.branch_unknown_from_output[branch_id] = sc.branch_unknown_from_output[output_branch_id]
             sc.unknown_min_path_costs[branch_id] = min_path_cost
@@ -831,8 +1029,10 @@ function enumeration_iteration_finished_output(sc::SolutionContext, bp::BlockPro
         end
     else
         p = state.skeleton
-        input_vars =
-            [(var_id, branch_id, reduce(any, sc.branch_types[branch_id, :])) for (var_id, branch_id) in bp.input_vars]
+        input_vars = [
+            (var_id, branch_id, first(get_connected_from(sc.branch_types, branch_id))) for
+            (var_id, branch_id) in bp.input_vars
+        ]
     end
     arg_types = [sc.types[v[3]] for v in input_vars]
     if isempty(arg_types)
@@ -840,112 +1040,119 @@ function enumeration_iteration_finished_output(sc::SolutionContext, bp::BlockPro
     else
         p_type = arrow(arg_types..., return_of_type(bp.request))
     end
-    input_branches = Dict(var_id => branch_id for (var_id, branch_id, _) in input_vars)
+    input_branches = Dict{UInt64,UInt64}(var_id => branch_id for (var_id, branch_id, _) in input_vars)
     new_block =
         ProgramBlock(p, p_type, state.cost, [var_id for (var_id, _, _) in input_vars], bp.output_var[1], is_reverse)
     block_id = push!(sc.blocks, new_block)
-    return [(block_id, input_branches, Dict(bp.output_var[1] => bp.output_var[2]))]
+    return [(block_id, input_branches, Dict{UInt64,UInt64}(bp.output_var[1] => bp.output_var[2]))], []
 end
 
 function enumeration_iteration_finished(sc::SolutionContext, finalizer, g, bp::BlockPrototype, br_id)
     if sc.branch_is_unknown[br_id]
-        new_block_result = enumeration_iteration_finished_output(sc, bp)
+        new_block_result, unfinished_prototypes = enumeration_iteration_finished_output(sc, bp)
     else
-        new_block_result = enumeration_iteration_finished_input(sc, bp)
+        new_block_result, unfinished_prototypes = enumeration_iteration_finished_input(sc, bp, g)
     end
-    ok = true
-    if !isnothing(new_block_result)
-        for (new_block_id, input_branches, target_output) in new_block_result
-            new_solution_paths = add_new_block(sc, new_block_id, input_branches, target_output)
-            if !isnothing(new_solution_paths)
-                # @info "Got results $new_solution_paths"
-                for solution_path in new_solution_paths
-                    solution, cost = extract_solution(sc, solution_path)
-                    # @info "Got solution $solution with cost $cost"
-                    finalizer(solution, cost)
-                end
-            else
-                ok = false
-                break
-            end
+    for (new_block_id, input_branches, target_output) in new_block_result
+        new_solution_paths = add_new_block(sc, new_block_id, input_branches, target_output)
+        # @info "Got results $new_solution_paths"
+        for solution_path in new_solution_paths
+            solution, cost = extract_solution(sc, solution_path)
+            # @info "Got solution $solution with cost $cost"
+            finalizer(solution, cost)
         end
-    else
-        ok = false
     end
-    return ok
+
+    return unfinished_prototypes
 end
 
 function enumeration_iteration(
     run_context,
     sc::SolutionContext,
     finalizer,
-    maxFreeParameters,
-    g,
+    maxFreeParameters::Int,
+    g::ContextualGrammar,
     q,
     bp::BlockPrototype,
-    br_id,
-    is_explained,
+    br_id::UInt64,
+    is_explained::Bool,
 )
-    if is_reversible(bp.state.skeleton) || state_finished(bp.state)
+    sc.iterations_count += 1
+    if (is_reversible(bp.state.skeleton) && !isa(sc.entries[sc.branch_entries[br_id]], AbductibleEntry)) ||
+       state_finished(bp.state)
         if sc.verbose
             @info "Checking finished $bp"
         end
-        if is_block_loops(sc, bp)
-            # @info "Block $bp creates a loop"
-            ok = false
-        else
-            ok = @run_with_timeout run_context "program_timeout" enumeration_iteration_finished(
+        transaction(sc) do
+            if is_block_loops(sc, bp)
+                # @info "Block $bp creates a loop"
+                throw(EnumerationException())
+            end
+            # enumeration_iteration_finished(sc, finalizer, g, bp, br_id)
+            unfinished_prototypes = @run_with_timeout run_context "program_timeout" enumeration_iteration_finished(
                 sc,
                 finalizer,
                 g,
                 bp,
                 br_id,
             )
-            if isnothing(ok)
-                ok = false
+            if isnothing(unfinished_prototypes)
+                throw(EnumerationException())
+            end
+            for new_bp in unfinished_prototypes
+                if sc.verbose
+                    @info "Enqueing $new_bp"
+                end
+                q[new_bp] = new_bp.state.cost
+            end
+            enqueue_updates(sc, g)
+            if isempty(unfinished_prototypes)
+                sc.total_number_of_enumerated_programs += 1
             end
         end
-        if ok
-            enqueue_updates(sc, g)
-            sc.total_number_of_enumerated_programs += 1
-            save_changes!(sc)
-        else
-            drop_changes!(sc)
-        end
     else
+        if sc.verbose
+            @info "Checking unfinished $bp"
+        end
         for child in block_state_successors(maxFreeParameters, g, bp.state)
             _, new_request = apply_context(child.context, bp.request)
-            q[BlockPrototype(child, new_request, bp.input_vars, bp.output_var, bp.reverse)] = child.cost
+            new_bp = BlockPrototype(child, new_request, bp.input_vars, bp.output_var, bp.reverse)
+            if sc.verbose
+                @info "Enqueing $new_bp"
+            end
+            q[new_bp] = child.cost
         end
     end
     update_branch_priority(sc, br_id, is_explained)
 end
 
 function enumerate_for_task(
-    run_context::Dict{String,Any},
+    run_context,
     g::ContextualGrammar,
-    type_weights,
-    task,
-    maximum_frontier,
-    verbose = false,
+    type_weights::Dict{String,Any},
+    hyperparameters::Dict{String,Any},
+    task::Task,
+    maximum_frontier::Int,
+    timeout::Int,
+    verbose::Bool = false,
+    need_export::Bool = false,
 )
     #    Returns, for each task, (program,logPrior) as well as the total number of enumerated programs
-    enumeration_timeout = get_enumeration_timeout(run_context["timeout"])
-    run_context["timeout_checker"] = () -> enumeration_timed_out(enumeration_timeout)
+    enumeration_timeout = get_enumeration_timeout(timeout)
 
-    sc = create_starting_context(task, type_weights, verbose)
+    sc = create_starting_context(task, type_weights, hyperparameters, verbose)
 
     # Store the hits in a priority queue
     # We will only ever maintain maximumFrontier best solutions
-    hits = PriorityQueue()
+    hits = PriorityQueue{HitResult,Float64}()
 
-    maxFreeParameters = 2
+    maxFreeParameters = 10
 
     start_time = time()
 
     assert_context_consistency(sc)
     enqueue_updates(sc, g)
-    save_changes!(sc)
+    save_changes!(sc, 0)
     assert_context_consistency(sc)
 
     finalizer = function (solution, cost)
@@ -974,13 +1181,48 @@ function enumerate_for_task(
         if isempty(pq)
             continue
         end
-        (br_id, is_explained), pr = peek(pq)
+        (br_id, is_explained) = draw(pq)
         q = (is_explained ? sc.branch_queues_explained : sc.branch_queues_unknown)[br_id]
         bp = dequeue!(q)
         enumeration_iteration(run_context, sc, finalizer, maxFreeParameters, g, q, bp, br_id, is_explained)
     end
 
-    @info(collect(keys(hits)))
+    log_results(sc, hits)
+    if need_export
+        export_solution_context(sc, task)
+    end
 
     (collect(keys(hits)), sc.total_number_of_enumerated_programs)
+end
+
+function log_results(sc, hits)
+    @info(collect(keys(hits)))
+
+    if sc.verbose
+        @info "Branches with incoming paths $(length(sc.incoming_paths.values_stack[1]))"
+        @info "Total incoming paths $(sum(length(v) for v in values(sc.incoming_paths.values_stack[1])))"
+        @info "Incoming paths counts $([length(v) for v in values(sc.incoming_paths.values_stack[1])])"
+        @info "Entries for incoming paths "
+        for (br_id, v) in sc.incoming_paths.values_stack[1]
+            @info (
+                length(v),
+                length(unique(v)),
+                br_id,
+                sc.branch_vars[br_id],
+                sc.branch_entries[br_id],
+                sc.entries[sc.branch_entries[br_id]],
+                [sc.blocks[b_id] for (_, b_id) in get_connected_from(sc.branch_incoming_blocks, br_id)],
+            )
+            if length(v) != length(unique(v))
+                @warn "Incoming paths for branch $br_id"
+                @warn v
+            end
+        end
+        @info "Total incoming paths length $(sum(sum(length(path.main_path) + length(path.side_vars) for path in paths; init=0) for paths in values(sc.incoming_paths.values_stack[1]); init=0))"
+        @info "Single value cache sizes $(Dict(t => length(v.values) for (t, v) in single_value_cache))"
+        @info "Multi value cache sizes $(Dict(ec => Dict(t => length(v.values) for (t, v) in d) for (ec, d) in multi_value_cache))"
+    end
+
+    @info "Iterations count $(sc.iterations_count)"
+    @info "Total number of valid blocks $(sc.total_number_of_enumerated_programs)"
 end

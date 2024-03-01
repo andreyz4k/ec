@@ -8,3 +8,9 @@
 	path = pyccg
 	url = https://github.com/hans/pyccg
 	branch = master
+[submodule "dreamcoder/domains/arc/ARC"]
+	path = dreamcoder/domains/arc/ARC
+	url = git@github.com:fchollet/ARC.git
+[submodule "dreamcoder/domains/arc/arc-generative-DSL-infinite-data"]
+	path = dreamcoder/domains/arc/arc-generative-DSL-infinite-data
+	url = git@github.com:arc-community/arc-generative-DSL-infinite-data.git

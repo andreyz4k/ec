@@ -963,15 +963,36 @@ def parseSExpression(s):
                     break
             return l, n
         name = []
-        while n < len(s) and not s[n].isspace() and s[n] not in "()[]":
+        while n < len(s) and not s[n].isspace() and s[n] not in "()[]:":
             name.append(s[n])
             n += 1
         name = "".join(name)
+        if n < len(s) and s[n] == ":":
+            n += 1
+            if s[n] != ":":
+                raise ParseFailure(s)
+            tp = []
+            depth = 0
+            while True:
+                n += 1
+                if n >= len(s):
+                    raise ParseFailure(s)
+                if s[n] == "(":
+                    depth += 1
+                if s[n] == ")":
+                    depth -= 1
+                if (s[n] == "," or s[n].isspace()) and depth == 0:
+                    n += 1
+                    break
+                tp.append(s[n])
+
+            tp = "".join(tp)
+            return [name, tp], n
         if name == "let":
             l = [name]
             while True:
                 x, n = p(n)
-                if x.endswith(","):
+                if isinstance(x, str) and x.endswith(","):
                     x = x[:-1]
                 l.append(x)
                 while n <= len(s) and s[n].isspace():

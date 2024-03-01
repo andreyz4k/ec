@@ -9,6 +9,10 @@ struct TypeConstructor <: Tp
     name::String
     arguments::Vector{Tp}
     is_poly::Bool
+
+    function TypeConstructor(name, arguments)
+        new(name, arguments, any(is_polymorphic(a) for a in arguments))
+    end
 end
 
 struct TypeNamedArgsConstructor <: Tp
@@ -16,19 +20,15 @@ struct TypeNamedArgsConstructor <: Tp
     arguments::Dict{String,Tp}
     output::Tp
     is_poly::Bool
+
+    function TypeNamedArgsConstructor(name, arguments, output)
+        new(name, arguments, output, any(is_polymorphic(a) for a in values(arguments)) || is_polymorphic(output))
+    end
 end
 
 is_polymorphic(::TypeVariable) = true
 is_polymorphic(tc::TypeConstructor) = tc.is_poly
 is_polymorphic(tc::TypeNamedArgsConstructor) = tc.is_poly
-
-TypeConstructor(name, arguments) = TypeConstructor(name, arguments, any(is_polymorphic(a) for a in arguments))
-TypeNamedArgsConstructor(name, arguments, output) = TypeNamedArgsConstructor(
-    name,
-    arguments,
-    output,
-    any(is_polymorphic(a) for a in values(arguments)) || is_polymorphic(output),
-)
 
 ARROW = "->"
 
@@ -37,9 +37,9 @@ Base.:(==)(a::TypeConstructor, b::TypeConstructor) = a.name == b.name && a.argum
 Base.:(==)(a::TypeNamedArgsConstructor, b::TypeNamedArgsConstructor) =
     a.name == b.name && a.arguments == b.arguments && a.output == b.output
 
-Base.hash(a::TypeVariable, h::Core.UInt64) = a.id + h
-Base.hash(a::TypeConstructor, h::Core.UInt64) = hash(a.name, h) + hash(a.arguments, h)
-Base.hash(a::TypeNamedArgsConstructor, h::Core.UInt64) = hash(a.name, h) + hash(a.arguments, h) + hash(a.output, h)
+Base.hash(a::TypeVariable, h::Core.UInt64) = hash(a.id, h)
+Base.hash(a::TypeConstructor, h::Core.UInt64) = hash(a.name, hash(a.arguments, h))
+Base.hash(a::TypeNamedArgsConstructor, h::Core.UInt64) = hash(a.name, hash(a.arguments, hash(a.output, h)))
 
 Base.show(io::IO, t::Tp) = print(io, show_type(t, true)...)
 
@@ -68,8 +68,8 @@ function show_type(t::TypeNamedArgsConstructor, is_return::Bool)
             vcat(["("], args, [" -> "], show_type(t.output, true), [")"])
         end
     else
-        args = vcat([vcat([k, ":"], show_type(a, true), [", "]) for (k, a) in t.arguments]...)[1:end-1]
-        vcat([t.name, "("], args, [")"])
+        args = vcat([vcat([k, ":"], show_type(a, false), [", "]) for (k, a) in t.arguments]...)[1:end-1]
+        vcat([t.name, "("], args, [", "], show_type(t.output, true), [")"])
     end
 end
 
@@ -101,6 +101,10 @@ t2 = TypeVariable(2)
 
 tlist(t) = TypeConstructor("list", [t])
 ttuple2(t0, t1) = TypeConstructor("tuple2", [t0, t1])
+ttuple3(t0, t1, t2) = TypeConstructor("tuple3", [t0, t1, t2])
+tset(t) = TypeConstructor("set", [t])
+
+tgrid(t) = TypeConstructor("grid", [t])
 
 baseType(n) = TypeConstructor(n, [])
 
@@ -109,6 +113,8 @@ treal = baseType("real")
 tbool = baseType("bool")
 tboolean = tbool  # alias
 tcharacter = baseType("char")
+tcolor = baseType("color")
+tcoord = baseType("coord")
 
 function instantiate(t::TypeVariable, context, bindings = nothing)
     if isnothing(bindings)
@@ -168,7 +174,7 @@ arguments_of_type(t::TypeNamedArgsConstructor) =
         return []
     end
 
-arguments_of_type(::TypeVariable) = []
+arguments_of_type(t::TypeVariable) = []
 
 return_of_type(t::TypeConstructor) =
     if t.name == ARROW
@@ -272,8 +278,8 @@ might_unify(t1::TypeNamedArgsConstructor, t2::TypeNamedArgsConstructor) =
     keys(t1.arguments) == keys(t2.arguments) &&
     all(might_unify(as1, t2.arguments[k]) for (k, as1) in t1.arguments) &&
     might_unify(t1.output, t2.output)
-might_unify(::TypeNamedArgsConstructor, ::TypeConstructor) = false
-might_unify(::TypeConstructor, ::TypeNamedArgsConstructor) = false
+might_unify(t1::TypeNamedArgsConstructor, t2::TypeConstructor) = false
+might_unify(t1::TypeConstructor, t2::TypeNamedArgsConstructor) = false
 
 is_subtype(parent::TypeVariable, child) = true
 is_subtype(parent::TypeVariable, child::TypeVariable) = true
@@ -285,7 +291,7 @@ is_subtype(parent::TypeConstructor, child::TypeConstructor) =
 is_subtype(parent::TypeNamedArgsConstructor, child::TypeNamedArgsConstructor) =
     parent.name == child.name &&
     keys(parent.arguments) == keys(child.arguments) &&
-    all(is_subtype(as1, t2.arguments[k]) for (k, as1) in parent.arguments) &&
+    all(is_subtype(as1, child.arguments[k]) for (k, as1) in parent.arguments) &&
     is_subtype(parent.output, child.output)
 is_subtype(::TypeNamedArgsConstructor, ::TypeConstructor) = false
 is_subtype(::TypeConstructor, ::TypeNamedArgsConstructor) = false
@@ -353,4 +359,44 @@ function deserialize_type(message)
     else
         return TypeConstructor(message["constructor"], map(deserialize_type, message["arguments"]))
     end
+end
+
+function deserialize_type(message::String)
+    return parse_type(message)
+end
+
+using ParserCombinator
+
+type_parser = Delayed()
+parse_number = p"([0-9])+" > (s -> parse(Int64, s))
+parse_token = p"([a-zA-Z0-9])+"
+parse_tid = E"t" + parse_number > (x -> TypeVariable(x))
+parse_tcon_simple = parse_token > (x -> TypeConstructor(x, []))
+parse_args_seq = Repeat(type_parser + E", ") + type_parser
+
+parse_tcon = parse_token + E"(" + parse_args_seq + E")" |> (x -> TypeConstructor(x[1], x[2:end]))
+
+parse_tncon = Delayed()
+parse_simple_type = parse_tid | parse_tcon | parse_tcon_simple | parse_tncon
+
+parse_function_type = Delayed()
+parse_tparam = parse_simple_type | (P"\(" + parse_function_type + P"\)")
+parse_tcon_arrow = (parse_tparam+E" -> ")[1:end] + parse_tparam |> (x -> arrow(x...))
+
+parse_named_arg = parse_token + E":" + parse_tparam |> (x -> (x[1], x[2]))
+
+parse_tncon_arrow =
+    (parse_named_arg+E" -> ")[1:end] + parse_simple_type |>
+    (x -> TypeNamedArgsConstructor(ARROW, Dict(x[1:end-1]), x[end]))
+
+parse_function_type.matcher = parse_tcon_arrow | parse_tncon_arrow
+
+parse_nargs_seq = Repeat(parse_named_arg + E", ") + parse_simple_type
+parse_tncon.matcher =
+    parse_token + E"(" + parse_nargs_seq + E")" |> (x -> TypeNamedArgsConstructor(x[1], Dict(x[2:end-1]), x[end]))
+
+type_parser.matcher = parse_function_type | parse_simple_type
+
+function parse_type(s)
+    parse_one(s, type_parser + Eos())[1]
 end

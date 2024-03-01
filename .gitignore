@@ -9,6 +9,7 @@
 *.p
 *.pyc
 *~
+*.mem
 __pycache__
 _build
 experimentOutputs
@@ -32,3 +33,5 @@ ec-language-venv/
 language_experiments/
 tests/out/
 .DS_Store
+Manifest.toml
+julia_enumerator/test/solution_dumps

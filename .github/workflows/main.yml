@@ -3,14 +3,23 @@ name: Main workflow
 on:
   [push]
 
+permissions:
+  actions: write
+  contents: read
 
 jobs:
   ocaml-build:
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: write
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      - name: apt-get update
+        run: sudo apt-get update
 
       - name: Use OCaml
         uses: ocaml/setup-ocaml@v2
@@ -31,7 +40,7 @@ jobs:
         run: git diff --output=binaries_patch --binary
 
       - name: store patch
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: binaries_patch
           path: binaries_patch
@@ -61,58 +70,63 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.7'
-      - uses: syphar/restore-virtualenv@v1
-        id: cache-virtualenv
+          python-version: '3.11'
+          cache: 'pip'
 
-      - uses: syphar/restore-pip-download-cache@v1
-        if: steps.cache-virtualenv.outputs.cache-hit != 'true'
+      - run: pip install -U pip
 
       - run: pip install -r requirements.txt
-        if: steps.cache-virtualenv.outputs.cache-hit != 'true'
 
   test-python:
     runs-on: ubuntu-latest
     needs: [create-virtualenv]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.7'
+          python-version: '3.11'
+          cache: 'pip'
 
-      - uses: syphar/restore-virtualenv@v1
-        id: cache-virtualenv
+      - run: pip install -r requirements.txt
 
       - name: Test with pytest
         run: python -m pytest tests
 
   test-julia:
+    name: Test julia ${{ matrix.version }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      matrix:
+        version:
+          - '1.10'
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+        with:
+          submodules: true
 
       - name: Setup Julia
         uses: julia-actions/setup-julia@latest
         with:
-          version: '1.8'
+          version: ${{ matrix.version }}
+
+      - uses: julia-actions/cache@v1
 
       - uses: julia-actions/julia-buildpkg@latest
         with:
           project: julia_enumerator
 
       - name: set cores number
-        run: echo "JULIA_NUM_THREADS=$(getconf _NPROCESSORS_ONLN)" >> $GITHUB_ENV
+        run: echo "JULIA_NUM_THREADS=2" >> $GITHUB_ENV
 
       - name: Setup redis
         uses: zhulik/redis-action@1.1.0
@@ -125,20 +139,26 @@ jobs:
           project: julia_enumerator
 
   test-julia-list:
+    name: Test julia list ${{ matrix.version }}
     needs: [ocaml-build, create-virtualenv]
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        version:
+          - '1.10'
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Julia
         uses: julia-actions/setup-julia@latest
         with:
-          version: '1.8'
+          version: ${{ matrix.version }}
 
       - name: Download binaries patch
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: binaries_patch
 
@@ -150,19 +170,21 @@ jobs:
           rm binaries_patch
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.7'
+          python-version: '3.11'
+          cache: 'pip'
 
-      - uses: syphar/restore-virtualenv@v1
-        id: cache-virtualenv
+      - run: pip install -r requirements.txt
+
+      - uses: julia-actions/cache@v1
 
       - uses: julia-actions/julia-buildpkg@latest
         with:
           project: julia_enumerator
 
       - name: set cores number
-        run: echo "JULIA_NUM_THREADS=$(getconf _NPROCESSORS_ONLN)" >> $GITHUB_ENV
+        run: echo "JULIA_NUM_THREADS=2" >> $GITHUB_ENV
 
       - name: Setup redis
         uses: zhulik/redis-action@1.1.0
@@ -170,23 +192,145 @@ jobs:
           redis version: '5'
 
       - name: run test
-        run: python bin/list.py -t 20 -RS 5 -i 1 --solver=julia -g --primitives=julia
+        run: python bin/list.py -t 20 -RS 5 -i 2 --solver=julia -g --primitives=julia
+
+  test-arc:
+    name: Test arc ${{ matrix.version }}
+    needs: [ocaml-build, create-virtualenv]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        version:
+          - '1.10'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Setup Julia
+        uses: julia-actions/setup-julia@latest
+        with:
+          version: ${{ matrix.version }}
+
+      - name: Download binaries patch
+        uses: actions/download-artifact@v4
+        with:
+          name: binaries_patch
+
+      - name: Apply binaries patch
+        run: |
+          if [ -s binaries_patch ]; then
+            git apply binaries_patch
+          fi
+          rm binaries_patch
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - run: pip install -r requirements.txt
+
+      - uses: julia-actions/cache@v1
+
+      - uses: julia-actions/julia-buildpkg@latest
+        with:
+          project: julia_enumerator
+
+      - name: set cores number
+        run: echo "JULIA_NUM_THREADS=2" >> $GITHUB_ENV
+
+      - name: Setup redis
+        uses: zhulik/redis-action@1.1.0
+        with:
+          redis version: '5'
+
+      - name: run test
+        run: python bin/arc.py -t 20 -RS 5 -i 1 -r 0.0
+
+  test-arc-dreaming:
+    name: Test arc dreaming ${{ matrix.version }}
+    needs: [ocaml-build, create-virtualenv]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        version:
+          - '1.10'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Setup Julia
+        uses: julia-actions/setup-julia@latest
+        with:
+          version: ${{ matrix.version }}
+
+      - name: Download binaries patch
+        uses: actions/download-artifact@v4
+        with:
+          name: binaries_patch
+
+      - name: Apply binaries patch
+        run: |
+          if [ -s binaries_patch ]; then
+            git apply binaries_patch
+          fi
+          rm binaries_patch
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - run: pip install -r requirements.txt
+
+      - uses: julia-actions/cache@v1
+
+      - uses: julia-actions/julia-buildpkg@latest
+        with:
+          project: julia_enumerator
+
+      - name: set cores number
+        run: echo "JULIA_NUM_THREADS=2" >> $GITHUB_ENV
+
+      - name: Setup redis
+        uses: zhulik/redis-action@1.1.0
+        with:
+          redis version: '5'
+
+      - name: run test
+        run: python bin/arc.py -t 20 -RS 5 -i 1
 
   test-julia-recognition-list:
+    name: Test julia recognition list ${{ matrix.version }}
     needs: [ocaml-build, create-virtualenv]
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        version:
+          - '1.10'
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Julia
         uses: julia-actions/setup-julia@latest
         with:
-          version: '1.8'
+          version: ${{ matrix.version }}
 
       - name: Download binaries patch
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: binaries_patch
 
@@ -198,19 +342,21 @@ jobs:
           rm binaries_patch
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.7'
+          python-version: '3.11'
+          cache: 'pip'
 
-      - uses: syphar/restore-virtualenv@v1
-        id: cache-virtualenv
+      - run: pip install -r requirements.txt
+
+      - uses: julia-actions/cache@v1
 
       - uses: julia-actions/julia-buildpkg@latest
         with:
           project: julia_enumerator
 
       - name: set cores number
-        run: echo "JULIA_NUM_THREADS=$(getconf _NPROCESSORS_ONLN)" >> $GITHUB_ENV
+        run: echo "JULIA_NUM_THREADS=2" >> $GITHUB_ENV
 
       - name: Setup redis
         uses: zhulik/redis-action@1.1.0
@@ -218,7 +364,63 @@ jobs:
           redis version: '5'
 
       - name: run test
-        run: python bin/list.py -t 20 -RS 5 -i 1 --solver=julia -r 0.0 --primitives=julia
+        run: python bin/list.py -t 20 -RS 5 -i 2 --solver=julia -r 0.0 --primitives=julia
+
+  test-julia-recognition-dreaming-list:
+    name: Test julia recognition dreaming list ${{ matrix.version }}
+    needs: [ocaml-build, create-virtualenv]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        version:
+          - '1.10'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Julia
+        uses: julia-actions/setup-julia@latest
+        with:
+          version: ${{ matrix.version }}
+
+      - name: Download binaries patch
+        uses: actions/download-artifact@v4
+        with:
+          name: binaries_patch
+
+      - name: Apply binaries patch
+        run: |
+          if [ -s binaries_patch ]; then
+            git apply binaries_patch
+          fi
+          rm binaries_patch
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - run: pip install -r requirements.txt
+
+      - uses: julia-actions/cache@v1
+
+      - uses: julia-actions/julia-buildpkg@latest
+        with:
+          project: julia_enumerator
+
+      - name: set cores number
+        run: echo "JULIA_NUM_THREADS=2" >> $GITHUB_ENV
+
+      - name: Setup redis
+        uses: zhulik/redis-action@1.1.0
+        with:
+          redis version: '5'
+
+      - name: run test
+        run: python bin/list.py -t 20 -RS 5 -i 2 --solver=julia --primitives=julia
 
   test-list:
     needs: [ocaml-build, create-virtualenv]
@@ -227,10 +429,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Download binaries patch
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: binaries_patch
 
@@ -242,12 +444,12 @@ jobs:
           rm binaries_patch
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.7'
+          python-version: '3.11'
+          cache: 'pip'
 
-      - uses: syphar/restore-virtualenv@v1
-        id: cache-virtualenv
+      - run: pip install -r requirements.txt
 
       - name: run test
         run: python bin/list.py -t 2 -RS 5 -i 2
@@ -259,10 +461,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Download binaries patch
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: binaries_patch
 
@@ -274,12 +476,12 @@ jobs:
           rm binaries_patch
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.7'
+          python-version: '3.11'
+          cache: 'pip'
 
-      - uses: syphar/restore-virtualenv@v1
-        id: cache-virtualenv
+      - run: pip install -r requirements.txt
 
       - name: run test
         run: python bin/text.py -t 2 -RS 5 -i 2
@@ -291,10 +493,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Download binaries patch
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: binaries_patch
 
@@ -306,12 +508,12 @@ jobs:
           rm binaries_patch
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.7'
+          python-version: '3.11'
+          cache: 'pip'
 
-      - uses: syphar/restore-virtualenv@v1
-        id: cache-virtualenv
+      - run: pip install -r requirements.txt
 
       - name: run test
         continue-on-error: true
@@ -324,10 +526,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Download binaries patch
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: binaries_patch
 
@@ -339,12 +541,12 @@ jobs:
           rm binaries_patch
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.7'
+          python-version: '3.11'
+          cache: 'pip'
 
-      - uses: syphar/restore-virtualenv@v1
-        id: cache-virtualenv
+      - run: pip install -r requirements.txt
 
       - name: run test
         run: python bin/tower.py -t 2 -RS 5 -i 2
@@ -356,10 +558,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Download binaries patch
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: binaries_patch
 
@@ -371,12 +573,12 @@ jobs:
           rm binaries_patch
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.7'
+          python-version: '3.11'
+          cache: 'pip'
 
-      - uses: syphar/restore-virtualenv@v1
-        id: cache-virtualenv
+      - run: pip install -r requirements.txt
 
       - name: run test
         run: |
@@ -390,10 +592,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Download binaries patch
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: binaries_patch
 
@@ -405,12 +607,12 @@ jobs:
           rm binaries_patch
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.7'
+          python-version: '3.11'
+          cache: 'pip'
 
-      - uses: syphar/restore-virtualenv@v1
-        id: cache-virtualenv
+      - run: pip install -r requirements.txt
 
       - name: run test
         run: python bin/rational.py -i 1 -t 1 --testingTimeout 1
@@ -423,10 +625,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Download binaries patch
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: binaries_patch
 
@@ -438,12 +640,12 @@ jobs:
           rm binaries_patch
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.7'
+          python-version: '3.11'
+          cache: 'pip'
 
-      - uses: syphar/restore-virtualenv@v1
-        id: cache-virtualenv
+      - run: pip install -r requirements.txt
 
       - name: run test
         run: |
@@ -459,10 +661,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Download binaries patch
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: binaries_patch
 
@@ -474,12 +676,12 @@ jobs:
           rm binaries_patch
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.7'
+          python-version: '3.11'
+          cache: 'pip'
 
-      - uses: syphar/restore-virtualenv@v1
-        id: cache-virtualenv
+      - run: pip install -r requirements.txt
 
       - name: run test
         run: python bin/regexes.py -i 1 -t 1 -RS 10 -R 10
