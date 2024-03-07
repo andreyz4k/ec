@@ -62,8 +62,6 @@ def multicoreEnumeration(
         # Use an all or nothing likelihood model.
         likelihoodModel = AllOrNothingLikelihoodModel(timeout=evaluationTimeout)
 
-    solver = solvers[solver]
-
     if not isinstance(g, dict):
         g = {t: g for t in tasks}
 
