@@ -454,6 +454,38 @@ jobs:
       - name: run test
         run: python bin/list.py -t 2 -RS 5 -i 2
 
+  test-list-stitch:
+    needs: [ocaml-build, create-virtualenv]
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download binaries patch
+        uses: actions/download-artifact@v4
+        with:
+          name: binaries_patch
+
+      - name: Apply binaries patch
+        run: |
+          if [ -s binaries_patch ]; then
+            git apply binaries_patch
+          fi
+          rm binaries_patch
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - run: pip install -r requirements.txt
+
+      - name: run test
+        run: python bin/list.py -t 2 -RS 5 -i 2 --compressor stitch
+
   test-text:
     needs: [ocaml-build, create-virtualenv]
     runs-on: ubuntu-latest
