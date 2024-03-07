@@ -40,4 +40,5 @@ torchvision
 urllib3
 redis
 hiredis
-stitch_core
+# stitch_core
+git+https://github.com/andreyz4k/stitch_bindings.git
