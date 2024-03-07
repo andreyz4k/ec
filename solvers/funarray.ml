@@ -19,10 +19,7 @@
   distributed under the GNU GPL
 *)
 
-type 'a fatree =
-    FALeaf of 'a
-  | FANode of 'a * 'a fatree * 'a fatree
-
+type 'a fatree = FALeaf of 'a | FANode of 'a * 'a fatree * 'a fatree
 type 'a funarray = (int * 'a fatree) list
 
 exception Subscript
@@ -30,72 +27,56 @@ exception Empty
 
 let rec fatree_lookup size tree index =
   match (tree, index) with
-      (FALeaf(x), 0) -> x
-    | (FALeaf(_x), _i) -> raise Subscript
-    | (FANode(x,_t1,_t2), 0) -> x
-    | (FANode(_x,t1,t2), i) ->
-	let size' = size / 2 in
-	  if i <= size' then
-	    fatree_lookup size' t1 (i - 1)
-	  else
-	    fatree_lookup size' t2 (i - 1 - size')
+  | FALeaf x, 0 -> x
+  | FALeaf _x, _i -> raise Subscript
+  | FANode (x, _t1, _t2), 0 -> x
+  | FANode (_x, t1, t2), i ->
+      let size' = size / 2 in
+      if i <= size' then fatree_lookup size' t1 (i - 1) else fatree_lookup size' t2 (i - 1 - size')
 
 let rec fatree_update size tree index y =
   match (tree, index) with
-      (FALeaf(_x), 0) -> FALeaf(y)
-    | (FALeaf(_x), _i) -> raise Subscript
-    | (FANode(_x,t1,t2), 0) -> FANode(y,t1,t2)
-    | (FANode(x,t1,t2), i) ->
-	 let size' = size / 2 in
-	   if i <= size' then
-	     FANode(x,fatree_update size' t1 (i - 1) y,t2)
-	   else
-	     FANode(x,t1,fatree_update size' t2 (i - 1 - size') y)
+  | FALeaf _x, 0 -> FALeaf y
+  | FALeaf _x, _i -> raise Subscript
+  | FANode (_x, t1, t2), 0 -> FANode (y, t1, t2)
+  | FANode (x, t1, t2), i ->
+      let size' = size / 2 in
+      if i <= size' then FANode (x, fatree_update size' t1 (i - 1) y, t2)
+      else FANode (x, t1, fatree_update size' t2 (i - 1 - size') y)
 
 let rec lookup ls i =
-    match (ls, i) with
-	([], _) -> raise Subscript
-      | ((size, t) :: rest, i) ->
-	  if i < size then
-	    fatree_lookup size t i
-	  else
-	    lookup rest (i - size)
+  match (ls, i) with
+  | [], _ -> raise Subscript
+  | (size, t) :: rest, i -> if i < size then fatree_lookup size t i else lookup rest (i - size)
 
 let rec update ls i y =
   match (ls, i) with
-      ([], _) -> raise Subscript
-    | ((size, t) :: rest, i) ->
-	if i < size then
-	  (size, fatree_update size t i y) :: rest
-	else
-	  (size, t) :: update rest (i - size) y
+  | [], _ -> raise Subscript
+  | (size, t) :: rest, i ->
+      if i < size then (size, fatree_update size t i y) :: rest
+      else (size, t) :: update rest (i - size) y
 
 let empty = []
-
-let isempty ls =
-  match ls with
-      [] -> true
-    | ((_size,_t) :: _rest) -> false
+let isempty ls = match ls with [] -> true | (_size, _t) :: _rest -> false
 
 let cons x ls =
-  match (ls) with
-      ((size1, t1) :: (size2, t2) :: rest) ->
-	if size1 = size2 then
-	  (1 + size1 + size2, FANode(x, t1, t2)) :: rest
-	else
-	  (1, FALeaf(x)) :: ls
-    | xls -> (1, FALeaf(x)) :: xls
+  match ls with
+  | (size1, t1) :: (size2, t2) :: rest ->
+      if size1 = size2 then (1 + size1 + size2, FANode (x, t1, t2)) :: rest else (1, FALeaf x) :: ls
+  | xls -> (1, FALeaf x) :: xls
 
 let head ls =
   match ls with
-      [] -> raise Empty
-    | (_size, FALeaf(x)) :: _rest -> x
-    | (_size, FANode(x,_t1,_t2)) :: _rest -> x
+  | [] -> raise Empty
+  | (_size, FALeaf x) :: _rest -> x
+  | (_size, FANode (x, _t1, _t2)) :: _rest -> x
 
 let tail ls =
   match ls with
-      [] -> raise Empty
-    | (_size, FALeaf(_x)) :: rest -> rest
-    | (size, FANode(_x,t1,t2)) :: rest ->
-	let size' = size / 2 in
-	  (size', t1) :: (size', t2) :: rest
+  | [] -> raise Empty
+  | (_size, FALeaf _x) :: rest -> rest
+  | (size, FANode (_x, t1, t2)) :: rest ->
+      let size' = size / 2 in
+      (size', t1) :: (size', t2) :: rest
+
+let rec from_list = function [] -> empty | x :: xs -> cons x (from_list xs)

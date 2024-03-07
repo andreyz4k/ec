@@ -25,6 +25,9 @@ let rec recursively_get_abstraction_body = function
   | Abstraction b -> recursively_get_abstraction_body b
   | e -> e
 
+let rec wrap_with_abstractions n e =
+  if n = 0 then e else wrap_with_abstractions (n - 1) (Abstraction e)
+
 let program_children = function
   | Abstraction b -> [ b ]
   | Apply (m, n) -> [ m; n ]
@@ -150,6 +153,37 @@ let rec infer_program_type context environment p : tContext * tp =
 
 let closed_inference = snd % infer_program_type empty_context []
 let make_invention i = Invented (closed_inference i |> canonical_type, i)
+
+(* let rec bidirectional_type_inference (environment : tp list) (request : tp) (p : program) : ((tp list)*tp) option = *)
+(*   match p with *)
+(*   | Index(j) -> *)
+(*     (match List.nth environment j with *)
+(*      | None -> raise UnboundVariable *)
+(*      | Some(t) -> *)
+(*        try *)
+(*          let k = unify empty_context t request in *)
+(*          Some((environment |> List.map ~f:(applyContext k), *)
+(*               applyContext k request)) *)
+(*        with UnificationFailure -> None *)
+(*     ) *)
+(*   | Primitive(t,_,_) | Invented(t,_) -> begin *)
+(*     let offset = *)
+(*       (request::environment) |> List.map ~f:next_type_variable |> List.reduce_exn l ~f:max *)
+(*     in *)
+(*     let t = add_constant_to_type_variables offset t in *)
+(*     try *)
+(*       let k = unify empty_context t request in *)
+(*       Some((environment |> List.map ~f:(applyContext k), *)
+(*             applyContext k request)) *)
+(*     with UnificationFailure -> None *)
+(*     end *)
+(*   | Abstraction(b) -> *)
+(*     let offset = *)
+(*       (request::environment) |> List.map ~f:next_type_variable |> List.reduce_exn l ~f:max *)
+(*     in *)
+(*     let environment' = TID(offset) :: environment in *)
+(*     match bidirectional_type_inference environment' *)
+(*             instantiate_type context t *)
 
 exception UnknownPrimitive of string
 

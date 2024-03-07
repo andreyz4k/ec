@@ -2,11 +2,44 @@
  (name dreamcoder)
  (public_name dreamcoder)
  (modes native)
- (modules solver compression helmholtz physics dreaming type versions program funarray parser utils differentiation
-    pregex task cachingTable timeout enumeration fastType parallel client grammar tower polyValue tikZ)
+ (modules
+  solver
+  compression
+  helmholtz
+  physics
+  dreaming
+  type
+  versions
+  program
+  funarray
+  parser
+  utils
+  differentiation
+  pregex
+  task
+  cachingTable
+  timeout
+  enumeration
+  fastType
+  parallel
+  client
+  grammar
+  tower
+  polyValue
+  tikZ
+  probabilistic_grammar)
  (ocamlopt_flags :standard -O3 -unboxed-types -nodynlink -w -20)
- (libraries core core_unix re2 yojson geomLib logoLib ocaml-protoc zmq core_kernel.pairing_heap)  ;parmap
+ (libraries
+  core
+  core_unix
+  re2
+  yojson
+  geomLib
+  logoLib
+  ocaml-protoc
+  zmq
+  core_kernel.pairing_heap)
+ ;parmap
  (inline_tests)
  (preprocess
-  (pps ppx_deriving.show ppx_jane ppx_inline_test ppx_expect))
-)
+  (pps ppx_deriving.show ppx_jane ppx_inline_test ppx_expect)))

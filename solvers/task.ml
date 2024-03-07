@@ -5,7 +5,6 @@ open Utils
 open Type
 open Program
 open Enumeration
-open Grammar
 open Differentiation
 
 type task = { name : string; task_type : tp; log_likelihood : program -> float }
@@ -57,7 +56,6 @@ let supervised_task ?(timeout = 0.001) name ty examples =
   }
 
 let task_handler = Hashtbl.Poly.create ()
-
 let register_special_task name handler = Hashtbl.set task_handler ~key:name ~data:handler
 
 let recent_logo_program :
@@ -217,7 +215,7 @@ let (_ : unit) =
       extras
       ?((* ?parameterPenalty:(parameterPenalty=0.) *)
         (* ?maxParameters:(maxParameters=100) *)
-      timeout = 0.001)
+        timeout = 0.001)
       name
       ty
       examples
@@ -292,8 +290,8 @@ type hit_result = {
 }
 [@@deriving equal]
 
-let enumerate_for_tasks (g : contextual_grammar) ?(verbose = true) ~maxFreeParameters
-    ?(budgetIncrement = 1.) ?(lowerBound = 0.) ?(upperBound = 99.) ?(nc = 1) ~timeout
+let enumerate_for_tasks enumeration_backend ?(verbose = true) ?(budgetIncrement = 1.)
+    ?(lowerBound = 0.) ?(upperBound = 99.) ?(nc = 1) ~timeout
     (* tasks and maximum frontier sizes *)
       (tf : (task * int) list) : hit_result list list * int =
   (* Returns, for each task, (program,logPrior) as well as the total number of enumerated programs *)
@@ -327,13 +325,15 @@ let enumerate_for_tasks (g : contextual_grammar) ?(verbose = true) ~maxFreeParam
     && List.exists (range nt) ~f:(fun j -> Heap.length hits.(j) < maximumFrontier.(j))
     && Float.( <= ) (!lower_bound +. budgetIncrement) upperBound
   do
+    Printf.eprintf "%f, %f, %fs\n" !lower_bound (!lower_bound +. budgetIncrement)
+      (!enumeration_timeout -. Unix.time ());
+
     let number_of_enumerated_programs = ref 0 in
     let final_results =
       (* Returns a list of "final results" *)
       (* Each final result is [Array.map ~f:Heap.to_list hits] *)
       (* We flatten it to get a list of arrays of heaps *)
-      enumerate_programs ~maxFreeParameters ~nc g request !lower_bound
-        (!lower_bound +. budgetIncrement)
+      enumeration_backend !lower_bound (!lower_bound +. budgetIncrement)
         ~final:(fun () ->
           (* Printf.eprintf "%d\n" !number_of_enumerated_programs; flush_everything(); *)
           [ (Array.map ~f:Heap.to_list hits, !number_of_enumerated_programs) ])

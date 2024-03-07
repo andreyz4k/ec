@@ -52,12 +52,14 @@ def induceGrammar(*args, **kwargs):
                 fn,
             )
             g, newFrontiers = callCompiled(induceGrammar_Beta, *args, **kwargs)
-        elif backend == "ocaml":
+        elif backend == "ocaml" or backend == "vs_factored":
             kwargs.pop("iteration")
             kwargs.pop("topk_use_only_likelihood")
             kwargs["topI"] = 300
             kwargs["bs"] = 1000000
-            g, newFrontiers = ocamlInduce(*args, **kwargs)
+            g, newFrontiers = ocamlInduce(
+                *args, factored=(backend == "vs_factored"), **kwargs
+            )
         elif backend == "memorize":
             g, newFrontiers = memorizeInduce(*args, **kwargs)
         else:
@@ -124,7 +126,9 @@ def ocamlInduce(
     CPUs=1,
     bs=1000000,
     topI=300,
+    factored=False,
 ):
+
     # This is a dirty hack!
     # Memory consumption increases with the number of CPUs
     # And early on we have a lot of stuff to compress
@@ -158,6 +162,7 @@ def ocamlInduce(
             "structurePenalty": float(structurePenalty),
             "CPUs": CPUs,
             "DSL": g.json(),
+            "factored_apply": factored,
             "iterations": iterations,
             "frontiers": [f.json() for f in frontiers],
         }
@@ -236,9 +241,9 @@ def rustInduce(
         return l if l != float("-inf") else -1000
 
     message = {
-        "strategy": {"version-spaces": {"top_i": 50}}
-        if vs
-        else {"fragment-grammars": {}},
+        "strategy": (
+            {"version-spaces": {"top_i": 50}} if vs else {"fragment-grammars": {}}
+        ),
         "params": {
             "structure_penalty": structurePenalty,
             "pseudocounts": int(pseudoCounts + 0.5),

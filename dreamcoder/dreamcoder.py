@@ -272,6 +272,7 @@ def ecIterator(
         )
         assert False
 
+    # tasks=[t for t in tasks if t.name=="bool-identify-geq-k with k=0" ]
     # We save the parameters that were passed into EC
     # This is for the purpose of exporting the results of the experiment
     parameters = {
@@ -1240,7 +1241,7 @@ def commandlineArguments(
     )
     parser.add_argument(
         "--solver",
-        choices=["ocaml", "pypy", "python", "julia"],
+        choices=["ocaml", "pypy", "bottom", "python", "julia"],
         default=solver,
         help="""Solver for enumeration.
                         Default: %s"""
@@ -1258,7 +1259,7 @@ def commandlineArguments(
     parser.add_argument(
         "--compressor",
         default=compressor,
-        choices=["pypy", "rust", "vs", "pypy_vs", "ocaml", "memorize"],
+        choices=["pypy", "rust", "vs", "pypy_vs", "ocaml", "vs_factored", "memorize"],
     )
     parser.add_argument(
         "--matrixRank",

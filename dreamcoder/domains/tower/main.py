@@ -284,6 +284,8 @@ def main(arguments):
     trains/tests the model on a set of tower-building tasks.
     """
 
+    
+
     # The below global statement is required since primitives is modified within main().
     # TODO(lcary): use a function call to retrieve and declare primitives instead.
     global primitives
