@@ -40,4 +40,4 @@ torchvision
 urllib3
 redis
 hiredis
-stitch_core==0.1.18
+stitch_core
