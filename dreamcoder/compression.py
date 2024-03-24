@@ -395,7 +395,7 @@ def stitchInduce(
 
     # Actually run Stitch.
     compress_result = stitch_core.compress(
-        **stitch_kwargs, iterations=max_compression, max_arity=a
+        **stitch_kwargs, iterations=max_compression, max_arity=a, silent=False
     )
 
     # TODO: Post-hoc filter the abstractions to remove those that are not that useful since Stitch does
