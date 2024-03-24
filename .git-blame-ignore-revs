@@ -1,3 +1,6 @@
+# This is useful to skip reformatting revisions in git blame
+# to enable it run `git config --add blame.ignoreRevsFile .git-blame-ignore-revs`
+
 # Reformat remove trailing whitespaces
 10ed130158ae9dc49a40951ce4a9c06a670a2d10
 
