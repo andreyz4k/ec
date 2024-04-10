@@ -92,6 +92,10 @@ function __get_custom_arg_chekers(p::Primitive, checker, indices_checkers::Dict)
     end
 end
 
+function __get_custom_arg_chekers(p::SetConst, checker, indices_checkers::Dict)
+    [], indices_checkers
+end
+
 function __get_custom_arg_chekers(p::Invented, checker, indices_checkers::Dict)
     return __get_custom_arg_chekers(p.b, checker, indices_checkers)
 end

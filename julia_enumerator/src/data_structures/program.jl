@@ -246,7 +246,8 @@ function infer_program_type(context, environment, p::Apply)::Tuple{Context,Tp}
     apply_context(context, rt)
 end
 
-infer_program_type(context, environment, p::FreeVar) = instantiate(p.t, context)
+infer_program_type(context, environment, p::FreeVar)::Tuple{Context,Tp} = instantiate(p.t, context)
+infer_program_type(context, environment, p::SetConst)::Tuple{Context,Tp} = instantiate(p.t, context)
 
 closed_inference(p) = infer_program_type(empty_context, [], p)[2]
 
