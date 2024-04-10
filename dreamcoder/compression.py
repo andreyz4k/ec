@@ -391,7 +391,7 @@ def stitchInduce(
         **kwargs,
     }
     stitch_kwargs = stitch_core.from_dreamcoder(dreamcoder_json)
-    stitch_kwargs.update(dict(eta_long=True, utility_by_rewrite=True))
+    stitch_kwargs.update(dict(eta_long=True, utility_by_rewrite=True, panic_loud=True))
 
     # Actually run Stitch.
     compress_result = stitch_core.compress(

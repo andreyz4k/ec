@@ -1311,6 +1311,27 @@ class Constant(Program):
     def isConst(self):
         return True
 
+    def inferType(self, context, environment, freeVariables):
+        return self.tp.instantiate(context)
+
+    def annotateTypes(self, context, environment):
+        self.annotatedType = self.tp.instantiateMutable(context)
+
+    def _get_custom_arg_checkers(self, checker, indices_checkers):
+        return [], indices_checkers
+
+    def walk(self, surroundingAbstractions=0):
+        yield surroundingAbstractions, self
+
+    def substitute(self, old, new):
+        if self == old:
+            return new
+        else:
+            return self
+
+    def visit(self, visitor, *arguments, **keywords):
+        return visitor.constant(self, *arguments, **keywords)
+
 
 class CustomArgChecker:
     def __init__(
@@ -1555,6 +1576,9 @@ class PrettyVisitor(object):
 
     def primitive(self, e, environment, isVariable, isAbstraction):
         return e.name
+
+    def constant(self, e, environment, isVariable, isAbstraction):
+        return e.show(False)
 
     def index(self, e, environment, isVariable, isAbstraction):
         if e.i < len(environment):
