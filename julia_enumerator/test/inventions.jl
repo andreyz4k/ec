@@ -604,7 +604,7 @@ using solver: load_problems, enumerate_for_task
                     Dict{String,Any}(
                         "logProbability" => 0,
                         "expression" => "#(lambda (repeat \$0 Const(int, 1)))",
-                        "is_reversible" => false,
+                        "is_reversible" => true,
                         "type" => "t0 -> list(t0)",
                     ),
                     Dict{String,Any}(

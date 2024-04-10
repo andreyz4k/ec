@@ -203,6 +203,8 @@ function _is_reversible(p::Abstraction, environment, args)
     return _is_reversible(p.b, environment, view(args, 1:length(args)-1))
 end
 
+_is_reversible(p::SetConst, environment, args) = []
+
 _is_reversible(p::Program, environment, args) = nothing
 
 is_reversible(p::Program)::Bool = !isnothing(_is_reversible(p, Dict(), []))
@@ -722,6 +724,13 @@ function __run_in_reverse(p::Abstraction, output, context::ReverseRunContext)
 
     out_context.filled_indices = Dict{Int64,Any}(i - 1 => v for (i, v) in out_context.filled_indices if i > 0)
     return output, out_context
+end
+
+function __run_in_reverse(p::SetConst, output, context)
+    if output != p.value
+        error("Output mismatch $output != $p.value")
+    end
+    return output, context
 end
 
 function run_in_reverse(p::Program, output)

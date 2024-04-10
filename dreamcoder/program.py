@@ -1332,6 +1332,9 @@ class Constant(Program):
     def visit(self, visitor, *arguments, **keywords):
         return visitor.constant(self, *arguments, **keywords)
 
+    def _is_reversible(self, environment, args):
+        return []
+
 
 class CustomArgChecker:
     def __init__(
