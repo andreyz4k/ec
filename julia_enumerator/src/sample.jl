@@ -425,7 +425,7 @@ function sample_input_program(
                                 # @info "Trying to evaluate program: $(block.p)"
                                 # @info "params: $(Dict(var_ind => new_filled_vars[var_ind] for var_ind in block.output_vars))"
 
-                                calculated_input_values = [
+                                calculated_input_values = Any[
                                     try_evaluate_program(
                                         block.p,
                                         [],
