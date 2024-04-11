@@ -361,7 +361,7 @@ def rustInduce(
 
 
 def stitchInduce(
-    grammar: Grammar, frontiers: List[Frontier], a: int = 3, max_compression=3, **kwargs
+    grammar: Grammar, frontiers: List[Frontier], a: int = 3, max_compression=0, **kwargs
 ):
     """Compresses the library, generating a new grammar based on the frontiers, using Stitch."""
 
@@ -397,9 +397,6 @@ def stitchInduce(
     compress_result = stitch_core.compress(
         **stitch_kwargs, iterations=max_compression, max_arity=a, silent=False
     )
-
-    # TODO: Post-hoc filter the abstractions to remove those that are not that useful since Stitch does
-    # not currently have a stopping condition (so it will always return max_compression inventions).
 
     # If we didn't find any new abstractions, return the old grammar.
     # stitch_core.rewrite throws an error if no abstractions are provided.
