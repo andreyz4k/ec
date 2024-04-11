@@ -279,7 +279,7 @@ function block_state_successors(
                     custom_arg_checkers = _get_custom_arg_checkers(candidate)
                     custom_checkers_args_count = length(custom_arg_checkers)
                     for i in 1:length(argument_types)
-                        if i > custom_checkers_args_count
+                        if i > custom_checkers_args_count || isnothing(custom_arg_checkers[i])
                             arg_checker = current_hole.candidates_filter
                         else
                             arg_checker = combine_arg_checkers(current_hole.candidates_filter, custom_arg_checkers[i])
