@@ -728,7 +728,7 @@ end
 
 function __run_in_reverse(p::SetConst, output, context)
     if output != p.value
-        error("Output mismatch $output != $p.value")
+        error("Const mismatch $output != $(p.value)")
     end
     return output, context
 end
@@ -743,7 +743,7 @@ function run_in_reverse(p::Program, output)
     #     @info p
     #     @info output
     # end
-    if computed_output != output
+    if computed_output != output && !isempty(context.filled_vars)
         error("Output mismatch $computed_output != $output")
     end
     return context.filled_vars
