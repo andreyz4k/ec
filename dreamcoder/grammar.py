@@ -614,7 +614,7 @@ class Grammar(object):
                 silent=silent,
                 checker=(
                     CustomArgChecker.combine(checker, custom_checkers[i])
-                    if i < len(custom_checkers)
+                    if i < len(custom_checkers) and custom_checkers[i] is not None
                     else checker
                 ),
                 path=path + [(f, i)],
