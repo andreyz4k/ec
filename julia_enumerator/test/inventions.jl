@@ -217,7 +217,7 @@ using solver: load_problems, enumerate_for_task
         @test number_enumerated < 1000
     end
 
-    @testcase_log "Invented abstractor" begin
+    @testcase_log "Invented abstractor 1" begin
         payload = Dict{String,Any}(
             "DSL" => Dict{String,Any}(
                 "logVariable" => 0.0,
@@ -687,6 +687,329 @@ using solver: load_problems, enumerate_for_task
             "name" => "append-index-k with k=3",
             "programTimeout" => 3.0,
             "timeout" => 20,
+            "queue" => "tasks",
+            "verbose" => false,
+            "shatter" => 10,
+        )
+        task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
+            load_problems(payload)
+        solutions, number_enumerated = @time enumerate_for_task(
+            Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
+            g,
+            type_weights,
+            hyperparameters,
+            task,
+            maximum_frontier,
+            timeout,
+            verbose,
+        )
+        @test length(solutions) >= 1
+        @test number_enumerated < 1000
+    end
+
+    @testcase_log "Invented abstractors 3" begin
+        payload = Dict{String,Any}(
+            "DSL" => Dict{String,Any}(
+                "logFreeVar" => 0.0,
+                "logVariable" => 0.0,
+                "logLambda" => 0.0,
+                "productions" => Any[
+                    Dict{String,Any}(
+                        "logProbability" => 0.0,
+                        "expression" => "repeat",
+                        "is_reversible" => true,
+                        "type" => "t0 -> int -> list(t0)",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0.0,
+                        "expression" => "concat",
+                        "is_reversible" => true,
+                        "type" => "list(t0) -> list(t0) -> list(t0)",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0.0,
+                        "expression" => "map",
+                        "is_reversible" => true,
+                        "type" => "(t0 -> t1) -> list(t0) -> list(t1)",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0.0,
+                        "expression" => "fold",
+                        "is_reversible" => true,
+                        "type" => "(t0 -> t1 -> t1) -> list(t0) -> t1 -> t1",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0.0,
+                        "expression" => "rev_fix_param",
+                        "is_reversible" => true,
+                        "type" => "t0 -> t1 -> (t0 -> t1) -> t0",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0.0,
+                        "expression" => "unfold",
+                        "is_reversible" => false,
+                        "type" => "(t0 -> bool) -> (t0 -> t1) -> (t0 -> t0) -> t0 -> list(t1)",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0.0,
+                        "expression" => "range",
+                        "is_reversible" => true,
+                        "type" => "int -> list(int)",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0.0,
+                        "expression" => "index",
+                        "is_reversible" => false,
+                        "type" => "int -> list(t0) -> t0",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0.0,
+                        "expression" => "length",
+                        "is_reversible" => false,
+                        "type" => "list(t0) -> int",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0.0,
+                        "expression" => "if",
+                        "is_reversible" => false,
+                        "type" => "bool -> t0 -> t0 -> t0",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0.0,
+                        "expression" => "+",
+                        "is_reversible" => true,
+                        "type" => "int -> int -> int",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0.0,
+                        "expression" => "-",
+                        "is_reversible" => true,
+                        "type" => "int -> int -> int",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0.0,
+                        "expression" => "empty",
+                        "is_reversible" => true,
+                        "type" => "list(t0)",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0.0,
+                        "expression" => "cons",
+                        "is_reversible" => true,
+                        "type" => "t0 -> list(t0) -> list(t0)",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0.0,
+                        "expression" => "car",
+                        "is_reversible" => false,
+                        "type" => "list(t0) -> t0",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0.0,
+                        "expression" => "cdr",
+                        "is_reversible" => false,
+                        "type" => "list(t0) -> list(t0)",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0.0,
+                        "expression" => "empty?",
+                        "is_reversible" => false,
+                        "type" => "list(t0) -> bool",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0.0,
+                        "expression" => "0",
+                        "is_reversible" => true,
+                        "type" => "int",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0.0,
+                        "expression" => "1",
+                        "is_reversible" => true,
+                        "type" => "int",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0.0,
+                        "expression" => "*",
+                        "is_reversible" => true,
+                        "type" => "int -> int -> int",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0.0,
+                        "expression" => "mod",
+                        "is_reversible" => false,
+                        "type" => "int -> int -> int",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0.0,
+                        "expression" => "gt?",
+                        "is_reversible" => false,
+                        "type" => "int -> int -> bool",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0.0,
+                        "expression" => "eq?",
+                        "is_reversible" => false,
+                        "type" => "t0 -> t0 -> bool",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0.0,
+                        "expression" => "is-prime",
+                        "is_reversible" => false,
+                        "type" => "int -> bool",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0.0,
+                        "expression" => "is-square",
+                        "is_reversible" => false,
+                        "type" => "int -> bool",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0,
+                        "expression" => "#(lambda (lambda (lambda (cons \$0 (cons \$1 \$2)))))",
+                        "is_reversible" => true,
+                        "type" => "list(t0) -> t0 -> t0 -> list(t0)",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0,
+                        "expression" => "#(lambda (repeat \$0 Const(int, 1)))",
+                        "is_reversible" => true,
+                        "type" => "t0 -> list(t0)",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0,
+                        "expression" => "#(lambda (lambda (+ (- \$0 \$1) \$1)))",
+                        "is_reversible" => true,
+                        "type" => "int -> int -> int",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0,
+                        "expression" => "#(lambda (lambda (#(lambda (lambda (lambda (cons \$0 (cons \$1 \$2))))) Const(list(int), Any[]) \$0 \$1)))",
+                        "is_reversible" => true,
+                        "type" => "int -> int -> list(int)",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0,
+                        "expression" => "#(lambda (lambda (concat \$0 (#(lambda (repeat \$0 Const(int, 1))) \$1))))",
+                        "is_reversible" => true,
+                        "type" => "t0 -> list(t0) -> list(t0)",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0,
+                        "expression" => "#(lambda (lambda (lambda (#(lambda (lambda (lambda (cons \$0 (cons \$1 \$2))))) (#(lambda (repeat \$0 Const(int, 1))) \$0) \$1 \$2))))",
+                        "is_reversible" => true,
+                        "type" => "t0 -> t0 -> t0 -> list(t0)",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0,
+                        "expression" => "#(lambda (concat \$0 \$0))",
+                        "is_reversible" => true,
+                        "type" => "list(t0) -> list(t0)",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0,
+                        "expression" => "#(lambda (lambda (rev_fix_param (* \$1 \$0) \$1 (lambda Const(int, -1)))))",
+                        "is_reversible" => true,
+                        "type" => "int -> int -> int",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0,
+                        "expression" => "#(lambda (#(lambda (concat \$0 \$0)) (#(lambda (concat \$0 \$0)) \$0)))",
+                        "is_reversible" => true,
+                        "type" => "list(t0) -> list(t0)",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0,
+                        "expression" => "#(lambda (lambda (lambda (- (- \$0 \$1) \$2))))",
+                        "is_reversible" => true,
+                        "type" => "int -> int -> int -> int",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0,
+                        "expression" => "#(lambda (lambda (#(lambda (repeat \$0 Const(int, 1))) (+ \$1 (- \$0 \$1)))))",
+                        "is_reversible" => true,
+                        "type" => "int -> int -> list(int)",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0,
+                        "expression" => "#(lambda (lambda (lambda (cons \$0 (#(lambda (lambda (concat \$0 (#(lambda (repeat \$0 Const(int, 1))) \$1)))) \$1 \$2)))))",
+                        "is_reversible" => true,
+                        "type" => "list(t0) -> t0 -> t0 -> list(t0)",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0,
+                        "expression" => "#(lambda (cdr (cdr \$0)))",
+                        "is_reversible" => false,
+                        "type" => "list(t0) -> list(t0)",
+                    ),
+                    Dict{String,Any}(
+                        "logProbability" => 0,
+                        "expression" => "#(lambda (concat \$0 (#(lambda (concat \$0 \$0)) \$0)))",
+                        "is_reversible" => true,
+                        "type" => "list(t0) -> list(t0)",
+                    ),
+                ],
+            ),
+            "type_weights" => Dict{String,Any}("int" => 1.0, "list" => 1.0, "bool" => 1.0, "float" => 1.0),
+            "task" => Dict{String,Any}(
+                "name" => "slice-k-n with k=2 and n=1",
+                "maximumFrontier" => 10,
+                "examples" => Any[
+                    Dict{String,Any}(
+                        "output" => Any[13],
+                        "inputs" => Dict{String,Any}("inp0" => Any[9, 13, 15, 7, 10]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[7],
+                        "inputs" => Dict{String,Any}("inp0" => Any[16, 7, 12, 11, 14, 6, 9, 14, 0, 5]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[13],
+                        "inputs" => Dict{String,Any}("inp0" => Any[7, 13, 3, 4, 8, 16, 5, 1]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[15],
+                        "inputs" => Dict{String,Any}("inp0" => Any[15, 15, 0, 9, 9, 15, 15, 3, 4]),
+                    ),
+                    Dict{String,Any}("output" => Any[12], "inputs" => Dict{String,Any}("inp0" => Any[11, 12, 4, 5, 2])),
+                    Dict{String,Any}(
+                        "output" => Any[2],
+                        "inputs" => Dict{String,Any}("inp0" => Any[15, 2, 4, 4, 4, 9]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[15],
+                        "inputs" => Dict{String,Any}("inp0" => Any[5, 15, 15, 13, 6]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[0],
+                        "inputs" => Dict{String,Any}("inp0" => Any[0, 0, 4, 12, 0, 3, 9]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[0],
+                        "inputs" => Dict{String,Any}("inp0" => Any[3, 0, 3, 0, 11, 2, 1, 0, 8, 1, 15]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[1],
+                        "inputs" => Dict{String,Any}("inp0" => Any[16, 1, 14, 11, 16, 4]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[15],
+                        "inputs" => Dict{String,Any}("inp0" => Any[16, 15, 9, 11, 12]),
+                    ),
+                    Dict{String,Any}(
+                        "output" => Any[15],
+                        "inputs" => Dict{String,Any}("inp0" => Any[13, 15, 13, 6, 16, 2]),
+                    ),
+                    Dict{String,Any}("output" => Any[10], "inputs" => Dict{String,Any}("inp0" => Any[12, 10, 1, 9, 6])),
+                    Dict{String,Any}("output" => Any[6], "inputs" => Dict{String,Any}("inp0" => Any[2, 6, 5, 5, 2])),
+                    Dict{String,Any}("output" => Any[0], "inputs" => Dict{String,Any}("inp0" => Any[9, 0, 16, 9, 10])),
+                ],
+                "test_examples" => Any[],
+                "request" => "inp0:list(int) -> list(int)",
+            ),
+            "name" => "slice-k-n with k=2 and n=1",
+            "programTimeout" => 3.0,
+            "timeout" => 40,
             "queue" => "tasks",
             "verbose" => false,
             "shatter" => 10,

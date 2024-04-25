@@ -325,15 +325,6 @@ def _is_fixable_param(p):
     return isinstance(p, Index) or isinstance(p, FreeVariable)
 
 
-def _is_possible_fixable_param(p, path):
-    # TODO: implement real algorithm here
-    if isinstance(p, Index):
-        return True
-    if isinstance(p, FreeVariable):
-        return True
-    return False
-
-
 def basePrimitives():
     return [
         Primitive(
@@ -345,7 +336,9 @@ def basePrimitives():
                 (_is_reversible_subfunction, CustomArgChecker(True, None, None, None)),
                 (
                     _is_fixable_param,
-                    CustomArgChecker(None, None, None, _is_possible_fixable_param),
+                    CustomArgChecker(
+                        None, None, None, CustomArgChecker._is_possible_fixable_param
+                    ),
                 ),
                 (_has_no_holes, CustomArgChecker(False, -1, False, None)),
             ],

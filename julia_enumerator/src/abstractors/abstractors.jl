@@ -35,9 +35,9 @@ function combine_arg_checkers(old::CustomArgChecker, new::CustomArgChecker)
     else
         new.can_have_free_vars
     end
-    checker_function = if isnothing(new.checker_function)
+    checker_function = if isnothing(new.checker_function) || new.checker_function == _is_possible_fixable_param
         old.checker_function
-    elseif isnothing(old.checker_function)
+    elseif isnothing(old.checker_function) || old.checker_function == _is_possible_fixable_param
         new.checker_function
     else
         (args...) -> old.checker_function(args...) && new.checker_function(args...)

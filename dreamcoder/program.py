@@ -1367,7 +1367,16 @@ class CustomArgChecker:
         return f"CustomArgChecker({self.should_be_reversible}, {self.max_index}, {self.can_have_free_vars}, {self.checker_funciton})"
 
     @staticmethod
-    def combine(old, new):
+    def _is_possible_fixable_param(p, path):
+        # TODO: implement real algorithm here
+        if isinstance(p, Index):
+            return True
+        if isinstance(p, FreeVariable):
+            return True
+        return False
+
+    @classmethod
+    def combine(cls, old, new):
         if new.should_be_reversible is None:
             should_be_reversible = old.should_be_reversible
         else:
@@ -1385,9 +1394,15 @@ class CustomArgChecker:
         else:
             can_have_free_vars = new.can_have_free_vars
 
-        if new.checker_funciton is None:
+        if (
+            new.checker_funciton is None
+            or new.checker_funciton == cls._is_possible_fixable_param
+        ):
             checker_funciton = old.checker_funciton
-        elif old.checker_funciton is None:
+        elif (
+            old.checker_funciton is None
+            or old.checker_funciton == cls._is_possible_fixable_param
+        ):
             checker_funciton = new.checker_funciton
         else:
 
