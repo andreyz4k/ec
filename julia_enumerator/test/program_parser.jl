@@ -68,6 +68,7 @@ using solver: parse_program, parse_type, TypeVariable
     )
     parsing_test_case("#(lambda (lambda (lambda (cons \$0 (cons \$1 \$2)))))")
     parsing_test_case("#(lambda (repeat \$0 Const(int, 1)))")
+    parsing_test_case("#(lambda (cons \$0 Const(list(int), Any[])))")
     parsing_test_case("#(lambda (lambda (- \$0 (- \$0 \$1))))")
 end
 
