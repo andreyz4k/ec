@@ -35,9 +35,9 @@ function combine_arg_checkers(old::CustomArgChecker, new::CustomArgChecker)
     else
         new.can_have_free_vars
     end
-    checker_function = if isnothing(new.checker_function) || new.checker_function == _is_possible_fixable_param
+    checker_function = if isnothing(new.checker_function)
         old.checker_function
-    elseif isnothing(old.checker_function) || old.checker_function == _is_possible_fixable_param
+    elseif isnothing(old.checker_function)
         new.checker_function
     else
         (args...) -> old.checker_function(args...) && new.checker_function(args...)
@@ -63,7 +63,9 @@ function _get_custom_arg_checkers(p::Invented)
 end
 
 function __get_custom_arg_chekers(p::Primitive, checker::Nothing, indices_checkers::Dict)
-    if haskey(all_abstractors, p)
+    if p.name == "rev_fix_param"
+        [nothing, nothing, all_abstractors[p][1][3][2]], indices_checkers
+    elseif haskey(all_abstractors, p)
         [c[2] for c in all_abstractors[p][1]], indices_checkers
     else
         [], indices_checkers
@@ -75,9 +77,9 @@ function __get_custom_arg_chekers(p::Primitive, checker, indices_checkers::Dict)
     if haskey(all_abstractors, p)
         custom_checkers = all_abstractors[p][1]
         out_checkers = []
-        for c in custom_checkers
-            if c[2] == checker
-                push!(out_checkers, c[2])
+        for (i, c) in enumerate(custom_checkers)
+            if (p.name == "rev_fix_param" && i < 3) || c[2] == checker || isnothing(c[2])
+                push!(out_checkers, checker)
             else
                 combined = combine_arg_checkers(checker, c[2])
                 push!(out_checkers, combined)

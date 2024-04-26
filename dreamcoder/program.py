@@ -800,14 +800,20 @@ class Primitive(Program):
 
     def _get_custom_arg_checkers(self, checker, indices_checkers):
         if checker is None:
+            if self.name == "rev_fix_param":
+                return [None, None, self.custom_args_checkers[2][1]], indices_checkers
             return [c[1] for c in self.custom_args_checkers], indices_checkers
         arg_count = len(self.tp.functionArguments())
         if self.isreversible:
             custom_checkers = self.custom_args_checkers
             out_checkers = []
-            for c in custom_checkers:
-                if c[1] == checker:
-                    out_checkers.append(c[1])
+            for i, c in enumerate(custom_checkers):
+                if (
+                    (self.name == "rev_fix_param" and i < 2)
+                    or c[1] == checker
+                    or c[1] is None
+                ):
+                    out_checkers.append(checker)
                 else:
                     combined = CustomArgChecker.combine(checker, c[1])
                     out_checkers.append(combined)
@@ -1394,15 +1400,9 @@ class CustomArgChecker:
         else:
             can_have_free_vars = new.can_have_free_vars
 
-        if (
-            new.checker_funciton is None
-            or new.checker_funciton == cls._is_possible_fixable_param
-        ):
+        if new.checker_funciton is None:
             checker_funciton = old.checker_funciton
-        elif (
-            old.checker_funciton is None
-            or old.checker_funciton == cls._is_possible_fixable_param
-        ):
+        elif old.checker_funciton is None:
             checker_funciton = new.checker_funciton
         else:
 

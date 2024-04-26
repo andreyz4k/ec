@@ -391,7 +391,7 @@ parse_tncon_arrow =
 
 parse_function_type.matcher = parse_tcon_arrow | parse_tncon_arrow
 
-parse_nargs_seq = Repeat(parse_named_arg + E", ", 1) + parse_simple_type
+parse_nargs_seq = Repeat(parse_named_arg + E", ", 1, ALL) + parse_simple_type
 parse_tncon.matcher =
     parse_token + E"(" + parse_nargs_seq + E")" |> (x -> TypeNamedArgsConstructor(x[1], Dict(x[2:end-1]), x[end]))
 
