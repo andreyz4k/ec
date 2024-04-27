@@ -436,6 +436,14 @@ function sample_input_program(
                                 ]
                                 # @info "calculated_input_values: $calculated_input_values"
 
+                                if haskey(input_keys, block.input_vars[1])
+                                    for inp_val in calculated_input_values
+                                        if has_nothing(inp_val)
+                                            throw(SamplingError())
+                                        end
+                                    end
+                                end
+
                                 for next_var in input_next_vars[block.input_vars[1]]
                                     if new_filled_vars[next_var][2] == calculated_input_values
                                         # @info "Got the same value $calculated_input_values as downstream $(block.input_vars[1]) $next_var"
@@ -838,6 +846,9 @@ function sample_output_program(
         # @info "output: $output"
         examples = []
         for i in 1:examples_count
+            if has_nothing(filled_vars[output_var][2][i])
+                throw(SamplingError())
+            end
             example = Dict{String,Any}(
                 "output" => filled_vars[output_var][2][i],
                 "inputs" => Dict{String,Any}(name => filled_vars[k][2][i] for (k, name) in input_keys),
@@ -1259,6 +1270,12 @@ end
 function _generate_random_var_values(var_type::TypeVariable, examples_count)
     return [any_object for _ in 1:examples_count]
 end
+
+has_nothing(v::Nothing) = true
+has_nothing(v::Array) = any(has_nothing, v)
+has_nothing(v::Set) = any(has_nothing, v)
+has_nothing(v::Tuple) = any(has_nothing, v)
+has_nothing(v) = false
 
 function _generate_random_var_values(var_type::TypeConstructor, examples_count)
     if var_type == tint

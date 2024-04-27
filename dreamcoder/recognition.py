@@ -1224,7 +1224,7 @@ class RecognitionModel(nn.Module):
         evaluationTimeout=0.001,
         helmholtzFrontiers=[],
         helmholtzRatio=0.0,
-        helmholtzBatch=500,
+        helmholtzBatch=100,
         biasOptimal=None,
         defaultRequest=None,
         auxLoss=False,
@@ -1581,7 +1581,7 @@ class RecognitionModel(nn.Module):
         task = NamedVarsTask(
             "Helmholtz",
             Type.fromstring(response["task"]["request"]),
-            response["task"]["examples"],
+            [(ex["inputs"], ex["output"]) for ex in response["task"]["examples"]],
         )
         return program, task
 
@@ -1609,6 +1609,8 @@ class RecognitionModel(nn.Module):
 
             try:
                 program, task = self.parse_sample_response(response)
+                # if program is not None:
+                #     eprint("Got sample: ", program, task.examples)
 
                 if program is None or task is None:
                     continue

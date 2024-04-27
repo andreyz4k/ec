@@ -3104,4 +3104,31 @@ using DataStructures: OrderedDict, Accumulator
         @test run_with_arguments(p, [], Dict(UInt64(1) => [0], UInt64(2) => [12, 4, 8, 11, 0, 8, 11])) ==
               [12, 4, 8, 11, 0, 8, 11]
     end
+
+    @testcase_log "Reverse map with input fixed to nothing" begin
+        skeleton = parse_program(
+            "((lambda ((lambda ((lambda ((lambda (rev_fix_param (map_set (lambda (tuple2 \$2 \$0)) \$0) \$0 (lambda (car (rev_list_elements (tuple2_first (tuple2 empty_set empty)) 1))))) (tuple2_second (tuple2_first \$v11)))) \$0)) \$v12)) \$v13)",
+        )
+
+        @test is_reversible(skeleton)
+
+        p, _ = capture_free_vars(skeleton)
+
+        @test_throws ErrorException compare_options_subset(
+            run_in_reverse(
+                p,
+                Set([
+                    (6, [6, 4, 0, 8, 4, 5, 9, 1, 8, 4, 1, 3, 4, 9]),
+                    (6, [1, 2, 8, 9, 3, 4, 5, 9, 0, 2, 2, 4, 2, 8, 5, 6, 3, 0, 7]),
+                    (6, [6, 4, 1, 2, 0, 3, 2, 0, 3, 7, 3, 5, 1, 7, 5, 6]),
+                    (6, [6, 8, 2, 7, 6, 1, 7, 4, 1, 4]),
+                    (6, [0, 7, 9, 3, 9]),
+                    (6, [6, 9, 9, 3, 2, 8, 2, 7, 6, 4, 6, 3, 7, 7, 6]),
+                    (6, [7, 3, 9, 4, 3, 1, 3, 7, 1, 9, 8, 2, 8, 3, 2, 9, 3, 3, 5]),
+                    (6, [7, 5, 7, 2, 4, 3, 1, 1, 6, 0, 6]),
+                ]),
+            ),
+            Dict(),
+        )
+    end
 end

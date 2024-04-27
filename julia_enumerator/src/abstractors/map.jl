@@ -158,6 +158,9 @@ function reverse_map(n)
                 calculated_arguments = []
                 for j in 1:n
                     if !ismissing(context.calculated_arguments[end-j])
+                        if isnothing(context.calculated_arguments[end-j])
+                            error("Expected argument is nothing for non-nothing output value")
+                        end
                         push!(calculated_arguments, context.calculated_arguments[end-j][i])
                     else
                         push!(calculated_arguments, missing)
@@ -335,6 +338,9 @@ function reverse_map_set()
         options_queue_dict = Dict()
         visited = Set{UInt64}()
         output_options = Set()
+        if isnothing(context.calculated_arguments[end-1])
+            error("Expected argument is nothing for non-nothing output value")
+        end
         starting_option =
             (Set(), Set(), context.filled_indices, context.filled_vars, context.calculated_arguments[end-1], value)
         h = hash(starting_option)
