@@ -1,4 +1,5 @@
 using solver: run_sampling_process, _test_one_example, parse_program
+using Random
 
 @testset "Sampling" begin
     sample_payload = Dict{String,Any}(
@@ -444,6 +445,7 @@ using solver: run_sampling_process, _test_one_example, parse_program
     @testset "Run sampling process $request" for request in requests
         @testcase_log "Run sampling process $request" begin
             payload = merge(sample_payload, Dict("request" => request))
+            Random.seed!(38)
             result = @time run_sampling_process(Dict{String,Any}(), payload)
             @test !isnothing(result["program"])
             if !isnothing(result["program"])
