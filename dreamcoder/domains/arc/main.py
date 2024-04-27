@@ -82,6 +82,23 @@ def gridToArray(grid):
     return temp
 
 
+def grid_to_tensor(grid, grid_height=10, grid_width=10, device=None):
+    """
+    Converts to tensor of size (grid_height, grid_width, 11) where each color is represented as a one-hot encoding
+    """
+    if device is None:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    tensor = torch.zeros(size=(11, grid_height, grid_width), device=device)
+
+    for row in range(grid_height):
+        for col in range(grid_width):
+            if row < len(grid) and col < len(grid[row]):
+                tensor[grid[row][col] + 1, row, col] = 1
+            else:
+                tensor[0, row, col] = 1
+    return tensor
+
+
 class ArcCNN(nn.Module):
     special = "arc"
 
@@ -126,10 +143,10 @@ class ArcCNN(nn.Module):
         v = None
         for example in t.examples:
             inputGrid, outputGrid = example
-            inputGrid = inputGrid[0]
+            inputGrid = inputGrid["inp0"]
 
-            inputTensor = inputGrid.to_tensor(grid_height=30, grid_width=30)
-            outputTensor = outputGrid.to_tensor(grid_height=30, grid_width=30)
+            inputTensor = grid_to_tensor(inputGrid, grid_height=30, grid_width=30)
+            outputTensor = grid_to_tensor(outputGrid, grid_height=30, grid_width=30)
             ioTensor = torch.cat([inputTensor, outputTensor], 0).unsqueeze(0)
 
             if v is None:
