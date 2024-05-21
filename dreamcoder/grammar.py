@@ -123,8 +123,8 @@ class Grammar(object):
         return Grammar(
             0.0,
             [(0.0, p.infer(), p) for p in primitives],
-            logLambda=0.0,
-            logFreeVariable=0.0,
+            logLambda=-3.0,
+            logFreeVariable=3.0,
             continuationType=continuationType,
         )
 
@@ -733,7 +733,12 @@ class Grammar(object):
         return summary
 
     def logLikelihood(self, request, expression):
-        summary = self.closedLikelihoodSummary(request, expression)
+        try:
+            summary = self.closedLikelihoodSummary(request, expression)
+        except:
+            eprint(expression)
+            eprint(request)
+            raise
         if summary is None:
             eprint(
                 "FATAL: program [ %s ] does not have a likelihood summary."

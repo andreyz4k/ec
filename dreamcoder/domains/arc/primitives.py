@@ -251,7 +251,7 @@ def __is_reversible_selector(p, is_top_index):
     if isinstance(p, Index):
         if is_top_index:
             return 0
-        if p.n == 0:
+        if p.i == 0:
             return 1
         return 2
     if isinstance(p, Application):

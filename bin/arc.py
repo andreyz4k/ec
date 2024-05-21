@@ -15,6 +15,7 @@ if __name__ == "__main__":
         activation="tanh",
         iterations=10,
         recognitionTimeout=3600,
+        a=3,
         maximumFrontier=10,
         topK=2,
         pseudoCounts=1.0,
