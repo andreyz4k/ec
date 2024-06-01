@@ -32,10 +32,7 @@ struct IsPossibleFixableParam <: ArgChecker
     IsPossibleFixableParam() = new(nothing, nothing, nothing)
 end
 
-Base.:(==)(c1::IsPossibleFixableParam, c2::IsPossibleFixableParam) =
-    c1.should_be_reversible == c2.should_be_reversible &&
-    c1.max_index == c2.max_index &&
-    c1.can_have_free_vars == c2.can_have_free_vars
+Base.:(==)(c1::IsPossibleFixableParam, c2::IsPossibleFixableParam) = true
 
 Base.hash(c::IsPossibleFixableParam, h::UInt64) =
     hash(c.should_be_reversible, hash(c.max_index, hash(c.can_have_free_vars, h)))

@@ -53,30 +53,40 @@ struct IsPossibleSelector <: ArgChecker
     should_be_reversible::Bool
     max_index::Union{Int64,Nothing}
     can_have_free_vars::Union{Bool,Nothing}
-    effective_path::Vector
-    IsPossibleSelector(max_index, can_have_free_vars, path) = new(false, max_index, can_have_free_vars, path)
+    step_to_eq::Int64
+    IsPossibleSelector(max_index, can_have_free_vars, step_to_eq) =
+        new(false, max_index, can_have_free_vars, step_to_eq)
 end
+
+Base.:(==)(c1::IsPossibleSelector, c2::IsPossibleSelector) =
+    c1.should_be_reversible == c2.should_be_reversible &&
+    c1.max_index == c2.max_index &&
+    c1.can_have_free_vars == c2.can_have_free_vars &&
+    c1.step_to_eq == c2.step_to_eq
+
+Base.hash(c::IsPossibleSelector, h::UInt64) =
+    hash(c.should_be_reversible, hash(c.max_index, hash(c.can_have_free_vars, hash(c.step_to_eq, h))))
 
 (c::IsPossibleSelector)(p::Primitive, skeleton, path) = true
 (c::IsPossibleSelector)(p::Invented, skeleton, path) = true
-(c::IsPossibleSelector)(p::Index, skeleton, path) = length(c.effective_path) > 1
+(c::IsPossibleSelector)(p::Index, skeleton, path) = c.step_to_eq > 0
 
 function (c::IsPossibleSelector)(p::FreeVar, skeleton, path)
     return true
 end
 
 function step_arg_checker(c::IsPossibleSelector, arg::ArgTurn)
-    return IsPossibleSelector(isnothing(c.max_index) ? 0 : c.max_index + 1, false, vcat(c.effective_path, [arg]))
+    return IsPossibleSelector(isnothing(c.max_index) ? 0 : c.max_index + 1, false, c.step_to_eq == 0 ? 1 : 3)
 end
 
 function step_arg_checker(c::IsPossibleSelector, arg)
-    if length(c.effective_path) == 1 && arg == (every_primitive["eq?"], 2)
-        return IsPossibleSelector(nothing, nothing, vcat(c.effective_path, [arg]))
+    if c.step_to_eq == 1 && arg == (every_primitive["eq?"], 2)
+        return IsPossibleSelector(nothing, nothing, 2)
     end
     if isnothing(c.can_have_free_vars)
-        return IsPossibleSelector(0, false, vcat(c.effective_path, [arg]))
+        return IsPossibleSelector(0, false, 3)
     end
-    return IsPossibleSelector(c.max_index, false, vcat(c.effective_path, [arg]))
+    return IsPossibleSelector(c.max_index, false, 3)
 end
 
 function step_arg_checker(c::IsPossibleSelector, arg::Index)
@@ -168,7 +178,7 @@ function reverse_rev_select()
             )
         end
     end
-    return [(is_reversible_selector, IsPossibleSelector(-1, false, []))], _reverse_rev_select
+    return [(is_reversible_selector, IsPossibleSelector(-1, false, 0))], _reverse_rev_select
 end
 
 @define_custom_reverse_primitive(
@@ -275,7 +285,7 @@ function reverse_rev_select_set()
             )
         end
     end
-    return [(is_reversible_selector, IsPossibleSelector(-1, false, []))], _reverse_rev_select
+    return [(is_reversible_selector, IsPossibleSelector(-1, false, 0))], _reverse_rev_select
 end
 
 @define_custom_reverse_primitive(
