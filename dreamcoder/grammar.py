@@ -213,7 +213,7 @@ class Grammar(object):
         returnProbabilities=False,
         # Must be a leaf (have no arguments)?
         mustBeLeaf=False,
-        checker=CustomArgChecker(False, 100, True, None),
+        checker=CombinedArgChecker.from_checkers([SimpleArgChecker(False, 100, True)]),
         path=[],
         can_use_lambda_wrapper=True,
         can_use_free_variable=True,
@@ -236,12 +236,7 @@ class Grammar(object):
                     not p.isPrimitive or p.name != "rev_fix_param"
                 ):
                     continue
-                if checker.should_be_reversible and not p.is_reversible:
-                    continue
-                if (
-                    checker.checker_funciton is not None
-                    and not checker.checker_funciton(p, path)
-                ):
+                if not checker(p):
                     continue
 
                 newContext, t = t.instantiate(context)
@@ -272,13 +267,8 @@ class Grammar(object):
         if not in_lambda_wrapper:
             for j, t in enumerate(environment):
                 try:
-                    if j > checker.max_index:
-                        continue
                     p = Index(j)
-                    if (
-                        checker.checker_funciton is not None
-                        and not checker.checker_funciton(p, path)
-                    ):
+                    if not checker(p):
                         continue
                     newContext = context.unify(t.returns(), request)
                     t = t.apply(newContext)
@@ -308,7 +298,7 @@ class Grammar(object):
 
         if can_use_free_variable and checker.can_have_free_vars:
             p = FreeVariable(None)
-            if checker.checker_funciton is None or checker.checker_funciton(p, path):
+            if checker(p):
                 candidates.append((self.logFreeVariable, request, p, context))
 
         if candidates == []:
@@ -393,7 +383,7 @@ class Grammar(object):
         request,
         expression,
         silent=False,
-        checker=CustomArgChecker(False, -1, True, None),
+        checker=CombinedArgChecker.from_checkers([SimpleArgChecker(False, -1, True)]),
         path=[],
     ):
         if isinstance(request, TypeNamedArgsConstructor) and request.isArrow():
@@ -431,12 +421,7 @@ class Grammar(object):
                 request.arguments[1],
                 expression.body,
                 silent=silent,
-                checker=CustomArgChecker(
-                    checker.should_be_reversible,
-                    checker.max_index + 1,
-                    checker.can_have_free_vars,
-                    checker.checker_funciton,
-                ),
+                checker=checker.step_arg_checker(expression),
                 path=path + [(expression, 0)],
             )
         if expression.isLetClause:
@@ -465,7 +450,9 @@ class Grammar(object):
                 t,
                 expression.var_def,
                 silent=silent,
-                checker=CustomArgChecker(False, -1, True, None),
+                checker=CombinedArgChecker.from_checkers(
+                    [SimpleArgChecker(False, -1, True)]
+                ),
                 path=path,
             )
             var_requests.update(var_def_requests)
@@ -482,7 +469,9 @@ class Grammar(object):
                 workspace[expression.inp_var_name],
                 expression.vars_def,
                 silent=silent,
-                checker=CustomArgChecker(True, -1, True, None),
+                checker=CombinedArgChecker.from_checkers(
+                    [SimpleArgChecker(True, -1, True)]
+                ),
                 path=path,
             )
             merged_workspace = dict(workspace, **var_requests)
@@ -546,10 +535,12 @@ class Grammar(object):
                 eprint("Expression is", expression)
                 eprint(f, "Not in candidates")
                 eprint("Candidates is", candidates)
-                # eprint("grammar:", grammar.productions)
+                # eprint("grammar:", self.productions)
                 eprint("request is", request)
                 eprint("xs", xs)
                 eprint("environment", environment)
+                eprint("path", path)
+                eprint("checker", checker)
                 assert False
             return context, {}, None
 
@@ -582,12 +573,7 @@ class Grammar(object):
                 tp.arguments[1],
                 f.body,
                 silent=silent,
-                checker=CustomArgChecker(
-                    checker.should_be_reversible,
-                    checker.max_index + 1,
-                    checker.can_have_free_vars,
-                    checker.checker_funciton,
-                ),
+                checker=checker.step_arg_checker(f),
                 path=path + [(f, -1)],
             )
             if newSummary is None:
@@ -605,6 +591,7 @@ class Grammar(object):
 
         for i, (argumentType, argument) in enumerate(zip(argumentTypes, xs)):
             argumentType = argumentType.apply(context)
+            current_checker = checker.step_arg_checker((f, i))
             context, new_var_requests, newSummary = self.likelihoodSummary(
                 context,
                 environment,
@@ -613,9 +600,9 @@ class Grammar(object):
                 argument,
                 silent=silent,
                 checker=(
-                    CustomArgChecker.combine(checker, custom_checkers[i])
+                    current_checker.combine(custom_checkers[i])
                     if i < len(custom_checkers) and custom_checkers[i] is not None
-                    else checker
+                    else current_checker
                 ),
                 path=path + [(f, i)],
             )

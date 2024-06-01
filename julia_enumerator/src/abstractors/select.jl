@@ -69,7 +69,7 @@ Base.hash(c::IsPossibleSelector, h::UInt64) =
 
 (c::IsPossibleSelector)(p::Primitive, skeleton, path) = true
 (c::IsPossibleSelector)(p::Invented, skeleton, path) = true
-(c::IsPossibleSelector)(p::Index, skeleton, path) = c.step_to_eq > 0
+(c::IsPossibleSelector)(p::Index, skeleton, path) = c.step_to_eq > 1
 
 function (c::IsPossibleSelector)(p::FreeVar, skeleton, path)
     return true

@@ -166,8 +166,12 @@ function __get_custom_arg_chekers(p::Primitive, checker, indices_checkers::Dict)
     out_checkers = []
     for i in 1:arg_count
         current_checker = step_arg_checker(checker, (p, i))
-        if i > length(custom_checkers) || isnothing(custom_checkers[i])
+        if i > length(custom_checkers)
             push!(out_checkers, current_checker)
+        elseif isnothing(custom_checkers[i])
+            push!(out_checkers, current_checker)
+        elseif isnothing(current_checker)
+            push!(out_checkers, custom_checkers[i])
         else
             combined = combine_arg_checkers(current_checker, custom_checkers[i])
             push!(out_checkers, combined)
@@ -212,7 +216,11 @@ function __get_custom_arg_chekers(p::Index, checker, indices_checkers::Dict)
 end
 
 function __get_custom_arg_chekers(p::Abstraction, checker, indices_checkers::Dict)
-    chekers, indices_checkers = __get_custom_arg_chekers(p.b, checker, Dict(i + 1 => c for (i, c) in indices_checkers))
+    chekers, indices_checkers = __get_custom_arg_chekers(
+        p.b,
+        isnothing(checker) ? checker : step_arg_checker(checker, ArgTurn(t0)),
+        Dict(i + 1 => c for (i, c) in indices_checkers),
+    )
     if haskey(indices_checkers, 0)
         out_checkers = vcat([indices_checkers[0]], chekers)
     elseif !isempty(chekers)

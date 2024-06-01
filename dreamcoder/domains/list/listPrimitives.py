@@ -2,13 +2,14 @@ from cProfile import label
 from dreamcoder.program import (
     Abstraction,
     Application,
-    CustomArgChecker,
+    ArgChecker,
     FreeVariable,
     Hole,
     Index,
     Invented,
     Primitive,
     Program,
+    SimpleArgChecker,
 )
 from dreamcoder.grammar import Grammar
 from dreamcoder.type import tlist, tint, tbool, arrow, t0, t1, t2
@@ -382,16 +383,6 @@ def _is_reversible_subfunction(p):
     return p.is_reversible and _has_no_holes(p)
 
 
-def _is_possible_subfunction(p, path):
-    if isinstance(p, Index):
-        return p.i != 0 or not isinstance(path[-1][0], Abstraction)
-    if isinstance(p, FreeVariable):
-        return True
-    if isinstance(p, Primitive) or isinstance(p, Invented):
-        return True
-    assert False
-
-
 def bootstrapTarget():
     """These are the primitives that we hope to learn from the bootstrapping procedure"""
     return [
@@ -441,7 +432,68 @@ def bootstrapTarget_extra():
 
 
 def _is_fixable_param(p):
+    return True
     return isinstance(p, Index) or isinstance(p, FreeVariable)
+
+
+class IsPossibleReversibleSubfunction(ArgChecker):
+    def __init__(self):
+        super().__init__(None, None, None)
+
+    def __eq__(self, value) -> bool:
+        return isinstance(value, IsPossibleReversibleSubfunction)
+
+    def __repr__(self) -> str:
+        return "IsPossibleReversibleSubfunction()"
+
+    def __call__(self, p):
+        return True
+
+    def step_arg_checker(self, arg):
+        if isinstance(arg, Index):
+            return None
+        return self
+
+
+class IsPossibleFixableParam(ArgChecker):
+    def __init__(self):
+        super().__init__(None, None, None)
+
+    def __eq__(self, value) -> bool:
+        return isinstance(value, IsPossibleFixableParam)
+
+    def __repr__(self) -> str:
+        return "IsPossibleFixableParam()"
+
+    def __call__(self, p):
+        # TODO: this is not a real algorithm, just a placeholder
+        if isinstance(p, Index) or isinstance(p, FreeVariable):
+            return True
+        return False
+
+    def step_arg_checker(self, arg):
+        return None
+
+
+class IsPossibleSubfunction(ArgChecker):
+    def __init__(self):
+        super().__init__(None, None, None)
+
+    def __eq__(self, value) -> bool:
+        return isinstance(value, IsPossibleSubfunction)
+
+    def __repr__(self) -> str:
+        return "IsPossibleSubfunction()"
+
+    def __call__(self, p):
+        if isinstance(p, Index) and p.i == 0:
+            return False
+        return True
+
+    def step_arg_checker(self, arg):
+        if isinstance(arg, Abstraction):
+            return self
+        return None
 
 
 def julia():
@@ -459,10 +511,7 @@ def julia():
             _map,
             is_reversible=True,
             custom_args_checkers=[
-                (
-                    _is_reversible_subfunction,
-                    CustomArgChecker(None, None, None, _is_possible_subfunction),
-                )
+                (_is_reversible_subfunction, IsPossibleSubfunction())
             ],
         ),
         Primitive(
@@ -471,10 +520,7 @@ def julia():
             _fold,
             is_reversible=True,
             custom_args_checkers=[
-                (
-                    _is_reversible_subfunction,
-                    CustomArgChecker(None, None, None, _is_possible_subfunction),
-                )
+                (_is_reversible_subfunction, IsPossibleSubfunction())
             ],
         ),
         Primitive(
@@ -483,14 +529,9 @@ def julia():
             None,
             is_reversible=True,
             custom_args_checkers=[
-                (_is_reversible_subfunction, CustomArgChecker(True, None, None, None)),
-                (
-                    _is_fixable_param,
-                    CustomArgChecker(
-                        None, None, None, CustomArgChecker._is_possible_fixable_param
-                    ),
-                ),
-                (_has_no_holes, CustomArgChecker(False, -1, False, None)),
+                (_is_reversible_subfunction, IsPossibleReversibleSubfunction()),
+                (_is_fixable_param, IsPossibleFixableParam()),
+                (_has_no_holes, SimpleArgChecker(False, -1, False)),
             ],
         ),
     ] + [p for p in bootstrapTarget_extra() if p.name != "map" and p.name != "fold"]

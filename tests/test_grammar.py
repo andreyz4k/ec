@@ -159,7 +159,7 @@ def test_program_likelihood2(julia_grammar):
     print(p)
     likelihood = julia_grammar.logLikelihood(request, p)
     print(likelihood)
-    assert likelihood == -29.584370594022218
+    assert likelihood == -30.091729134650784
 
 
 def sample_wrapper_programs():
@@ -350,7 +350,7 @@ let $v23::grid(color) = (repeat_grid $v4 $v5 $v6) in \
 (rev_select_grid (lambda (eq? $0 $v1)) $v23 $v22)",
             "time": 1.820842981338501,
             "logLikelihood": 0.0,
-            "logPrior": -767.261094215083,
+            "logPrior": -770.0577167101092,
         },
         {
             "program": "let $v1 = rev($inp0 = (tuple2_first $v1)) in let $v2::grid(color) = (tuple2_first $v1) in let $v3::list(t1) = Const(list(t1), Main.solver.PatternWrapper([any_object, any_object, any_object, any_object, any_object, any_object, any_object, any_object, any_object, any_object, any_object, any_object, any_object, any_object, any_object])) in let $v4::t0 = (reverse $v3) in let $v5::tuple2(t0, grid(color)) = (tuple2 $v4 $v2) in let $v6::grid(color) = (tuple2_second $v5) in let $v7::list(list(color)) = (rows $v6) in (rows_to_grid $v7)",
@@ -385,7 +385,7 @@ def sample_lambda_wrapper_programs():
             "program": "((lambda ((lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first $0) (tuple2_first $1)) (+ (tuple2_second $0) (tuple2_second $1)))) $1) $0 (lambda (tuple2 (fold (lambda (lambda (if (gt? $0 $1) $1 $0))) (map (lambda (tuple2_first $0)) (collect $0)) max_int) (fold (lambda (lambda (if (gt? $0 $1) $1 $0))) (map (lambda (tuple2_second $0)) (collect $0)) max_int))))) (tuple2_first $inp0))) (tuple2_second $inp0))",
             "time": 3.1087260246276855,
             "logLikelihood": 0.0,
-            "logPrior": -162.42083505541854,
+            "logPrior": -165.03180754835452,
             "request": TypeNamedArgsConstructor(
                 ARROW,
                 {"inp0": ttuple2(ttuple2(tint, tint), tset(ttuple2(tint, tint)))},
@@ -418,3 +418,55 @@ def test_parsing_lambda_wrappers(arc_grammar, solution):
     likelihood = arc_grammar.logLikelihood(solution["request"], p)
     print(likelihood)
     assert likelihood == solution["logPrior"]
+
+
+@pytest.fixture(scope="module")
+def arc_ext_grammar(arc_grammar):
+    arc_productions = [p for _, _, p in arc_grammar.productions]
+    added_inventions = [
+        "#(lambda (map_set (lambda (map_set (lambda (tuple2 $0 (tuple2_second $1))) (tuple2_first $0))) (map_set (lambda (tuple2 ((lambda ((lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first $0) (tuple2_first $1)) (+ (tuple2_second $0) (tuple2_second $1)))) $1) $0 (lambda (tuple2 (fold (lambda (lambda (if (gt? $0 $1) $1 $0))) (map (lambda (tuple2_first $0)) (collect $0)) max_int) (fold (lambda (lambda (if (gt? $0 $1) $1 $0))) (map (lambda (tuple2_second $0)) (collect $0)) max_int))))) (tuple2_first (tuple2_first $1)))) (tuple2_second (tuple2_first $0))) (tuple2_second $0))) $0)))",
+        "#(lambda (lambda (lambda (#(lambda (map_set (lambda (map_set (lambda (tuple2 $0 (tuple2_second $1))) (tuple2_first $0))) (map_set (lambda (tuple2 ((lambda ((lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first $0) (tuple2_first $1)) (+ (tuple2_second $0) (tuple2_second $1)))) $1) $0 (lambda (tuple2 (fold (lambda (lambda (if (gt? $0 $1) $1 $0))) (map (lambda (tuple2_first $0)) (collect $0)) max_int) (fold (lambda (lambda (if (gt? $0 $1) $1 $0))) (map (lambda (tuple2_second $0)) (collect $0)) max_int))))) (tuple2_first (tuple2_first $1)))) (tuple2_second (tuple2_first $0))) (tuple2_second $0))) $0))) (rev_select_set (lambda (eq? (tuple2_second (tuple2_first $0)) $1)) (map_set (lambda (tuple2 (tuple2 (tuple2 (+ (tuple2_first (tuple2_first (tuple2_first $0))) Const(int, 1)) (tuple2_second (tuple2_first (tuple2_first $0)))) (tuple2_second (tuple2_first $0))) (tuple2_second $0))) $1) $2)))))",
+        "#(lambda (lambda (lambda (cons $0 (cons $1 $2)))))",
+        "#(lambda (lambda (lambda (abs (- ($1 (tuple2_first $0)) ($1 (tuple2_first $2)))))))",
+        "#(lambda (lambda (lambda (rows_to_grid (cons (reverse $0) (#(lambda (lambda (lambda (cons $0 (cons $1 $2))))) Const(list(list(color)), Any[]) (reverse $1) (reverse $2)))))))",
+        "#(lambda (lambda (rev_fold_set (lambda (lambda (rev_greedy_cluster $2 $1 $0))) empty_set $1)))",
+        "#(lambda (rows_to_grid (reverse $0)))",
+        "#(lambda (lambda (lambda (#(lambda (map_set (lambda (map_set (lambda (tuple2 $0 (tuple2_second $1))) (tuple2_first $0))) (map_set (lambda (tuple2 ((lambda ((lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first $0) (tuple2_first $1)) (+ (tuple2_second $0) (tuple2_second $1)))) $1) $0 (lambda (tuple2 (fold (lambda (lambda (if (gt? $0 $1) $1 $0))) (map (lambda (tuple2_first $0)) (collect $0)) max_int) (fold (lambda (lambda (if (gt? $0 $1) $1 $0))) (map (lambda (tuple2_second $0)) (collect $0)) max_int))))) (tuple2_first (tuple2_first $1)))) (tuple2_second (tuple2_first $0))) (tuple2_second $0))) $0))) (rev_fix_param (rev_select_set (lambda (eq? (tuple2_second (tuple2_first $0)) $3)) $0 $1) $2 (lambda Const(set(tuple2(int, int)), Set([(0, 0), (0, 2), (2, 0), (1, 1), (0, 1), (2, 2), (2, 1)]))))))))",
+        "#(lambda (not (gt? $0 1)))",
+        "#(lambda (lambda (reverse (#(lambda (lambda (lambda (cons $0 (cons $1 $2))))) Const(list(color), Any[]) $0 $1))))",
+        "#(lambda (columns_to_grid (concat $0 (reverse $0))))",
+        "#(lambda (lambda (#(lambda (lambda (lambda (abs (- ($1 (tuple2_first $0)) ($1 (tuple2_first $2))))))) $0 (lambda (tuple2_second $0)) $1)))",
+        "#(lambda (lambda (#(lambda (lambda (lambda (abs (- ($1 (tuple2_first $0)) ($1 (tuple2_first $2))))))) $0 (lambda (tuple2_first $0)) $1)))",
+        "#(lambda (lambda (lambda (rev_select_grid (lambda (eq? $0 $1)) $1 $2))))",
+        "#(lambda (lambda (reverse (cons $0 $1))))",
+        "#(lambda (lambda (rows_to_grid (concat $0 $1))))",
+        "#(lambda (lambda (lambda (rev_fix_param (#(lambda (lambda (lambda (rev_select_grid (lambda (eq? $0 $1)) $1 $2)))) $0 $1 $2) $2 (lambda Const(color, 0))))))",
+        "#(lambda (lambda (tuple2_second (tuple2 $0 $1))))",
+        "#(lambda (lambda (#(lambda (lambda (lambda (cons $0 (cons $1 $2))))) Const(list(list(color)), Any[]) $0 $1)))",
+        "#(lambda (lambda (tuple2_first (tuple2 $0 $1))))",
+        "#(lambda (lambda (#(lambda (lambda (#(lambda (lambda (lambda (cons $0 (cons $1 $2))))) Const(list(list(color)), Any[]) $0 $1))) (reverse (reverse $0)) $1)))",
+        "#(lambda (lambda (rows_to_grid (cons $0 (reverse $1)))))",
+    ]
+    for invention in added_inventions:
+        p = Program.parse(invention)
+        arc_productions.append(p)
+    return Grammar.uniform(arc_productions)
+
+
+def test_parsing_invented_functions(arc_ext_grammar):
+    program_str = "let $v3, $v2, $v1 = rev($inp0 = (#(lambda (lambda (lambda (rev_fix_param (#(lambda (lambda (lambda (rev_select_grid (lambda (eq? $0 $1)) $1 $2)))) $0 $1 $2) $2 (lambda Const(color, 0)))))) $v1 $v2 $v3)) in let $v6, $v5, $v4 = rev($v2 = (repeat_grid $v4 $v5 $v6)) in let $v9, $v8, $v7 = rev($v3 = (rev_grid_elements $v7 $v8 $v9)) in let $v10 = rev($v7 = (#(lambda (lambda (rev_fold_set (lambda (lambda (rev_greedy_cluster $2 $1 $0))) empty_set $1))) $v10 (lambda (lambda (any_set (lambda (#(lambda (not (gt? $0 1))) (+ (#(lambda (lambda (#(lambda (lambda (lambda (abs (- ($1 (tuple2_first $0)) ($1 (tuple2_first $2))))))) $0 (lambda (tuple2_first $0)) $1))) $0 $2) (#(lambda (lambda (#(lambda (lambda (lambda (abs (- ($1 (tuple2_first $0)) ($1 (tuple2_first $2))))))) $0 (lambda (tuple2_second $0)) $1))) $0 $2)))) $0))))) in let $v14, $v15, $v13 = rev($v10 = (#(lambda (lambda (lambda (#(lambda (map_set (lambda (map_set (lambda (tuple2 $0 (tuple2_second $1))) (tuple2_first $0))) (map_set (lambda (tuple2 ((lambda ((lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first $0) (tuple2_first $1)) (+ (tuple2_second $0) (tuple2_second $1)))) $1) $0 (lambda (tuple2 (fold (lambda (lambda (if (gt? $0 $1) $1 $0))) (map (lambda (tuple2_first $0)) (collect $0)) max_int) (fold (lambda (lambda (if (gt? $0 $1) $1 $0))) (map (lambda (tuple2_second $0)) (collect $0)) max_int))))) (tuple2_first (tuple2_first $1)))) (tuple2_second (tuple2_first $0))) (tuple2_second $0))) $0))) (rev_fix_param (rev_select_set (lambda (eq? (tuple2_second (tuple2_first $0)) $3)) $0 $1) $2 (lambda Const(set(tuple2(int, int)), Set([(0, 0), (0, 2), (2, 0), (1, 1), (0, 1), (2, 2), (2, 1)])))))))) $v13 $v15 $v14)) in let $v20::set(set(tuple2(tuple2(int, int), color))) = (#(lambda (lambda (lambda (#(lambda (map_set (lambda (map_set (lambda (tuple2 $0 (tuple2_second $1))) (tuple2_first $0))) (map_set (lambda (tuple2 ((lambda ((lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first $0) (tuple2_first $1)) (+ (tuple2_second $0) (tuple2_second $1)))) $1) $0 (lambda (tuple2 (fold (lambda (lambda (if (gt? $0 $1) $1 $0))) (map (lambda (tuple2_first $0)) (collect $0)) max_int) (fold (lambda (lambda (if (gt? $0 $1) $1 $0))) (map (lambda (tuple2_second $0)) (collect $0)) max_int))))) (tuple2_first (tuple2_first $1)))) (tuple2_second (tuple2_first $0))) (tuple2_second $0))) $0))) (rev_select_set (lambda (eq? (tuple2_second (tuple2_first $0)) $1)) (map_set (lambda (tuple2 (tuple2 (tuple2 (+ (tuple2_first (tuple2_first (tuple2_first $0))) Const(int, 1)) (tuple2_second (tuple2_first (tuple2_first $0)))) (tuple2_second (tuple2_first $0))) (tuple2_second $0))) $1) $2))))) $v15 $v14 $v13) in let $v21::set(tuple2(tuple2(int, int), color)) = (#(lambda (lambda (rev_fold_set (lambda (lambda (rev_greedy_cluster $2 $1 $0))) empty_set $1))) $v20 (lambda (lambda (any_set (lambda (#(lambda (not (gt? $0 1))) (+ (#(lambda (lambda (#(lambda (lambda (lambda (abs (- ($1 (tuple2_first $0)) ($1 (tuple2_first $2))))))) $0 (lambda (tuple2_first $0)) $1))) $0 $2) (#(lambda (lambda (#(lambda (lambda (lambda (abs (- ($1 (tuple2_first $0)) ($1 (tuple2_first $2))))))) $0 (lambda (tuple2_second $0)) $1))) $0 $2)))) $0)))) in let $v22::grid(color) = (rev_grid_elements $v21 $v8 $v9) in let $v23::grid(color) = (repeat_grid $v4 $v5 $v6) in (#(lambda (lambda (lambda (rev_select_grid (lambda (eq? $0 $1)) $1 $2)))) $v22 $v23 $v1)"
+    print(program_str)
+    p = Program.parse(program_str)
+    print(p.show(False))
+    assert p.show(False) == program_str
+
+    likelihood = arc_ext_grammar.logLikelihood(
+        TypeNamedArgsConstructor(
+            ARROW,
+            {"inp0": tgrid(tcolor)},
+            tgrid(tcolor),
+        ),
+        p,
+    )
+    print(likelihood)
+    assert likelihood == -117.69828664514152

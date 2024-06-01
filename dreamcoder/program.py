@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from typing import Any
 from dreamcoder.type import *
 from dreamcoder.utilities import *
 
@@ -562,14 +563,14 @@ class Index(Program):
     def _get_custom_arg_checkers(self, checker, indices_checkers):
         if checker is None:
             return [], indices_checkers
-        if self.i in indices_checkers:
-            if checker == indices_checkers[self.i]:
-                return [], indices_checkers
-            indices_checkers[self.i] = CustomArgChecker.combine(
-                checker, indices_checkers[self.i]
-            )
-            return [], indices_checkers
-        indices_checkers[self.i] = checker
+        current_checker = checker.step_arg_checker(self)
+        if current_checker is not None:
+            if self.i in indices_checkers:
+                indices_checkers[self.i] = current_checker.combine(
+                    indices_checkers[self.i]
+                )
+            else:
+                indices_checkers[self.i] = current_checker
         return [], indices_checkers
 
     def fill_args(self, environment):
@@ -682,7 +683,8 @@ class Abstraction(Program):
 
     def _get_custom_arg_checkers(self, checker, indices_checkers):
         checkers, indices_checkers = self.body._get_custom_arg_checkers(
-            checker, {i + 1: c for (i, c) in indices_checkers.items()}
+            checker.step_arg_checker(self) if checker is not None else None,
+            {i + 1: c for (i, c) in indices_checkers.items()},
         )
         if 0 in indices_checkers:
             out_checkers = [indices_checkers[0]] + checkers
@@ -800,27 +802,27 @@ class Primitive(Program):
 
     def _get_custom_arg_checkers(self, checker, indices_checkers):
         if checker is None:
-            if self.name == "rev_fix_param":
-                return [None, None, self.custom_args_checkers[2][1]], indices_checkers
-            return [c[1] for c in self.custom_args_checkers], indices_checkers
+            return [
+                CombinedArgChecker.from_checkers([c[1]])
+                for c in self.custom_args_checkers
+            ], indices_checkers
+
         arg_count = len(self.tp.functionArguments())
-        if self.isreversible:
-            custom_checkers = self.custom_args_checkers
-            out_checkers = []
-            for i, c in enumerate(custom_checkers):
-                if (
-                    (self.name == "rev_fix_param" and i < 2)
-                    or c[1] == checker
-                    or c[1] is None
-                ):
-                    out_checkers.append(checker)
-                else:
-                    combined = CustomArgChecker.combine(checker, c[1])
-                    out_checkers.append(combined)
-            for _ in range(arg_count - len(custom_checkers)):
-                out_checkers.append(checker)
-            return out_checkers, indices_checkers
-        return [checker] * arg_count, indices_checkers
+        out_checkers = []
+
+        custom_checkers = self.get_custom_arg_checkers()
+        for i in range(arg_count):
+            current_checker = checker.step_arg_checker((self, i))
+            if i >= len(custom_checkers):
+                out_checkers.append(current_checker)
+            elif custom_checkers[i] is None:
+                out_checkers.append(current_checker)
+            elif current_checker is None:
+                out_checkers.append(custom_checkers[i])
+            else:
+                combined = current_checker.combine(custom_checkers[i])
+                out_checkers.append(combined)
+        return out_checkers, indices_checkers
 
     def _is_reversible(self, environment, args):
         if self.isreversible:
@@ -1342,21 +1344,36 @@ class Constant(Program):
         return []
 
 
-class CustomArgChecker:
-    def __init__(
-        self, should_be_reversible, max_index, can_have_free_vars, checker_funciton
-    ):
+class CombinedArgChecker:
+    def __init__(self, should_be_reversible, max_index, can_have_free_vars, checkers):
         self.should_be_reversible = should_be_reversible
         self.max_index = max_index
         self.can_have_free_vars = can_have_free_vars
-        self.checker_funciton = checker_funciton
+        self.inner_checkers = checkers
+
+    @classmethod
+    def from_checkers(cls, checkers):
+        should_be_reversible = None
+        max_index = None
+        can_have_free_vars = None
+        for checker in checkers:
+            if checker.should_be_reversible is not None:
+                should_be_reversible = checker.should_be_reversible
+            if checker.max_index is not None:
+                if max_index is None:
+                    max_index = checker.max_index
+                else:
+                    max_index = min(max_index, checker.max_index)
+            if checker.can_have_free_vars is not None:
+                can_have_free_vars = checker.can_have_free_vars
+        return cls(should_be_reversible, max_index, can_have_free_vars, checkers)
 
     def __eq__(self, other) -> bool:
         return (
             self.should_be_reversible == other.should_be_reversible
             and self.max_index == other.max_index
             and self.can_have_free_vars == other.can_have_free_vars
-            and self.checker_funciton == other.checker_funciton
+            and self.inner_checkers == other.inner_checkers
         )
 
     def __hash__(self) -> int:
@@ -1365,53 +1382,118 @@ class CustomArgChecker:
                 self.should_be_reversible,
                 self.max_index,
                 self.can_have_free_vars,
-                self.checker_funciton,
+                self.inner_checkers,
             )
         )
 
     def __repr__(self) -> str:
-        return f"CustomArgChecker({self.should_be_reversible}, {self.max_index}, {self.can_have_free_vars}, {self.checker_funciton})"
+        return f"CombinedArgChecker({self.should_be_reversible}, {self.max_index}, {self.can_have_free_vars}, {self.inner_checkers})"
 
-    @staticmethod
-    def _is_possible_fixable_param(p, path):
-        # TODO: implement real algorithm here
+    def __call__(self, p):
         if isinstance(p, Index):
-            return True
+            if self.max_index is not None and p.i > self.max_index:
+                return False
         if isinstance(p, FreeVariable):
-            return True
-        return False
+            if not self.can_have_free_vars:
+                return False
+        if isinstance(p, Invented) or isinstance(p, Primitive):
+            if self.should_be_reversible and not p.is_reversible:
+                return False
+        return all(checker(p) for checker in self.inner_checkers)
 
-    @classmethod
-    def combine(cls, old, new):
+    def step_arg_checker(self, arg):
+        new_checkers = [
+            checker.step_arg_checker(arg) for checker in self.inner_checkers
+        ]
+        new_checkers = [c for c in new_checkers if c is not None]
+        if not new_checkers:
+            return None
+        return CombinedArgChecker.from_checkers(new_checkers)
+
+    def combine(self, new):
+        if isinstance(new, CombinedArgChecker):
+            out = self
+            for c in new.inner_checkers:
+                out = out.combine(c)
+            return out
+
+        if new == self.inner_checkers[-1]:
+            return self
+
         if new.should_be_reversible is None:
-            should_be_reversible = old.should_be_reversible
+            should_be_reversible = self.should_be_reversible
         else:
             should_be_reversible = new.should_be_reversible
 
         if new.max_index is None:
-            max_index = old.max_index
-        elif old.max_index is None:
+            max_index = self.max_index
+        elif self.max_index is None:
             max_index = new.max_index
         else:
-            max_index = min(old.max_index, new.max_index)
+            max_index = min(self.max_index, new.max_index)
 
         if new.can_have_free_vars is None:
-            can_have_free_vars = old.can_have_free_vars
+            can_have_free_vars = self.can_have_free_vars
         else:
             can_have_free_vars = new.can_have_free_vars
 
-        if new.checker_funciton is None:
-            checker_funciton = old.checker_funciton
-        elif old.checker_funciton is None:
-            checker_funciton = new.checker_funciton
-        else:
+        new_checkers = self.inner_checkers + [new]
 
-            def checker_funciton(p, path):
-                return old.checker_funciton(p, path) and new.checker_funciton(p, path)
-
-        return CustomArgChecker(
-            should_be_reversible, max_index, can_have_free_vars, checker_funciton
+        return CombinedArgChecker(
+            should_be_reversible, max_index, can_have_free_vars, new_checkers
         )
+
+
+class ArgChecker:
+    def __init__(
+        self, should_be_reversible=None, max_index=None, can_have_free_vars=None
+    ):
+        self.should_be_reversible = should_be_reversible
+        self.max_index = max_index
+        self.can_have_free_vars = can_have_free_vars
+
+    def __eq__(self, value) -> bool:
+        return (
+            self.should_be_reversible == value.should_be_reversible
+            and self.max_index == value.max_index
+            and self.can_have_free_vars == value.can_have_free_vars
+        )
+
+    def __hash__(self) -> int:
+        return hash(
+            (self.should_be_reversible, self.max_index, self.can_have_free_vars)
+        )
+
+    def __call__(self, p):
+        raise NotImplementedError()
+
+    def step_arg_checker(self, arg):
+        raise NotImplementedError()
+
+
+class SimpleArgChecker(ArgChecker):
+    def __init__(
+        self, should_be_reversible=None, max_index=None, can_have_free_vars=None
+    ):
+        super().__init__(should_be_reversible, max_index, can_have_free_vars)
+
+    def __eq__(self, value) -> bool:
+        return isinstance(value, SimpleArgChecker) and super().__eq__(value)
+
+    def __call__(self, p) -> Any:
+        return True
+
+    def __repr__(self) -> str:
+        return f"SimpleArgChecker({self.should_be_reversible}, {self.max_index}, {self.can_have_free_vars})"
+
+    def step_arg_checker(self, arg):
+        if isinstance(arg, Abstraction):
+            return SimpleArgChecker(
+                should_be_reversible=self.should_be_reversible,
+                max_index=(self.max_index + 1 if self.max_index is not None else None),
+                can_have_free_vars=self.can_have_free_vars,
+            )
+        return self
 
 
 class ShareVisitor(object):
