@@ -1,12 +1,49 @@
 
+struct IsPossibleReversibleSubfunction <: ArgChecker
+    should_be_reversible::Bool
+    max_index::Nothing
+    can_have_free_vars::Nothing
+    IsPossibleReversibleSubfunction() = new(true, nothing, nothing)
+end
+
+Base.:(==)(c1::IsPossibleReversibleSubfunction, c2::IsPossibleReversibleSubfunction) = true
+
+Base.hash(c::IsPossibleReversibleSubfunction, h::UInt64) =
+    hash(c.should_be_reversible, hash(c.max_index, hash(c.can_have_free_vars, h)))
+
+(c::IsPossibleReversibleSubfunction)(p, skeleton, path) = true
+
+function step_arg_checker(c::IsPossibleReversibleSubfunction, arg::Index)
+    return nothing
+end
+
+function step_arg_checker(c::IsPossibleReversibleSubfunction, arg)
+    return c
+end
+
 # _is_fixable_param(p::Index) = true
 # _is_fixable_param(p::FreeVar) = true
 _is_fixable_param(p) = true
 
-function _is_possible_fixable_param(p::Index, skeleton, path)
+struct IsPossibleFixableParam <: ArgChecker
+    should_be_reversible::Nothing
+    max_index::Nothing
+    can_have_free_vars::Nothing
+    IsPossibleFixableParam() = new(nothing, nothing, nothing)
+end
+
+Base.:(==)(c1::IsPossibleFixableParam, c2::IsPossibleFixableParam) =
+    c1.should_be_reversible == c2.should_be_reversible &&
+    c1.max_index == c2.max_index &&
+    c1.can_have_free_vars == c2.can_have_free_vars
+
+Base.hash(c::IsPossibleFixableParam, h::UInt64) =
+    hash(c.should_be_reversible, hash(c.max_index, hash(c.can_have_free_vars, h)))
+
+function (c::IsPossibleFixableParam)(p::Index, skeleton, path)
     return has_index(follow_path(skeleton, vcat(path[begin:end-1], [LeftTurn(), RightTurn()])), p.n)
 end
-_is_possible_fixable_param(p, skeleton, path) = false
+(c::IsPossibleFixableParam)(p, skeleton, path) = false
 
 function _get_free_vars(p::FreeVar)
     return [p]
@@ -18,7 +55,7 @@ end
 _get_free_vars(p::Abstraction) = _get_free_vars(p.b)
 _get_free_vars(p::Program) = []
 
-function _is_possible_fixable_param(p::FreeVar, skeleton, path)
+function (c::IsPossibleFixableParam)(p::FreeVar, skeleton, path)
     if isnothing(p.var_id)
         return false
     end
@@ -35,6 +72,8 @@ function _is_possible_fixable_param(p::FreeVar, skeleton, path)
     end
     return false
 end
+
+step_arg_checker(::IsPossibleFixableParam, arg) = nothing
 
 function reverse_fix_param()
     function _reverse_fix_param(value, context)
@@ -85,9 +124,9 @@ function reverse_fix_param()
         )
     end
     return [
-        (_is_reversible_subfunction, CustomArgChecker(true, nothing, nothing, nothing)),
-        (_is_fixable_param, CustomArgChecker(nothing, nothing, nothing, _is_possible_fixable_param)),
-        (_has_no_holes, CustomArgChecker(false, -1, false, nothing)),
+        (_is_reversible_subfunction, IsPossibleReversibleSubfunction()),
+        (_is_fixable_param, IsPossibleFixableParam()),
+        (_has_no_holes, SimpleArgChecker(false, -1, false)),
     ],
     _reverse_fix_param
 end

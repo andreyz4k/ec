@@ -269,8 +269,7 @@ function reverse_map(n)
         )
     end
 
-    return [(_is_reversible_subfunction, CustomArgChecker(nothing, nothing, nothing, _is_possible_subfunction))],
-    _reverse_map
+    return [(_is_reversible_subfunction, IsPossibleSubfunction())], _reverse_map
 end
 
 function unfold_map_set_options(output_options)
@@ -496,8 +495,7 @@ function reverse_map_set()
         )
     end
 
-    return [(_is_reversible_subfunction, CustomArgChecker(nothing, nothing, nothing, _is_possible_subfunction))],
-    _reverse_map
+    return [(_is_reversible_subfunction, IsPossibleSubfunction())], _reverse_map
 end
 
 function _rmapper(f, n)

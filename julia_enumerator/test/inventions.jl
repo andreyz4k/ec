@@ -1,4 +1,4 @@
-using solver: load_problems, enumerate_for_task
+using solver: load_problems, enumerate_for_task, parse_program, _get_custom_arg_checkers
 
 @testset "Inventions" begin
     @testcase_log "slice-k-n with k=2 and n=1" begin
@@ -1028,5 +1028,12 @@ using solver: load_problems, enumerate_for_task
         )
         @test length(solutions) >= 1
         @test number_enumerated < 1000
+    end
+
+    @testcase_log "Custom arg checkers 1" begin
+        p = parse_program(
+            "#(lambda (lambda (lambda (rev_fix_param (#(lambda (lambda (lambda (rev_select_grid (lambda (eq? \$0 \$1)) \$1 \$2)))) \$0 \$1 \$2) \$2 (lambda Const(color, 0))))))",
+        )
+        @test _get_custom_arg_checkers(p) == []
     end
 end

@@ -237,12 +237,7 @@ function block_state_successors(
                         Hole(
                             request.arguments[2],
                             current_hole.grammar,
-                            CustomArgChecker(
-                                current_hole.candidates_filter.should_be_reversible,
-                                current_hole.candidates_filter.max_index + 1,
-                                current_hole.candidates_filter.can_have_free_vars,
-                                current_hole.candidates_filter.checker_function,
-                            ),
+                            step_arg_checker(current_hole.candidates_filter, ArgTurn(request.arguments[1])),
                             current_hole.possible_values,
                         ),
                     )),
@@ -279,10 +274,12 @@ function block_state_successors(
                     custom_arg_checkers = _get_custom_arg_checkers(candidate)
                     custom_checkers_args_count = length(custom_arg_checkers)
                     for i in 1:length(argument_types)
+                        current_checker = step_arg_checker(current_hole.candidates_filter, (candidate, i))
+
                         if i > custom_checkers_args_count || isnothing(custom_arg_checkers[i])
-                            arg_checker = current_hole.candidates_filter
+                            arg_checker = current_checker
                         else
-                            arg_checker = combine_arg_checkers(current_hole.candidates_filter, custom_arg_checkers[i])
+                            arg_checker = combine_arg_checkers(current_checker, custom_arg_checkers[i])
                         end
 
                         application_template = Apply(
@@ -550,8 +547,8 @@ function create_wrapping_program_prototype(
     candidate_functions = unifying_expressions(
         Tp[],
         context,
-        Hole(input_type, g, CustomArgChecker(true, -1, false, nothing), nothing),
-        Hole(input_type, g, CustomArgChecker(true, -1, false, nothing), nothing),
+        Hole(input_type, g, CombinedArgChecker([SimpleArgChecker(true, -1, false)]), nothing),
+        Hole(input_type, g, CombinedArgChecker([SimpleArgChecker(true, -1, false)]), nothing),
         [],
     )
 
@@ -568,7 +565,12 @@ function create_wrapping_program_prototype(
 
     wrapped_p = Apply(
         Apply(Apply(wrapper, filled_p), FreeVar(unknown_type, "r$var_ind")),
-        Hole(fixer_type, cg.contextual_library[wrapper][3], custom_arg_checkers[3], unknown_entry.values),
+        Hole(
+            fixer_type,
+            cg.contextual_library[wrapper][3],
+            CombinedArgChecker([custom_arg_checkers[3]]),
+            unknown_entry.values,
+        ),
     )
 
     state = EnumerationState(

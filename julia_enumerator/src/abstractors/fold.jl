@@ -104,8 +104,8 @@ function reverse_rev_fold()
         )
     end
     return [
-        (_is_reversible_subfunction, CustomArgChecker(true, -1, false, nothing)),
-        (_has_no_holes, CustomArgChecker(false, -1, false, nothing)),
+        (_is_reversible_subfunction, SimpleArgChecker(true, -1, false)),
+        (_has_no_holes, SimpleArgChecker(false, -1, false)),
     ],
     _reverse_rev_fold
 end
@@ -418,8 +418,7 @@ function reverse_fold(is_set = false)
         )
     end
 
-    return [(_is_reversible_subfunction, CustomArgChecker(nothing, nothing, nothing, _is_possible_subfunction))],
-    _reverse_fold
+    return [(_is_reversible_subfunction, IsPossibleSubfunction())], _reverse_fold
 end
 
 @define_custom_reverse_primitive(
@@ -733,8 +732,7 @@ function reverse_fold_grid(dim)
         )
     end
 
-    return [(_is_reversible_subfunction, CustomArgChecker(nothing, nothing, nothing, _is_possible_subfunction))],
-    _reverse_fold
+    return [(_is_reversible_subfunction, IsPossibleSubfunction())], _reverse_fold
 end
 
 @define_custom_reverse_primitive(

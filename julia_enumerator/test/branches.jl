@@ -34,13 +34,14 @@ using solver:
     all_abstractors,
     get_connected_from,
     get_connected_to,
-    CustomArgChecker
+    CombinedArgChecker,
+    SimpleArgChecker
 
 using DataStructures
 
 function initial_state(t, g)
     EnumerationState(
-        Hole(t, g.no_context, CustomArgChecker(false, -1, true, nothing), nothing),
+        Hole(t, g.no_context, CombinedArgChecker([SimpleArgChecker(false, -1, true)]), nothing),
         empty_context,
         [],
         0.0,

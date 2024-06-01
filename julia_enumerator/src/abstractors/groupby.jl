@@ -42,7 +42,7 @@ function reverse_rev_groupby()
             context.filled_vars,
         )
     end
-    return [(_has_no_holes, CustomArgChecker(false, -1, false, nothing))], _reverse_rev_groupby
+    return [(_has_no_holes, SimpleArgChecker(false, -1, false))], _reverse_rev_groupby
 end
 
 # This function is meant to be used with fold

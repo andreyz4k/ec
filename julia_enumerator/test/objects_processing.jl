@@ -16,13 +16,15 @@ using solver:
     every_primitive,
     t0,
     t1,
-    _is_possible_selector,
     tcolor,
     run_in_reverse,
     fix_option_hashes,
     run_with_arguments,
     all_abstractors,
-    calculate_dependent_vars
+    calculate_dependent_vars,
+    CombinedArgChecker,
+    step_arg_checker,
+    ArgTurn
 
 @testset "Objects processing" begin
     function unfold_options(options::Dict)
@@ -108,7 +110,21 @@ using solver:
                     Abstraction(
                         Apply(
                             Apply(every_primitive["eq?"], Index(0)),
-                            Hole(t0, nothing, all_abstractors[every_primitive["rev_select_grid"]][1][1][2], nothing),
+                            Hole(
+                                t0,
+                                nothing,
+                                step_arg_checker(
+                                    step_arg_checker(
+                                        CombinedArgChecker([
+                                            SimpleArgChecker(false, -1, true),
+                                            all_abstractors[every_primitive["rev_select_grid"]][1][1][2],
+                                        ]),
+                                        ArgTurn(tcolor),
+                                    ),
+                                    (every_primitive["eq?"], 2),
+                                ),
+                                nothing,
+                            ),
                         ),
                     ),
                 ),

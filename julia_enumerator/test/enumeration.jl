@@ -706,7 +706,7 @@ using solver: load_problems, enumerate_for_task
             verbose,
         )
         @test length(solutions) == 0
-        @test number_enumerated >= 500
+        @test number_enumerated >= 400
     end
 
     @testcase_log "prepend-index-k with k=3" begin

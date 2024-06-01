@@ -205,8 +205,8 @@ function _sample_wrapping_block(
         candidate_functions = unifying_expressions(
             Tp[],
             context,
-            Hole(inp_type, grammar.no_context, CustomArgChecker(true, -1, false, nothing), nothing),
-            Hole(inp_type, grammar.no_context, CustomArgChecker(true, -1, false, nothing), nothing),
+            Hole(inp_type, grammar.no_context, CombinedArgChecker([SimpleArgChecker(true, -1, false)]), nothing),
+            Hole(inp_type, grammar.no_context, CombinedArgChecker([SimpleArgChecker(true, -1, false)]), nothing),
             [],
         )
 
@@ -223,7 +223,7 @@ function _sample_wrapping_block(
             Hole(
                 fixer_type,
                 grammar.contextual_library[wrapper][3],
-                custom_arg_checkers[3],
+                CombinedArgChecker([custom_arg_checkers[3]]),
                 calculated_output_values[fixer_var],
             ),
         )
@@ -1049,12 +1049,7 @@ function _sampling_input_program_iteration(skeleton, path, context, max_depth, g
                 Hole(
                     request.arguments[2],
                     current_hole.grammar,
-                    CustomArgChecker(
-                        current_hole.candidates_filter.should_be_reversible,
-                        current_hole.candidates_filter.max_index + 1,
-                        current_hole.candidates_filter.can_have_free_vars,
-                        current_hole.candidates_filter.checker_function,
-                    ),
+                    step_arg_checker(current_hole.candidates_filter, ArgTurn(request.arguments[1])),
                     current_hole.possible_values,
                 ),
             )),
@@ -1096,10 +1091,11 @@ function _sampling_input_program_iteration(skeleton, path, context, max_depth, g
                     custom_arg_checkers = _get_custom_arg_checkers(candidate)
                     custom_checkers_args_count = length(custom_arg_checkers)
                     for i in 1:length(argument_types)
-                        if i > custom_checkers_args_count
-                            arg_checker = current_hole.candidates_filter
+                        current_checker = step_arg_checker(current_hole.candidates_filter, (candidate, i))
+                        if i > custom_checkers_args_count || isnothing(custom_arg_checkers[i])
+                            arg_checker = current_checker
                         else
-                            arg_checker = combine_arg_checkers(current_hole.candidates_filter, custom_arg_checkers[i])
+                            arg_checker = combine_arg_checkers(current_checker, custom_arg_checkers[i])
                         end
 
                         application_template = Apply(
@@ -1126,7 +1122,7 @@ end
 function _sample_input_program(grammar, return_type, max_depth, var_counter, failed_blocks, local_failed_blocks)
     context, return_type = instantiate(return_type, empty_context)
     path = []
-    skeleton = Hole(return_type, grammar.no_context, CustomArgChecker(true, -1, true, nothing), nothing)
+    skeleton = Hole(return_type, grammar.no_context, CombinedArgChecker([SimpleArgChecker(true, -1, true)]), nothing)
     while true
         if is_reversible(skeleton) || (!isa(skeleton, Hole) && isempty(path))
             break
@@ -1151,7 +1147,7 @@ end
 function _sample_output_program(grammar, return_type, max_depth, var_counter, input_var_types, failed_blocks)
     context, return_type = instantiate(return_type, empty_context)
     path = []
-    skeleton = Hole(return_type, grammar.no_context, CustomArgChecker(false, -1, true, nothing), nothing)
+    skeleton = Hole(return_type, grammar.no_context, CombinedArgChecker([SimpleArgChecker(false, -1, true)]), nothing)
     while true
         if is_reversible(skeleton) || (!isa(skeleton, Hole) && isempty(path))
             break
@@ -1170,12 +1166,7 @@ function _sample_output_program(grammar, return_type, max_depth, var_counter, in
                     Hole(
                         request.arguments[2],
                         current_hole.grammar,
-                        CustomArgChecker(
-                            current_hole.candidates_filter.should_be_reversible,
-                            current_hole.candidates_filter.max_index + 1,
-                            current_hole.candidates_filter.can_have_free_vars,
-                            current_hole.candidates_filter.checker_function,
-                        ),
+                        step_arg_checker(current_hole.candidates_filter, ArgTurn(request.arguments[1])),
                         current_hole.possible_values,
                     ),
                 )),
@@ -1216,11 +1207,11 @@ function _sample_output_program(grammar, return_type, max_depth, var_counter, in
                         custom_arg_checkers = _get_custom_arg_checkers(candidate)
                         custom_checkers_args_count = length(custom_arg_checkers)
                         for i in 1:length(argument_types)
-                            if i > custom_checkers_args_count
-                                arg_checker = current_hole.candidates_filter
+                            current_checker = step_arg_checker(current_hole.candidates_filter, (candidate, i))
+                            if i > custom_checkers_args_count || isnothing(custom_arg_checkers[i])
+                                arg_checker = current_checker
                             else
-                                arg_checker =
-                                    combine_arg_checkers(current_hole.candidates_filter, custom_arg_checkers[i])
+                                arg_checker = combine_arg_checkers(current_checker, custom_arg_checkers[i])
                             end
 
                             application_template = Apply(

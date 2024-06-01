@@ -49,20 +49,38 @@ end
 is_reversible_selector(p::Abstraction) = _is_reversible_selector(p.b, true) == 1
 is_reversible_selector(p::Program) = false
 
-_is_possible_selector(p::Primitive, skeleton, path) = true
-_is_possible_selector(p::Invented, skeleton, path) = true
-_is_possible_selector(p::Index, skeleton, path) = p.n != 0 || !isa(path[end], ArgTurn)
+struct IsPossibleSelector <: ArgChecker
+    should_be_reversible::Bool
+    max_index::Union{Int64,Nothing}
+    can_have_free_vars::Union{Bool,Nothing}
+    effective_path::Vector
+    IsPossibleSelector(max_index, can_have_free_vars, path) = new(false, max_index, can_have_free_vars, path)
+end
 
-function _is_possible_selector(p::FreeVar, skeleton, path)
-    if skeleton isa Abstraction &&
-       skeleton.b isa Apply &&
-       skeleton.b.f isa Apply &&
-       skeleton.b.f.f == every_primitive["eq?"] &&
-       length(path) == 2 &&
-       path[2] == RightTurn()
-        return true
+(c::IsPossibleSelector)(p::Primitive, skeleton, path) = true
+(c::IsPossibleSelector)(p::Invented, skeleton, path) = true
+(c::IsPossibleSelector)(p::Index, skeleton, path) = length(c.effective_path) > 1
+
+function (c::IsPossibleSelector)(p::FreeVar, skeleton, path)
+    return true
+end
+
+function step_arg_checker(c::IsPossibleSelector, arg::ArgTurn)
+    return IsPossibleSelector(isnothing(c.max_index) ? 0 : c.max_index + 1, false, vcat(c.effective_path, [arg]))
+end
+
+function step_arg_checker(c::IsPossibleSelector, arg)
+    if length(c.effective_path) == 1 && arg == (every_primitive["eq?"], 2)
+        return IsPossibleSelector(nothing, nothing, vcat(c.effective_path, [arg]))
     end
-    return false
+    if isnothing(c.can_have_free_vars)
+        return IsPossibleSelector(0, false, vcat(c.effective_path, [arg]))
+    end
+    return IsPossibleSelector(c.max_index, false, vcat(c.effective_path, [arg]))
+end
+
+function step_arg_checker(c::IsPossibleSelector, arg::Index)
+    return nothing
 end
 
 function reverse_rev_select()
@@ -150,7 +168,7 @@ function reverse_rev_select()
             )
         end
     end
-    return [(is_reversible_selector, CustomArgChecker(false, -1, nothing, _is_possible_selector))], _reverse_rev_select
+    return [(is_reversible_selector, IsPossibleSelector(-1, false, []))], _reverse_rev_select
 end
 
 @define_custom_reverse_primitive(
@@ -257,7 +275,7 @@ function reverse_rev_select_set()
             )
         end
     end
-    return [(is_reversible_selector, CustomArgChecker(false, -1, nothing, _is_possible_selector))], _reverse_rev_select
+    return [(is_reversible_selector, IsPossibleSelector(-1, false, []))], _reverse_rev_select
 end
 
 @define_custom_reverse_primitive(

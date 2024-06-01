@@ -18,9 +18,7 @@ using solver:
     any_object,
     tgrid,
     tcolor,
-    _is_possible_selector,
     is_reversible_selector,
-    _is_possible_subfunction,
     _is_reversible_subfunction,
     arrow,
     tbool,
@@ -39,8 +37,11 @@ using solver:
     run_in_reverse,
     UnifyError,
     all_abstractors,
-    combine_arg_checkers,
-    TooManyOptionsException
+    TooManyOptionsException,
+    CombinedArgChecker,
+    SimpleArgChecker,
+    step_arg_checker,
+    ArgTurn
 using DataStructures: OrderedDict, Accumulator
 
 @testset "Abstractors" begin
@@ -1687,9 +1688,16 @@ using DataStructures: OrderedDict, Accumulator
                                         Hole(
                                             t1,
                                             nothing,
-                                            combine_arg_checkers(
-                                                all_abstractors[every_primitive["map"]][1][1][2],
-                                                all_abstractors[every_primitive["rev_select"]][1][1][2],
+                                            step_arg_checker(
+                                                step_arg_checker(
+                                                    CombinedArgChecker([
+                                                        SimpleArgChecker(false, -1, true),
+                                                        all_abstractors[every_primitive["map"]][1][1][2],
+                                                        all_abstractors[every_primitive["rev_select"]][1][1][2],
+                                                    ]),
+                                                    ArgTurn(tcolor),
+                                                ),
+                                                (every_primitive["eq?"], 2),
                                             ),
                                             nothing,
                                         ),

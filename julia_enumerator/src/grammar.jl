@@ -141,7 +141,6 @@ function unifying_expressions(
     request = current_hole.t
     g = current_hole.grammar
     candidates_filter = current_hole.candidates_filter
-    checker_function = candidates_filter.checker_function
 
     if length(path) >= 2 && isa(path[end], ArgTurn) && isa(path[end-1], LeftTurn)
         in_lambda_wrapper = true
@@ -153,11 +152,8 @@ function unifying_expressions(
         variable_candidates = []
     else
         variable_candidates = collect(skipmissing(map(enumerate(environment)) do (j, t)
-            if (j - 1) > candidates_filter.max_index
-                return missing
-            end
             p = Index(j - 1)
-            if !isnothing(checker_function) && !checker_function(p, skeleton, path)
+            if !candidates_filter(p, skeleton, path)
                 return missing
             end
             ll = g.log_variable
@@ -203,10 +199,7 @@ function unifying_expressions(
                 if in_lambda_wrapper && p != every_primitive["rev_fix_param"]
                     return missing
                 end
-                if candidates_filter.should_be_reversible && !is_reversible(p)
-                    return missing
-                end
-                if !isnothing(checker_function) && !checker_function(p, skeleton, path)
+                if !candidates_filter(p, skeleton, path)
                     return missing
                 end
 
@@ -232,19 +225,12 @@ function unifying_expressions(
         lambda_context, arg_type = instantiate(t0, context)
         lambda_context, lambda_type = apply_context(lambda_context, request)
         lambda_candidates = [(
-            Abstraction(
-                Hole(
-                    lambda_type,
-                    g,
-                    CustomArgChecker(
-                        candidates_filter.should_be_reversible,
-                        candidates_filter.max_index + 1,
-                        candidates_filter.can_have_free_vars,
-                        candidates_filter.checker_function,
-                    ),
-                    nothing,
-                ),
-            ),
+            Abstraction(Hole(
+                lambda_type,
+                g,
+                step_arg_checker(candidates_filter, ArgTurn(arg_type)),
+                nothing,
+            )),
             [arg_type],
             lambda_context,
             g.log_lambda,
@@ -257,7 +243,7 @@ function unifying_expressions(
     if candidates_filter.can_have_free_vars
         if !isa(skeleton, Hole)
             p = FreeVar(request, nothing)
-            if isnothing(checker_function) || checker_function(p, skeleton, path)
+            if candidates_filter(p, skeleton, path)
                 push!(free_var_candidates, (p, [], context, g.log_free_var))
             end
         end
@@ -270,7 +256,7 @@ function unifying_expressions(
                     new_context = unify(new_context, return_type, request)
                     (new_context, t) = apply_context(new_context, t)
                     p = FreeVar(t, "r$i")
-                    if isnothing(checker_function) || checker_function(p, skeleton, path)
+                    if candidates_filter(p, skeleton, path)
                         push!(free_var_candidates, (p, [], new_context, g.log_free_var))
                     end
                 catch e
@@ -306,9 +292,8 @@ function unifying_expressions(
         end
         for candidate in const_candidates
             p = SetConst(request, candidate)
-            # if (isnothing(candidates_filter) && !current_hole.should_be_reversible) ||
-            #    (!isnothing(candidates_filter) && candidates_filter(p, skeleton, path))
-            if isnothing(checker_function) || checker_function(p, skeleton, path)
+
+            if candidates_filter(p, skeleton, path)
                 push!(candidates, (p, [], context, 0.001))
             end
         end
