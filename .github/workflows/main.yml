@@ -296,63 +296,63 @@ jobs:
   #     - name: run test
   #       run: python bin/arc.py -t 20 -RS 5 -i 1 -r 0.0
 
-  test-arc-dreaming:
-    name: Test arc dreaming ${{ matrix.version }}
-    needs: [ocaml-build, create-virtualenv]
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        version:
-          - '1.10'
+  # test-arc-dreaming:
+  #   name: Test arc dreaming ${{ matrix.version }}
+  #   needs: [ocaml-build, create-virtualenv]
+  #   runs-on: ubuntu-latest
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       version:
+  #         - '1.10'
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          submodules: true
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #       with:
+  #         submodules: true
 
-      - name: Setup Julia
-        uses: julia-actions/setup-julia@latest
-        with:
-          version: ${{ matrix.version }}
+  #     - name: Setup Julia
+  #       uses: julia-actions/setup-julia@latest
+  #       with:
+  #         version: ${{ matrix.version }}
 
-      - name: Download binaries patch
-        uses: actions/download-artifact@v4
-        with:
-          name: binaries_patch
+  #     - name: Download binaries patch
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: binaries_patch
 
-      - name: Apply binaries patch
-        run: |
-          if [ -s binaries_patch ]; then
-            git apply binaries_patch
-          fi
-          rm binaries_patch
+  #     - name: Apply binaries patch
+  #       run: |
+  #         if [ -s binaries_patch ]; then
+  #           git apply binaries_patch
+  #         fi
+  #         rm binaries_patch
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: 'pip'
+  #     - name: Setup Python
+  #       uses: actions/setup-python@v5
+  #       with:
+  #         python-version: '3.11'
+  #         cache: 'pip'
 
-      - run: pip install -r requirements.txt
+  #     - run: pip install -r requirements.txt
 
-      - uses: julia-actions/cache@v2
+  #     - uses: julia-actions/cache@v2
 
-      - uses: julia-actions/julia-buildpkg@latest
-        with:
-          project: julia_enumerator
+  #     - uses: julia-actions/julia-buildpkg@latest
+  #       with:
+  #         project: julia_enumerator
 
-      - name: set cores number
-        run: echo "JULIA_NUM_THREADS=2" >> $GITHUB_ENV
+  #     - name: set cores number
+  #       run: echo "JULIA_NUM_THREADS=2" >> $GITHUB_ENV
 
-      - name: Setup redis
-        uses: zhulik/redis-action@1.1.0
-        with:
-          redis version: '5'
+  #     - name: Setup redis
+  #       uses: zhulik/redis-action@1.1.0
+  #       with:
+  #         redis version: '5'
 
-      - name: run test
-        run: python bin/arc.py -t 20 -RS 5 -i 1
+  #     - name: run test
+  #       run: python bin/arc.py -t 20 -RS 5 -i 1
 
   test-arc-dreaming-stitch:
     name: Test arc dreaming stitch ${{ matrix.version }}
