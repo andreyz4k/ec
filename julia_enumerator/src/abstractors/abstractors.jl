@@ -1060,12 +1060,9 @@ _get_var_indices(p::Index) = [p.n]
 _get_var_indices(p::FreeVar) = [-Int64(p.var_id)]
 _get_var_indices(p::Primitive) = []
 _get_var_indices(p::Invented) = []
+_get_var_indices(p::SetConst) = []
 _get_var_indices(p::Apply) = vcat(_get_var_indices(p.f), _get_var_indices(p.x))
 _get_var_indices(p::Abstraction) = [((i > 0) ? (i - 1) : i) for i in _get_var_indices(p.b) if i != 0]
-
-function _has_external_vars(f)
-    return !isempty(_get_var_indices(f))
-end
 
 function calculate_dependent_vars(p, inputs, output)
     context = ReverseRunContext([], [], [], Dict(), copy(inputs))

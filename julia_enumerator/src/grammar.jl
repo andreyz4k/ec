@@ -225,12 +225,7 @@ function unifying_expressions(
         lambda_context, arg_type = instantiate(t0, context)
         lambda_context, lambda_type = apply_context(lambda_context, request)
         lambda_candidates = [(
-            Abstraction(Hole(
-                lambda_type,
-                g,
-                step_arg_checker(candidates_filter, ArgTurn(arg_type)),
-                nothing,
-            )),
+            Abstraction(Hole(lambda_type, g, step_arg_checker(candidates_filter, ArgTurn(arg_type)), nothing)),
             [arg_type],
             lambda_context,
             g.log_lambda,
