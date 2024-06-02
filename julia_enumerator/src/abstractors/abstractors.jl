@@ -253,11 +253,11 @@ function _is_reversible(p::Primitive, environment, args)
 end
 
 function _is_reversible(p::Apply, environment, args)
-    checkers = _is_reversible(p.f, environment, vcat(args, [p.x]))
+    filled_x = _fill_args(p.x, environment)
+    checkers = _is_reversible(p.f, environment, vcat(args, [filled_x]))
     if isnothing(checkers)
         return nothing
     end
-    filled_x = _fill_args(p.x, environment)
     if isempty(checkers)
         if isa(filled_x, Hole)
             if !isarrow(filled_x.t)
@@ -294,6 +294,15 @@ function _is_reversible(p::Abstraction, environment, args)
 end
 
 _is_reversible(p::SetConst, environment, args) = []
+
+function _is_reversible(p::Index, environment, args)
+    filled_p = _fill_args(p, environment)
+    if isa(filled_p, Index)
+        return []
+    else
+        return is_reversible(filled_p)
+    end
+end
 
 _is_reversible(p::Program, environment, args) = nothing
 

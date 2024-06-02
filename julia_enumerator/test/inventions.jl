@@ -1,4 +1,4 @@
-using solver: load_problems, enumerate_for_task, parse_program, _get_custom_arg_checkers
+using solver: load_problems, enumerate_for_task, parse_program, _get_custom_arg_checkers, is_reversible
 
 @testset "Inventions" begin
     @testcase_log "slice-k-n with k=2 and n=1" begin
@@ -1034,6 +1034,13 @@ using solver: load_problems, enumerate_for_task, parse_program, _get_custom_arg_
         p = parse_program(
             "#(lambda (lambda (lambda (rev_fix_param (#(lambda (lambda (lambda (rev_select_grid (lambda (eq? \$0 \$1)) \$1 \$2)))) \$0 \$1 \$2) \$2 (lambda Const(color, 0))))))",
         )
+        @test is_reversible(p)
+        @test _get_custom_arg_checkers(p) == []
+    end
+
+    @testcase_log "Custom arg checkers 2" begin
+        p = parse_program("#(lambda (lambda (lambda (rows_to_grid (\$0 (\$1 (rows (rows_to_grid \$2))))))))")
+        @test is_reversible(p)
         @test _get_custom_arg_checkers(p) == []
     end
 end

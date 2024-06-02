@@ -325,10 +325,10 @@ class Application(Program):
         return Application(self.f.fill_args(environment), self.x.fill_args(environment))
 
     def _is_reversible(self, environment, args):
-        checkers = self.f._is_reversible(environment, args + [self.x])
+        filled_x = self.x.fill_args(environment)
+        checkers = self.f._is_reversible(environment, args + [filled_x])
         if checkers is None:
             return None
-        filled_x = self.x.fill_args(environment)
         if not checkers:
             if isinstance(filled_x, Hole):
                 if filled_x.t.isArrow():
@@ -559,6 +559,12 @@ class Index(Program):
 
     def __hash__(self):
         return self.i
+
+    def _is_reversible(self, environment, args):
+        filled_i = self.fill_args(environment)
+        if isinstance(filled_i, Index):
+            return []
+        return filled_i.is_reversible
 
     def _get_custom_arg_checkers(self, checker, indices_checkers):
         if checker is None:
