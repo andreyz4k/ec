@@ -1,3 +1,4 @@
+import math
 import pytest
 from dreamcoder.domains.list.listPrimitives import bootstrapTarget_extra, julia
 from dreamcoder.domains.arc.primitives import (
@@ -149,7 +150,7 @@ def test_program_likelihood(
     print(p)
     likelihood = base_grammar.logLikelihood(base_task.request, p)
     print(likelihood)
-    assert likelihood == expected_likelihood
+    assert math.isclose(likelihood, expected_likelihood)
 
 
 def test_program_likelihood2(julia_grammar):
@@ -159,7 +160,7 @@ def test_program_likelihood2(julia_grammar):
     print(p)
     likelihood = julia_grammar.logLikelihood(request, p)
     print(likelihood)
-    assert likelihood == -30.091729134650784
+    assert math.isclose(likelihood, -30.091729134650784)
 
 
 def sample_wrapper_programs():
@@ -260,7 +261,7 @@ def test_parsing_wrap(julia_grammar, solution):
     )
     likelihood = julia_grammar.logLikelihood(request, p)
     print(likelihood)
-    assert likelihood == solution["logPrior"]
+    assert math.isclose(likelihood, solution["logPrior"])
 
 
 @pytest.fixture(scope="module")
@@ -376,7 +377,7 @@ def test_parsing_arc(arc_grammar, solution):
     )
     likelihood = arc_grammar.logLikelihood(request, p)
     print(likelihood)
-    assert likelihood == solution["logPrior"]
+    assert math.isclose(likelihood, solution["logPrior"])
 
 
 def sample_lambda_wrapper_programs():
@@ -417,7 +418,7 @@ def test_parsing_lambda_wrappers(arc_grammar, solution):
 
     likelihood = arc_grammar.logLikelihood(solution["request"], p)
     print(likelihood)
-    assert likelihood == solution["logPrior"]
+    assert math.isclose(likelihood, solution["logPrior"])
 
 
 @pytest.fixture(scope="module")
@@ -486,4 +487,4 @@ def test_parsing_invented_functions(arc_ext_grammar, solution):
         p,
     )
     print(likelihood)
-    assert likelihood == solution["logLikelihood"]
+    assert math.isclose(likelihood, solution["logLikelihood"])
