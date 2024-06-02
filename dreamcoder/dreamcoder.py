@@ -228,6 +228,7 @@ def ecIterator(
     auxiliaryLoss=False,
     custom_wake_generative=None,
     type_weights=None,
+    manualSolutions=None,
 ):
     if enumerationTimeout is None:
         eprint(
@@ -300,6 +301,7 @@ def ecIterator(
             "testingTasks",
             "compressor",
             "custom_wake_generative",
+            "manualSolutions",
         }
         and v is not None
     }
@@ -377,13 +379,58 @@ def ecIterator(
         # for graphing of testing tasks
         numTestingTasks = len(testingTasks) if len(testingTasks) != 0 else None
 
+        if manualSolutions:
+            with open(manualSolutions, "r") as handle:
+                manual_solutions_raw = json.load(handle)
+
+            manual_solutions = {}
+            for t_name, solutions in manual_solutions_raw.items():
+                parsed_solutions = [Program.parse(s) for s in solutions]
+                manual_solutions[t_name] = parsed_solutions
+        else:
+            manual_solutions = None
+
         result = ECResult(
             parameters=parameters,
             grammars=[grammar],
-            taskSolutions={t: Frontier([], task=t) for t in tasks},
+            taskSolutions={
+                t: (
+                    Frontier([], task=t)
+                    if not manual_solutions or t.name not in manual_solutions
+                    else Frontier(
+                        [
+                            FrontierEntry(
+                                program=p,
+                                logLikelihood=0.0,
+                                logPrior=grammar.logLikelihood(t.request, p),
+                            )
+                            for p in manual_solutions[t.name]
+                        ],
+                        task=t,
+                    )
+                )
+                for t in tasks
+            },
             recognitionModel=None,
             numTestingTasks=numTestingTasks,
-            allFrontiers={t: Frontier([], task=t) for t in tasks},
+            allFrontiers={
+                t: (
+                    Frontier([], task=t)
+                    if not manual_solutions or t.name not in manual_solutions
+                    else Frontier(
+                        [
+                            FrontierEntry(
+                                program=p,
+                                logLikelihood=0.0,
+                                logPrior=grammar.logLikelihood(t.request, p),
+                            )
+                            for p in manual_solutions[t.name]
+                        ],
+                        task=t,
+                    )
+                )
+                for t in tasks
+            },
         )
 
     # Set up the task batcher.
@@ -1371,6 +1418,12 @@ def commandlineArguments(
     parser.add_argument(
         "--countParameters",
         help="Load a checkpoint then report how many parameters are in the recognition model.",
+        default=None,
+        type=str,
+    )
+    parser.add_argument(
+        "--manualSolutions",
+        help="JSON file containing manual solutions for tasks.",
         default=None,
         type=str,
     )

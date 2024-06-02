@@ -238,122 +238,6 @@ jobs:
       - name: run test
         run: python bin/list.py -t 20 -RS 5 -i 2 --solver=julia -g --primitives=julia --compressor stitch
 
-  # test-arc:
-  #   name: Test arc ${{ matrix.version }}
-  #   needs: [ocaml-build, create-virtualenv]
-  #   runs-on: ubuntu-latest
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       version:
-  #         - '1.10'
-
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
-  #       with:
-  #         submodules: true
-
-  #     - name: Setup Julia
-  #       uses: julia-actions/setup-julia@latest
-  #       with:
-  #         version: ${{ matrix.version }}
-
-  #     - name: Download binaries patch
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: binaries_patch
-
-  #     - name: Apply binaries patch
-  #       run: |
-  #         if [ -s binaries_patch ]; then
-  #           git apply binaries_patch
-  #         fi
-  #         rm binaries_patch
-
-  #     - name: Setup Python
-  #       uses: actions/setup-python@v5
-  #       with:
-  #         python-version: '3.11'
-  #         cache: 'pip'
-
-  #     - run: pip install -r requirements.txt
-
-  #     - uses: julia-actions/cache@v2
-
-  #     - uses: julia-actions/julia-buildpkg@latest
-  #       with:
-  #         project: julia_enumerator
-
-  #     - name: set cores number
-  #       run: echo "JULIA_NUM_THREADS=2" >> $GITHUB_ENV
-
-  #     - name: Setup redis
-  #       uses: zhulik/redis-action@1.1.0
-  #       with:
-  #         redis version: '5'
-
-  #     - name: run test
-  #       run: python bin/arc.py -t 20 -RS 5 -i 1 -r 0.0
-
-  # test-arc-dreaming:
-  #   name: Test arc dreaming ${{ matrix.version }}
-  #   needs: [ocaml-build, create-virtualenv]
-  #   runs-on: ubuntu-latest
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       version:
-  #         - '1.10'
-
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
-  #       with:
-  #         submodules: true
-
-  #     - name: Setup Julia
-  #       uses: julia-actions/setup-julia@latest
-  #       with:
-  #         version: ${{ matrix.version }}
-
-  #     - name: Download binaries patch
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: binaries_patch
-
-  #     - name: Apply binaries patch
-  #       run: |
-  #         if [ -s binaries_patch ]; then
-  #           git apply binaries_patch
-  #         fi
-  #         rm binaries_patch
-
-  #     - name: Setup Python
-  #       uses: actions/setup-python@v5
-  #       with:
-  #         python-version: '3.11'
-  #         cache: 'pip'
-
-  #     - run: pip install -r requirements.txt
-
-  #     - uses: julia-actions/cache@v2
-
-  #     - uses: julia-actions/julia-buildpkg@latest
-  #       with:
-  #         project: julia_enumerator
-
-  #     - name: set cores number
-  #       run: echo "JULIA_NUM_THREADS=2" >> $GITHUB_ENV
-
-  #     - name: Setup redis
-  #       uses: zhulik/redis-action@1.1.0
-  #       with:
-  #         redis version: '5'
-
-  #     - name: run test
-  #       run: python bin/arc.py -t 20 -RS 5 -i 1
-
   test-arc-dreaming-stitch:
     name: Test arc dreaming stitch ${{ matrix.version }}
     needs: [create-virtualenv]
@@ -400,7 +284,6 @@ jobs:
       - name: run test
         run: python bin/arc.py -t 20 -RS 5 -i 1 --compressor stitch
 
-
   test-arc-dreaming-cnn-stitch:
     name: Test arc dreaming CNN stitch ${{ matrix.version }}
     needs: [create-virtualenv]
@@ -446,6 +329,53 @@ jobs:
 
       - name: run test
         run: python bin/arc.py -t 20 -RS 500 -i 1 --compressor stitch --featureExtractor arcCNN
+
+  test-arc-dreaming-cnn-stitch-manual:
+    name: Test arc dreaming CNN stitch with manual solutions ${{ matrix.version }}
+    needs: [create-virtualenv]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        version:
+          - '1.10'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Setup Julia
+        uses: julia-actions/setup-julia@latest
+        with:
+          version: ${{ matrix.version }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - run: pip install -r requirements.txt
+
+      - uses: julia-actions/cache@v2
+
+      - uses: julia-actions/julia-buildpkg@latest
+        with:
+          project: julia_enumerator
+
+      - name: set cores number
+        run: echo "JULIA_NUM_THREADS=2" >> $GITHUB_ENV
+
+      - name: Setup redis
+        uses: zhulik/redis-action@1.1.0
+        with:
+          redis version: '5'
+
+      - name: run test
+        run: python bin/arc.py -t 20 -RS 500 -i 1 --compressor stitch --featureExtractor arcCNN --manualSolutions dreamcoder/domains/arc/manual_solutions.json
+
 
   test-julia-recognition-list:
     name: Test julia recognition list ${{ matrix.version }}
