@@ -564,7 +564,7 @@ class Index(Program):
         filled_i = self.fill_args(environment)
         if isinstance(filled_i, Index):
             return []
-        return filled_i.is_reversible
+        return filled_i._is_reversible(environment, args)
 
     def _get_custom_arg_checkers(self, checker, indices_checkers):
         if checker is None:
