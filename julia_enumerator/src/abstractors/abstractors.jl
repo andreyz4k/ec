@@ -300,7 +300,7 @@ function _is_reversible(p::Index, environment, args)
     if isa(filled_p, Index)
         return []
     else
-        return _is_reversible(filled_p, environment, args)
+        return _is_reversible(filled_p, Dict(), [])
     end
 end
 
