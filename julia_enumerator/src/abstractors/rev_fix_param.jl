@@ -76,9 +76,9 @@ function reverse_fix_param()
     function _reverse_fix_param(value, context)
         # @info "Running reverse fix param for $value in context $context"
         body = context.arguments[end]
-        param = context.arguments[end-1]
+        param = context.arguments[end-1].p
         fixer = context.arguments[end-2]
-        fixer_value = try_evaluate_program(fixer, [value], Dict())
+        fixer_value = try_evaluate_program(fixer.p, [value], Dict())
         if isa(fixer_value, EitherOptions) || isa(fixer_value, PatternWrapper) || isa(fixer_value, AbductibleValue)
             error("Fixer value cannot be wildcard")
         end

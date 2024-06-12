@@ -19,9 +19,10 @@ end
 
 function rev_fold(f, init, acc)
     outs = []
+    f_info = gather_info(f.p)
     while acc != init
         calculated_acc, context =
-            _run_in_reverse(f.p, acc, ReverseRunContext([], [], Any[missing, missing], Dict(), Dict()))
+            _run_in_reverse(f_info, acc, ReverseRunContext([], [], Any[missing, missing], Dict(), Dict()))
         if !isempty(context.filled_indices) || !isempty(context.filled_vars)
             error("Can't have external indices or vars in rev_fold")
         end
@@ -42,10 +43,12 @@ function rev_fold_set(f, init, acc)
     queue = Set{Any}([(acc, Set())])
     visited = Set()
 
+    f_info = gather_info(f.p)
+
     while !isempty(queue)
         acc, outs = pop!(queue)
         calculated_acc, context =
-            _run_in_reverse(f.p, acc, ReverseRunContext([], [], Any[missing, missing], Dict(), Dict()))
+            _run_in_reverse(f_info, acc, ReverseRunContext([], [], Any[missing, missing], Dict(), Dict()))
         if !isempty(context.filled_indices) || !isempty(context.filled_vars)
             error("Can't have external indices or vars in rev_fold")
         end
@@ -90,9 +93,9 @@ function reverse_rev_fold()
 
         init = context.arguments[end-1]
 
-        acc = run_with_arguments(init, [], Dict())
+        acc = run_with_arguments(init.p, [], Dict())
         for val in value
-            acc = run_with_arguments(f, [val, acc], Dict())
+            acc = run_with_arguments(f.p, [val, acc], Dict())
         end
         return value,
         ReverseRunContext(
@@ -124,16 +127,15 @@ end
     reverse_rev_fold()
 )
 
-function _can_be_output_option(option, context, external_indices)
+function _can_be_output_option(option, context, external_indices, external_vars)
     for i in external_indices
-        if i >= 0
-            if !haskey(option[2], i)
-                return false
-            end
-        else
-            if !haskey(option[3], UInt64(-i))
-                return false
-            end
+        if !haskey(option[2], i)
+            return false
+        end
+    end
+    for i in external_vars
+        if !haskey(option[3], i)
+            return false
         end
     end
     if !ismissing(context.calculated_arguments[end-2])
@@ -179,8 +181,6 @@ function reverse_fold(is_set = false)
     function _reverse_fold(value, context)
         f = context.arguments[end]
 
-        external_indices = _get_var_indices(f)
-
         output_options = Set()
         visited = Set()
         options_queue = Queue{UInt64}()
@@ -215,7 +215,7 @@ function reverse_fold(is_set = false)
         enqueue!(options_queue, h)
         options_queue_dict[h] = starting_option
 
-        if _can_be_output_option(starting_option, context, external_indices)
+        if _can_be_output_option(starting_option, context, f.indices, f.var_ids)
             _insert_output_option(output_options, starting_option, is_set)
         end
 
@@ -369,7 +369,7 @@ function reverse_fold(is_set = false)
                     if !haskey(options_queue_dict, new_h) && !in(new_h, visited)
                         enqueue!(options_queue, new_h)
                         options_queue_dict[new_h] = new_option
-                        if _can_be_output_option(new_option, context, external_indices)
+                        if _can_be_output_option(new_option, context, f.indices, f.var_ids)
                             _insert_output_option(output_options, new_option, is_set)
                             if length(output_options) >= 100
                                 break
@@ -483,8 +483,6 @@ function reverse_fold_grid(dim)
     function _reverse_fold(value, context)
         f = context.arguments[end]
 
-        external_indices = _get_var_indices(f)
-
         output_options = Set()
         visited = Set()
         options_queue = Queue{UInt64}()
@@ -510,7 +508,7 @@ function reverse_fold_grid(dim)
         enqueue!(options_queue, h)
         options_queue_dict[h] = starting_option
 
-        if _can_be_output_option(starting_option, context, external_indices)
+        if _can_be_output_option(starting_option, context, f.indices, f.var_ids)
             _insert_output_option_grid(output_options, starting_option)
         end
 
@@ -686,7 +684,7 @@ function reverse_fold_grid(dim)
                     if !haskey(options_queue_dict, new_h) && !in(new_h, visited)
                         enqueue!(options_queue, new_h)
                         options_queue_dict[new_h] = new_option
-                        if _can_be_output_option(new_option, context, external_indices)
+                        if _can_be_output_option(new_option, context, f.indices, f.var_ids)
                             _insert_output_option_grid(output_options, new_option)
 
                             if length(output_options) >= 100

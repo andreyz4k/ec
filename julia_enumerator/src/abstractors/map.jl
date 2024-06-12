@@ -111,16 +111,15 @@ function _unfold_item_options(calculated_arguments, indices, vars)
     return Set([(calculated_arguments, indices, vars)])
 end
 
-function _can_be_output_map_option(option, context, external_indices)
+function _can_be_output_map_option(option, context, external_indices, external_vars)
     for i in external_indices
-        if i >= 0
-            if !haskey(option[3], i)
-                return false
-            end
-        else
-            if !haskey(option[4], UInt64(-i))
-                return false
-            end
+        if !haskey(option[3], i)
+            return false
+        end
+    end
+    for i in external_vars
+        if !haskey(option[4], i)
+            return false
         end
     end
     return true
@@ -129,8 +128,6 @@ end
 function reverse_map(n)
     function _reverse_map(value, context)
         f = context.arguments[end]
-
-        external_indices = _get_var_indices(f)
 
         # @info "Reversing map with $f"
         options_queue = Queue{UInt64}()
@@ -220,7 +217,7 @@ function reverse_map(n)
                     # @info new_option
 
                     if i == length(value)
-                        if _can_be_output_map_option(new_option, context, external_indices)
+                        if _can_be_output_map_option(new_option, context, f.indices, f.var_ids)
                             push!(output_options, new_option)
                             # @info "Inserted output option $new_option"
                         end
@@ -330,8 +327,6 @@ function reverse_map_set()
     function _reverse_map(value, context)
         f = context.arguments[end]
 
-        external_indices = _get_var_indices(f)
-
         # @info "Reversing map with $f"
         options_queue = Queue{UInt64}()
         options_queue_dict = Dict()
@@ -427,7 +422,7 @@ function reverse_map_set()
                                     option[5],
                                     option[6],
                                 )
-                                if _can_be_output_map_option(new_option, context, external_indices)
+                                if _can_be_output_map_option(new_option, context, f.indices, f.var_ids)
                                     push!(output_options, new_option)
                                     # @info "Inserted output option $new_option"
                                 end
@@ -446,7 +441,7 @@ function reverse_map_set()
                         # @info new_option
 
                         if isempty(new_option[6])
-                            if _can_be_output_map_option(new_option, context, external_indices)
+                            if _can_be_output_map_option(new_option, context, f.indices, f.var_ids)
                                 push!(output_options, new_option)
                                 # @info "Inserted output option $new_option"
                             end

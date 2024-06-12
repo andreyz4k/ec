@@ -95,7 +95,8 @@ end
 
 function reverse_rev_select()
     function _reverse_rev_select(value, context)
-        f = context.arguments[end]
+        f_info = context.arguments[end]
+        f = f_info.p
 
         if isa(f, Abstraction) &&
            isa(f.b, Apply) &&
@@ -141,7 +142,7 @@ function reverse_rev_select()
             out_others = EitherOptions(options_others)
 
             _, out_context = _run_in_reverse(
-                f.b.x,
+                f_info.b_info.x_info,
                 out_selector,
                 ReverseRunContext(
                     context.arguments,
@@ -205,7 +206,8 @@ end
 
 function reverse_rev_select_set()
     function _reverse_rev_select(value, context)
-        f = context.arguments[end]
+        f_info = context.arguments[end]
+        f = f_info.p
 
         if isa(f, Abstraction) &&
            isa(f.b, Apply) &&
@@ -250,7 +252,7 @@ function reverse_rev_select_set()
             out_others = EitherOptions(options_others)
 
             _, out_context = _run_in_reverse(
-                f.b.x,
+                f_info.b_info.x_info,
                 out_selector,
                 ReverseRunContext(
                     context.arguments,
