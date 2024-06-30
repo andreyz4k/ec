@@ -186,14 +186,16 @@ end
     "rev_select",
     arrow(arrow(t0, tbool), tlist(t0), tlist(t0), tlist(t0)),
     (f -> (base -> (others -> rev_select(base, others)))),
-    reverse_rev_select()
+    [(is_reversible_selector, IsPossibleSelector(-1, false, 0))],
+    reverse_rev_select
 )
 
 @define_custom_reverse_primitive(
     "rev_select_grid",
     arrow(arrow(t0, tbool), tgrid(t0), tgrid(t0), tgrid(t0)),
     (f -> (base -> (others -> rev_select(base, others)))),
-    reverse_rev_select()
+    [(is_reversible_selector, IsPossibleSelector(-1, false, 0))],
+    reverse_rev_select
 )
 
 function rev_select_set(base, others)
@@ -294,5 +296,6 @@ end
     "rev_select_set",
     arrow(arrow(t0, tbool), tset(t0), tset(t0), tset(t0)),
     (f -> (base -> (others -> rev_select_set(base, others)))),
-    reverse_rev_select_set()
+    [(is_reversible_selector, IsPossibleSelector(-1, false, 0))],
+    reverse_rev_select_set
 )

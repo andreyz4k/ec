@@ -53,5 +53,6 @@ end
     "rev_greedy_cluster",
     arrow(arrow(t0, tset(t0), tbool), t0, tset(tset(t0)), tset(tset(t0))),
     (f -> (item -> (grs -> rev_greedy_cluster(f, item, grs)))),
-    reverse_rev_greedy_cluster()
+    [(_has_no_holes, SimpleArgChecker(false, -1, false))],
+    reverse_rev_greedy_cluster
 )

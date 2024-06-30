@@ -160,17 +160,22 @@ struct EitherOptions
         if length(options) > 100
             throw(TooManyOptionsException())
         end
-        first_value = first(values(options))
-        if all(v -> v == first_value, values(options))
-            return first_value
+        if length(options) == 1
+            return first(values(options))
         end
+        # first_value = first(values(options))
+        # if all(v -> v == first_value, values(options))
+        #     return first_value
+        # end
         options_count = sum(get_options_count(v) for v in values(options))
-        if options_count > 100
+        if options_count > 1000
             throw(TooManyOptionsException())
         end
         return new(options, hash(options), options_count)
     end
 end
+
+EitherOptions(options, hash_value, options_count) = EitherOptions(options)
 
 Base.:(==)(v1::EitherOptions, v2::EitherOptions) = v1.hash_value == v2.hash_value && v1.options == v2.options
 Base.hash(v::EitherOptions, h::UInt64) = hash(v.hash_value, h)
@@ -365,6 +370,113 @@ function remap_options_hashes(paths, value)
     return value
 end
 
+function _build_eithers(tree, prev_path, leaf_paths)
+    options = Dict()
+    for (h, v) in tree
+        next_path = vcat(prev_path, h)
+        if in(next_path, leaf_paths)
+            options[h] = v
+        else
+            options[h] = _build_eithers(v, next_path, leaf_paths)
+        end
+    end
+    return EitherOptions(options)
+end
+
+function _follow_path(value::EitherOptions, path, i)
+    if i > length(path)
+        return true, value, path
+    end
+    h = path[i]
+    if haskey(value.options, h)
+        return _follow_path(value.options[h], path, i + 1)
+    else
+        return false, value, path[1:i-1]
+    end
+end
+
+_follow_path(value, path, i) = true, value, path[1:i-1]
+
+function _drop_remap_option_paths(value::EitherOptions, prev_path, drop_paths, retain_paths, paths_remappings)
+    out_options = Dict()
+    leaf_paths = []
+    if haskey(paths_remappings, prev_path)
+        drop_paths = copy(drop_paths)
+        for (child_path, insert_path) in paths_remappings[prev_path]
+            found, ch_value, child_path_used = _follow_path(value, child_path, 1)
+            if !found
+                continue
+            end
+            cur_tree = out_options
+            for h in insert_path
+                if !haskey(cur_tree, h)
+                    cur_tree[h] = Dict()
+                end
+                cur_tree = cur_tree[h]
+            end
+            for i in 1:length(child_path_used)-1
+                h = child_path_used[i]
+                if !haskey(cur_tree, h)
+                    cur_tree[h] = Dict()
+                end
+                cur_tree = cur_tree[h]
+            end
+            cur_tree[child_path_used[end]] = ch_value
+            push!(leaf_paths, vcat(prev_path, insert_path, child_path_used))
+            push!(drop_paths, vcat(prev_path, child_path_used))
+        end
+    end
+    for (h, option) in value.options
+        next_path = vcat(prev_path, [h])
+        if in(next_path, drop_paths)
+            continue
+        end
+        if in(next_path, retain_paths)
+            op_value, op_leaf_paths =
+                _drop_remap_option_paths(option, next_path, drop_paths, retain_paths, paths_remappings)
+            if !isempty(op_leaf_paths)
+                out_options[h] = op_value
+                append!(leaf_paths, op_leaf_paths)
+            end
+        else
+            out_options[h] = option
+            push!(leaf_paths, next_path)
+        end
+    end
+
+    return out_options, leaf_paths
+end
+
+function _drop_remap_option_paths(value, prev_path, drop_paths, retain_paths, paths_remappings)
+    return value, [prev_path]
+end
+
+function drop_remap_option_paths(value::EitherOptions, drop_paths, retain_paths, paths_remappings)
+    value_tree, leaf_paths = _drop_remap_option_paths(value, [], drop_paths, retain_paths, paths_remappings)
+    return _build_eithers(value_tree, [], leaf_paths)
+end
+
+function drop_remap_option_paths(value, drop_paths, retain_paths, paths_remappings)
+    return value
+end
+
+function cleanup_options(value::EitherOptions)
+    out_options = Dict()
+    for (h, option) in value.options
+        out_option = cleanup_options(option)
+        out_options[h] = out_option
+    end
+    op = first(values(out_options))
+    if all(v -> v == op, values(out_options))
+        return op
+    end
+    return EitherOptions(out_options)
+end
+
+function cleanup_options(value)
+    return value
+end
+
 struct AnyObject end
 any_object = AnyObject()
 
@@ -427,6 +539,18 @@ end
 
 all_options(entry::EitherOptions) = union([all_options(op) for (_, op) in entry.options]...)
 all_options(value) = Set([value])
+
+function all_path_options(value::EitherOptions)
+    output = []
+    for (h, option) in value.options
+        for (v, path) in all_path_options(option)
+            push!(output, (v, vcat([h], path)))
+        end
+    end
+    return output
+end
+
+all_path_options(value) = [(value, [])]
 
 function filter_const_options(current_candidates, value::EitherOptions, next_candidates)
     for (_, option) in value.options

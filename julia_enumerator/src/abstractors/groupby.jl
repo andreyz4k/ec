@@ -50,5 +50,6 @@ end
     "rev_groupby",
     arrow(arrow(t0, t1), t0, tset(ttuple2(t1, tset(t0))), tset(ttuple2(t1, tset(t0)))),
     (f -> (item -> (grs -> rev_groupby(f, item, grs)))),
-    reverse_rev_groupby()
+    [(_has_no_holes, SimpleArgChecker(false, -1, false))],
+    reverse_rev_groupby
 )

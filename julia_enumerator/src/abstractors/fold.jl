@@ -117,14 +117,22 @@ end
     "rev_fold",
     arrow(arrow(t0, t1, t1), t1, t1, tlist(t0)),
     (f -> (init -> (acc -> rev_fold(f, init, acc)))),
-    reverse_rev_fold()
+    [
+        (_is_reversible_subfunction, SimpleArgChecker(true, -1, false)),
+        (_has_no_holes, SimpleArgChecker(false, -1, false)),
+    ],
+    reverse_rev_fold
 )
 
 @define_custom_reverse_primitive(
     "rev_fold_set",
     arrow(arrow(t0, t1, t1), t1, t1, tset(t0)),
     (f -> (init -> (acc -> rev_fold_set(f, init, acc)))),
-    reverse_rev_fold()
+    [
+        (_is_reversible_subfunction, SimpleArgChecker(true, -1, false)),
+        (_has_no_holes, SimpleArgChecker(false, -1, false)),
+    ],
+    reverse_rev_fold
 )
 
 function _can_be_output_option(option, context, external_indices, external_vars)
@@ -425,7 +433,8 @@ end
     "fold",
     arrow(arrow(t0, t1, t1), tlist(t0), t1, t1),
     (op -> (itr -> (init -> foldr((v, acc) -> op(v)(acc), itr, init = init)))),
-    reverse_fold()
+    [(_is_reversible_subfunction, IsPossibleSubfunction())],
+    reverse_fold()[2]
 )
 # @define_custom_reverse_primitive(
 #     "fold_set",
@@ -437,7 +446,8 @@ end
     "fold_set",
     arrow(arrow(t0, t1, t1), tset(t0), t1, t1),
     (op -> (itr -> (init -> reduce((acc, v) -> op(v)(acc), itr, init = init)))),
-    reverse_fold(true)
+    [(_is_reversible_subfunction, IsPossibleSubfunction())],
+    reverse_fold(true)[2]
 )
 
 function _insert_output_option_grid(output_options, option)
@@ -744,7 +754,8 @@ end
             )
         )
     ),
-    reverse_fold_grid(1)
+    [(_is_reversible_subfunction, IsPossibleSubfunction())],
+    reverse_fold_grid(1)[2]
 )
 @define_custom_reverse_primitive(
     "fold_v",
@@ -757,5 +768,6 @@ end
             )
         )
     ),
-    reverse_fold_grid(2)
+    [(_is_reversible_subfunction, IsPossibleSubfunction())],
+    reverse_fold_grid(2)[2]
 )

@@ -306,182 +306,432 @@ end
 
 _is_reversible(p::Program, environment, args) = nothing
 
-is_reversible(p::Program)::Bool = !isnothing(_is_reversible(p, Dict(), []))
+function is_reversible(p::Program)::Bool
+    try
+        !isnothing(_is_reversible(p, Dict(), []))
+    catch
+        @warn "Error while checking reversibility for $p"
+        rethrow()
+    end
+end
 
 struct SkipArg end
 
+struct ValueContainer
+    value::Any
+    value_paths::Dict{Any,Vector{Vector{UInt64}}}
+end
+
+function ValueContainer(value)
+    paths = Dict()
+    for (v, path) in all_path_options(value)
+        if !haskey(paths, v)
+            paths[v] = []
+        end
+        push!(paths[v], path)
+    end
+    return ValueContainer(value, paths)
+end
+
+function ValueContainer(value::ValueContainer)
+    @assert false
+end
+
+Base.:(==)(v1::ValueContainer, v2::ValueContainer) = v1.value == v2.value
+
+function drop_remap_option_paths(value::ValueContainer, drop_paths, retain_paths, paths_remappings)
+    return ValueContainer(drop_remap_option_paths(value.value, drop_paths, retain_paths, paths_remappings))
+end
+
 mutable struct ReverseRunContext
+    upstream_outputs::Vector{ValueContainer}
     arguments::Vector{Any}
-    predicted_arguments::Vector{Any}
+    predicted_arguments::Vector{ValueContainer}
     calculated_arguments::Vector{Any}
-    filled_indices::Dict{Int64,Any}
-    filled_vars::Dict{UInt64,Any}
+    filled_indices::Dict{Int64,ValueContainer}
+    filled_vars::Dict{UInt64,ValueContainer}
 end
 
-ReverseRunContext() = ReverseRunContext([], [], [], Dict(), Dict())
+ReverseRunContext() = ReverseRunContext([], [], [], [], Dict(), Dict())
 
-struct UnifyError <: Exception end
+function filter_context_values(ctx::ReverseRunContext, failed_paths, retain_paths, paths_remappings)
+    if isempty(failed_paths) && isempty(paths_remappings)
+        return ctx
+    end
+    # @info "Filtering context $ctx"
+    # @info "Failed paths $failed_paths"
+    # @info "Retain paths $retain_paths"
+    # @info "Paths remappings $paths_remappings"
+    filtered_predicted_arguments =
+        [drop_remap_option_paths(v, failed_paths, retain_paths, paths_remappings) for v in ctx.predicted_arguments]
+    filtered_upstream_outputs =
+        [drop_remap_option_paths(v, failed_paths, retain_paths, paths_remappings) for v in ctx.upstream_outputs]
+    filtered_indices = Dict(
+        i => drop_remap_option_paths(val, failed_paths, retain_paths, paths_remappings) for
+        (i, val) in ctx.filled_indices
+    )
+    filtered_vars = Dict(
+        k => drop_remap_option_paths(val, failed_paths, retain_paths, paths_remappings) for (k, val) in ctx.filled_vars
+    )
 
-_unify_values(v1, v2::AnyObject, check_pattern) = v1
-_unify_values(v1::AnyObject, v2, check_pattern) = v2
-_unify_values(v1::AnyObject, v2::AnyObject, check_pattern) = v2
-
-_unify_values(v1::PatternWrapper, v2, check_pattern) = _wrap_wildcard(_unify_values(v1.value, v2, true))
-_unify_values(v1, v2::PatternWrapper, check_pattern) = _wrap_wildcard(_unify_values(v1, v2.value, true))
-_unify_values(v1::PatternWrapper, v2::PatternWrapper, check_pattern) =
-    _wrap_wildcard(_unify_values(v1.value, v2.value, true))
-
-_unify_values(v1::PatternWrapper, v2::AnyObject, check_pattern) = v1
-_unify_values(v1::AnyObject, v2::PatternWrapper, check_pattern) = v2
-
-_unify_values(v1::AbductibleValue, v2, check_pattern) = _wrap_abductible(_unify_values(v1.value, v2, true))
-_unify_values(v1, v2::AbductibleValue, check_pattern) = _wrap_abductible(_unify_values(v1, v2.value, true))
-_unify_values(v1::AbductibleValue, v2::AbductibleValue, check_pattern) =
-    _wrap_abductible(_unify_values(v1.value, v2.value, true))
-
-_unify_values(v1::AbductibleValue, v2::AnyObject, check_pattern) = v1
-_unify_values(v1::AnyObject, v2::AbductibleValue, check_pattern) = v2
-
-_unify_values(v1::AbductibleValue, v2::PatternWrapper, check_pattern) =
-    _wrap_abductible(_unify_values(v1.value, v2.value, true))
-_unify_values(v1::PatternWrapper, v2::AbductibleValue, check_pattern) =
-    _wrap_abductible(_unify_values(v1.value, v2.value, true))
-
-function _unify_values(v1::EitherOptions, v2::PatternWrapper, check_pattern)
-    @invoke _unify_values(v1::EitherOptions, v2::Any, check_pattern)
+    res = ReverseRunContext(
+        filtered_upstream_outputs,
+        ctx.arguments,
+        filtered_predicted_arguments,
+        ctx.calculated_arguments,
+        filtered_indices,
+        filtered_vars,
+    )
+    # @info "Filtered context $res"
+    return res
 end
 
-function _unify_values(v1::EitherOptions, v2::AbductibleValue, check_pattern)
-    @invoke _unify_values(v1::EitherOptions, v2::Any, check_pattern)
+_try_unify_values(v1, v2::AnyObject, check_pattern) = true, v1
+_try_unify_values(v1::AnyObject, v2, check_pattern) = true, v2
+_try_unify_values(v1::AnyObject, v2::AnyObject, check_pattern) = true, v2
+
+function _try_unify_values(v1::PatternWrapper, v2, check_pattern)
+    found, res = _try_unify_values(v1.value, v2, true)
+    if !found
+        return found, res
+    end
+    return found, _wrap_wildcard(res)
 end
 
-function _unify_values(v1::EitherOptions, v2, check_pattern)
+function _try_unify_values(v1, v2::PatternWrapper, check_pattern)
+    found, res = _try_unify_values(v1, v2.value, true)
+    if !found
+        return found, res
+    end
+    return found, _wrap_wildcard(res)
+end
+
+function _try_unify_values(v1::PatternWrapper, v2::PatternWrapper, check_pattern)
+    found, res = _try_unify_values(v1.value, v2.value, true)
+    if !found
+        return found, res
+    end
+    return found, _wrap_wildcard(res)
+end
+
+_try_unify_values(v1::PatternWrapper, v2::AnyObject, check_pattern) = true, v1
+_try_unify_values(v1::AnyObject, v2::PatternWrapper, check_pattern) = true, v2
+
+function _try_unify_values(v1::AbductibleValue, v2, check_pattern)
+    found, res = _try_unify_values(v1.value, v2, true)
+    if !found
+        return found, res
+    end
+    found, _wrap_abductible(res)
+end
+
+function _try_unify_values(v1, v2::AbductibleValue, check_pattern)
+    found, res = _try_unify_values(v1, v2.value, true)
+    if !found
+        return found, res
+    end
+    found, _wrap_abductible(res)
+end
+
+function _try_unify_values(v1::AbductibleValue, v2::AbductibleValue, check_pattern)
+    found, res = _try_unify_values(v1.value, v2.value, true)
+    if !found
+        return found, res
+    end
+    found, _wrap_abductible(res)
+end
+
+_try_unify_values(v1::AbductibleValue, v2::AnyObject, check_pattern) = true, v1
+_try_unify_values(v1::AnyObject, v2::AbductibleValue, check_pattern) = true, v2
+
+function _try_unify_values(v1::AbductibleValue, v2::PatternWrapper, check_pattern)
+    found, res = _try_unify_values(v1.value, v2.value, true)
+    if !found
+        return found, res
+    end
+    found, _wrap_abductible(res)
+end
+
+function _try_unify_values(v1::PatternWrapper, v2::AbductibleValue, check_pattern)
+    found, res = _try_unify_values(v1.value, v2.value, true)
+    if !found
+        return found, res
+    end
+    found, _wrap_abductible(res)
+end
+
+function _try_unify_values(v1::EitherOptions, v2::PatternWrapper, check_pattern)
+    @invoke _try_unify_values(v1::EitherOptions, v2::Any, check_pattern)
+end
+
+function _try_unify_values(v1::EitherOptions, v2::AbductibleValue, check_pattern)
+    @invoke _try_unify_values(v1::EitherOptions, v2::Any, check_pattern)
+end
+
+function _try_unify_values(v1::EitherOptions, v2, check_pattern)
     options = Dict()
     for (h, v) in v1.options
-        try
-            options[h] = _unify_values(v, v2, check_pattern)
-        catch e
-            if isa(e, InterruptException)
-                rethrow()
-            end
+        found, unified_v = _try_unify_values(v, v2, check_pattern)
+        if found
+            options[h] = unified_v
         end
     end
-    return EitherOptions(options)
+    if isempty(options)
+        return false, nothing
+    end
+    return true, EitherOptions(options)
 end
 
-function _unify_values(v1::PatternWrapper, v2::EitherOptions, check_pattern)
-    @invoke _unify_values(v1::Any, v2::EitherOptions, check_pattern)
+function _try_unify_values(v1::PatternWrapper, v2::EitherOptions, check_pattern)
+    @invoke _try_unify_values(v1::Any, v2::EitherOptions, check_pattern)
 end
 
-function _unify_values(v1::AbductibleValue, v2::EitherOptions, check_pattern)
-    @invoke _unify_values(v1::Any, v2::EitherOptions, check_pattern)
+function _try_unify_values(v1::AbductibleValue, v2::EitherOptions, check_pattern)
+    @invoke _try_unify_values(v1::Any, v2::EitherOptions, check_pattern)
 end
 
-function _unify_values(v1, v2::EitherOptions, check_pattern)
+function _try_unify_values(v1, v2::EitherOptions, check_pattern)
     options = Dict()
     for (h, v) in v2.options
-        try
-            options[h] = _unify_values(v1, v, check_pattern)
-        catch e
-            if isa(e, InterruptException)
-                rethrow()
-            end
+        found, unified_v = _try_unify_values(v1, v, check_pattern)
+        if found
+            options[h] = unified_v
         end
     end
-    return EitherOptions(options)
+    if isempty(options)
+        return false, nothing
+    end
+    return true, EitherOptions(options)
 end
 
-function _unify_values(v1::EitherOptions, v2::EitherOptions, check_pattern)
+function _try_unify_values(v1::EitherOptions, v2::EitherOptions, check_pattern)
     options = Dict()
     for (h, v) in v1.options
         if haskey(v2.options, h)
-            options[h] = _unify_values(v, v2.options[h], check_pattern)
+            found, unified_v = _try_unify_values(v, v2.options[h], check_pattern)
+            if found
+                options[h] = unified_v
+            else
+                return false, nothing
+            end
         end
     end
-    return EitherOptions(options)
-end
-
-function _unify_values(v1, v2, check_pattern)
-    if v1 == v2
-        return v1
+    if isempty(options)
+        return false, nothing
     end
-    throw(UnifyError())
+    return true, EitherOptions(options)
 end
 
-function _unify_values(v1::Array, v2::Array, check_pattern)
+function _try_unify_values(v1, v2, check_pattern)
+    if v1 == v2
+        return true, v1
+    end
+    return false, nothing
+end
+
+function _try_unify_values(v1::Array, v2::Array, check_pattern)
     if length(v1) != length(v2)
-        throw(UnifyError())
+        return false, nothing
     end
     if v1 == v2
-        return v1
+        return true, v1
     end
     if !check_pattern
-        throw(UnifyError())
+        return false, nothing
     end
-    return [_unify_values(v1[i], v2[i], check_pattern) for i in 1:length(v1)]
+    res = []
+    for i in 1:length(v1)
+        found, unified_v = _try_unify_values(v1[i], v2[i], check_pattern)
+        if !found
+            return false, nothing
+        end
+        push!(res, unified_v)
+    end
+    return true, res
 end
 
-function _unify_values(v1::Tuple, v2::Tuple, check_pattern)
+function _try_unify_values(v1::Tuple, v2::Tuple, check_pattern)
     if length(v1) != length(v2)
-        throw(UnifyError())
+        return false, nothing
     end
     if v1 == v2
-        return v1
+        return true, v1
     end
     if !check_pattern
-        throw(UnifyError())
+        return false, nothing
     end
-    return tuple((_unify_values(v1[i], v2[i], check_pattern) for i in 1:length(v1))...)
+    res = []
+    for i in 1:length(v1)
+        found, unified_v = _try_unify_values(v1[i], v2[i], check_pattern)
+        if !found
+            return false, nothing
+        end
+        push!(res, unified_v)
+    end
+    return true, Tuple(res)
 end
 
-function _unify_values(v1::Set, v2::Set, check_pattern)
+function _try_unify_values(v1::Set, v2::Set, check_pattern)
     if length(v1) != length(v2)
-        throw(UnifyError())
+        return false, nothing
     end
     if v1 == v2
-        return v1
+        return true, v1
     end
     if !check_pattern
-        throw(UnifyError())
+        return false, nothing
     end
     options = []
     f_v = first(v1)
     if in(f_v, v2)
-        rest = _unify_values(v1 - Set([f_v]), v2 - Set([f_v]), check_pattern)
+        found, rest = _try_unify_values(v1 - Set([f_v]), v2 - Set([f_v]), check_pattern)
+        if !found
+            return false, nothing
+        end
         if isa(rest, EitherOptions)
             for (h, v) in rest.options
                 push!(options, union(Set([f_v]), v))
             end
         else
             push!(rest, f_v)
-            return rest
+            return true, rest
         end
     else
         for v in v2
-            try
-                unified_v = _unify_values(f_v, v, check_pattern)
-                rest = _unify_values(v1 - Set([f_v]), v2 - Set([v]), check_pattern)
-                if isa(rest, EitherOptions)
-                    for (h, val) in rest.options
-                        push!(options, union(Set([unified_v]), val))
-                    end
-                else
-                    push!(options, union(Set([unified_v]), rest))
+            found, unified_v = _try_unify_values(f_v, v, check_pattern)
+            if !found
+                continue
+            end
+            found, rest = _try_unify_values(v1 - Set([f_v]), v2 - Set([v]), check_pattern)
+            if !found
+                continue
+            end
+            if isa(rest, EitherOptions)
+                for (h, val) in rest.options
+                    push!(options, union(Set([unified_v]), val))
                 end
-            catch e
-                if isa(e, InterruptException)
-                    rethrow()
-                end
+            else
+                push!(options, union(Set([unified_v]), rest))
             end
         end
     end
     if isempty(options)
-        throw(UnifyError())
+        return false, nothing
     elseif length(options) == 1
-        return options[1]
+        return true, options[1]
     else
-        return EitherOptions(Dict(rand(UInt64) => option for option in options))
+        return true, EitherOptions(Dict(rand(UInt64) => option for option in options))
     end
+end
+
+function _unify_values(value1::ValueContainer, value2::ValueContainer)
+    failed_paths = Set()
+    failed_pairs = Set()
+    retain_paths = Set()
+    results = []
+    unify_results = Dict()
+
+    @info "Unifying values $value1 and $value2"
+
+    for (v1, v1_paths) in value1.value_paths
+        for v1_path in v1_paths
+            _, v2_root, common_path = _follow_path(value2.value, v1_path, 1)
+
+            path_results = []
+            for (v2, v2_path) in all_path_options(v2_root)
+                v2_full_path = vcat(common_path, v2_path)
+                if haskey(unify_results, (v1, v2))
+                    unified_v = unify_results[(v1, v2)]
+                    push!(path_results, (unified_v, v2_path))
+                    push!(retain_paths, v2_full_path)
+                    continue
+                end
+                if in((v1, v2), failed_pairs)
+                    push!(failed_paths, v2_full_path)
+                    continue
+                end
+                found, unified_v = _try_unify_values(v1, v2, false)
+                if !found
+                    push!(failed_pairs, (v1, v2))
+                    push!(failed_paths, v2_full_path)
+                    continue
+                end
+                unify_results[(v1, v2)] = unified_v
+                push!(path_results, (unified_v, v2_path))
+                push!(retain_paths, v2_full_path)
+            end
+            if isempty(path_results)
+                push!(failed_paths, v1_path)
+            else
+                push!(retain_paths, v1_path)
+                push!(results, (v1_path, common_path, path_results))
+            end
+        end
+    end
+
+    # @info results
+    results_tree = Dict()
+    is_simple_value = false
+    results_paths = []
+    paths_remappings = Dict()
+    for (v1_path, common_path, path_results) in results
+        for (unified_v, v2_path) in path_results
+            if isempty(v1_path) && isempty(v2_path)
+                results_tree = unified_v
+                is_simple_value = true
+                break
+            end
+            current_tree = results_tree
+            full_path = vcat(v1_path, v2_path)
+            for i in 1:length(full_path)-1
+                if !haskey(current_tree, full_path[i])
+                    current_tree[full_path[i]] = Dict()
+                end
+                current_tree = current_tree[full_path[i]]
+            end
+            current_tree[full_path[end]] = unified_v
+            push!(results_paths, full_path)
+            if length(v2_path) > 0 && length(v1_path) > length(common_path)
+                if !haskey(paths_remappings, common_path)
+                    paths_remappings[common_path] = []
+                end
+                push!(paths_remappings[common_path], (v2_path, v1_path[length(common_path)+1:end]))
+            end
+        end
+        if is_simple_value
+            break
+        end
+    end
+    if is_simple_value
+        result = ValueContainer(results_tree)
+    else
+        result = ValueContainer(_build_eithers(results_tree, [], results_paths))
+    end
+    @info result
+    @info "Remappings $paths_remappings"
+
+    for path in retain_paths
+        for i in 1:length(path)-1
+            push!(retain_paths, path[1:i])
+        end
+    end
+    for path in failed_paths
+        if in(path, retain_paths)
+            delete!(failed_paths, path)
+            continue
+        end
+        for i in 1:length(path)
+            if !in(path[1:end-i], retain_paths)
+                push!(failed_paths, path[1:i])
+            else
+                break
+            end
+        end
+    end
+    # @info "Failed $failed_paths"
+    # @info "Retain $retain_paths"
+
+    return result, failed_paths, retain_paths, paths_remappings
 end
 
 function _preprocess_options(args_options, output)
@@ -773,18 +1023,18 @@ function _precalculate_arg(p_info, context)
     end
     env = Any[missing for _ in 1:maximum(keys(context.filled_indices); init = -1)+1]
     for (i, v) in context.filled_indices
-        env[end-i] = v
+        env[end-i] = v.value
     end
     try
         # @info "Precalculating $p with $env and $(context.filled_vars)"
-        calculated_output = p_info.p(env, context.filled_vars)
+        calculated_output = p_info.p(env, Dict(k => v.value for (k, v) in context.filled_vars))
         # @info calculated_output
         if isa(calculated_output, Function) ||
            isa(calculated_output, AbductibleValue) ||
            isa(calculated_output, PatternWrapper)
             return missing
         end
-        return calculated_output
+        return ValueContainer(calculated_output)
     catch e
         if e isa InterruptException
             rethrow()
@@ -902,21 +1152,151 @@ function __run_in_reverse(p_info::SetConstInfo, output, context)
     return output, context
 end
 
+function _run_in_reverse2(p_info::PrimitiveInfo, output, context)
+    # @info "Running in reverse $p $output $context"
+    return all_abstractors[p_info.p][2](output, context)
+end
+
+function _run_in_reverse2(p_info::ApplyInfo, output, context)
+    # @info "Running in reverse $p $output $context"
+    precalculated_arg = _precalculate_arg(p_info.x_info, context)
+    # @info "Precalculated arg for $(p.x) is $precalculated_arg"
+    _, arg_context = _run_in_reverse2(
+        p_info.f_info,
+        output,
+        ReverseRunContext(
+            vcat(context.upstream_outputs, [output]),
+            vcat(context.arguments, [p_info.x_info]),
+            context.predicted_arguments,
+            vcat(context.calculated_arguments, [precalculated_arg]),
+            context.filled_indices,
+            context.filled_vars,
+        ),
+    )
+    # @info "Arg context for $p $arg_context"
+    pop!(arg_context.arguments)
+    pop!(arg_context.calculated_arguments)
+    arg_target = pop!(arg_context.predicted_arguments)
+    if arg_target.value isa SkipArg
+        calculated_output = pop!(arg_context.upstream_outputs)
+        return calculated_output, arg_context
+    end
+    arg_calculated_output, out_context = _run_in_reverse2(p_info.x_info, arg_target, arg_context)
+    calculated_output = pop!(out_context.upstream_outputs)
+
+    if arg_calculated_output != arg_target
+        # @info "Running in reverse $(p_info.p) $(p_info.x_info.p)  $arg_context"
+        # @info "arg_target $arg_target"
+        # @info "arg_calculated_output $arg_calculated_output"
+        #     # if arg_target isa AbductibleValue && arg_calculated_output != arg_target
+        #     calculated_output, arg_context = _run_in_reverse2(
+        #         p_info.f_info,
+        #         calculated_output,
+        #         ReverseRunContext(
+        #             vcat(context.arguments, [p_info.x_info]),
+        #             context.predicted_arguments,
+        #             vcat(context.calculated_arguments, [arg_calculated_output]),
+        #             out_context.filled_indices,
+        #             out_context.filled_vars,
+        #         ),
+        #     )
+        #     pop!(arg_context.arguments)
+        #     pop!(arg_context.calculated_arguments)
+        #     arg_target = pop!(arg_context.predicted_arguments)
+        #     if arg_target isa SkipArg
+        #         return calculated_output, arg_context
+        #     end
+        #     arg_calculated_output, out_context = _run_in_reverse2(p_info.x_info, arg_target, arg_context)
+        #     # @info "arg_target2 $arg_target"
+        #     # @info "arg_calculated_output2 $arg_calculated_output"
+    end
+    # @info "Calculated output for $p $calculated_output"
+    # @info "Out context for $p $out_context"
+    return calculated_output, out_context
+end
+
+function _run_in_reverse2(p_info::FreeVarInfo, output, context)
+    # @info "Running in reverse $(p_info.p) $output $context"
+    if haskey(context.filled_vars, p_info.p.var_id)
+        unified_v, failed_paths, retain_paths, paths_remappings =
+            _unify_values(context.filled_vars[p_info.p.var_id], output)
+        context.filled_vars[p_info.p.var_id] = unified_v
+        context = filter_context_values(context, failed_paths, retain_paths, paths_remappings)
+    else
+        context.filled_vars[p_info.p.var_id] = output
+    end
+    # @info context
+    return context.filled_vars[p_info.p.var_id], context
+end
+
+function _run_in_reverse2(p_info::IndexInfo, output, context)
+    # @info "Running in reverse $p $output $context"
+    if haskey(context.filled_indices, p_info.p.n)
+        # @info "Trying to unify"
+        # @info context.filled_indices[p_info.p.n]
+        # @info output
+        unified_v, failed_paths, retain_paths, paths_remappings =
+            _unify_values(context.filled_indices[p_info.p.n], output)
+        context.filled_indices[p_info.p.n] = unified_v
+
+        context = filter_context_values(context, failed_paths, retain_paths, paths_remappings)
+    else
+        context.filled_indices[p_info.p.n] = output
+    end
+    # @info context
+    return context.filled_indices[p_info.p.n], context
+end
+
+function _run_in_reverse2(p_info::AbstractionInfo, output, context::ReverseRunContext)
+    in_filled_indices = Dict{Int64,Any}(i + 1 => v for (i, v) in context.filled_indices)
+    if !ismissing(context.calculated_arguments[end])
+        in_filled_indices[0] = context.calculated_arguments[end]
+    end
+    calculated_output, out_context = _run_in_reverse2(
+        p_info.b_info,
+        output,
+        ReverseRunContext(
+            context.upstream_outputs,
+            context.arguments[1:end-1],
+            context.predicted_arguments,
+            context.calculated_arguments[1:end-1],
+            in_filled_indices,
+            context.filled_vars,
+        ),
+    )
+    push!(out_context.predicted_arguments, out_context.filled_indices[0])
+    push!(out_context.calculated_arguments, calculated_output)
+    if !isempty(context.arguments)
+        push!(out_context.arguments, context.arguments[end])
+    end
+
+    out_context.filled_indices = Dict{Int64,Any}(i - 1 => v for (i, v) in out_context.filled_indices if i > 0)
+    return output, out_context
+end
+
+function _run_in_reverse2(p_info::SetConstInfo, output, context)
+    if output.value != p_info.p.value
+        error("Const mismatch $output != $(p_info.p.value)")
+    end
+    return output, context
+end
+
 function run_in_reverse(p::Program, output)
     # @info p
     # start_time = time()
     p_info = gather_info(p)
-    computed_output, context = _run_in_reverse(p_info, output, ReverseRunContext())
+    output_container = ValueContainer(output)
+    computed_output, context = _run_in_reverse2(p_info, output_container, ReverseRunContext())
     # elapsed = time() - start_time
     # if elapsed > 2
     #     @info "Reverse run took $elapsed seconds"
     #     @info p
     #     @info output
     # end
-    if computed_output != output && !isempty(context.filled_vars)
+    if computed_output.value != output && !isempty(context.filled_vars)
         error("Output mismatch $computed_output != $output")
     end
-    return context.filled_vars
+    return Dict(k => cleanup_options(c.value) for (k, c) in context.filled_vars)
 end
 
 _has_wildcard(v::PatternWrapper) = true
@@ -972,23 +1352,410 @@ function _wrap_abductible(v::EitherOptions)
     return EitherOptions(options)
 end
 
+# macro define_reverse_primitive(name, t, x, reverse_function)
+#     return quote
+#         local n = $(esc(name))
+#         @define_primitive n $(esc(t)) $(esc(x))
+#         local prim = every_primitive[n]
+#         all_abstractors[prim] = [],
+#         (
+#             (v, ctx) -> (
+#                 v,
+#                 ReverseRunContext(
+#                     ctx.arguments,
+#                     vcat(ctx.predicted_arguments, reverse($(esc(reverse_function))(v))),
+#                     ctx.calculated_arguments,
+#                     ctx.filled_indices,
+#                     ctx.filled_vars,
+#                 ),
+#             )
+#         )
+#     end
+# end
+
+function _simple_generic_reverse(f, value, paths, ctx, arg_count)
+    # @info "Running simple generic reverse for $f $value"
+    predicted_args = f(value)
+    # @info predicted_args
+    # @info paths
+    if all(ismissing(ctx.calculated_arguments[end-i]) for i in 0:arg_count-1)
+        return [(paths, predicted_args, nothing, nothing)], []
+    end
+
+    calculated_args_groups = Dict()
+    if all(
+        ismissing(ctx.calculated_arguments[end-i]) || !isa(ctx.calculated_arguments[end-i].value, EitherOptions) for
+        i in 0:arg_count-1
+    )
+        calculated_args_groups[[
+            ismissing(ctx.calculated_arguments[end-i]) ? missing : ctx.calculated_arguments[end-i].value for
+            i in 0:arg_count-1
+        ]] = paths
+    else
+        for path in paths
+            calculated_args = [
+                ismissing(ctx.calculated_arguments[end-i]) ? missing :
+                _follow_path(ctx.calculated_arguments[end-i].value, path, 1)[2] for i in 0:arg_count-1
+            ]
+            if !haskey(calculated_args_groups, calculated_args)
+                calculated_args_groups[calculated_args] = []
+            end
+            push!(calculated_args_groups[calculated_args], path)
+        end
+    end
+    # @info calculated_args_groups
+
+    output_results = []
+    failed_paths = []
+    for (calculated_args, paths_group) in calculated_args_groups
+        matching_paths = [([], [], [])]
+
+        is_good_group = true
+        for i in 1:arg_count
+            if ismissing(calculated_args[i])
+                for (pred_path, calc_path, result_args) in matching_paths
+                    pred_arg = _follow_path(predicted_args[i], pred_path, 1)[2]
+                    push!(result_args, pred_arg)
+                end
+                continue
+            end
+            new_matching_paths = []
+            # @info matching_paths
+            for (pred_path, calc_path, result_args) in matching_paths
+                pred_arg = _follow_path(predicted_args[i], pred_path, 1)[2]
+                calc_arg = _follow_path(calculated_args[i], calc_path, 1)[2]
+
+                # @info pred_arg
+                # @info calc_arg
+                for (pred_v, pred_path2) in all_path_options(pred_arg)
+                    for (calc_v, calc_path2) in all_path_options(calc_arg)
+                        # @info "Trying to unify $pred_v and $calc_v"
+                        found, unified_v = _try_unify_values(pred_v, calc_v, false)
+                        if !found
+                            continue
+                        end
+                        full_pred_path = isempty(pred_path2) ? pred_path : vcat(pred_path, pred_path2)
+                        full_calc_path = isempty(calc_path2) ? calc_path : vcat(calc_path, calc_path2)
+                        upd_result_args =
+                            isempty(pred_path2) ? result_args : [_follow_path(r, pred_path2, 1)[2] for r in result_args]
+
+                        push!(new_matching_paths, (full_pred_path, full_calc_path, vcat(upd_result_args, [unified_v])))
+                    end
+                end
+            end
+
+            if isempty(new_matching_paths)
+                is_good_group = false
+                break
+            end
+            matching_paths = new_matching_paths
+        end
+        # @info "Matching paths $matching_paths"
+
+        if !is_good_group
+            append!(failed_paths, paths_group)
+            continue
+        end
+
+        simple_values = false
+        result_trees = [Dict() for _ in 1:arg_count]
+        result_paths = []
+        for (pred_path, calc_path, unified_args) in matching_paths
+            full_path = vcat(calc_path, pred_path)
+            if isempty(full_path)
+                result_args = unified_args
+                simple_values = true
+                break
+            end
+            push!(result_paths, full_path)
+            for i in 1:arg_count
+                cur_tree = result_trees[i]
+                for p in full_path[1:end-1]
+                    if !haskey(cur_tree, p)
+                        cur_tree[p] = Dict()
+                    end
+                    cur_tree = cur_tree[p]
+                end
+                cur_tree[full_path[end]] = unified_args[i]
+            end
+        end
+
+        if !simple_values
+            result_args = [_build_eithers(result_trees[i], [], result_paths) for i in 1:arg_count]
+        end
+
+        push!(output_results, (paths_group, result_args, nothing, nothing))
+    end
+
+    return output_results, failed_paths
+end
+
+function __generic_reverse(rev_func, f, value, paths, ctx, arg_count)
+    return rev_func(f, value, paths, ctx, arg_count)
+end
+
+function __generic_reverse(rev_func, f, value::PatternWrapper, paths, ctx, arg_count)
+    good_paths_results, bad_paths = __generic_reverse(rev_func, f, value.value, paths, ctx, arg_count)
+    return [
+        (ps, [_wrap_wildcard(r) for r in args], f_indices, f_vars) for
+        (ps, args, f_indices, f_vars) in good_paths_results
+    ],
+    bad_paths
+end
+
+function __generic_reverse(rev_func, f, value::AbductibleValue, paths, ctx, arg_count)
+    good_paths_results, bad_paths = try
+        good_paths_results, bad_paths = @invoke __generic_reverse(rev_func, f, value::Any, paths, ctx, arg_count)
+        [
+            (ps, [_wrap_abductible(r) for r in args], f_indices, f_vars) for
+            (ps, args, f_indices, f_vars) in good_paths_results
+        ],
+        bad_paths
+    catch e
+        # bt = catch_backtrace()
+        # @error e exception = (e, bt)
+        if isa(e, MethodError) && any(isa(arg, AbductibleValue) for arg in e.args)
+            [], paths
+        else
+            rethrow()
+        end
+    end
+    if isempty(good_paths_results)
+        calculated_args_groups = Dict()
+        if all(!isa(ctx.calculated_arguments[end-i], EitherOptions) for i in 0:arg_count-1)
+            calculated_args_groups[[
+                ismissing(ctx.calculated_arguments[end-i]) ? AbductibleValue(any_object) :
+                ctx.calculated_arguments[end-i].value for i in 0:arg_count-1
+            ]] = paths
+        else
+            for path in paths
+                calculated_args = [
+                    ismissing(ctx.calculated_arguments[end-i]) ? AbductibleValue(any_object) :
+                    _follow_path(ctx.calculated_arguments[end-i].value, path, 1)[2] for i in 0:arg_count-1
+                ]
+                if !haskey(calculated_args_groups, calculated_args)
+                    calculated_args_groups[calculated_args] = []
+                end
+                push!(calculated_args_groups[calculated_args], path)
+            end
+        end
+
+        results = [(paths, args, nothing, nothing) for (args, paths) in calculated_args_groups]
+        return results, []
+    end
+    return good_paths_results, bad_paths
+end
+
+function __generic_reverse(rev_func, f, value::Union{Nothing,AnyObject}, paths, ctx, arg_count)
+    # @info "Running in reverse $p $output $context"
+    good_paths_results, bad_paths = try
+        rev_func(f, value, paths, ctx, arg_count)
+    catch e
+        # @info e
+        # bt = catch_backtrace()
+        # @error e exception = (e, bt)
+        if isa(e, MethodError)
+            [], paths
+        else
+            rethrow()
+        end
+    end
+    if isempty(good_paths_results)
+        return [(paths, [value for _ in 1:arg_count], nothing, nothing)], []
+    end
+    return good_paths_results, bad_paths
+end
+
+function _generic_reverse(rev_func, f, arg_count, value, ctx)
+    failed_paths = []
+    results = []
+    last_error = nothing
+    for (v, paths) in value.value_paths
+        try
+            @info f
+            @info v
+            @info paths
+            @info ctx.calculated_arguments
+            good_paths_results, bad_paths = __generic_reverse(rev_func, f, v, paths, ctx, arg_count)
+            @info good_paths_results
+            append!(results, good_paths_results)
+            append!(failed_paths, bad_paths)
+        catch e
+            if isa(e, InterruptException) || isa(e, MethodError) || isa(e, UndefVarError)
+                rethrow()
+            end
+
+            # rethrow()
+            last_error = e
+            append!(failed_paths, paths)
+        end
+    end
+    if isempty(results)
+        if isnothing(last_error)
+            error("No reverse results")
+        end
+        throw(last_error)
+    end
+    if length(results) == 1 && results[1][1] == [[]]
+        outputs = [ValueContainer(results[1][2][i]) for i in 1:arg_count]
+        if isnothing(results[1][3])
+            filled_indices = ctx.filled_indices
+        else
+            filled_indices = results[1][3]
+        end
+        if isnothing(results[1][4])
+            filled_vars = ctx.filled_vars
+        else
+            filled_vars = results[1][4]
+        end
+        return (
+            value,
+            ReverseRunContext(
+                ctx.upstream_outputs,
+                ctx.arguments,
+                vcat(ctx.predicted_arguments, reverse(outputs)),
+                ctx.calculated_arguments,
+                filled_indices,
+                filled_vars,
+            ),
+        )
+    end
+
+    output_trees = [Dict() for _ in 1:arg_count]
+    output_paths = [Dict() for _ in 1:arg_count]
+    indices_trees = Dict()
+    indices_paths = Dict()
+    vars_trees = Dict()
+    vars_paths = Dict()
+    no_ind_var_changes = false
+    all_parent_paths = Set()
+    for (parent_paths, predicted_args, f_indices, f_vars) in results
+        if isnothing(f_indices)
+            no_ind_var_changes = true
+        end
+        for parent_path in parent_paths
+            for i in 1:arg_count
+                for (v, path) in all_path_options(predicted_args[i])
+                    merged_path = vcat(parent_path, path)
+                    if !haskey(output_paths[i], v)
+                        output_paths[i][v] = []
+                    end
+                    push!(output_paths[i][v], merged_path)
+                end
+                cur_tree = output_trees[i]
+                for p in parent_path[1:end-1]
+                    if !haskey(cur_tree, p)
+                        cur_tree[p] = Dict()
+                    end
+                    cur_tree = cur_tree[p]
+                end
+                cur_tree[parent_path[end]] = predicted_args[i]
+            end
+            if !no_ind_var_changes
+                for (i, ind_v) in f_indices
+                    if !haskey(indices_paths, i)
+                        indices_paths[i] = Dict()
+                    end
+                    for (v, path) in all_path_options(ind_v.value)
+                        merged_path = vcat(parent_path, path)
+                        if !haskey(indices_paths[i], v)
+                            indices_paths[i][v] = []
+                        end
+                        push!(indices_paths[i][v], merged_path)
+                    end
+                    if !haskey(indices_trees, i)
+                        indices_trees[i] = Dict()
+                    end
+                    cur_tree = indices_trees[i]
+                    for p in parent_path[1:end-1]
+                        if !haskey(cur_tree, p)
+                            cur_tree[p] = Dict()
+                        end
+                        cur_tree = cur_tree[p]
+                    end
+                    cur_tree[parent_path[end]] = ind_v.value
+                end
+                for (i, var_v) in f_vars
+                    if !haskey(vars_paths, i)
+                        vars_paths[i] = Dict()
+                    end
+                    for (v, path) in all_path_options(var_v.value)
+                        merged_path = vcat(parent_path, path)
+                        if !haskey(vars_paths[i], v)
+                            vars_paths[i][v] = []
+                        end
+                        push!(vars_paths[i][v], merged_path)
+                    end
+                    if !haskey(vars_trees, i)
+                        vars_trees[i] = Dict()
+                    end
+                    cur_tree = vars_trees[i]
+                    for p in parent_path[1:end-1]
+                        if !haskey(cur_tree, p)
+                            cur_tree[p] = Dict()
+                        end
+                        cur_tree = cur_tree[p]
+                    end
+                    cur_tree[parent_path[end]] = var_v.value
+                end
+            end
+        end
+        union!(all_parent_paths, parent_paths)
+    end
+    output_values = [_build_eithers(output_trees[i], [], all_parent_paths) for i in 1:arg_count]
+    outputs = [ValueContainer(output_values[i], output_paths[i]) for i in 1:arg_count]
+    if !no_ind_var_changes
+        filled_indices = Dict(
+            i => ValueContainer(_build_eithers(indices_trees[i], [], all_parent_paths), indices_paths[i]) for
+            i in keys(indices_trees)
+        )
+        filled_vars = Dict(
+            i => ValueContainer(_build_eithers(vars_trees[i], [], all_parent_paths), vars_paths[i]) for
+            i in keys(vars_trees)
+        )
+        ctx = ReverseRunContext(
+            ctx.upstream_outputs,
+            ctx.arguments,
+            ctx.predicted_arguments,
+            ctx.calculated_arguments,
+            filled_indices,
+            filled_vars,
+        )
+    end
+
+    for path in all_parent_paths
+        for i in 1:length(path)-1
+            push!(all_parent_paths, path[1:i])
+        end
+    end
+    for path in failed_paths
+        for i in 1:length(path)-1
+            if !in(path[1:end-i], all_parent_paths)
+                push!(failed_paths, path[1:i])
+            else
+                break
+            end
+        end
+    end
+
+    filtered_value = drop_remap_option_paths(value, failed_paths, all_parent_paths, Dict())
+
+    out_ctx = filter_context_values(ctx, failed_paths, all_parent_paths, Dict())
+    append!(out_ctx.predicted_arguments, reverse(outputs))
+
+    return (filtered_value, out_ctx)
+end
+
 macro define_reverse_primitive(name, t, x, reverse_function)
     return quote
         local n = $(esc(name))
         @define_primitive n $(esc(t)) $(esc(x))
         local prim = every_primitive[n]
-        all_abstractors[prim] = [],
-        (
-            (v, ctx) -> (
-                v,
-                ReverseRunContext(
-                    ctx.arguments,
-                    vcat(ctx.predicted_arguments, reverse($(esc(reverse_function))(v))),
-                    ctx.calculated_arguments,
-                    ctx.filled_indices,
-                    ctx.filled_vars,
-                ),
-            )
+        local arg_count = length(arguments_of_type($(esc(t))))
+        all_abstractors[prim] = (
+            [],
+            (val::ValueContainer, ctx) ->
+                _generic_reverse(_simple_generic_reverse, $(esc(reverse_function)), arg_count, val, ctx),
         )
     end
 end
@@ -1052,11 +1819,147 @@ function _generic_abductible_reverse(f, n, value, calculated_arguments, i, calcu
     end
 end
 
-function _generic_abductible_reverse(f, n, value, calculated_arguments)
-    # @info "Running in reverse $f $n $value $calculated_arguments"
-    result = _generic_abductible_reverse(f, n, value, calculated_arguments, 1, calculated_arguments[end])
-    # @info "Reverse result $result"
-    return result
+function _generic_abductible_reverse(f, value, paths, ctx, arg_count)
+    @info "Running in reverse $f $value $(ctx.calculated_arguments)"
+
+    if all(ismissing(ctx.calculated_arguments[end-i]) for i in 0:arg_count-1)
+        return [(paths, f(value, ctx.calculated_arguments), nothing, nothing)], []
+    end
+
+    calculated_args_groups = Dict()
+
+    if all(
+        ismissing(ctx.calculated_arguments[end-i]) || !isa(ctx.calculated_arguments[end-i].value, EitherOptions) for
+        i in 0:arg_count-1
+    )
+        calculated_args_groups[[
+            (ismissing(ctx.calculated_arguments[end-i]) ? missing : ctx.calculated_arguments[end-i].value, []) for
+            i in 0:arg_count-1
+        ]] = paths
+    else
+        for path in paths
+            calculated_args = [
+                ismissing(ctx.calculated_arguments[end-i]) ? (missing, []) :
+                _follow_path(ctx.calculated_arguments[end-i].value, path, 1)[2:3] for i in 0:arg_count-1
+            ]
+            if !haskey(calculated_args_groups, calculated_args)
+                calculated_args_groups[calculated_args] = []
+            end
+            push!(calculated_args_groups[calculated_args], path)
+        end
+    end
+    @info calculated_args_groups
+
+    output_results = []
+    failed_paths = []
+
+    for (calculated_args, paths_group) in calculated_args_groups
+        arg_groups = [([], [], false, false)]
+        for i in 1:arg_count
+            if ismissing(calculated_args[i][1])
+                for (calc_path, args, has_pattern, has_abductible) in arg_groups
+                    push!(args, missing)
+                end
+                continue
+            end
+            new_arg_groups = []
+            for (calc_path, args, has_pattern, has_abductible) in arg_groups
+                calc_arg = _follow_path(calculated_args[i][1], calc_path, 1)[2]
+
+                for (v, path) in all_path_options(calc_arg)
+                    full_path = vcat(calc_path, path)
+                    if isa(v, PatternWrapper)
+                        op_has_pattern = true
+                        v = v.value
+                    else
+                        op_has_pattern = has_pattern
+                    end
+                    if isa(v, AbductibleValue)
+                        op_has_abductible = true
+                        v = v.value
+                    else
+                        op_has_abductible = has_abductible
+                    end
+                    push!(new_arg_groups, (full_path, vcat(args, [v]), op_has_pattern, op_has_abductible))
+                end
+            end
+            arg_groups = new_arg_groups
+        end
+        @info arg_groups
+
+        simple_values = false
+        result_trees = [Dict() for _ in 1:arg_count]
+        result_paths = []
+
+        for (calc_path, args, has_pattern, has_abductible) in arg_groups
+            # @info calc_path, args
+            args_options = [args]
+            any_nones = findall(a -> isa(a, AnyObject) || isnothing(a), args)
+            for i in any_nones
+                added_options = []
+                for op in args_options
+                    new_op = copy(op)
+                    new_op[i] = missing
+                    push!(added_options, new_op)
+                end
+                append!(args_options, added_options)
+            end
+
+            for args in args_options
+                predicted_args = try
+                    f(value, args)
+                catch e
+                    if isa(e, InterruptException)
+                        rethrow()
+                    end
+                    if isa(value, AbductibleValue) &&
+                       isa(e, MethodError) &&
+                       any(isa(arg, AbductibleValue) for arg in e.args)
+                        [ismissing(a) ? AbductibleValue(any_object) : a for a in args]
+                    else
+                        continue
+                    end
+                end
+                if has_abductible
+                    predicted_args = [_wrap_abductible(a) for a in predicted_args]
+                elseif has_pattern
+                    predicted_args = [_wrap_wildcard(a) for a in predicted_args]
+                end
+
+                if isempty(calc_path)
+                    result_args = predicted_args
+                    simple_values = true
+                    break
+                end
+
+                push!(result_paths, calc_path)
+                for i in 1:arg_count
+                    cur_tree = result_trees[i]
+                    for p in calc_path[1:end-1]
+                        if !haskey(cur_tree, p)
+                            cur_tree[p] = Dict()
+                        end
+                        cur_tree = cur_tree[p]
+                    end
+                    cur_tree[calc_path[end]] = predicted_args[i]
+                end
+                break
+            end
+        end
+        @info result_trees
+
+        if !simple_values
+            if isempty(result_paths)
+                append!(failed_paths, paths_group)
+                continue
+            end
+            result_args = [_build_eithers(result_trees[i], [], result_paths) for i in 1:arg_count]
+        end
+
+        push!(output_results, (paths_group, result_args, nothing, nothing))
+    end
+
+    return output_results, failed_paths
 end
 
 macro define_abductible_reverse_primitive(name, t, x, reverse_function)
@@ -1064,38 +1967,29 @@ macro define_abductible_reverse_primitive(name, t, x, reverse_function)
         local n = $(esc(name))
         @define_primitive n $t $x
         local prim = every_primitive[n]
+        local arg_count = length(arguments_of_type($(esc(t))))
         all_abstractors[prim] = [],
-        (
-            (v, ctx) -> (
-                v,
-                ReverseRunContext(
-                    ctx.arguments,
-                    vcat(
-                        ctx.predicted_arguments,
-                        reverse(
-                            _generic_abductible_reverse(
-                                $(esc(reverse_function)),
-                                length(arguments_of_type($(esc(t)))),
-                                v,
-                                ctx.calculated_arguments,
-                            ),
-                        ),
-                    ),
-                    ctx.calculated_arguments,
-                    ctx.filled_indices,
-                    ctx.filled_vars,
-                ),
-            )
-        )
+        ((val, ctx) -> _generic_reverse(_generic_abductible_reverse, $(esc(reverse_function)), arg_count, val, ctx))
     end
 end
 
-macro define_custom_reverse_primitive(name, t, x, reverse_function)
+macro define_custom_reverse_primitive(name, t, x, arg_checkers, reverse_function)
+    # return quote
+    #     local n = $(esc(name))
+    #     @define_primitive n $t $x
+    #     local prim = every_primitive[n]
+    #     all_abstractors[prim] = $(esc(reverse_function))
+    # end
     return quote
         local n = $(esc(name))
-        @define_primitive n $t $x
+        @define_primitive n $(esc(t)) $(esc(x))
         local prim = every_primitive[n]
-        all_abstractors[prim] = $(esc(reverse_function))
+        local arg_count = length(arguments_of_type($(esc(t))))
+        all_abstractors[prim] = (
+            $(esc(arg_checkers)),
+            (val::ValueContainer, ctx) ->
+                _generic_reverse($(esc(reverse_function)), $(esc(reverse_function)), arg_count, val, ctx),
+        )
     end
 end
 
@@ -1128,9 +2022,11 @@ step_arg_checker(c::IsPossibleSubfunction, arg::ArgTurn) = c
 step_arg_checker(::IsPossibleSubfunction, arg) = nothing
 
 function calculate_dependent_vars(p, inputs, output)
-    context = ReverseRunContext([], [], [], Dict(), copy(inputs))
+    context = ReverseRunContext([], [], [], [], Dict(), Dict(k => ValueContainer(v) for (k, v) in inputs))
     p_info = gather_info(p)
-    updated_inputs = _run_in_reverse(p_info, output, context)[2].filled_vars
+    updated_inputs = _run_in_reverse2(p_info, ValueContainer(output), context)[2].filled_vars
+    updated_inputs = Dict(k => cleanup_options(v.value) for (k, v) in updated_inputs)
+
     return Dict(
         k => v for (k, v) in updated_inputs if (!haskey(inputs, k) || inputs[k] != v) # && !isa(v, AbductibleValue)
     )

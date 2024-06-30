@@ -132,5 +132,10 @@ end
     "rev_fix_param",
     arrow(t0, t1, arrow(t0, t1), t0),
     (body -> (param -> (fixer -> body))),
-    reverse_fix_param()
+    [
+        (_is_reversible_subfunction, IsPossibleReversibleSubfunction()),
+        (_is_fixable_param, IsPossibleFixableParam()),
+        (_has_no_holes, SimpleArgChecker(false, -1, false)),
+    ],
+    reverse_fix_param
 )

@@ -125,148 +125,368 @@ function _can_be_output_map_option(option, context, external_indices, external_v
     return true
 end
 
-function reverse_map(n)
-    function _reverse_map(value, context)
-        f = context.arguments[end]
+function unfold_map_value(items, dims)
+    options = [([], [])]
+    for item in items
+        new_options = []
+        for (op_path, prev_items) in options
+            op_item = _follow_path(item.value, op_path, 1)[2]
+            for (v, path) in all_path_options(op_item)
+                full_path = vcat(op_path, path)
+                push!(new_options, (full_path, vcat(prev_items, [v])))
+            end
+        end
+        options = new_options
+    end
 
-        # @info "Reversing map with $f"
-        options_queue = Queue{UInt64}()
-        options_queue_dict = Dict()
-        visited = Set{UInt64}()
-        output_options = Set()
-        starting_option = ([], [], context.filled_indices, context.filled_vars)
-        h = hash(starting_option)
-        enqueue!(options_queue, h)
-        options_queue_dict[h] = starting_option
+    result_tree = Dict()
+    result_paths = []
+    for (path, items) in options
+        if isempty(path)
+            return reshape_arg(items, false, dims)
+        end
+        push!(result_paths, path)
 
-        while !isempty(options_queue)
-            try
-                h = dequeue!(options_queue)
-                option = options_queue_dict[h]
-                delete!(options_queue_dict, h)
+        cur_tree = result_tree
+        for p in path[1:end-1]
+            if !haskey(cur_tree, p)
+                cur_tree[p] = Dict()
+            end
+            cur_tree = cur_tree[p]
+        end
+        cur_tree[path[end]] = reshape_arg(items, false, dims)
+    end
 
-                # @info "Option $option"
-                push!(visited, h)
-                i = length(option[1]) + 1
-                item = value[i]
+    return _build_eithers(result_tree, [], result_paths)
+end
 
-                # @info "Item $item"
+function reverse_map(f, value, paths, ctx, arg_count)
+    f = ctx.arguments[end]
 
+    # @info "Reversing map with $f"
+
+    calculated_args_groups = Dict()
+    if all(!isa(ctx.calculated_arguments[end-i], EitherOptions) for i in 1:arg_count-1)
+        calculated_args_groups[(
+            [
+                ismissing(ctx.calculated_arguments[end-i]) ? missing : ctx.calculated_arguments[end-i].value for
+                i in 1:arg_count-1
+            ],
+            Dict(i => v.value for (i, v) in ctx.filled_indices),
+            Dict(i => v.value for (i, v) in ctx.filled_vars),
+        )] = paths
+    else
+        for path in paths
+            calculated_args = [
+                ismissing(ctx.calculated_arguments[end-i]) ? missing :
+                _follow_path(ctx.calculated_arguments[end-i].value, path, 1)[2] for i in 1:arg_count-1
+            ]
+            filled_indices = Dict(i => _follow_path(v.value, path, 1)[2] for (i, v) in ctx.filled_indices)
+            filled_vars = Dict(i => _follow_path(v.value, path, 1)[2] for (i, v) in ctx.filled_vars)
+            gr = (calculated_args, filled_indices, filled_vars)
+            if !haskey(calculated_args_groups, gr)
+                calculated_args_groups[gr] = []
+            end
+            push!(calculated_args_groups[gr], path)
+        end
+    end
+
+    output_results = []
+    failed_paths = []
+
+    for ((calculated_args, f_indices, f_vars), paths_group) in calculated_args_groups
+        calc_arg_groups = [([], [])]
+        for i in 1:arg_count-1
+            if ismissing(calculated_args[i])
+                for (calc_path, args) in calc_arg_groups
+                    push!(args, missing)
+                end
+                continue
+            end
+            new_arg_groups = []
+            for (calc_path, args) in calc_arg_groups
+                calc_arg = _follow_path(calculated_args[i], calc_path, 1)[2]
+
+                for (v, path) in all_path_options(calc_arg)
+                    full_path = vcat(calc_path, path)
+
+                    push!(new_arg_groups, (full_path, vcat(args, [v])))
+                end
+            end
+            calc_arg_groups = new_arg_groups
+        end
+
+        simple_values = false
+        value_tree = Dict()
+        arg_trees = [Dict() for _ in 1:arg_count-1]
+        indices_trees = Dict()
+        vars_trees = Dict()
+        result_paths = []
+
+        for (calc_path, calc_args) in calc_arg_groups
+            calculated_value = []
+            predicted_arguments = []
+
+            filled_indices = Dict(i => ValueContainer(_follow_path(v, calc_path, 1)[2]) for (i, v) in f_indices)
+            filled_vars = Dict(i => ValueContainer(_follow_path(v, calc_path, 1)[2]) for (i, v) in f_vars)
+
+            good_option = true
+            for (i, item) in enumerate(value)
                 calculated_arguments = []
-                for j in 1:n
-                    if !ismissing(context.calculated_arguments[end-j])
-                        if isnothing(context.calculated_arguments[end-j])
+                for arg in calc_args
+                    if !ismissing(arg)
+                        if isnothing(arg)
                             error("Expected argument is nothing for non-nothing output value")
                         end
-                        push!(calculated_arguments, context.calculated_arguments[end-j][i])
+                        push!(calculated_arguments, ValueContainer(arg[i]))
                     else
                         push!(calculated_arguments, missing)
                     end
                 end
 
-                calculated_item, new_context = _run_in_reverse(
-                    f,
-                    item,
-                    ReverseRunContext([], [], reverse(calculated_arguments), copy(option[3]), copy(option[4])),
-                )
+                @info "Running in reverse $(f.p) with $item and $calculated_arguments"
+                # @info "Previous values $calculated_value"
+                # @info "Previous predicted arguments $predicted_arguments"
+                # @info "Previous indices $filled_indices"
+                @info "Previous vars $filled_vars"
 
-                # @info "Calculated item $calculated_item"
-                # @info "New context $new_context"
-
-                for (option_args, option_indices, option_vars) in _unfold_item_options(
-                    new_context.predicted_arguments,
-                    new_context.filled_indices,
-                    new_context.filled_vars,
-                )
-                    # @info "Unfolded option $option_args"
-                    # @info "Unfolded indices $option_indices"
-                    # @info "Unfolded vars $option_vars"
-                    if !isempty(option[3]) || !isempty(option[4])
-                        need_reset = false
-                        for (k, v) in option_indices
-                            if haskey(option[3], k) && option[3][k] != v
-                                need_reset = true
-                                break
-                            end
-                        end
-                        for (k, v) in option_vars
-                            if haskey(option[4], k) && option[4][k] != v
-                                need_reset = true
-                                break
-                            end
-                        end
-                        if need_reset
-                            # @info "Need reset"
-                            new_option = ([], [], option_indices, option_vars)
-                            # @info new_option
-                            new_h = hash(new_option)
-                            if !haskey(options_queue_dict, new_h) && !in(new_h, visited)
-                                enqueue!(options_queue, new_h)
-                                options_queue_dict[new_h] = new_option
-                            end
-
-                            continue
-                        end
-                    end
-                    new_option = (
-                        vcat(option[1], [option_args]),
-                        vcat(option[2], [calculated_item]),
-                        option_indices,
-                        option_vars,
+                calculated_item, new_context = try
+                    _run_in_reverse2(
+                        f,
+                        ValueContainer(item),
+                        ReverseRunContext(
+                            vcat(calculated_value, predicted_arguments),
+                            [],
+                            [],
+                            reverse(calculated_arguments),
+                            filled_indices,
+                            filled_vars,
+                        ),
                     )
-                    # @info new_option
-
-                    if i == length(value)
-                        if _can_be_output_map_option(new_option, context, f.indices, f.var_ids)
-                            push!(output_options, new_option)
-                            # @info "Inserted output option $new_option"
-                        end
-                    else
-                        new_h = hash(new_option)
-                        if !haskey(options_queue_dict, new_h) && !in(new_h, visited)
-                            enqueue!(options_queue, new_h)
-                            options_queue_dict[new_h] = new_option
-                        end
+                catch e
+                    if isa(e, InterruptException)
+                        rethrow()
                     end
+                    bt = catch_backtrace()
+                    @error "Got error in map" exception = (e, bt)
+                    good_option = false
+                    break
                 end
-            catch e
-                if isa(e, InterruptException)
-                    rethrow()
+
+                # @info "Got calculated item $calculated_item"
+                calculated_value = new_context.upstream_outputs[1:i-1]
+                predicted_arguments = new_context.upstream_outputs[i:end]
+                # @info "Updated values $calculated_value"
+                # @info "Updated predicted arguments $predicted_arguments"
+                @info "New predicted arguments $(new_context.predicted_arguments)"
+
+                push!(calculated_value, calculated_item)
+                append!(predicted_arguments, new_context.predicted_arguments)
+                filled_indices = new_context.filled_indices
+                filled_vars = new_context.filled_vars
+                # @info "New indices $filled_indices"
+                @info "New vars $filled_vars"
+            end
+            if !good_option
+                continue
+            end
+
+            calculated_value = unfold_map_value(calculated_value, size(value))
+            predicted_arguments = [
+                unfold_map_value(view(predicted_arguments, i:(arg_count-1):length(predicted_arguments)), size(value)) for i in 1:arg_count-1
+            ]
+
+            if isempty(calc_path)
+                result_args = predicted_arguments
+                result_value = calculated_value
+                result_indices = filled_indices
+                result_vars = filled_vars
+                simple_values = true
+                break
+            end
+
+            push!(result_paths, calc_path)
+            for i in 1:arg_count-1
+                cur_tree = arg_trees[i]
+                for p in calc_path[1:end-1]
+                    if !haskey(cur_tree, p)
+                        cur_tree[p] = Dict()
+                    end
+                    cur_tree = cur_tree[p]
                 end
-                # bt = catch_backtrace()
-                # @error "Got error" exception = (e, bt)
-                if isempty(options_queue) && isempty(output_options)
-                    rethrow()
-                else
-                    continue
+                cur_tree[calc_path[end]] = predicted_arguments[i]
+            end
+
+            cur_tree = value_tree
+            for p in calc_path[1:end-1]
+                if !haskey(cur_tree, p)
+                    cur_tree[p] = Dict()
                 end
+                cur_tree = cur_tree[p]
+            end
+            cur_tree[calc_path[end]] = calculated_value
+
+            for (i, v) in filled_indices
+                if !haskey(indices_trees, i)
+                    indices_trees[i] = Dict()
+                end
+                cur_tree = indices_trees[i]
+                for p in calc_path[1:end-1]
+                    if !haskey(cur_tree, p)
+                        cur_tree[p] = Dict()
+                    end
+                    cur_tree = cur_tree[p]
+                end
+                cur_tree[calc_path[end]] = v.value
+            end
+
+            for (i, v) in filled_vars
+                if !haskey(vars_trees, i)
+                    vars_trees[i] = Dict()
+                end
+                cur_tree = vars_trees[i]
+                for p in calc_path[1:end-1]
+                    if !haskey(cur_tree, p)
+                        cur_tree[p] = Dict()
+                    end
+                    cur_tree = cur_tree[p]
+                end
+                cur_tree[calc_path[end]] = v.value
             end
         end
-        # @info "Output options $output_options"
-        if length(output_options) == 0
-            error("No output options")
-        else
-            computed_outputs, calculated_value, filled_indices, filled_vars =
-                unfold_map_options(output_options, size(value))
+
+        if !simple_values
+            if isempty(result_paths)
+                append!(failed_paths, paths_group)
+                continue
+            end
+            result_args = [_build_eithers(arg_trees[i], [], result_paths) for i in 1:arg_count-1]
+            result_value = _build_eithers(value_tree, [], result_paths)
+            result_indices = Dict(i => _build_eithers(t, [], result_paths) for (i, t) in indices_trees)
+            result_vars = Dict(i => _build_eithers(t, [], result_paths) for (i, t) in vars_trees)
         end
 
-        # @info "Computed outputs $computed_outputs"
-        # @info "filled_indices $filled_indices"
-        # @info "filled_vars $filled_vars"
-
-        # @info "Calculated value $calculated_value"
-
-        return calculated_value,
-        ReverseRunContext(
-            context.arguments,
-            vcat(context.predicted_arguments, computed_outputs, [SkipArg()]),
-            context.calculated_arguments,
-            filled_indices,
-            filled_vars,
-        )
+        push!(output_results, (paths_group, vcat([SkipArg()], reverse(result_args)), result_indices, result_vars))
     end
 
-    return [(_is_reversible_subfunction, IsPossibleSubfunction())], _reverse_map
+    return output_results, failed_paths
+
+    # try
+    #     h = dequeue!(options_queue)
+    #     option = options_queue_dict[h]
+    #     delete!(options_queue_dict, h)
+
+    #     # @info "Option $option"
+    #     push!(visited, h)
+    #     i = length(option[1]) + 1
+    #     item = value[i]
+
+    #     # @info "Item $item"
+
+    #     calculated_arguments = []
+    #     for j in 1:arg_count-1
+    #         if !ismissing(ctx.calculated_arguments[end-j])
+    #             if isnothing(ctx.calculated_arguments[end-j])
+    #                 error("Expected argument is nothing for non-nothing output value")
+    #             end
+    #             push!(calculated_arguments, ctx.calculated_arguments[end-j][i])
+    #         else
+    #             push!(calculated_arguments, missing)
+    #         end
+    #     end
+
+    #     calculated_item, new_context = _run_in_reverse2(
+    #         f,
+    #         item,
+    #         ReverseRunContext([], [], reverse(calculated_arguments), copy(option[3]), copy(option[4])),
+    #     )
+
+    #     # @info "Calculated item $calculated_item"
+    #     # @info "New context $new_context"
+
+    #     for (option_args, option_indices, option_vars) in
+    #         _unfold_item_options(new_context.predicted_arguments, new_context.filled_indices, new_context.filled_vars)
+    #         # @info "Unfolded option $option_args"
+    #         # @info "Unfolded indices $option_indices"
+    #         # @info "Unfolded vars $option_vars"
+    #         if !isempty(option[3]) || !isempty(option[4])
+    #             need_reset = false
+    #             for (k, v) in option_indices
+    #                 if haskey(option[3], k) && option[3][k] != v
+    #                     need_reset = true
+    #                     break
+    #                 end
+    #             end
+    #             for (k, v) in option_vars
+    #                 if haskey(option[4], k) && option[4][k] != v
+    #                     need_reset = true
+    #                     break
+    #                 end
+    #             end
+    #             if need_reset
+    #                 # @info "Need reset"
+    #                 new_option = ([], [], option_indices, option_vars)
+    #                 # @info new_option
+    #                 new_h = hash(new_option)
+    #                 if !haskey(options_queue_dict, new_h) && !in(new_h, visited)
+    #                     enqueue!(options_queue, new_h)
+    #                     options_queue_dict[new_h] = new_option
+    #                 end
+
+    #                 continue
+    #             end
+    #         end
+    #         new_option =
+    #             (vcat(option[1], [option_args]), vcat(option[2], [calculated_item]), option_indices, option_vars)
+    #         # @info new_option
+
+    #         if i == length(value)
+    #             if _can_be_output_map_option(new_option, ctx, f.indices, f.var_ids)
+    #                 push!(output_options, new_option)
+    #                 # @info "Inserted output option $new_option"
+    #             end
+    #         else
+    #             new_h = hash(new_option)
+    #             if !haskey(options_queue_dict, new_h) && !in(new_h, visited)
+    #                 enqueue!(options_queue, new_h)
+    #                 options_queue_dict[new_h] = new_option
+    #             end
+    #         end
+    #     end
+    # catch e
+    #     if isa(e, InterruptException)
+    #         rethrow()
+    #     end
+    #     # bt = catch_backtrace()
+    #     # @error "Got error" exception = (e, bt)
+    #     if isempty(options_queue) && isempty(output_options)
+    #         rethrow()
+    #     else
+    #         continue
+    #     end
+    # end
+    # # @info "Output options $output_options"
+    # if length(output_options) == 0
+    #     error("No output options")
+    # else
+    #     computed_outputs, calculated_value, filled_indices, filled_vars =
+    #         unfold_map_options(output_options, size(value))
+    # end
+
+    # # @info "Computed outputs $computed_outputs"
+    # # @info "filled_indices $filled_indices"
+    # # @info "filled_vars $filled_vars"
+
+    # # @info "Calculated value $calculated_value"
+
+    # return calculated_value,
+    # ReverseRunContext(
+    #     context.arguments,
+    #     vcat(context.predicted_arguments, computed_outputs, [SkipArg()]),
+    #     context.calculated_arguments,
+    #     filled_indices,
+    #     filled_vars,
+    # )
 end
 
 function unfold_map_set_options(output_options)
@@ -525,28 +745,32 @@ end
     "map",
     arrow(arrow(t0, t1), tlist(t0), tlist(t1)),
     (f -> (xs -> map(_mapper(f), xs))),
-    reverse_map(1)
+    [(_is_reversible_subfunction, IsPossibleSubfunction())],
+    reverse_map
 )
 
 @define_custom_reverse_primitive(
     "map2",
     arrow(arrow(t0, t1, t2), tlist(t0), tlist(t1), tlist(t2)),
     (f -> (xs -> (ys -> map(((x, y),) -> _mapper2(f)(x, y), zip(xs, ys))))),
-    reverse_map(2)
+    [(_is_reversible_subfunction, IsPossibleSubfunction())],
+    reverse_map
 )
 
 @define_custom_reverse_primitive(
     "map_grid",
     arrow(arrow(t0, t1), tgrid(t0), tgrid(t1)),
     (f -> (xs -> map(_mapper(f), xs))),
-    reverse_map(1)
+    [(_is_reversible_subfunction, IsPossibleSubfunction())],
+    reverse_map
 )
 
 @define_custom_reverse_primitive(
     "map2_grid",
     arrow(arrow(t0, t1, t2), tgrid(t0), tgrid(t1), tgrid(t2)),
     (f -> (xs -> (ys -> map(((x, y),) -> _mapper2(f)(x, y), zip(xs, ys))))),
-    reverse_map(2)
+    [(_is_reversible_subfunction, IsPossibleSubfunction())],
+    reverse_map
 )
 
 function map_set(f, xs)
@@ -561,5 +785,6 @@ end
     "map_set",
     arrow(arrow(t0, t1), tset(t0), tset(t1)),
     (f -> (xs -> map_set(f, xs))),
-    reverse_map_set()
+    [(_is_reversible_subfunction, IsPossibleSubfunction())],
+    reverse_map_set
 )
