@@ -877,7 +877,13 @@ function _generic_reverse(f, val, ctx)
     for i in 1:length(predicted_args)
         if !ismissing(ctx.calculated_arguments[end-i+1])
             arg = predicted_args[i]
-            fixed_hashes = get_fixed_hashes(arg, ctx.calculated_arguments[end-i+1])
+            found, fixed_hashes = _get_fixed_hashes(arg, ctx.calculated_arguments[end-i+1])
+            if !found
+                #     @info "Failed to fix hashes"
+                #     @info arg
+                #     @info ctx.calculated_arguments[end-i+1]
+                return false, val, ctx
+            end
             predicted_args = [fix_option_hashes(fixed_hashes, v) for v in predicted_args]
         end
     end
