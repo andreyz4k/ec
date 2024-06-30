@@ -20,7 +20,7 @@ end
 function reverse_rev_groupby()
     function _reverse_rev_groupby(groups, context)
         if isempty(groups)
-            error("Groups are empty")
+            return false, groups, context
         end
         (k, values) = first(groups)
         v = first(values)
@@ -33,7 +33,8 @@ function reverse_rev_groupby()
             push!(new_groups, (k, new_values))
         end
 
-        return groups,
+        return true,
+        groups,
         ReverseRunContext(
             context.arguments,
             vcat(context.predicted_arguments, [new_groups, v, SkipArg()]),

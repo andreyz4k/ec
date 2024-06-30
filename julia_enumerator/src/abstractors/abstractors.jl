@@ -320,167 +320,241 @@ end
 
 ReverseRunContext() = ReverseRunContext([], [], [], Dict(), Dict())
 
-struct UnifyError <: Exception end
+_try_unify_values(v1, v2::AnyObject, check_pattern) = true, v1
+_try_unify_values(v1::AnyObject, v2, check_pattern) = true, v2
+_try_unify_values(v1::AnyObject, v2::AnyObject, check_pattern) = true, v2
 
-_unify_values(v1, v2::AnyObject, check_pattern) = v1
-_unify_values(v1::AnyObject, v2, check_pattern) = v2
-_unify_values(v1::AnyObject, v2::AnyObject, check_pattern) = v2
-
-_unify_values(v1::PatternWrapper, v2, check_pattern) = _wrap_wildcard(_unify_values(v1.value, v2, true))
-_unify_values(v1, v2::PatternWrapper, check_pattern) = _wrap_wildcard(_unify_values(v1, v2.value, true))
-_unify_values(v1::PatternWrapper, v2::PatternWrapper, check_pattern) =
-    _wrap_wildcard(_unify_values(v1.value, v2.value, true))
-
-_unify_values(v1::PatternWrapper, v2::AnyObject, check_pattern) = v1
-_unify_values(v1::AnyObject, v2::PatternWrapper, check_pattern) = v2
-
-_unify_values(v1::AbductibleValue, v2, check_pattern) = _wrap_abductible(_unify_values(v1.value, v2, true))
-_unify_values(v1, v2::AbductibleValue, check_pattern) = _wrap_abductible(_unify_values(v1, v2.value, true))
-_unify_values(v1::AbductibleValue, v2::AbductibleValue, check_pattern) =
-    _wrap_abductible(_unify_values(v1.value, v2.value, true))
-
-_unify_values(v1::AbductibleValue, v2::AnyObject, check_pattern) = v1
-_unify_values(v1::AnyObject, v2::AbductibleValue, check_pattern) = v2
-
-_unify_values(v1::AbductibleValue, v2::PatternWrapper, check_pattern) =
-    _wrap_abductible(_unify_values(v1.value, v2.value, true))
-_unify_values(v1::PatternWrapper, v2::AbductibleValue, check_pattern) =
-    _wrap_abductible(_unify_values(v1.value, v2.value, true))
-
-function _unify_values(v1::EitherOptions, v2::PatternWrapper, check_pattern)
-    @invoke _unify_values(v1::EitherOptions, v2::Any, check_pattern)
+function _try_unify_values(v1::PatternWrapper, v2, check_pattern)
+    found, res = _try_unify_values(v1.value, v2, true)
+    if !found
+        return found, res
+    end
+    return found, _wrap_wildcard(res)
 end
 
-function _unify_values(v1::EitherOptions, v2::AbductibleValue, check_pattern)
-    @invoke _unify_values(v1::EitherOptions, v2::Any, check_pattern)
+function _try_unify_values(v1, v2::PatternWrapper, check_pattern)
+    found, res = _try_unify_values(v1, v2.value, true)
+    if !found
+        return found, res
+    end
+    return found, _wrap_wildcard(res)
 end
 
-function _unify_values(v1::EitherOptions, v2, check_pattern)
+function _try_unify_values(v1::PatternWrapper, v2::PatternWrapper, check_pattern)
+    found, res = _try_unify_values(v1.value, v2.value, true)
+    if !found
+        return found, res
+    end
+    return found, _wrap_wildcard(res)
+end
+
+_try_unify_values(v1::PatternWrapper, v2::AnyObject, check_pattern) = true, v1
+_try_unify_values(v1::AnyObject, v2::PatternWrapper, check_pattern) = true, v2
+
+function _try_unify_values(v1::AbductibleValue, v2, check_pattern)
+    found, res = _try_unify_values(v1.value, v2, true)
+    if !found
+        return found, res
+    end
+    found, _wrap_abductible(res)
+end
+
+function _try_unify_values(v1, v2::AbductibleValue, check_pattern)
+    found, res = _try_unify_values(v1, v2.value, true)
+    if !found
+        return found, res
+    end
+    found, _wrap_abductible(res)
+end
+
+function _try_unify_values(v1::AbductibleValue, v2::AbductibleValue, check_pattern)
+    found, res = _try_unify_values(v1.value, v2.value, true)
+    if !found
+        return found, res
+    end
+    found, _wrap_abductible(res)
+end
+
+_try_unify_values(v1::AbductibleValue, v2::AnyObject, check_pattern) = true, v1
+_try_unify_values(v1::AnyObject, v2::AbductibleValue, check_pattern) = true, v2
+
+function _try_unify_values(v1::AbductibleValue, v2::PatternWrapper, check_pattern)
+    found, res = _try_unify_values(v1.value, v2.value, true)
+    if !found
+        return found, res
+    end
+    found, _wrap_abductible(res)
+end
+
+function _try_unify_values(v1::PatternWrapper, v2::AbductibleValue, check_pattern)
+    found, res = _try_unify_values(v1.value, v2.value, true)
+    if !found
+        return found, res
+    end
+    found, _wrap_abductible(res)
+end
+
+function _try_unify_values(v1::EitherOptions, v2::PatternWrapper, check_pattern)
+    @invoke _try_unify_values(v1::EitherOptions, v2::Any, check_pattern)
+end
+
+function _try_unify_values(v1::EitherOptions, v2::AbductibleValue, check_pattern)
+    @invoke _try_unify_values(v1::EitherOptions, v2::Any, check_pattern)
+end
+
+function _try_unify_values(v1::EitherOptions, v2, check_pattern)
     options = Dict()
     for (h, v) in v1.options
-        try
-            options[h] = _unify_values(v, v2, check_pattern)
-        catch e
-            if isa(e, InterruptException)
-                rethrow()
-            end
+        found, unified_v = _try_unify_values(v, v2, check_pattern)
+        if found
+            options[h] = unified_v
         end
     end
-    return EitherOptions(options)
+    if isempty(options)
+        return false, nothing
+    end
+    return true, EitherOptions(options)
 end
 
-function _unify_values(v1::PatternWrapper, v2::EitherOptions, check_pattern)
-    @invoke _unify_values(v1::Any, v2::EitherOptions, check_pattern)
+function _try_unify_values(v1::PatternWrapper, v2::EitherOptions, check_pattern)
+    @invoke _try_unify_values(v1::Any, v2::EitherOptions, check_pattern)
 end
 
-function _unify_values(v1::AbductibleValue, v2::EitherOptions, check_pattern)
-    @invoke _unify_values(v1::Any, v2::EitherOptions, check_pattern)
+function _try_unify_values(v1::AbductibleValue, v2::EitherOptions, check_pattern)
+    @invoke _try_unify_values(v1::Any, v2::EitherOptions, check_pattern)
 end
 
-function _unify_values(v1, v2::EitherOptions, check_pattern)
+function _try_unify_values(v1, v2::EitherOptions, check_pattern)
     options = Dict()
     for (h, v) in v2.options
-        try
-            options[h] = _unify_values(v1, v, check_pattern)
-        catch e
-            if isa(e, InterruptException)
-                rethrow()
-            end
+        found, unified_v = _try_unify_values(v1, v, check_pattern)
+        if found
+            options[h] = unified_v
         end
     end
-    return EitherOptions(options)
+    if isempty(options)
+        return false, nothing
+    end
+    return true, EitherOptions(options)
 end
 
-function _unify_values(v1::EitherOptions, v2::EitherOptions, check_pattern)
+function _try_unify_values(v1::EitherOptions, v2::EitherOptions, check_pattern)
     options = Dict()
     for (h, v) in v1.options
         if haskey(v2.options, h)
-            options[h] = _unify_values(v, v2.options[h], check_pattern)
+            found, unified_v = _try_unify_values(v, v2.options[h], check_pattern)
+            if found
+                options[h] = unified_v
+            else
+                return false, nothing
+            end
         end
     end
-    return EitherOptions(options)
-end
-
-function _unify_values(v1, v2, check_pattern)
-    if v1 == v2
-        return v1
+    if isempty(options)
+        return false, nothing
     end
-    throw(UnifyError())
+    return true, EitherOptions(options)
 end
 
-function _unify_values(v1::Array, v2::Array, check_pattern)
+function _try_unify_values(v1, v2, check_pattern)
+    if v1 == v2
+        return true, v1
+    end
+    return false, nothing
+end
+
+function _try_unify_values(v1::Array, v2::Array, check_pattern)
     if length(v1) != length(v2)
-        throw(UnifyError())
+        return false, nothing
     end
     if v1 == v2
-        return v1
+        return true, v1
     end
     if !check_pattern
-        throw(UnifyError())
+        return false, nothing
     end
-    return [_unify_values(v1[i], v2[i], check_pattern) for i in 1:length(v1)]
+    res = []
+    for i in 1:length(v1)
+        found, unified_v = _try_unify_values(v1[i], v2[i], check_pattern)
+        if !found
+            return false, nothing
+        end
+        push!(res, unified_v)
+    end
+    return true, res
 end
 
-function _unify_values(v1::Tuple, v2::Tuple, check_pattern)
+function _try_unify_values(v1::Tuple, v2::Tuple, check_pattern)
     if length(v1) != length(v2)
-        throw(UnifyError())
+        return false, nothing
     end
     if v1 == v2
-        return v1
+        return true, v1
     end
     if !check_pattern
-        throw(UnifyError())
+        return false, nothing
     end
-    return tuple((_unify_values(v1[i], v2[i], check_pattern) for i in 1:length(v1))...)
+    res = []
+    for i in 1:length(v1)
+        found, unified_v = _try_unify_values(v1[i], v2[i], check_pattern)
+        if !found
+            return false, nothing
+        end
+        push!(res, unified_v)
+    end
+    return true, Tuple(res)
 end
 
-function _unify_values(v1::Set, v2::Set, check_pattern)
+function _try_unify_values(v1::Set, v2::Set, check_pattern)
     if length(v1) != length(v2)
-        throw(UnifyError())
+        return false, nothing
     end
     if v1 == v2
-        return v1
+        return true, v1
     end
     if !check_pattern
-        throw(UnifyError())
+        return false, nothing
     end
     options = []
     f_v = first(v1)
     if in(f_v, v2)
-        rest = _unify_values(v1 - Set([f_v]), v2 - Set([f_v]), check_pattern)
+        found, rest = _try_unify_values(v1 - Set([f_v]), v2 - Set([f_v]), check_pattern)
+        if !found
+            return false, nothing
+        end
         if isa(rest, EitherOptions)
             for (h, v) in rest.options
                 push!(options, union(Set([f_v]), v))
             end
         else
             push!(rest, f_v)
-            return rest
+            return true, rest
         end
     else
         for v in v2
-            try
-                unified_v = _unify_values(f_v, v, check_pattern)
-                rest = _unify_values(v1 - Set([f_v]), v2 - Set([v]), check_pattern)
-                if isa(rest, EitherOptions)
-                    for (h, val) in rest.options
-                        push!(options, union(Set([unified_v]), val))
-                    end
-                else
-                    push!(options, union(Set([unified_v]), rest))
+            found, unified_v = _try_unify_values(f_v, v, check_pattern)
+            if !found
+                continue
+            end
+            found, rest = _try_unify_values(v1 - Set([f_v]), v2 - Set([v]), check_pattern)
+            if !found
+                continue
+            end
+            if isa(rest, EitherOptions)
+                for (h, val) in rest.options
+                    push!(options, union(Set([unified_v]), val))
                 end
-            catch e
-                if isa(e, InterruptException)
-                    rethrow()
-                end
+            else
+                push!(options, union(Set([unified_v]), rest))
             end
         end
     end
     if isempty(options)
-        throw(UnifyError())
+        return false, nothing
     elseif length(options) == 1
-        return options[1]
+        return true, options[1]
     else
-        return EitherOptions(Dict(rand(UInt64) => option for option in options))
+        return true, EitherOptions(Dict(rand(UInt64) => option for option in options))
     end
 end
 
@@ -561,7 +635,7 @@ end
 gather_info(p::FreeVar) = FreeVarInfo(p, [], [p.var_id])
 
 function _run_in_reverse(p_info, output, context, splitter::EitherOptions)
-    # @info "Running in reverse $p $output $context"
+    # @info "Running in reverse $(p_info.p) $output $context"
     output_options = Dict()
     arguments_options = Dict[]
     arguments_options_counts = Int[]
@@ -576,54 +650,49 @@ function _run_in_reverse(p_info, output, context, splitter::EitherOptions)
         op_filled_indices = Dict(i => fix_option_hashes(fixed_hashes, v) for (i, v) in context.filled_indices)
         op_filled_vars = Dict(k => fix_option_hashes(fixed_hashes, v) for (k, v) in context.filled_vars)
 
-        try
-            calculated_output, new_context = _run_in_reverse(
-                p_info,
-                fix_option_hashes(fixed_hashes, output),
-                ReverseRunContext(
-                    context.arguments,
-                    op_predicted_arguments,
-                    op_calculated_arguments,
-                    op_filled_indices,
-                    op_filled_vars,
-                ),
-            )
+        success, calculated_output, new_context = _run_in_reverse(
+            p_info,
+            fix_option_hashes(fixed_hashes, output),
+            ReverseRunContext(
+                context.arguments,
+                op_predicted_arguments,
+                op_calculated_arguments,
+                op_filled_indices,
+                op_filled_vars,
+            ),
+        )
 
-            if isempty(arguments_options)
-                for _ in 1:(length(new_context.predicted_arguments))
-                    push!(arguments_options, Dict())
-                    push!(arguments_options_counts, 0)
-                end
+        if !success
+            continue
+        end
+        if isempty(arguments_options)
+            for _ in 1:(length(new_context.predicted_arguments))
+                push!(arguments_options, Dict())
+                push!(arguments_options_counts, 0)
             end
-            output_options[h] = calculated_output
+        end
+        output_options[h] = calculated_output
 
-            for i in 1:length(new_context.predicted_arguments)
-                arguments_options[i][h] = new_context.predicted_arguments[i]
-                arguments_options_counts[i] += get_options_count(new_context.predicted_arguments[i])
-                if arguments_options_counts[i] > 100
-                    throw(TooManyOptionsException())
-                end
+        for i in 1:length(new_context.predicted_arguments)
+            arguments_options[i][h] = new_context.predicted_arguments[i]
+            arguments_options_counts[i] += get_options_count(new_context.predicted_arguments[i])
+            if arguments_options_counts[i] > 100
+                return false, output, context
             end
-            for (i, v) in new_context.filled_indices
-                filled_indices_options[i][h] = v
-                filled_indices_options_counts[i] += get_options_count(v)
-                if filled_indices_options_counts[i] > 100
-                    throw(TooManyOptionsException())
-                end
+        end
+        for (i, v) in new_context.filled_indices
+            filled_indices_options[i][h] = v
+            filled_indices_options_counts[i] += get_options_count(v)
+            if filled_indices_options_counts[i] > 100
+                return false, output, context
             end
-            for (k, v) in new_context.filled_vars
-                filled_vars_options[k][h] = v
-                filled_vars_options_counts[k] += get_options_count(v)
-                if filled_vars_options_counts[k] > 100
-                    throw(TooManyOptionsException())
-                end
+        end
+        for (k, v) in new_context.filled_vars
+            filled_vars_options[k][h] = v
+            filled_vars_options_counts[k] += get_options_count(v)
+            if filled_vars_options_counts[k] > 100
+                return false, output, context
             end
-        catch e
-            if isa(e, InterruptException) || isa(e, MethodError)
-                rethrow()
-            end
-            # bt = catch_backtrace()
-            # @error "Got error" exception = (e, bt)
         end
     end
 
@@ -648,9 +717,15 @@ function _run_in_reverse(p_info, output, context, splitter::EitherOptions)
         out_filled_indices,
         out_filled_vars,
     )
+    if isempty(output_options) ||
+       length(output_options) > 100 ||
+       sum((get_options_count(v) for v in values(output_options))) > 100
+        # @info "Bad options count $output_options"
+        return false, output, out_context
+    end
     # @info "Output options $output_options"
     # @info "Output context $out_context"
-    return EitherOptions(output_options), out_context
+    return true, EitherOptions(output_options), out_context
 end
 
 function _run_in_reverse(p_info, output::EitherOptions, context)
@@ -672,70 +747,102 @@ function _run_in_reverse(p_info, output, context)
 end
 
 function __run_in_reverse(p_info::PrimitiveInfo, output, context)
-    # @info "Running in reverse $p $output $context"
-    return all_abstractors[p_info.p][2](output, context)
+    # @info "Running in reverse $(p_info.p) $output $context"
+    try
+        return all_abstractors[p_info.p][2](output, context)
+    catch e
+        # bt = catch_backtrace()
+        # @error e exception = (e, bt)
+        if isa(e, InterruptException)
+            rethrow()
+        end
+        # @info "Failed to run in reverse $(p_info.p) $output $context"
+        return false, output, context
+    end
 end
 
 function __run_in_reverse(p_info::PrimitiveInfo, output::AbductibleValue, context)
     # @info "Running in reverse $p $output $context"
-    try
-        calculated_output, new_context = all_abstractors[p_info.p][2](output, context)
-        new_context.predicted_arguments = [_wrap_abductible(arg) for arg in new_context.predicted_arguments]
-        return _wrap_abductible(calculated_output), new_context
+    success, calculated_output, new_context = try
+        all_abstractors[p_info.p][2](output, context)
     catch e
         # bt = catch_backtrace()
         # @error e exception = (e, bt)
-        if isa(e, MethodError) && any(isa(arg, AbductibleValue) for arg in e.args)
-            results = []
-            for i in length(arguments_of_type(p_info.p.t))-1:-1:0
-                if ismissing(context.calculated_arguments[end-i])
-                    push!(results, AbductibleValue(any_object))
-                else
-                    push!(results, context.calculated_arguments[end-i])
-                end
-            end
-            return output,
-            ReverseRunContext(
-                context.arguments,
-                vcat(context.predicted_arguments, results),
-                context.calculated_arguments,
-                context.filled_indices,
-                context.filled_vars,
-            )
+        if isa(e, InterruptException)
+            rethrow()
+        elseif isa(e, MethodError) && any(isa(arg, AbductibleValue) for arg in e.args)
+            false, output, context
+        else
+            # @info "Failed to run in reverse $(p_info.p) $output $context"
+            return false, output, context
         end
-        rethrow()
+    end
+    if success
+        new_context.predicted_arguments = [_wrap_abductible(arg) for arg in new_context.predicted_arguments]
+        return success, _wrap_abductible(calculated_output), new_context
+    else
+        results = []
+        for i in length(arguments_of_type(p_info.p.t))-1:-1:0
+            if ismissing(context.calculated_arguments[end-i])
+                push!(results, AbductibleValue(any_object))
+            else
+                push!(results, context.calculated_arguments[end-i])
+            end
+        end
+        return true,
+        output,
+        ReverseRunContext(
+            context.arguments,
+            vcat(context.predicted_arguments, results),
+            context.calculated_arguments,
+            context.filled_indices,
+            context.filled_vars,
+        )
     end
 end
 
 function __run_in_reverse(p_info::PrimitiveInfo, output::PatternWrapper, context)
     # @info "Running in reverse $p $output $context"
-    calculated_output, new_context = __run_in_reverse(p_info, output.value, context)
+    success, calculated_output, new_context = __run_in_reverse(p_info, output.value, context)
+    if !success
+        # @info "Failed to run in reverse $(p_info.p) $output $context"
+        return false, output, context
+    end
 
     new_context.predicted_arguments = [_wrap_wildcard(arg) for arg in new_context.predicted_arguments]
 
-    return _wrap_wildcard(calculated_output), new_context
+    return success, _wrap_wildcard(calculated_output), new_context
 end
 
 function __run_in_reverse(p_info::PrimitiveInfo, output::Union{Nothing,AnyObject}, context)
     # @info "Running in reverse $p $output $context"
-    try
-        return all_abstractors[p_info.p][2](output, context)
+    success, calculated_output, new_context = try
+        all_abstractors[p_info.p][2](output, context)
     catch e
         # @info e
         # bt = catch_backtrace()
         # @error e exception = (e, bt)
-        if isa(e, MethodError)
-            return output,
-            ReverseRunContext(
-                context.arguments,
-                vcat(context.predicted_arguments, [output for _ in 1:length(arguments_of_type(p_info.p.t))]),
-                context.calculated_arguments,
-                context.filled_indices,
-                context.filled_vars,
-            )
-        else
+        if isa(e, InterruptException)
             rethrow()
+        elseif isa(e, MethodError)
+            false, output, context
+        else
+            # @info "Failed to run in reverse $(p_info.p) $output $context"
+            return false, output, context
         end
+    end
+    if success
+        return success, calculated_output, new_context
+    else
+        return true,
+        output,
+        ReverseRunContext(
+            context.arguments,
+            vcat(context.predicted_arguments, [output for _ in 1:length(arguments_of_type(p_info.p.t))]),
+            context.calculated_arguments,
+            context.filled_indices,
+            context.filled_vars,
+        )
     end
 end
 
@@ -751,7 +858,7 @@ function __run_in_reverse(p_info::ApplyInfo, output::AbductibleValue, context)
         if calculated_output isa Function
             error("Function output")
         end
-        return calculated_output, context
+        return true, calculated_output, context
     catch e
         if e isa InterruptException
             rethrow()
@@ -794,10 +901,10 @@ function _precalculate_arg(p_info, context)
 end
 
 function __run_in_reverse(p_info::ApplyInfo, output, context)
-    # @info "Running in reverse $p $output $context"
+    # @info "Running in reverse $(p_info.p) $output $context"
     precalculated_arg = _precalculate_arg(p_info.x_info, context)
     # @info "Precalculated arg for $(p.x) is $precalculated_arg"
-    calculated_output, arg_context = _run_in_reverse(
+    success, calculated_output, arg_context = _run_in_reverse(
         p_info.f_info,
         output,
         ReverseRunContext(
@@ -808,20 +915,28 @@ function __run_in_reverse(p_info::ApplyInfo, output, context)
             context.filled_vars,
         ),
     )
+    # @info success, calculated_output, arg_context
+    if !success
+        # @info "Failed to run in reverse $(p_info.p) $output $context"
+        return false, output, context
+    end
     # @info "Arg context for $p $arg_context"
     pop!(arg_context.arguments)
     pop!(arg_context.calculated_arguments)
     arg_target = pop!(arg_context.predicted_arguments)
     if arg_target isa SkipArg
-        return calculated_output, arg_context
+        return true, calculated_output, arg_context
     end
-    arg_calculated_output, out_context = _run_in_reverse(p_info.x_info, arg_target, arg_context)
-
+    success, arg_calculated_output, out_context = _run_in_reverse(p_info.x_info, arg_target, arg_context)
+    if !success
+        # @info "Failed to run in reverse $(p_info.p) $output $context"
+        return false, output, context
+    end
     # @info "arg_target $arg_target"
     # @info "arg_calculated_output $arg_calculated_output"
     if arg_calculated_output != arg_target
         # if arg_target isa AbductibleValue && arg_calculated_output != arg_target
-        calculated_output, arg_context = _run_in_reverse(
+        success, calculated_output, arg_context = _run_in_reverse(
             p_info.f_info,
             calculated_output,
             ReverseRunContext(
@@ -832,41 +947,59 @@ function __run_in_reverse(p_info::ApplyInfo, output, context)
                 out_context.filled_vars,
             ),
         )
+        if !success
+            # @info "Failed to run in reverse $(p_info.p) $output $context"
+            return false, output, context
+        end
         pop!(arg_context.arguments)
         pop!(arg_context.calculated_arguments)
         arg_target = pop!(arg_context.predicted_arguments)
         if arg_target isa SkipArg
-            return calculated_output, arg_context
+            return true, calculated_output, arg_context
         end
-        arg_calculated_output, out_context = _run_in_reverse(p_info.x_info, arg_target, arg_context)
+        success, arg_calculated_output, out_context = _run_in_reverse(p_info.x_info, arg_target, arg_context)
+        if !success
+            # @info "Failed to run in reverse $(p_info.p) $output $context"
+            return false, output, context
+        end
         # @info "arg_target2 $arg_target"
         # @info "arg_calculated_output2 $arg_calculated_output"
     end
     # @info "Calculated output for $p $calculated_output"
     # @info "Out context for $p $out_context"
-    return calculated_output, out_context
+    return true, calculated_output, out_context
 end
 
 function __run_in_reverse(p_info::FreeVarInfo, output, context)
     # @info "Running in reverse $p $output $context"
     if haskey(context.filled_vars, p_info.p.var_id)
-        context.filled_vars[p_info.p.var_id] = _unify_values(context.filled_vars[p_info.p.var_id], output, false)
+        found, unified_v = _try_unify_values(context.filled_vars[p_info.p.var_id], output, false)
+        if !found
+            # @info "Failed to run in reverse $(p_info.p) $output $context"
+            return false, output, context
+        end
+        context.filled_vars[p_info.p.var_id] = unified_v
     else
         context.filled_vars[p_info.p.var_id] = output
     end
     # @info context
-    return context.filled_vars[p_info.p.var_id], context
+    return true, context.filled_vars[p_info.p.var_id], context
 end
 
 function __run_in_reverse(p_info::IndexInfo, output, context)
     # @info "Running in reverse $p $output $context"
     if haskey(context.filled_indices, p_info.p.n)
-        context.filled_indices[p_info.p.n] = _unify_values(context.filled_indices[p_info.p.n], output, false)
+        found, unified_v = _try_unify_values(context.filled_indices[p_info.p.n], output, false)
+        if !found
+            # @info "Failed to run in reverse $(p_info.p) $output $context"
+            return false, output, context
+        end
+        context.filled_indices[p_info.p.n] = unified_v
     else
         context.filled_indices[p_info.p.n] = output
     end
     # @info context
-    return context.filled_indices[p_info.p.n], context
+    return true, context.filled_indices[p_info.p.n], context
 end
 
 function __run_in_reverse(p_info::AbstractionInfo, output, context::ReverseRunContext)
@@ -874,7 +1007,7 @@ function __run_in_reverse(p_info::AbstractionInfo, output, context::ReverseRunCo
     if !ismissing(context.calculated_arguments[end])
         in_filled_indices[0] = context.calculated_arguments[end]
     end
-    calculated_output, out_context = _run_in_reverse(
+    success, calculated_output, out_context = _run_in_reverse(
         p_info.b_info,
         output,
         ReverseRunContext(
@@ -885,6 +1018,10 @@ function __run_in_reverse(p_info::AbstractionInfo, output, context::ReverseRunCo
             context.filled_vars,
         ),
     )
+    if !success
+        # @info "Failed to run in reverse $(p_info.p) $output $context"
+        return false, output, context
+    end
     push!(out_context.predicted_arguments, out_context.filled_indices[0])
     push!(out_context.calculated_arguments, calculated_output)
     if !isempty(context.arguments)
@@ -892,21 +1029,22 @@ function __run_in_reverse(p_info::AbstractionInfo, output, context::ReverseRunCo
     end
 
     out_context.filled_indices = Dict{Int64,Any}(i - 1 => v for (i, v) in out_context.filled_indices if i > 0)
-    return output, out_context
+    return true, output, out_context
 end
 
 function __run_in_reverse(p_info::SetConstInfo, output, context)
-    if output != p_info.p.value
-        error("Const mismatch $output != $(p_info.p.value)")
-    end
-    return output, context
+    return output == p_info.p.value, output, context
 end
 
 function run_in_reverse(p::Program, output)
     # @info p
     # start_time = time()
     p_info = gather_info(p)
-    computed_output, context = _run_in_reverse(p_info, output, ReverseRunContext())
+    success, computed_output, context = _run_in_reverse(p_info, output, ReverseRunContext())
+    # @info success, computed_output, context
+    if !success
+        error("Failed to run in reverse")
+    end
     # elapsed = time() - start_time
     # if elapsed > 2
     #     @info "Reverse run took $elapsed seconds"
@@ -980,6 +1118,7 @@ macro define_reverse_primitive(name, t, x, reverse_function)
         all_abstractors[prim] = [],
         (
             (v, ctx) -> (
+                true,
                 v,
                 ReverseRunContext(
                     ctx.arguments,
@@ -1067,6 +1206,7 @@ macro define_abductible_reverse_primitive(name, t, x, reverse_function)
         all_abstractors[prim] = [],
         (
             (v, ctx) -> (
+                true,
                 v,
                 ReverseRunContext(
                     ctx.arguments,
@@ -1130,7 +1270,11 @@ step_arg_checker(::IsPossibleSubfunction, arg) = nothing
 function calculate_dependent_vars(p, inputs, output)
     context = ReverseRunContext([], [], [], Dict(), copy(inputs))
     p_info = gather_info(p)
-    updated_inputs = _run_in_reverse(p_info, output, context)[2].filled_vars
+    success, computed_output, context = _run_in_reverse(p_info, output, context)
+    if !success
+        error("Failed to run in reverse")
+    end
+    updated_inputs = context.filled_vars
     return Dict(
         k => v for (k, v) in updated_inputs if (!haskey(inputs, k) || inputs[k] != v) # && !isa(v, AbductibleValue)
     )

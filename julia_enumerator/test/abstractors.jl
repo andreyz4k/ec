@@ -35,7 +35,6 @@ using solver:
     AbductibleValue,
     calculate_dependent_vars,
     run_in_reverse,
-    UnifyError,
     all_abstractors,
     TooManyOptionsException,
     CombinedArgChecker,
@@ -933,7 +932,7 @@ using DataStructures: OrderedDict, Accumulator
         p, _ = capture_free_vars(skeleton)
 
         @test compare_options(run_in_reverse(p, [[1], [2, 2], [4, 4, 4, 4]]), Dict(UInt64(1) => [1, 2, 4]))
-        @test_throws UnifyError run_in_reverse(p, [[1, 1], [2, 2], [4, 4, 4, 4]])
+        @test_throws ErrorException run_in_reverse(p, [[1, 1], [2, 2], [4, 4, 4, 4]])
 
         @test run_with_arguments(p, [], Dict(UInt64(1) => [1, 2, 4])) == [[1], [2, 2], [4, 4, 4, 4]]
     end
@@ -953,7 +952,7 @@ using DataStructures: OrderedDict, Accumulator
             run_in_reverse(p, Set([(3, 2), (1, 2), (6, 2)])),
             Dict(UInt64(1) => 2, UInt64(2) => Set([3, 1, 6])),
         )
-        @test_throws UnifyError run_in_reverse(p, Set([(3, 2), (1, 2), (6, 3)]))
+        @test_throws ErrorException run_in_reverse(p, Set([(3, 2), (1, 2), (6, 3)]))
 
         @test run_with_arguments(p, [], Dict(UInt64(1) => 2, UInt64(2) => Set([3, 1, 6]))) ==
               Set([(3, 2), (1, 2), (6, 2)])
@@ -1624,7 +1623,7 @@ using DataStructures: OrderedDict, Accumulator
         @test is_reversible(skeleton)
         p, _ = capture_free_vars(skeleton)
 
-        @test_throws TooManyOptionsException compare_options(run_in_reverse(p, 64), Dict(UInt64(1) => 4))
+        @test_throws ErrorException compare_options(run_in_reverse(p, 64), Dict(UInt64(1) => 4))
     end
 
     @testcase_log "Invented abstractor with same index combined #3" begin

@@ -141,7 +141,7 @@ function reverse_rev_select()
             out_base = EitherOptions(options_base)
             out_others = EitherOptions(options_others)
 
-            _, out_context = _run_in_reverse(
+            success, _, out_context = _run_in_reverse(
                 f_info.b_info.x_info,
                 out_selector,
                 ReverseRunContext(
@@ -153,7 +153,7 @@ function reverse_rev_select()
                 ),
             )
 
-            return value, out_context
+            return success, value, out_context
         else
             results_base = Array{Any}(undef, size(value)...)
             results_others = Array{Any}(undef, size(value)...)
@@ -167,9 +167,11 @@ function reverse_rev_select()
                 end
             end
             if all(v == results_others[1] for v in results_others)
-                error("All elements are equal according to selector")
+                return false, value, context
+                # error("All elements are equal according to selector")
             end
-            return value,
+            return true,
+            value,
             ReverseRunContext(
                 context.arguments,
                 vcat(context.predicted_arguments, [results_others, PatternWrapper(results_base), SkipArg()]),
@@ -244,14 +246,15 @@ function reverse_rev_select_set()
             end
 
             if length(options_selector) < 2
-                error("All elements are equal according to selector")
+                return false, value, context
+                # error("All elements are equal according to selector")
             end
 
             out_selector = EitherOptions(options_selector)
             out_base = EitherOptions(options_base)
             out_others = EitherOptions(options_others)
 
-            _, out_context = _run_in_reverse(
+            success, _, out_context = _run_in_reverse(
                 f_info.b_info.x_info,
                 out_selector,
                 ReverseRunContext(
@@ -263,7 +266,7 @@ function reverse_rev_select_set()
                 ),
             )
 
-            return value, out_context
+            return success, value, out_context
         else
             results_base = Set()
             results_others = Set()
@@ -275,9 +278,11 @@ function reverse_rev_select_set()
                 end
             end
             if isempty(results_base) || isempty(results_others)
-                error("All elements are equal according to selector")
+                return false, value, context
+                # error("All elements are equal according to selector")
             end
-            return value,
+            return true,
+            value,
             ReverseRunContext(
                 context.arguments,
                 vcat(context.predicted_arguments, [results_others, results_base, SkipArg()]),

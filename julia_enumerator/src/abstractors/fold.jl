@@ -21,8 +21,11 @@ function rev_fold(f, init, acc)
     outs = []
     f_info = gather_info(f.p)
     while acc != init
-        calculated_acc, context =
+        success, calculated_acc, context =
             _run_in_reverse(f_info, acc, ReverseRunContext([], [], Any[missing, missing], Dict(), Dict()))
+        if !success
+            error("Failed while running in reverse in rev_fold")
+        end
         if !isempty(context.filled_indices) || !isempty(context.filled_vars)
             error("Can't have external indices or vars in rev_fold")
         end
@@ -47,8 +50,11 @@ function rev_fold_set(f, init, acc)
 
     while !isempty(queue)
         acc, outs = pop!(queue)
-        calculated_acc, context =
+        success, calculated_acc, context =
             _run_in_reverse(f_info, acc, ReverseRunContext([], [], Any[missing, missing], Dict(), Dict()))
+        if !success
+            error("Failed while running in reverse in rev_fold")
+        end
         if !isempty(context.filled_indices) || !isempty(context.filled_vars)
             error("Can't have external indices or vars in rev_fold")
         end
@@ -97,7 +103,8 @@ function reverse_rev_fold()
         for val in value
             acc = run_with_arguments(f.p, [val, acc], Dict())
         end
-        return value,
+        return true,
+        value,
         ReverseRunContext(
             context.arguments,
             vcat(context.predicted_arguments, [acc, SkipArg(), SkipArg()]),
@@ -139,13 +146,9 @@ function _can_be_output_option(option, context, external_indices, external_vars)
         end
     end
     if !ismissing(context.calculated_arguments[end-2])
-        try
-            _unify_values(option[1][2], context.calculated_arguments[end-2], false)
-        catch e
-            if isa(e, UnifyError)
-                return false
-            end
-            rethrow()
+        found, _ = _try_unify_values(option[1][2], context.calculated_arguments[end-2], false)
+        if !found
+            return false
         end
     end
     return true
@@ -220,177 +223,173 @@ function reverse_fold(is_set = false)
         end
 
         while length(output_options) < 80 && !isempty(options_queue)
-            try
-                h = dequeue!(options_queue)
-                option = options_queue_dict[h]
-                delete!(options_queue_dict, h)
+            h = dequeue!(options_queue)
+            option = options_queue_dict[h]
+            delete!(options_queue_dict, h)
 
-                # @info "Option $option"
-                push!(visited, h)
+            # @info "Option $option"
+            push!(visited, h)
 
-                itr, acc = option[1]
+            itr, acc = option[1]
 
-                if isa(acc, AbductibleValue)
+            if isa(acc, AbductibleValue)
+                continue
+            end
+
+            calculated_arguments = []
+            push!(calculated_arguments, option[5])
+            if !ismissing(option[4])
+                if isempty(option[4])
                     continue
                 end
+                push!(calculated_arguments, first(option[4]))
+            else
+                push!(calculated_arguments, missing)
+            end
+            success, calculated_acc, new_context = _run_in_reverse(
+                f,
+                acc,
+                ReverseRunContext([], [], calculated_arguments, copy(option[2]), copy(option[3])),
+            )
+            if !success
+                continue
+            end
+            # @info "Calculated acc $calculated_acc"
+            # @info "New context $new_context"
 
-                calculated_arguments = []
-                push!(calculated_arguments, option[5])
-                if !ismissing(option[4])
-                    push!(calculated_arguments, first(option[4]))
-                else
-                    push!(calculated_arguments, missing)
-                end
-                calculated_acc, new_context = _run_in_reverse(
-                    f,
-                    acc,
-                    ReverseRunContext([], [], calculated_arguments, copy(option[2]), copy(option[3])),
-                )
-                # @info "Calculated acc $calculated_acc"
-                # @info "New context $new_context"
+            for (option_args, option_indices, option_vars) in
+                unfold_options(new_context.predicted_arguments, new_context.filled_indices, new_context.filled_vars)
+                # @info "Original option $option"
+                # @info option_args
+                # @info option_indices
+                # @info option_vars
+                new_acc_op = option_args[1]
+                # if is_set && new_acc_op == acc
+                #     continue
+                # end
 
-                for (option_args, option_indices, option_vars) in
-                    unfold_options(new_context.predicted_arguments, new_context.filled_indices, new_context.filled_vars)
-                    # @info "Original option $option"
-                    # @info option_args
-                    # @info option_indices
-                    # @info option_vars
-                    new_acc_op = option_args[1]
-                    # if is_set && new_acc_op == acc
-                    #     continue
-                    # end
-
-                    if !isempty(option[2]) || !isempty(option[3])
-                        need_reset = false
-                        for (k, v) in option_indices
-                            if haskey(option[2], k) && option[2][k] != v
-                                need_reset = true
-                                break
-                            end
+                if !isempty(option[2]) || !isempty(option[3])
+                    need_reset = false
+                    for (k, v) in option_indices
+                        if haskey(option[2], k) && option[2][k] != v
+                            need_reset = true
+                            break
                         end
-                        for (k, v) in option_vars
-                            if haskey(option[3], k) && option[3][k] != v
-                                need_reset = true
-                                break
-                            end
+                    end
+                    for (k, v) in option_vars
+                        if haskey(option[3], k) && option[3][k] != v
+                            need_reset = true
+                            break
                         end
+                    end
 
-                        if need_reset
-                            # @info "Need reset"
-                            if !ismissing(context.calculated_arguments[end-2])
-                                new_option = (
-                                    [starting_itr, value],
-                                    option_indices,
-                                    option_vars,
-                                    calc_arg_data,
-                                    context.calculated_arguments[end-2],
-                                )
-                                # @info new_option
-                                new_h = hash(new_option)
-                                if !haskey(options_queue_dict, new_h) && !in(new_h, visited)
-                                    enqueue!(options_queue, new_h)
-                                    options_queue_dict[new_h] = new_option
-                                end
-                            end
-                            new_option = ([starting_itr, value], option_indices, option_vars, calc_arg_data, missing)
+                    if need_reset
+                        # @info "Need reset"
+                        if !ismissing(context.calculated_arguments[end-2])
+                            new_option = (
+                                [starting_itr, value],
+                                option_indices,
+                                option_vars,
+                                calc_arg_data,
+                                context.calculated_arguments[end-2],
+                            )
                             # @info new_option
                             new_h = hash(new_option)
                             if !haskey(options_queue_dict, new_h) && !in(new_h, visited)
                                 enqueue!(options_queue, new_h)
                                 options_queue_dict[new_h] = new_option
                             end
-
-                            continue
                         end
-                    end
-
-                    new_item = option_args[2]
-
-                    if isa(new_acc_op, AbductibleValue)
-                        if !ismissing(context.calculated_arguments[end-2])
-                            op = [
-                                [AbductibleValue(any_object), context.calculated_arguments[end-2]],
-                                option_indices,
-                                option_vars,
-                            ]
-                        else
-                            op = [[AbductibleValue(any_object), new_acc_op], option_indices, option_vars]
-                        end
-                        _insert_output_option(output_options, op, is_set)
-
-                        if length(output_options) >= 100
-                            break
-                        end
-                        if !ismissing(context.calculated_arguments[end-2])
-                            continue
-                        end
-                    end
-
-                    if is_set
-                        if in(new_item, itr)
-                            continue
-                        end
-                        new_itr = union(itr, [new_item])
-
-                        if !ismissing(option[4])
-                            new_calc_arg_data = setdiff(option[4], [calculated_arguments[end-2]])
-                        else
-                            new_calc_arg_data = missing
-                        end
-                    else
-                        new_itr = vcat(itr, [new_item])
-                        if !ismissing(option[4])
-                            new_calc_arg_data = view(option[4], 2:length(option[4]))
-                        else
-                            new_calc_arg_data = missing
-                        end
-                    end
-                    if !ismissing(context.calculated_arguments[end-2]) && ismissing(option[5])
-                        new_option = (
-                            [new_itr, new_acc_op],
-                            option_indices,
-                            option_vars,
-                            new_calc_arg_data,
-                            context.calculated_arguments[end-2],
-                        )
+                        new_option = ([starting_itr, value], option_indices, option_vars, calc_arg_data, missing)
                         # @info new_option
-
                         new_h = hash(new_option)
                         if !haskey(options_queue_dict, new_h) && !in(new_h, visited)
                             enqueue!(options_queue, new_h)
                             options_queue_dict[new_h] = new_option
                         end
-                    end
 
-                    new_option = ([new_itr, new_acc_op], option_indices, option_vars, new_calc_arg_data, option[5])
+                        continue
+                    end
+                end
+
+                new_item = option_args[2]
+
+                if isa(new_acc_op, AbductibleValue)
+                    if !ismissing(context.calculated_arguments[end-2])
+                        op = [
+                            [AbductibleValue(any_object), context.calculated_arguments[end-2]],
+                            option_indices,
+                            option_vars,
+                        ]
+                    else
+                        op = [[AbductibleValue(any_object), new_acc_op], option_indices, option_vars]
+                    end
+                    _insert_output_option(output_options, op, is_set)
+
+                    if length(output_options) >= 100
+                        break
+                    end
+                    if !ismissing(context.calculated_arguments[end-2])
+                        continue
+                    end
+                end
+
+                if is_set
+                    if in(new_item, itr)
+                        continue
+                    end
+                    new_itr = union(itr, [new_item])
+
+                    if !ismissing(option[4])
+                        new_calc_arg_data = setdiff(option[4], [calculated_arguments[end-2]])
+                    else
+                        new_calc_arg_data = missing
+                    end
+                else
+                    new_itr = vcat(itr, [new_item])
+                    if !ismissing(option[4])
+                        new_calc_arg_data = view(option[4], 2:length(option[4]))
+                    else
+                        new_calc_arg_data = missing
+                    end
+                end
+                if !ismissing(context.calculated_arguments[end-2]) && ismissing(option[5])
+                    new_option = (
+                        [new_itr, new_acc_op],
+                        option_indices,
+                        option_vars,
+                        new_calc_arg_data,
+                        context.calculated_arguments[end-2],
+                    )
                     # @info new_option
 
                     new_h = hash(new_option)
                     if !haskey(options_queue_dict, new_h) && !in(new_h, visited)
                         enqueue!(options_queue, new_h)
                         options_queue_dict[new_h] = new_option
-                        if _can_be_output_option(new_option, context, f.indices, f.var_ids)
-                            _insert_output_option(output_options, new_option, is_set)
-                            if length(output_options) >= 100
-                                break
-                            end
-                        end
                     end
                 end
 
-            catch e
-                if isa(e, InterruptException)
-                    rethrow()
+                new_option = ([new_itr, new_acc_op], option_indices, option_vars, new_calc_arg_data, option[5])
+                # @info new_option
+
+                new_h = hash(new_option)
+                if !haskey(options_queue_dict, new_h) && !in(new_h, visited)
+                    enqueue!(options_queue, new_h)
+                    options_queue_dict[new_h] = new_option
+                    if _can_be_output_option(new_option, context, f.indices, f.var_ids)
+                        _insert_output_option(output_options, new_option, is_set)
+                        if length(output_options) >= 100
+                            break
+                        end
+                    end
                 end
-                # bt = catch_backtrace()
-                # @error "Got error" exception = (e, bt)
-                continue
             end
         end
         # @info "Options $output_options"
 
         if length(output_options) == 0
-            error("No valid options found")
+            return false, value, context
         elseif length(output_options) == 1
             result_arguments, result_indices, result_vars = first(output_options)
         else
@@ -398,17 +397,25 @@ function reverse_fold(is_set = false)
             result_arguments = []
             result_indices = Dict()
             result_vars = Dict()
-            for i in 1:2
-                push!(result_arguments, EitherOptions(Dict(h => option[1][i] for (h, option) in hashed_options)))
-            end
-            for (k, v) in first(output_options)[2]
-                result_indices[k] = EitherOptions(Dict(h => option[2][k] for (h, option) in hashed_options))
-            end
-            for (k, v) in first(output_options)[3]
-                result_vars[k] = EitherOptions(Dict(h => option[3][k] for (h, option) in hashed_options))
+            try
+                for i in 1:2
+                    push!(result_arguments, EitherOptions(Dict(h => option[1][i] for (h, option) in hashed_options)))
+                end
+                for (k, v) in first(output_options)[2]
+                    result_indices[k] = EitherOptions(Dict(h => option[2][k] for (h, option) in hashed_options))
+                end
+                for (k, v) in first(output_options)[3]
+                    result_vars[k] = EitherOptions(Dict(h => option[3][k] for (h, option) in hashed_options))
+                end
+            catch e
+                if isa(e, TooManyOptionsException)
+                    return false, value, context
+                end
+                rethrow()
             end
         end
-        return value,
+        return true,
+        value,
         ReverseRunContext(
             context.arguments,
             vcat(context.predicted_arguments, reverse(result_arguments), [SkipArg()]),
@@ -519,189 +526,196 @@ function reverse_fold_grid(dim)
         end
 
         while length(output_options) < 80 && length(options_queue) > 0
-            try
-                h = dequeue!(options_queue)
-                option = options_queue_dict[h]
-                delete!(options_queue_dict, h)
-                # @info "Option $option"
-                push!(visited, h)
+            h = dequeue!(options_queue)
+            option = options_queue_dict[h]
+            delete!(options_queue_dict, h)
+            # @info "Option $option"
+            push!(visited, h)
 
-                grid, acc = option[1]
-                indices = option[2]
-                vars = option[3]
+            grid, acc = option[1]
+            indices = option[2]
+            vars = option[3]
 
-                if any(isa(v, AbductibleValue) for v in acc)
-                    continue
+            if any(isa(v, AbductibleValue) for v in acc)
+                continue
+            end
+
+            new_options = [([[], []], indices, vars)]
+
+            good_option = true
+
+            for (i, item) in enumerate(acc)
+                calculated_arguments = []
+                if !ismissing(option[4])
+                    push!(calculated_arguments, option[4][i])
+                else
+                    push!(calculated_arguments, missing)
                 end
-
-                new_options = [([[], []], indices, vars)]
-
-                for (i, item) in enumerate(acc)
-                    calculated_arguments = []
-                    if !ismissing(option[4])
-                        push!(calculated_arguments, option[4][i])
-                    else
-                        push!(calculated_arguments, missing)
+                if !ismissing(context.calculated_arguments[end-1])
+                    if size(grid, 3 - dim) + 1 > size(context.calculated_arguments[end-1], 3 - dim)
+                        good_option = false
+                        break
                     end
-                    if !ismissing(context.calculated_arguments[end-1])
-                        if dim == 1
-                            push!(calculated_arguments, context.calculated_arguments[end-1][i, size(grid, 2)+1])
-                        else
-                            push!(calculated_arguments, context.calculated_arguments[end-1][size(grid, 1)+1, i])
-                        end
+                    if dim == 1
+                        push!(calculated_arguments, context.calculated_arguments[end-1][i, size(grid, 2)+1])
                     else
-                        push!(calculated_arguments, missing)
+                        push!(calculated_arguments, context.calculated_arguments[end-1][size(grid, 1)+1, i])
                     end
-                    next_options = []
-                    for (new_args, new_indices, new_vars) in new_options
-                        calculated_acc, new_context = _run_in_reverse(
-                            f,
-                            item,
-                            ReverseRunContext([], [], calculated_arguments, copy(new_indices), copy(new_vars)),
-                        )
-                        # @info "Calculated acc $calculated_acc"
-                        # @info "New context $new_context"
+                else
+                    push!(calculated_arguments, missing)
+                end
+                next_options = []
+                for (new_args, new_indices, new_vars) in new_options
+                    success, calculated_acc, new_context = _run_in_reverse(
+                        f,
+                        item,
+                        ReverseRunContext([], [], calculated_arguments, copy(new_indices), copy(new_vars)),
+                    )
+                    if !success
+                        good_option = false
+                        break
+                    end
+                    # @info "Calculated acc $calculated_acc"
+                    # @info "New context $new_context"
 
-                        for (option_args, option_indices, option_vars) in unfold_options(
-                            new_context.predicted_arguments,
-                            new_context.filled_indices,
-                            new_context.filled_vars,
-                        )
-                            new_acc_op = option_args[1]
-                            if !isempty(new_indices) || !isempty(new_vars)
-                                need_reset = false
+                    for (option_args, option_indices, option_vars) in unfold_options(
+                        new_context.predicted_arguments,
+                        new_context.filled_indices,
+                        new_context.filled_vars,
+                    )
+                        new_acc_op = option_args[1]
+                        if !isempty(new_indices) || !isempty(new_vars)
+                            need_reset = false
 
-                                for (k, v) in option_indices
-                                    if haskey(new_indices, k) && new_indices[k] != v
-                                        need_reset = true
-                                        break
-                                    end
+                            for (k, v) in option_indices
+                                if haskey(new_indices, k) && new_indices[k] != v
+                                    need_reset = true
+                                    break
                                 end
-                                for (k, v) in option_vars
-                                    if haskey(new_vars, k) && new_vars[k] != v
-                                        need_reset = true
-                                        break
-                                    end
+                            end
+                            for (k, v) in option_vars
+                                if haskey(new_vars, k) && new_vars[k] != v
+                                    need_reset = true
+                                    break
                                 end
-                                if need_reset
-                                    # @info "Need reset"
-                                    new_option = ([starting_grid, value], option_indices, option_vars, missing)
+                            end
+                            if need_reset
+                                # @info "Need reset"
+                                new_option = ([starting_grid, value], option_indices, option_vars, missing)
+                                # @info new_option
+                                new_h = hash(new_option)
+                                if !haskey(options_queue_dict, new_h) && !in(new_h, visited)
+                                    enqueue!(options_queue, new_h)
+                                    options_queue_dict[new_h] = new_option
+                                end
+
+                                if !ismissing(context.calculated_arguments[end-2])
+                                    new_option = (
+                                        [starting_grid, value],
+                                        option_indices,
+                                        option_vars,
+                                        context.calculated_arguments[end-2],
+                                    )
                                     # @info new_option
                                     new_h = hash(new_option)
                                     if !haskey(options_queue_dict, new_h) && !in(new_h, visited)
                                         enqueue!(options_queue, new_h)
                                         options_queue_dict[new_h] = new_option
                                     end
-
-                                    if !ismissing(context.calculated_arguments[end-2])
-                                        new_option = (
-                                            [starting_grid, value],
-                                            option_indices,
-                                            option_vars,
-                                            context.calculated_arguments[end-2],
-                                        )
-                                        # @info new_option
-                                        new_h = hash(new_option)
-                                        if !haskey(options_queue_dict, new_h) && !in(new_h, visited)
-                                            enqueue!(options_queue, new_h)
-                                            options_queue_dict[new_h] = new_option
-                                        end
-                                    end
-                                    continue
                                 end
-                            end
-
-                            acc_option = vcat(new_args[1], [new_acc_op])
-                            line_option = vcat(new_args[2], [option_args[2]])
-                            push!(next_options, ([acc_option, line_option], option_indices, option_vars))
-
-                            if length(next_options) > max_inner_loop_options
-                                break
+                                continue
                             end
                         end
+
+                        acc_option = vcat(new_args[1], [new_acc_op])
+                        line_option = vcat(new_args[2], [option_args[2]])
+                        push!(next_options, ([acc_option, line_option], option_indices, option_vars))
+
                         if length(next_options) > max_inner_loop_options
                             break
                         end
                     end
-                    # @info "Next options $next_options"
-
-                    new_options = next_options
+                    if length(next_options) > max_inner_loop_options
+                        break
+                    end
                 end
-                for (new_args, new_indices, new_vars) in new_options
-                    new_acc, new_line = new_args
+                if !good_option
+                    break
+                end
+                # @info "Next options $next_options"
 
-                    if any(isa(v, AbductibleValue) for v in new_line) || any(isa(v, AbductibleValue) for v in new_acc)
-                        if !ismissing(context.calculated_arguments[end-2])
-                            op = [
-                                [AbductibleValue(any_object), context.calculated_arguments[end-2]],
-                                new_indices,
-                                new_vars,
-                            ]
-                            _insert_output_option_grid(output_options, op)
-                        else
-                            if any(isa(v, AbductibleValue) for v in new_acc)
-                                acc_op = AbductibleValue([isa(v, AbductibleValue) ? v.value : v for v in new_acc])
-                            else
-                                acc_op = new_acc
-                            end
-                            op = [[AbductibleValue(any_object), acc_op], new_indices, new_vars]
-                            _insert_output_option_grid(output_options, op)
-                            op = [
-                                [AbductibleValue(any_object), AbductibleValue([any_object for _ in new_acc])],
-                                new_indices,
-                                new_vars,
-                            ]
-                            _insert_output_option_grid(output_options, op)
-                        end
-                        if length(output_options) >= 100
-                            break
-                        end
-                        if !ismissing(context.calculated_arguments[end-2])
-                            continue
-                        end
-                    end
+                new_options = next_options
+            end
 
-                    if dim == 1
-                        new_grid = hcat(grid, new_line)
+            if !good_option
+                continue
+            end
+
+            for (new_args, new_indices, new_vars) in new_options
+                new_acc, new_line = new_args
+
+                if any(isa(v, AbductibleValue) for v in new_line) || any(isa(v, AbductibleValue) for v in new_acc)
+                    if !ismissing(context.calculated_arguments[end-2])
+                        op = [[AbductibleValue(any_object), context.calculated_arguments[end-2]], new_indices, new_vars]
+                        _insert_output_option_grid(output_options, op)
                     else
-                        new_grid = vcat(grid, new_line')
-                    end
-
-                    if !ismissing(context.calculated_arguments[end-2]) && ismissing(option[4])
-                        new_option = ([new_grid, new_acc], new_indices, new_vars, context.calculated_arguments[end-2])
-                        # @info "New option $new_option"
-
-                        new_h = hash(new_option)
-                        if !haskey(options_queue_dict, new_h) && !in(new_h, visited)
-                            enqueue!(options_queue, new_h)
-                            options_queue_dict[new_h] = new_option
+                        if any(isa(v, AbductibleValue) for v in new_acc)
+                            acc_op = AbductibleValue([isa(v, AbductibleValue) ? v.value : v for v in new_acc])
+                        else
+                            acc_op = new_acc
                         end
+                        op = [[AbductibleValue(any_object), acc_op], new_indices, new_vars]
+                        _insert_output_option_grid(output_options, op)
+                        op = [
+                            [AbductibleValue(any_object), AbductibleValue([any_object for _ in new_acc])],
+                            new_indices,
+                            new_vars,
+                        ]
+                        _insert_output_option_grid(output_options, op)
                     end
+                    if length(output_options) >= 100
+                        break
+                    end
+                    if !ismissing(context.calculated_arguments[end-2])
+                        continue
+                    end
+                end
 
-                    new_option = ([new_grid, new_acc], new_indices, new_vars, option[4])
+                if dim == 1
+                    new_grid = hcat(grid, new_line)
+                else
+                    new_grid = vcat(grid, reshape(new_line, (1, length(new_line))))
+                end
+
+                if !ismissing(context.calculated_arguments[end-2]) && ismissing(option[4])
+                    new_option = ([new_grid, new_acc], new_indices, new_vars, context.calculated_arguments[end-2])
                     # @info "New option $new_option"
+
                     new_h = hash(new_option)
                     if !haskey(options_queue_dict, new_h) && !in(new_h, visited)
                         enqueue!(options_queue, new_h)
                         options_queue_dict[new_h] = new_option
-                        if _can_be_output_option(new_option, context, f.indices, f.var_ids)
-                            _insert_output_option_grid(output_options, new_option)
+                    end
+                end
 
-                            if length(output_options) >= 100
-                                break
-                            end
+                new_option = ([new_grid, new_acc], new_indices, new_vars, option[4])
+                # @info "New option $new_option"
+                new_h = hash(new_option)
+                if !haskey(options_queue_dict, new_h) && !in(new_h, visited)
+                    enqueue!(options_queue, new_h)
+                    options_queue_dict[new_h] = new_option
+                    if _can_be_output_option(new_option, context, f.indices, f.var_ids)
+                        _insert_output_option_grid(output_options, new_option)
+
+                        if length(output_options) >= 100
+                            break
                         end
                     end
                 end
-            catch e
-                if isa(e, InterruptException)
-                    rethrow()
-                end
-                continue
             end
         end
         if length(output_options) == 0
-            error("No valid options found")
+            return false, value, context
         elseif length(output_options) == 1
             result_arguments, result_indices, result_vars = first(output_options)
         else
@@ -709,18 +723,26 @@ function reverse_fold_grid(dim)
             result_arguments = []
             result_indices = Dict()
             result_vars = Dict()
-            for i in 1:2
-                push!(result_arguments, EitherOptions(Dict(h => option[1][i] for (h, option) in hashed_options)))
-            end
-            for (k, v) in first(output_options)[2]
-                result_indices[k] = EitherOptions(Dict(h => option[2][k] for (h, option) in hashed_options))
-            end
-            for (k, v) in first(output_options)[3]
-                result_vars[k] = EitherOptions(Dict(h => option[3][k] for (h, option) in hashed_options))
+            try
+                for i in 1:2
+                    push!(result_arguments, EitherOptions(Dict(h => option[1][i] for (h, option) in hashed_options)))
+                end
+                for (k, v) in first(output_options)[2]
+                    result_indices[k] = EitherOptions(Dict(h => option[2][k] for (h, option) in hashed_options))
+                end
+                for (k, v) in first(output_options)[3]
+                    result_vars[k] = EitherOptions(Dict(h => option[3][k] for (h, option) in hashed_options))
+                end
+            catch e
+                if isa(e, TooManyOptionsException)
+                    return false, value, context
+                end
+                rethrow()
             end
         end
 
-        return value,
+        return true,
+        value,
         ReverseRunContext(
             context.arguments,
             vcat(context.predicted_arguments, reverse(result_arguments), [SkipArg()]),

@@ -10,8 +10,7 @@ using solver:
     fix_option_hashes,
     parse_program,
     t0,
-    run_with_arguments,
-    TooManyOptionsException
+    run_with_arguments
 
 @testset "Reverse fixers" begin
     function unfold_options(options::Dict)
@@ -118,6 +117,6 @@ using solver:
         p = parse_program("(rev_fix_param (fold (lambda (lambda (* \$1 \$0))) \$v5 \$v6) \$v6 (lambda 0))")
         @test is_reversible(p)
         # TODO: Find a way to evade traversing many unnecessary options
-        @test_throws TooManyOptionsException run_in_reverse(p, 0)
+        @test_throws ErrorException run_in_reverse(p, 0)
     end
 end

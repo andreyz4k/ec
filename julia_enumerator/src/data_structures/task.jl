@@ -60,10 +60,16 @@ function build_task(handler, name, task_type, examples, test_examples, special_t
             name,
             task_type,
             handler,
-            [Dict(k => vcat([r' for r in val]...) for (k, val) in ex["inputs"]) for ex in examples],
-            [vcat([r' for r in ex["output"]]...) for ex in examples],
-            [Dict(k => vcat([r' for r in val]...) for (k, val) in ex["inputs"]) for ex in test_examples],
-            [vcat([r' for r in ex["output"]]...) for ex in test_examples],
+            [
+                Dict(k => vcat([reshape(r, (1, length(r))) for r in val]...) for (k, val) in ex["inputs"]) for
+                ex in examples
+            ],
+            [vcat([reshape(r, (1, length(r))) for r in ex["output"]]...) for ex in examples],
+            [
+                Dict(k => vcat([reshape(r, (1, length(r))) for r in val]...) for (k, val) in ex["inputs"]) for
+                ex in test_examples
+            ],
+            [vcat([reshape(r, (1, length(r))) for r in ex["output"]]...) for ex in test_examples],
         )
     end
 end

@@ -19,7 +19,7 @@ function reverse_rev_greedy_cluster()
         grouper = f.p([], Dict())
 
         if isempty(groups)
-            error("Groups are empty")
+            return false, groups, context
         end
         group = first(groups)
         selected_value = first(group)
@@ -36,7 +36,8 @@ function reverse_rev_greedy_cluster()
 
         union!(new_groups, rem_groups)
 
-        return groups,
+        return true,
+        groups,
         ReverseRunContext(
             context.arguments,
             vcat(context.predicted_arguments, [new_groups, selected_value, SkipArg()]),
