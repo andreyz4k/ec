@@ -191,7 +191,7 @@ function _get_fixed_hashes(options::EitherOptions, value)
 end
 
 function _get_fixed_hashes(options, value)
-    _match_value(options, value) || _match_value(value, options), Set()
+    _try_unify_values(options, value, false)[1], Set()
 end
 
 function get_fixed_hashes(options, value)
@@ -223,7 +223,7 @@ function _get_intersecting_hashes(options::EitherOptions, value, preselected_has
 end
 
 function _get_intersecting_hashes(options, value, preselected_hashes)
-    _match_value(options, value) || _match_value(value, options), Set()
+    _try_unify_values(options, value, false)[1], Set()
 end
 
 function get_intersecting_hashes(options, value, preselected_hashes = Set())
@@ -252,7 +252,7 @@ function _get_hashes_paths(options::EitherOptions, value, preselected_hashes)
 end
 
 function _get_hashes_paths(options, value, preselected_hashes)
-    if _match_value(options, value) || _match_value(value, options)
+    if _try_unify_values(options, value, false)[1]
         return [[]]
     else
         return []
@@ -682,4 +682,242 @@ function matching_with_unknown_candidates(sc, entry::AbductibleEntry, branch_id)
         push!(results, (FreeVar(tp, known_var_id), Dict(known_var_id => known_branch_id), tp, prev_matches_count))
     end
     results
+end
+
+_try_unify_values(v1, v2::AnyObject, check_pattern) = true, v1
+_try_unify_values(v1::AnyObject, v2, check_pattern) = true, v2
+_try_unify_values(v1::AnyObject, v2::AnyObject, check_pattern) = true, v2
+
+function _try_unify_values(v1::PatternWrapper, v2, check_pattern)
+    found, res = _try_unify_values(v1.value, v2, true)
+    if !found
+        return found, res
+    end
+    return found, _wrap_wildcard(res)
+end
+
+function _try_unify_values(v1, v2::PatternWrapper, check_pattern)
+    found, res = _try_unify_values(v1, v2.value, true)
+    if !found
+        return found, res
+    end
+    return found, _wrap_wildcard(res)
+end
+
+function _try_unify_values(v1::PatternWrapper, v2::PatternWrapper, check_pattern)
+    found, res = _try_unify_values(v1.value, v2.value, true)
+    if !found
+        return found, res
+    end
+    return found, _wrap_wildcard(res)
+end
+
+_try_unify_values(v1::PatternWrapper, v2::AnyObject, check_pattern) = true, v1
+_try_unify_values(v1::AnyObject, v2::PatternWrapper, check_pattern) = true, v2
+
+function _try_unify_values(v1::AbductibleValue, v2, check_pattern)
+    found, res = _try_unify_values(v1.value, v2, true)
+    if !found
+        return found, res
+    end
+    found, _wrap_abductible(res)
+end
+
+function _try_unify_values(v1, v2::AbductibleValue, check_pattern)
+    found, res = _try_unify_values(v1, v2.value, true)
+    if !found
+        return found, res
+    end
+    found, _wrap_abductible(res)
+end
+
+function _try_unify_values(v1::AbductibleValue, v2::AbductibleValue, check_pattern)
+    found, res = _try_unify_values(v1.value, v2.value, true)
+    if !found
+        return found, res
+    end
+    found, _wrap_abductible(res)
+end
+
+_try_unify_values(v1::AbductibleValue, v2::AnyObject, check_pattern) = true, v1
+_try_unify_values(v1::AnyObject, v2::AbductibleValue, check_pattern) = true, v2
+
+function _try_unify_values(v1::AbductibleValue, v2::PatternWrapper, check_pattern)
+    found, res = _try_unify_values(v1.value, v2.value, true)
+    if !found
+        return found, res
+    end
+    found, _wrap_abductible(res)
+end
+
+function _try_unify_values(v1::PatternWrapper, v2::AbductibleValue, check_pattern)
+    found, res = _try_unify_values(v1.value, v2.value, true)
+    if !found
+        return found, res
+    end
+    found, _wrap_abductible(res)
+end
+
+function _try_unify_values(v1::EitherOptions, v2::PatternWrapper, check_pattern)
+    @invoke _try_unify_values(v1::EitherOptions, v2::Any, check_pattern)
+end
+
+function _try_unify_values(v1::EitherOptions, v2::AbductibleValue, check_pattern)
+    @invoke _try_unify_values(v1::EitherOptions, v2::Any, check_pattern)
+end
+
+function _try_unify_values(v1::EitherOptions, v2, check_pattern)
+    options = Dict()
+    for (h, v) in v1.options
+        found, unified_v = _try_unify_values(v, v2, check_pattern)
+        if found
+            options[h] = unified_v
+        end
+    end
+    if isempty(options)
+        return false, nothing
+    end
+    return true, EitherOptions(options)
+end
+
+function _try_unify_values(v1::PatternWrapper, v2::EitherOptions, check_pattern)
+    @invoke _try_unify_values(v1::Any, v2::EitherOptions, check_pattern)
+end
+
+function _try_unify_values(v1::AbductibleValue, v2::EitherOptions, check_pattern)
+    @invoke _try_unify_values(v1::Any, v2::EitherOptions, check_pattern)
+end
+
+function _try_unify_values(v1, v2::EitherOptions, check_pattern)
+    options = Dict()
+    for (h, v) in v2.options
+        found, unified_v = _try_unify_values(v1, v, check_pattern)
+        if found
+            options[h] = unified_v
+        end
+    end
+    if isempty(options)
+        return false, nothing
+    end
+    return true, EitherOptions(options)
+end
+
+function _try_unify_values(v1::EitherOptions, v2::EitherOptions, check_pattern)
+    options = Dict()
+    for (h, v) in v1.options
+        if haskey(v2.options, h)
+            found, unified_v = _try_unify_values(v, v2.options[h], check_pattern)
+            if found
+                options[h] = unified_v
+            else
+                return false, nothing
+            end
+        end
+    end
+    if isempty(options)
+        return false, nothing
+    end
+    return true, EitherOptions(options)
+end
+
+function _try_unify_values(v1, v2, check_pattern)
+    if v1 == v2
+        return true, v1
+    end
+    return false, nothing
+end
+
+function _try_unify_values(v1::Array, v2::Array, check_pattern)
+    if length(v1) != length(v2)
+        return false, nothing
+    end
+    if v1 == v2
+        return true, v1
+    end
+    if !check_pattern
+        return false, nothing
+    end
+    res = []
+    for i in 1:length(v1)
+        found, unified_v = _try_unify_values(v1[i], v2[i], check_pattern)
+        if !found
+            return false, nothing
+        end
+        push!(res, unified_v)
+    end
+    return true, res
+end
+
+function _try_unify_values(v1::Tuple, v2::Tuple, check_pattern)
+    if length(v1) != length(v2)
+        return false, nothing
+    end
+    if v1 == v2
+        return true, v1
+    end
+    if !check_pattern
+        return false, nothing
+    end
+    res = []
+    for i in 1:length(v1)
+        found, unified_v = _try_unify_values(v1[i], v2[i], check_pattern)
+        if !found
+            return false, nothing
+        end
+        push!(res, unified_v)
+    end
+    return true, Tuple(res)
+end
+
+function _try_unify_values(v1::Set, v2::Set, check_pattern)
+    if length(v1) != length(v2)
+        return false, nothing
+    end
+    if v1 == v2
+        return true, v1
+    end
+    if !check_pattern
+        return false, nothing
+    end
+    options = []
+    f_v = first(v1)
+    if in(f_v, v2)
+        found, rest = _try_unify_values(setdiff(v1, Set([f_v])), setdiff(v2, Set([f_v])), check_pattern)
+        if !found
+            return false, nothing
+        end
+        if isa(rest, EitherOptions)
+            for (h, v) in rest.options
+                push!(options, union(Set([f_v]), v))
+            end
+        else
+            push!(rest, f_v)
+            return true, rest
+        end
+    else
+        for v in v2
+            found, unified_v = _try_unify_values(f_v, v, check_pattern)
+            if !found
+                continue
+            end
+            found, rest = _try_unify_values(setdiff(v1, Set([f_v])), setdiff(v2, Set([v])), check_pattern)
+            if !found
+                continue
+            end
+            if isa(rest, EitherOptions)
+                for (h, val) in rest.options
+                    push!(options, union(Set([unified_v]), val))
+                end
+            else
+                push!(options, union(Set([unified_v]), rest))
+            end
+        end
+    end
+    if isempty(options)
+        return false, nothing
+    elseif length(options) == 1
+        return true, options[1]
+    else
+        return true, EitherOptions(Dict(rand(UInt64) => option for option in options))
+    end
 end
