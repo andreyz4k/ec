@@ -1110,25 +1110,34 @@ function _wrap_abductible(v::EitherOptions)
     return EitherOptions(options)
 end
 
+function _generic_reverse(f, val, ctx)
+    predicted_args = f(val)
+    for i in 1:length(predicted_args)
+        if !ismissing(ctx.calculated_arguments[end-i+1])
+            arg = predicted_args[i]
+            fixed_hashes = get_fixed_hashes(arg, ctx.calculated_arguments[end-i+1])
+            predicted_args = [fix_option_hashes(fixed_hashes, v) for v in predicted_args]
+        end
+    end
+    (
+        true,
+        val,
+        ReverseRunContext(
+            ctx.arguments,
+            vcat(ctx.predicted_arguments, reverse(predicted_args)),
+            ctx.calculated_arguments,
+            ctx.filled_indices,
+            ctx.filled_vars,
+        ),
+    )
+end
+
 macro define_reverse_primitive(name, t, x, reverse_function)
     return quote
         local n = $(esc(name))
         @define_primitive n $(esc(t)) $(esc(x))
         local prim = every_primitive[n]
-        all_abstractors[prim] = [],
-        (
-            (v, ctx) -> (
-                true,
-                v,
-                ReverseRunContext(
-                    ctx.arguments,
-                    vcat(ctx.predicted_arguments, reverse($(esc(reverse_function))(v))),
-                    ctx.calculated_arguments,
-                    ctx.filled_indices,
-                    ctx.filled_vars,
-                ),
-            )
-        )
+        all_abstractors[prim] = [], (v, ctx) -> _generic_reverse($(esc(reverse_function)), v, ctx)
     end
 end
 
