@@ -15,14 +15,17 @@ function _test_one_example(p, xs, y)
     catch e
         if isa(e, UnknownPrimitive)
             error("Unknown primitive: $(e.name)")
-        elseif isa(e, InterruptException)
+        elseif isa(e, InterruptException) || isa(e, AssertionError) || isa(e, MethodError)
             rethrow()
         elseif isa(e, EnumerationException) || isa(e, ErrorException)
             return false
         else
-            @error e
+            bt = catch_backtrace()
+            @error "Error while testing example" exception = (e, bt)
             @error p
-            rethrow()
+            @error xs
+            @error y
+            return false
         end
     end
 end
