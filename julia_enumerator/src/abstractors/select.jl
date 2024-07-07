@@ -141,6 +141,7 @@ function reverse_rev_select()
             out_base = EitherOptions(options_base)
             out_others = EitherOptions(options_others)
 
+            in_filled_indices = Dict{Int64,Any}(i + 1 => v for (i, v) in context.filled_indices)
             success, _, out_context = _run_in_reverse(
                 f_info.b_info.x_info,
                 out_selector,
@@ -148,11 +149,14 @@ function reverse_rev_select()
                     context.arguments,
                     vcat(context.predicted_arguments, [out_others, out_base, SkipArg()]),
                     context.calculated_arguments,
-                    context.filled_indices,
+                    in_filled_indices,
                     context.filled_vars,
                 ),
             )
-
+            # if !success
+            #     @info "Failed to run selector in reverse $(f_info.b_info.x_info.p) $out_selector $context"
+            # end
+            out_context.filled_indices = Dict{Int64,Any}(i - 1 => v for (i, v) in out_context.filled_indices if i > 0)
             return success, value, out_context
         else
             results_base = Array{Any}(undef, size(value)...)
@@ -254,6 +258,8 @@ function reverse_rev_select_set()
             out_base = EitherOptions(options_base)
             out_others = EitherOptions(options_others)
 
+            in_filled_indices = Dict{Int64,Any}(i + 1 => v for (i, v) in context.filled_indices)
+
             success, _, out_context = _run_in_reverse(
                 f_info.b_info.x_info,
                 out_selector,
@@ -261,10 +267,11 @@ function reverse_rev_select_set()
                     context.arguments,
                     vcat(context.predicted_arguments, [out_others, out_base, SkipArg()]),
                     context.calculated_arguments,
-                    context.filled_indices,
+                    in_filled_indices,
                     context.filled_vars,
                 ),
             )
+            out_context.filled_indices = Dict{Int64,Any}(i - 1 => v for (i, v) in out_context.filled_indices if i > 0)
 
             return success, value, out_context
         else

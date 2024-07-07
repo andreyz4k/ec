@@ -100,8 +100,8 @@ function reverse_fix_param()
             filled_vars[param.var_id] = fixer_value
             filled_indices = context.filled_indices
         else
+            error("Invalid param type $(param)")
             return false, value, context
-            # error("Invalid param type $(param)")
         end
 
         success, calculated_output, arg_context = _run_in_reverse(

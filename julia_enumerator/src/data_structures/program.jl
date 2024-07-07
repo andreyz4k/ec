@@ -503,6 +503,11 @@ end
 function (p::LetRevClause)(environment, workspace)
     vals = run_in_reverse(p.v, workspace[p.inp_var_id])
     for (k, v) in vals
+        if isa(v, EitherOptions) || isa(v, AbductibleValue)
+            @error p.v
+            @error workspace[p.inp_var_id]
+            error("LetRevClause $p cannot return wildcard $k $v")
+        end
         workspace[k] = v
     end
     b = p.b(environment, workspace)

@@ -19,7 +19,7 @@ end
 
 function rev_fold(f, init, acc)
     outs = []
-    f_info = gather_info(f.p)
+    f_info = gather_info(f)
     while acc != init
         success, calculated_acc, context =
             _run_in_reverse(f_info, acc, ReverseRunContext([], [], Any[missing, missing], Dict(), Dict()))
@@ -46,14 +46,14 @@ function rev_fold_set(f, init, acc)
     queue = Set{Any}([(acc, Set())])
     visited = Set()
 
-    f_info = gather_info(f.p)
+    f_info = gather_info(f)
 
     while !isempty(queue)
         acc, outs = pop!(queue)
         success, calculated_acc, context =
             _run_in_reverse(f_info, acc, ReverseRunContext([], [], Any[missing, missing], Dict(), Dict()))
         if !success
-            error("Failed while running in reverse in rev_fold")
+            error("Failed while running in reverse in rev_fold $(f_info.p) $acc")
         end
         if !isempty(context.filled_indices) || !isempty(context.filled_vars)
             error("Can't have external indices or vars in rev_fold")

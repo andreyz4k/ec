@@ -237,7 +237,7 @@ _fill_args(p::Apply, environment) = Apply(_fill_args(p.f, environment), _fill_ar
 _fill_args(p::Abstraction, environment) = Abstraction(_fill_args(p.b, Dict(i + 1 => c for (i, c) in environment)))
 
 function _fill_args(p::Index, environment)
-    if haskey(environment, p.n)
+    if haskey(environment, p.n) && !isa(environment[p.n], Hole)
         return environment[p.n]
     else
         return p
@@ -256,6 +256,7 @@ function _is_reversible(p::Apply, environment, args)
     filled_x = _fill_args(p.x, environment)
     checkers = _is_reversible(p.f, environment, vcat(args, [filled_x]))
     if isnothing(checkers)
+        # @info "Returned nothing for $(p.f) $environment $args $filled_x"
         return nothing
     end
     if isempty(checkers)
@@ -269,14 +270,21 @@ function _is_reversible(p::Apply, environment, args)
         if isa(filled_x, Index) || isa(filled_x, FreeVar)
             return checkers
         end
+        if isa(filled_x, Abstraction)
+            return checkers
+        end
         checker = is_reversible
     else
         checker = checkers[1]
         if isnothing(checker)
+            if isa(filled_x, Abstraction)
+                return view(checkers, 2:length(checkers))
+            end
             checker = is_reversible
         end
     end
     if !checker(filled_x)
+        # @info "Checker failed for $checker $(p) $(filled_x) "
         return nothing
     else
         return view(checkers, 2:length(checkers))
@@ -340,24 +348,12 @@ struct PrimitiveInfo <: ProgramInfo
     var_ids::Vector{UInt64}
 end
 
-gather_info(p::Primitive) = PrimitiveInfo(p, [], [])
-
-gather_info(p::Invented) = gather_info(p.b)
-
 struct ApplyInfo <: ProgramInfo
     p::Apply
     f_info::ProgramInfo
     x_info::ProgramInfo
     indices::Vector{Int64}
     var_ids::Vector{UInt64}
-end
-
-function gather_info(p::Apply)
-    f_info = gather_info(p.f)
-    x_info = gather_info(p.x)
-    indices = vcat(f_info.indices, x_info.indices)
-    var_ids = vcat(f_info.var_ids, x_info.var_ids)
-    return ApplyInfo(p, f_info, x_info, indices, var_ids)
 end
 
 struct AbstractionInfo <: ProgramInfo
@@ -367,18 +363,11 @@ struct AbstractionInfo <: ProgramInfo
     var_ids::Vector{UInt64}
 end
 
-function gather_info(p::Abstraction)
-    b_info = gather_info(p.b)
-    return AbstractionInfo(p, b_info, [i - 1 for i in b_info.indices if i > 0], b_info.var_ids)
-end
-
 struct SetConstInfo <: ProgramInfo
     p::SetConst
     indices::Vector{Int64}
     var_ids::Vector{UInt64}
 end
-
-gather_info(p::SetConst) = SetConstInfo(p, [], [])
 
 struct IndexInfo <: ProgramInfo
     p::Index
@@ -386,15 +375,70 @@ struct IndexInfo <: ProgramInfo
     var_ids::Vector{UInt64}
 end
 
-gather_info(p::Index) = IndexInfo(p, [p.n], [])
-
 struct FreeVarInfo <: ProgramInfo
     p::FreeVar
     indices::Vector{Int64}
     var_ids::Vector{UInt64}
 end
 
-gather_info(p::FreeVar) = FreeVarInfo(p, [], [p.var_id])
+_gather_info(p::Primitive, fill_indices, args) = PrimitiveInfo(p, [], [])
+
+_gather_info(p::Invented, fill_indices, args) = _gather_info(p.b, fill_indices, args)
+
+function _gather_info(p::Apply, fill_indices, args)
+    x_info = _gather_info(p.x, fill_indices, [])
+    f_info = _gather_info(p.f, fill_indices, vcat(args, [x_info.p]))
+    indices = vcat(f_info.indices, x_info.indices)
+    var_ids = vcat(f_info.var_ids, x_info.var_ids)
+    return ApplyInfo(Apply(f_info.p, x_info.p), f_info, x_info, indices, var_ids)
+end
+
+function _gather_info(p::Abstraction, fill_indices, args)
+    new_fill_indices = Dict(i + 1 => c for (i, c) in fill_indices)
+    if !isempty(args) && isa(args[end], Abstraction)
+        new_fill_indices[0] = args[end]
+    end
+    b_info = _gather_info(p.b, new_fill_indices, view(args, 1:length(args)-1))
+    return AbstractionInfo(Abstraction(b_info.p), b_info, [i - 1 for i in b_info.indices if i > 0], b_info.var_ids)
+end
+
+_gather_info(p::SetConst, fill_indices, args) = SetConstInfo(p, [], [])
+
+shift_indices(p::Abstraction, shift, threshold) = Abstraction(shift_indices(p.b, shift, threshold + 1))
+shift_indices(p::Apply, shift, threshold) =
+    Apply(shift_indices(p.f, shift, threshold), shift_indices(p.x, shift, threshold))
+shift_indices(p::Index, shift, threshold) =
+    if p.n < threshold
+        p
+    else
+        Index(p.n + shift)
+    end
+shift_indices(p, shift, threshold) = p
+
+function _gather_info(p::Index, fill_indices, args)
+    if haskey(fill_indices, p.n)
+        shifted_p = shift_indices(fill_indices[p.n], p.n, 0)
+        return _gather_info(shifted_p, fill_indices, args)
+    else
+        return IndexInfo(p, [p.n], [])
+    end
+end
+
+_gather_info(p::FreeVar, fill_indices, args) = FreeVarInfo(p, [], [p.var_id])
+
+gather_info(p) = _gather_info(p, Dict(), [])
+
+function gather_info(p::BoundAbstraction)
+    filled_indices = Dict()
+    for i in 0:length(p.arguments)-1
+        arg = p.arguments[end-i]
+        if isa(arg, BoundAbstraction)
+            arg_info = gather_info(arg)
+            filled_indices[i] = arg_info.p
+        end
+    end
+    _gather_info(p.p, filled_indices, [])
+end
 
 function _run_in_reverse(p_info, output, context, splitter::EitherOptions)
     # @info "Running in reverse $(p_info.p) $output $context"
@@ -514,7 +558,7 @@ function __run_in_reverse(p_info::PrimitiveInfo, output, context)
         return all_abstractors[p_info.p][2](output, context)
     catch e
         # bt = catch_backtrace()
-        # @error e exception = (e, bt)
+        # @error "Error while running $(p_info.p) $output $context" exception = (e, bt)
         if isa(e, InterruptException)
             rethrow()
         end
@@ -630,6 +674,7 @@ function __run_in_reverse(p_info::ApplyInfo, output::AbductibleValue, context)
 end
 
 function _precalculate_arg(p_info, context)
+    # @info "Precalculating $(p_info.p) $(p_info.indices) $(p_info.var_ids) $(context.filled_indices) $(context.filled_vars) $(context.calculated_arguments)"
     for i in p_info.indices
         if !haskey(context.filled_indices, i)
             return missing
@@ -645,7 +690,7 @@ function _precalculate_arg(p_info, context)
         env[end-i] = v
     end
     try
-        # @info "Precalculating $p with $env and $(context.filled_vars)"
+        # @info "Precalculating $(p_info.p) with $env and $(context.filled_vars)"
         calculated_output = p_info.p(env, context.filled_vars)
         # @info calculated_output
         if isa(calculated_output, Function) ||
@@ -665,7 +710,7 @@ end
 function __run_in_reverse(p_info::ApplyInfo, output, context)
     # @info "Running in reverse $(p_info.p) $output $context"
     precalculated_arg = _precalculate_arg(p_info.x_info, context)
-    # @info "Precalculated arg for $(p.x) is $precalculated_arg"
+    # @info "Precalculated arg for $(p_info.x_info.p) is $precalculated_arg"
     success, calculated_output, arg_context = _run_in_reverse(
         p_info.f_info,
         output,
@@ -682,7 +727,7 @@ function __run_in_reverse(p_info::ApplyInfo, output, context)
         # @info "Failed to run in reverse $(p_info.p) $output $context"
         return false, output, context
     end
-    # @info "Arg context for $p $arg_context"
+    # @info "Arg context for $(p_info.p) $arg_context"
     pop!(arg_context.arguments)
     pop!(arg_context.calculated_arguments)
     arg_target = pop!(arg_context.predicted_arguments)
@@ -691,7 +736,7 @@ function __run_in_reverse(p_info::ApplyInfo, output, context)
     end
     success, arg_calculated_output, out_context = _run_in_reverse(p_info.x_info, arg_target, arg_context)
     if !success
-        # @info "Failed to run in reverse $(p_info.p) $output $context"
+        # @info "Failed to run arg in reverse $(p_info.p) $(p_info.x_info.p) $arg_target $context $arg_context"
         return false, output, context
     end
     # @info "arg_target $arg_target"
@@ -728,7 +773,7 @@ function __run_in_reverse(p_info::ApplyInfo, output, context)
         # @info "arg_calculated_output2 $arg_calculated_output"
     end
     # @info "Calculated output for $p $calculated_output"
-    # @info "Out context for $p $out_context"
+    # @info "Out context for $(p_info.p) $out_context"
     return true, calculated_output, out_context
 end
 
@@ -765,6 +810,7 @@ function __run_in_reverse(p_info::IndexInfo, output, context)
 end
 
 function __run_in_reverse(p_info::AbstractionInfo, output, context::ReverseRunContext)
+    # @info "Running in reverse $(p_info.p) $output $context"
     in_filled_indices = Dict{Int64,Any}(i + 1 => v for (i, v) in context.filled_indices)
     if !ismissing(context.calculated_arguments[end])
         in_filled_indices[0] = context.calculated_arguments[end]
@@ -784,7 +830,11 @@ function __run_in_reverse(p_info::AbstractionInfo, output, context::ReverseRunCo
         # @info "Failed to run in reverse $(p_info.p) $output $context"
         return false, output, context
     end
-    push!(out_context.predicted_arguments, out_context.filled_indices[0])
+    if !haskey(out_context.filled_indices, 0)
+        push!(out_context.predicted_arguments, SkipArg())
+    else
+        push!(out_context.predicted_arguments, out_context.filled_indices[0])
+    end
     push!(out_context.calculated_arguments, calculated_output)
     if !isempty(context.arguments)
         push!(out_context.arguments, context.arguments[end])
@@ -805,7 +855,7 @@ function run_in_reverse(p::Program, output)
     success, computed_output, context = _run_in_reverse(p_info, output, ReverseRunContext())
     # @info success, computed_output, context
     if !success
-        error("Failed to run in reverse")
+        error("Failed to run in reverse $p $output")
     end
     # elapsed = time() - start_time
     # if elapsed > 2
@@ -813,6 +863,8 @@ function run_in_reverse(p::Program, output)
     #     @info p
     #     @info output
     # end
+    # @info context.predicted_arguments
+    # @info context.filled_indices
     if computed_output != output && !isempty(context.filled_vars)
         error("Output mismatch $computed_output != $output")
     end

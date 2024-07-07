@@ -2134,7 +2134,7 @@ using DataStructures
         check_reachable(payload, target_solution)
     end
 
-    @testcase_log "Single object coordinates extraction" begin
+    @testcase_log "Single object coordinates extraction 1" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "Single object coordinates extraction",
@@ -2195,7 +2195,7 @@ using DataStructures
         check_reachable(payload, target_solution)
     end
 
-    @testcase_log "Single object coordinates extraction reverse" begin
+    @testcase_log "Single object coordinates extraction reverse 1" begin
         payload = create_task(
             Dict{String,Any}(
                 "name" => "Single object coordinates extraction",
@@ -2272,7 +2272,7 @@ using DataStructures
             ),
         )
 
-        target_solution = "((lambda ((lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$1)) (+ (tuple2_second \$0) (tuple2_second \$1)))) \$1) \$0 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int))))) (tuple2_first \$inp0))) (tuple2_second \$inp0))"
+        target_solution = "let \$v2, \$v1 = rev(\$inp0 = (tuple2 \$v2 \$v1)) in ((lambda ((lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$1)) (+ (tuple2_second \$0) (tuple2_second \$1)))) \$1) \$0 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int))))) \$v2)) \$v1)"
         check_reachable(payload, target_solution)
     end
 
@@ -2291,7 +2291,7 @@ using DataStructures
                 "request" => "inp0:set(tuple2(int, int)) -> tuple2(tuple2(int, int), set(tuple2(int, int)))",
             ),
         )
-        target_solution = "let \$v1 = rev(\$inp0 = ((lambda ((lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$1)) (+ (tuple2_second \$0) (tuple2_second \$1)))) \$1) \$0 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int))))) (tuple2_first \$v1))) (tuple2_second \$v1))) in \$v1"
+        target_solution = "let \$v1, \$v2 = rev(\$inp0 = ((lambda ((lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$1)) (+ (tuple2_second \$0) (tuple2_second \$1)))) \$1) \$0 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int))))) \$v1)) \$v2)) in (tuple2 \$v1 \$v2)"
         check_reachable(payload, target_solution)
     end
 
@@ -2478,6 +2478,676 @@ using DataStructures
         let \$v22::grid(color) = (rev_grid_elements \$v21 \$v8 \$v9) in
         let \$v23::grid(color) = (repeat_grid \$v4 \$v5 \$v6) in
         (rev_select_grid (lambda (eq? \$0 \$v1)) \$v23 \$v22)"
+        check_reachable(payload, target_solution; find_one = true)
+    end
+
+    @testcase_log "0f39a9d9.json_comp" begin
+        payload = create_arc_task("0f39a9d9.json", "sortOfARC/")
+        payload["DSL"] = Dict{String,Any}(
+            "logFreeVar" => 48.05488586425781,
+            "logVariable" => 45.09019470214844,
+            "logLambda" => -5.512786388397217,
+            "productions" => Any[
+                Dict{String,Any}(
+                    "logProbability" => -4.4848408699035645,
+                    "expression" => "rev_fix_param",
+                    "is_reversible" => true,
+                    "type" => "t0 -> t1 -> (t0 -> t1) -> t0",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -4.427365779876709,
+                    "expression" => "map",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1) -> list(t0) -> list(t1)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -3.417635679244995,
+                    "expression" => "map_set",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1) -> set(t0) -> set(t1)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -4.68174934387207,
+                    "expression" => "map_grid",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1) -> grid(t0) -> grid(t1)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -4.849295139312744,
+                    "expression" => "map2",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1 -> t2) -> list(t0) -> list(t1) -> list(t2)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -5.187074184417725,
+                    "expression" => "map2_grid",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1 -> t2) -> grid(t0) -> grid(t1) -> grid(t2)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -4.759178638458252,
+                    "expression" => "unfold",
+                    "is_reversible" => false,
+                    "type" => "(t0 -> bool) -> (t0 -> t1) -> (t0 -> t0) -> t0 -> list(t1)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.9904186725616455,
+                    "expression" => "range",
+                    "is_reversible" => true,
+                    "type" => "int -> list(int)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -3.3583803176879883,
+                    "expression" => "index",
+                    "is_reversible" => false,
+                    "type" => "int -> list(t0) -> t0",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -4.677355766296387,
+                    "expression" => "index2",
+                    "is_reversible" => false,
+                    "type" => "int -> int -> grid(t0) -> t0",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -5.0401177406311035,
+                    "expression" => "fold",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1 -> t1) -> list(t0) -> t1 -> t1",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -4.753006935119629,
+                    "expression" => "fold_set",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1 -> t1) -> set(t0) -> t1 -> t1",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -5.417627811431885,
+                    "expression" => "fold_h",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1 -> t1) -> grid(t0) -> list(t1) -> list(t1)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -4.808785438537598,
+                    "expression" => "fold_v",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1 -> t1) -> grid(t0) -> list(t1) -> list(t1)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -3.8323252201080322,
+                    "expression" => "length",
+                    "is_reversible" => false,
+                    "type" => "list(t0) -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -3.922137975692749,
+                    "expression" => "height",
+                    "is_reversible" => false,
+                    "type" => "grid(t0) -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -4.334958076477051,
+                    "expression" => "width",
+                    "is_reversible" => false,
+                    "type" => "grid(t0) -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -4.29662561416626,
+                    "expression" => "if",
+                    "is_reversible" => false,
+                    "type" => "bool -> t0 -> t0 -> t0",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 44.15322494506836,
+                    "expression" => "+",
+                    "is_reversible" => true,
+                    "type" => "int -> int -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -4.710867881774902,
+                    "expression" => "-",
+                    "is_reversible" => true,
+                    "type" => "int -> int -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 11.911661148071289,
+                    "expression" => "empty",
+                    "is_reversible" => true,
+                    "type" => "list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 44.223567962646484,
+                    "expression" => "cons",
+                    "is_reversible" => true,
+                    "type" => "t0 -> list(t0) -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -1.79932701587677,
+                    "expression" => "car",
+                    "is_reversible" => false,
+                    "type" => "list(t0) -> t0",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -4.67533540725708,
+                    "expression" => "cdr",
+                    "is_reversible" => false,
+                    "type" => "list(t0) -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -3.007132053375244,
+                    "expression" => "empty?",
+                    "is_reversible" => false,
+                    "type" => "list(t0) -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -3.7484312057495117,
+                    "expression" => "*",
+                    "is_reversible" => true,
+                    "type" => "int -> int -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -4.54411506652832,
+                    "expression" => "mod",
+                    "is_reversible" => false,
+                    "type" => "int -> int -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -2.4160571098327637,
+                    "expression" => "gt?",
+                    "is_reversible" => false,
+                    "type" => "int -> int -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -2.3807601928710938,
+                    "expression" => "eq?",
+                    "is_reversible" => false,
+                    "type" => "t0 -> t0 -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -2.6409010887145996,
+                    "expression" => "is-prime",
+                    "is_reversible" => false,
+                    "type" => "int -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -3.063720464706421,
+                    "expression" => "is-square",
+                    "is_reversible" => false,
+                    "type" => "int -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -4.562422275543213,
+                    "expression" => "repeat",
+                    "is_reversible" => true,
+                    "type" => "t0 -> int -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 46.28338623046875,
+                    "expression" => "repeat_grid",
+                    "is_reversible" => true,
+                    "type" => "t0 -> int -> int -> grid(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -3.921088933944702,
+                    "expression" => "concat",
+                    "is_reversible" => true,
+                    "type" => "list(t0) -> list(t0) -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 42.875667572021484,
+                    "expression" => "rows",
+                    "is_reversible" => true,
+                    "type" => "grid(t0) -> list(list(t0))",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -2.2726688385009766,
+                    "expression" => "columns",
+                    "is_reversible" => true,
+                    "type" => "grid(t0) -> list(list(t0))",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 45.26898193359375,
+                    "expression" => "rows_to_grid",
+                    "is_reversible" => true,
+                    "type" => "list(list(t0)) -> grid(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 46.003082275390625,
+                    "expression" => "columns_to_grid",
+                    "is_reversible" => true,
+                    "type" => "list(list(t0)) -> grid(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -4.151334762573242,
+                    "expression" => "rev_select",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> bool) -> list(t0) -> list(t0) -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -3.8944969177246094,
+                    "expression" => "rev_select_set",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> bool) -> set(t0) -> set(t0) -> set(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -4.91925573348999,
+                    "expression" => "rev_select_grid",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> bool) -> grid(t0) -> grid(t0) -> grid(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -4.939056873321533,
+                    "expression" => "rev_list_elements",
+                    "is_reversible" => true,
+                    "type" => "set(tuple2(int, t0)) -> int -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 46.283382415771484,
+                    "expression" => "rev_grid_elements",
+                    "is_reversible" => true,
+                    "type" => "set(tuple2(tuple2(int, int), t0)) -> int -> int -> grid(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.026844710111618042,
+                    "expression" => "zip2",
+                    "is_reversible" => true,
+                    "type" => "list(t0) -> list(t1) -> list(tuple2(t0, t1))",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 0.05003274977207184,
+                    "expression" => "zip_grid2",
+                    "is_reversible" => true,
+                    "type" => "grid(t0) -> grid(t1) -> grid(tuple2(t0, t1))",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -4.642088413238525,
+                    "expression" => "tuple2",
+                    "is_reversible" => true,
+                    "type" => "t0 -> t1 -> tuple2(t0, t1)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -3.728720188140869,
+                    "expression" => "tuple2_first",
+                    "is_reversible" => true,
+                    "type" => "tuple2(t0, t1) -> t0",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -5.28397798538208,
+                    "expression" => "tuple2_second",
+                    "is_reversible" => true,
+                    "type" => "tuple2(t0, t1) -> t1",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 44.13727951049805,
+                    "expression" => "reverse",
+                    "is_reversible" => true,
+                    "type" => "list(t0) -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -4.764488697052002,
+                    "expression" => "rev_fold",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1 -> t1) -> t1 -> t1 -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -2.5884809494018555,
+                    "expression" => "rev_fold_set",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1 -> t1) -> t1 -> t1 -> set(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -3.139751434326172,
+                    "expression" => "list_to_set",
+                    "is_reversible" => false,
+                    "type" => "list(t0) -> set(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -3.59086275100708,
+                    "expression" => "adjoin",
+                    "is_reversible" => true,
+                    "type" => "t0 -> set(t0) -> set(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -3.408057451248169,
+                    "expression" => "empty_set",
+                    "is_reversible" => true,
+                    "type" => "set(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -2.737311840057373,
+                    "expression" => "rev_groupby",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> t1) -> t0 -> set(tuple2(t1, set(t0))) -> set(tuple2(t1, set(t0)))",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -0.5638431906700134,
+                    "expression" => "rev_greedy_cluster",
+                    "is_reversible" => true,
+                    "type" => "(t0 -> set(t0) -> bool) -> t0 -> set(set(t0)) -> set(set(t0))",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -3.9442758560180664,
+                    "expression" => "not",
+                    "is_reversible" => true,
+                    "type" => "bool -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 45.59445571899414,
+                    "expression" => "and",
+                    "is_reversible" => true,
+                    "type" => "bool -> bool -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -2.6363189220428467,
+                    "expression" => "or",
+                    "is_reversible" => true,
+                    "type" => "bool -> bool -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -3.4170656204223633,
+                    "expression" => "all",
+                    "is_reversible" => false,
+                    "type" => "(t0 -> bool) -> list(t0) -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -1.83354651927948,
+                    "expression" => "any",
+                    "is_reversible" => false,
+                    "type" => "(t0 -> bool) -> list(t0) -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -2.3267600536346436,
+                    "expression" => "all_set",
+                    "is_reversible" => false,
+                    "type" => "(t0 -> bool) -> set(t0) -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 46.43378829956055,
+                    "expression" => "any_set",
+                    "is_reversible" => false,
+                    "type" => "(t0 -> bool) -> set(t0) -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -3.4392521381378174,
+                    "expression" => "abs",
+                    "is_reversible" => true,
+                    "type" => "int -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -4.21498441696167,
+                    "expression" => "max_int",
+                    "is_reversible" => false,
+                    "type" => "int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -4.430281639099121,
+                    "expression" => "min_int",
+                    "is_reversible" => false,
+                    "type" => "int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -4.790950775146484,
+                    "expression" => "collect",
+                    "is_reversible" => true,
+                    "type" => "set(t0) -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -4.67546272277832,
+                    "expression" => "0",
+                    "is_reversible" => true,
+                    "type" => "int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -3.9687013626098633,
+                    "expression" => "1",
+                    "is_reversible" => true,
+                    "type" => "int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 46.09053421020508,
+                    "expression" => "#(lambda (lambda (rev_fold_set (lambda (lambda (rev_greedy_cluster \$2 \$1 \$0))) empty_set (map_set (lambda (map_set (lambda (tuple2 \$0 (tuple2_second \$1))) (tuple2_first \$0))) (map_set (lambda (tuple2 ((lambda ((lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$1)) (+ (tuple2_second \$0) (tuple2_second \$1)))) \$1) \$0 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int))))) (tuple2_first (tuple2_first \$1)))) (tuple2_second (tuple2_first \$0))) (tuple2_second \$0))) \$1)))))",
+                    "is_reversible" => true,
+                    "type" => "set(tuple2(tuple2(tuple2(int, int), set(tuple2(int, int))), t0)) -> (tuple2(tuple2(int, int), t0) -> set(tuple2(tuple2(int, int), t0)) -> bool) -> set(tuple2(tuple2(int, int), t0))",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 46.19208908081055,
+                    "expression" => "#(lambda (lambda (lambda (rev_select_set (lambda (eq? (tuple2_second (tuple2_first \$0)) \$1)) (map_set (lambda (tuple2 (tuple2 (tuple2 (+ (tuple2_first (tuple2_first (tuple2_first \$0))) Const(int, 1)) (tuple2_second (tuple2_first (tuple2_first \$0)))) (tuple2_second (tuple2_first \$0))) (tuple2_second \$0))) \$1) \$2))))",
+                    "is_reversible" => true,
+                    "type" => "set(tuple2(tuple2(tuple2(int, t0), t1), t2)) -> set(tuple2(tuple2(tuple2(int, t0), t1), t2)) -> t1 -> set(tuple2(tuple2(tuple2(int, t0), t1), t2))",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -3.7846436500549316,
+                    "expression" => "#(lambda (lambda (lambda (abs (- (\$1 (tuple2_first \$0)) (\$1 (tuple2_first \$2)))))))",
+                    "is_reversible" => true,
+                    "type" => "tuple2(t0, t1) -> (t0 -> int) -> tuple2(t0, t2) -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 46.06684494018555,
+                    "expression" => "#(lambda (columns_to_grid (reverse (columns (rows_to_grid \$0)))))",
+                    "is_reversible" => true,
+                    "type" => "list(list(t0)) -> grid(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 46.38026809692383,
+                    "expression" => "#(lambda (rows_to_grid (reverse \$0)))",
+                    "is_reversible" => true,
+                    "type" => "list(list(t0)) -> grid(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 46.85282516479492,
+                    "expression" => "#(lambda (not (gt? \$0 1)))",
+                    "is_reversible" => false,
+                    "type" => "int -> bool",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 21.52988624572754,
+                    "expression" => "#(lambda (lambda (rows_to_grid (concat \$0 \$1))))",
+                    "is_reversible" => true,
+                    "type" => "list(list(t0)) -> list(list(t0)) -> grid(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 46.19121170043945,
+                    "expression" => "#(lambda (lambda (lambda (rev_fix_param (rev_select_set (lambda (eq? (tuple2_second (tuple2_first \$0)) \$3)) \$0 \$1) \$2 (lambda Const(set(tuple2(int, int)), Set([(0, 0), (0, 2), (2, 0), (1, 1), (0, 1), (2, 2), (2, 1)])))))))",
+                    "is_reversible" => true,
+                    "type" => "set(tuple2(int, int)) -> set(tuple2(tuple2(t0, set(tuple2(int, int))), t1)) -> set(tuple2(tuple2(t0, set(tuple2(int, int))), t1)) -> set(tuple2(tuple2(t0, set(tuple2(int, int))), t1))",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -2.4210031032562256,
+                    "expression" => "#(lambda (columns_to_grid (concat \$0 (reverse \$0))))",
+                    "is_reversible" => true,
+                    "type" => "list(list(t0)) -> grid(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 44.853553771972656,
+                    "expression" => "#(lambda (lambda (#(lambda (lambda (lambda (abs (- (\$1 (tuple2_first \$0)) (\$1 (tuple2_first \$2))))))) \$0 (lambda (tuple2_first \$0)) \$1)))",
+                    "is_reversible" => true,
+                    "type" => "tuple2(tuple2(int, t0), t1) -> tuple2(tuple2(int, t0), t2) -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 44.85343933105469,
+                    "expression" => "#(lambda (lambda (#(lambda (lambda (lambda (abs (- (\$1 (tuple2_first \$0)) (\$1 (tuple2_first \$2))))))) \$0 (lambda (tuple2_second \$0)) \$1)))",
+                    "is_reversible" => true,
+                    "type" => "tuple2(tuple2(t0, int), t1) -> tuple2(tuple2(t0, int), t2) -> int",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 45.58976745605469,
+                    "expression" => "#(lambda (lambda (lambda (rev_select_grid (lambda (eq? \$0 \$1)) \$1 \$2))))",
+                    "is_reversible" => true,
+                    "type" => "grid(t0) -> grid(t0) -> t0 -> grid(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 44.786739349365234,
+                    "expression" => "#(lambda (lambda (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) \$0 (reverse \$1))))",
+                    "is_reversible" => true,
+                    "type" => "list(list(t0)) -> list(list(t0)) -> grid(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 42.03545379638672,
+                    "expression" => "#(lambda (lambda (columns (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) (reverse \$0) \$1))))",
+                    "is_reversible" => true,
+                    "type" => "list(list(t0)) -> list(list(t0)) -> list(list(t0))",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 46.54703903198242,
+                    "expression" => "#(lambda (#(lambda (lambda (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) \$0 (reverse \$1)))) \$0 \$0))",
+                    "is_reversible" => true,
+                    "type" => "list(list(t0)) -> grid(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 45.58977127075195,
+                    "expression" => "#(lambda (lambda (lambda (rev_fix_param (#(lambda (lambda (lambda (rev_select_grid (lambda (eq? \$0 \$1)) \$1 \$2)))) \$0 \$1 \$2) \$2 (lambda Const(color, 0))))))",
+                    "is_reversible" => true,
+                    "type" => "color -> grid(color) -> grid(color) -> grid(color)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 45.88749694824219,
+                    "expression" => "#(lambda (rows_to_grid (columns \$0)))",
+                    "is_reversible" => true,
+                    "type" => "grid(t0) -> grid(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 45.13601303100586,
+                    "expression" => "#(lambda (#(lambda (rows_to_grid (reverse \$0))) (columns \$0)))",
+                    "is_reversible" => true,
+                    "type" => "grid(t0) -> grid(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 45.56547927856445,
+                    "expression" => "#(lambda (lambda (#(lambda (lambda (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) \$0 (reverse \$1)))) (#(lambda (lambda (columns (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) (reverse \$0) \$1)))) \$1 \$0) (#(lambda (lambda (columns (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) (reverse \$0) \$1)))) \$0 \$1))))",
+                    "is_reversible" => true,
+                    "type" => "list(list(t0)) -> list(list(t0)) -> grid(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 46.94345474243164,
+                    "expression" => "#(lambda (#(lambda (#(lambda (rows_to_grid (reverse \$0))) (columns \$0))) (rows_to_grid \$0)))",
+                    "is_reversible" => true,
+                    "type" => "list(list(t0)) -> grid(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 43.74740219116211,
+                    "expression" => "#(lambda (lambda (lambda (#(lambda (lambda (columns (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) (reverse \$0) \$1)))) \$0 (#(lambda (lambda (columns (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) (reverse \$0) \$1)))) \$1 \$2)))))",
+                    "is_reversible" => true,
+                    "type" => "list(list(t0)) -> list(list(t0)) -> list(list(t0)) -> list(list(t0))",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 46.03434753417969,
+                    "expression" => "#(lambda (#(lambda (#(lambda (lambda (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) \$0 (reverse \$1)))) \$0 \$0)) (#(lambda (lambda (columns (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) (reverse \$0) \$1)))) \$0 \$0)))",
+                    "is_reversible" => true,
+                    "type" => "list(list(t0)) -> grid(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 23.36907196044922,
+                    "expression" => "#(lambda (lambda (lambda (rows_to_grid (#(lambda (lambda (lambda (#(lambda (lambda (columns (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) (reverse \$0) \$1)))) \$0 (#(lambda (lambda (columns (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) (reverse \$0) \$1)))) \$1 \$2))))) \$2 \$0 (#(lambda (lambda (columns (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) (reverse \$0) \$1)))) \$1 \$2))))))",
+                    "is_reversible" => true,
+                    "type" => "list(list(t0)) -> list(list(t0)) -> list(list(t0)) -> grid(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => -4.573234558105469,
+                    "expression" => "#(lambda (lambda (lambda (\$0 (\$1 \$2) (\$1 \$2)))))",
+                    "is_reversible" => true,
+                    "type" => "t0 -> (t0 -> t1) -> (t1 -> t1 -> t2) -> t2",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 44.73984909057617,
+                    "expression" => "#(lambda (lambda (#(lambda (lambda (lambda (rows_to_grid (#(lambda (lambda (lambda (#(lambda (lambda (columns (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) (reverse \$0) \$1)))) \$0 (#(lambda (lambda (columns (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) (reverse \$0) \$1)))) \$1 \$2))))) \$2 \$0 (#(lambda (lambda (columns (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) (reverse \$0) \$1)))) \$1 \$2)))))) \$0 \$1 \$1)))",
+                    "is_reversible" => true,
+                    "type" => "list(list(t0)) -> list(list(t0)) -> grid(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 45.577850341796875,
+                    "expression" => "#(lambda (#(lambda (columns_to_grid (concat \$0 (reverse \$0)))) (columns \$0)))",
+                    "is_reversible" => true,
+                    "type" => "grid(t0) -> grid(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 45.95268630981445,
+                    "expression" => "#(lambda (#(lambda (#(lambda (rows_to_grid (reverse \$0))) (columns \$0))) (#(lambda (#(lambda (rows_to_grid (reverse \$0))) (columns \$0))) \$0)))",
+                    "is_reversible" => true,
+                    "type" => "grid(t0) -> grid(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 45.36724090576172,
+                    "expression" => "#(lambda (lambda (lambda (cons \$0 (cons \$1 \$2)))))",
+                    "is_reversible" => true,
+                    "type" => "list(t0) -> t0 -> t0 -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 45.54823303222656,
+                    "expression" => "#(lambda (lambda (lambda (#(lambda (lambda (lambda (cons \$0 (cons \$1 \$2))))) \$0 (tuple2_first \$1) \$2))))",
+                    "is_reversible" => true,
+                    "type" => "t0 -> tuple2(t0, t1) -> list(t0) -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 45.965179443359375,
+                    "expression" => "#(lambda (lambda (#(lambda (rows_to_grid (reverse \$0))) (cons \$0 \$1))))",
+                    "is_reversible" => true,
+                    "type" => "list(list(t0)) -> list(t0) -> grid(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 45.36848449707031,
+                    "expression" => "#(lambda (lambda (lambda (#(lambda (#(lambda (#(lambda (rows_to_grid (reverse \$0))) (columns \$0))) (rows_to_grid \$0))) (#(lambda (lambda (lambda (cons \$0 (cons \$1 \$2))))) \$0 \$1 \$2)))))",
+                    "is_reversible" => true,
+                    "type" => "list(t0) -> list(t0) -> list(list(t0)) -> grid(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 43.389015197753906,
+                    "expression" => "#(lambda (concat \$0 \$0))",
+                    "is_reversible" => true,
+                    "type" => "list(t0) -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 44.437782287597656,
+                    "expression" => "#(lambda (lambda (#(lambda (lambda (lambda (cons \$0 (cons \$1 \$2))))) Const(list(color), Int64[]) \$0 \$1)))",
+                    "is_reversible" => true,
+                    "type" => "color -> color -> list(color)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 45.36848449707031,
+                    "expression" => "#(lambda (lambda (lambda (#(lambda (#(lambda (#(lambda (rows_to_grid (reverse \$0))) (columns \$0))) (rows_to_grid \$0))) (#(lambda (lambda (lambda (cons \$0 (cons \$1 \$2))))) \$0 \$1 \$2)))))",
+                    "is_reversible" => true,
+                    "type" => "list(t0) -> list(t0) -> list(list(t0)) -> grid(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 44.84197235107422,
+                    "expression" => "#(lambda (lambda (lambda (rows_to_grid (#(lambda (lambda (lambda (cons \$0 (cons \$1 \$2))))) \$0 \$1 \$2)))))",
+                    "is_reversible" => true,
+                    "type" => "list(t0) -> list(t0) -> list(list(t0)) -> grid(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 46.112545013427734,
+                    "expression" => "#(lambda (lambda (#(lambda (lambda (#(lambda (lambda (lambda (cons \$0 (cons \$1 \$2))))) Const(list(color), Int64[]) \$0 \$1))) (car \$0) \$1)))",
+                    "is_reversible" => false,
+                    "type" => "color -> list(color) -> list(color)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 45.61225509643555,
+                    "expression" => "#(lambda (lambda (#(lambda (lambda (lambda (#(lambda (#(lambda (#(lambda (rows_to_grid (reverse \$0))) (columns \$0))) (rows_to_grid \$0))) (#(lambda (lambda (lambda (cons \$0 (cons \$1 \$2))))) \$0 \$1 \$2))))) \$0 \$1 Const(list(list(color)), Vector{Int64}[]))))",
+                    "is_reversible" => true,
+                    "type" => "list(color) -> list(color) -> grid(color)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 45.54823303222656,
+                    "expression" => "#(lambda (lambda (lambda (#(lambda (lambda (lambda (cons \$0 (cons \$1 \$2))))) \$0 (tuple2_first \$1) \$2))))",
+                    "is_reversible" => true,
+                    "type" => "t0 -> tuple2(t0, t1) -> list(t0) -> list(t0)",
+                ),
+                Dict{String,Any}(
+                    "logProbability" => 45.36848449707031,
+                    "expression" => "#(lambda (lambda (lambda (#(lambda (#(lambda (#(lambda (rows_to_grid (reverse \$0))) (columns \$0))) (rows_to_grid \$0))) (#(lambda (lambda (lambda (cons \$0 (cons \$1 \$2))))) \$0 \$1 \$2)))))",
+                    "is_reversible" => true,
+                    "type" => "list(t0) -> list(t0) -> list(list(t0)) -> grid(t0)",
+                ),
+            ],
+        )
+        target_solution = "let \$v1, \$v2, \$v3 = rev(\$inp0 = (#(lambda (lambda (lambda (rev_fix_param (#(lambda (lambda (lambda (rev_select_grid (lambda (eq? \$0 \$1)) \$1 \$2)))) \$0 \$1 \$2) \$2 (lambda Const(color, 0)))))) \$v1 \$v2 \$v3)) in
+        let \$v4, \$v5, \$v6 = rev(\$v2 = (repeat_grid \$v4 \$v5 \$v6)) in
+        let \$v7, \$v8, \$v9 = rev(\$v3 = (rev_grid_elements \$v7 \$v8 \$v9)) in
+        let \$v12 = rev(\$v7 = (#(lambda (lambda (rev_fold_set (lambda (lambda (rev_greedy_cluster \$2 \$1 \$0))) empty_set (map_set (lambda (map_set (lambda (tuple2 \$0 (tuple2_second \$1))) (tuple2_first \$0))) (map_set (lambda (tuple2 ((lambda ((lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$1)) (+ (tuple2_second \$0) (tuple2_second \$1)))) \$1) \$0 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int))))) (tuple2_first (tuple2_first \$1)))) (tuple2_second (tuple2_first \$0))) (tuple2_second \$0))) \$1))))) \$v12 (lambda (lambda (any_set (lambda (and (#(lambda (not (gt? \$0 1))) (#(lambda (lambda (#(lambda (lambda (lambda (abs (- (\$1 (tuple2_first \$0)) (\$1 (tuple2_first \$2))))))) \$0 (lambda (tuple2_first \$0)) \$1))) \$0 \$2)) (#(lambda (not (gt? \$0 1))) (#(lambda (lambda (#(lambda (lambda (lambda (abs (- (\$1 (tuple2_first \$0)) (\$1 (tuple2_first \$2))))))) \$0 (lambda (tuple2_second \$0)) \$1))) \$0 \$2)))) \$0))))) in
+        let \$v13, \$v15, \$v14 = rev(\$v12 = (#(lambda (lambda (lambda (rev_fix_param (rev_select_set (lambda (eq? (tuple2_second (tuple2_first \$0)) \$3)) \$0 \$1) \$2 (lambda Const(set(tuple2(int, int)), Set([(0, 0), (0, 2), (2, 0), (1, 1), (0, 1), (2, 2), (2, 1)]))))))) \$v13 \$v15 \$v14)) in
+        let \$v18::set(tuple2(tuple2(tuple2(int, int), set(tuple2(int, int))), color)) = (#(lambda (lambda (lambda (rev_select_set (lambda (eq? (tuple2_second (tuple2_first \$0)) \$1)) (map_set (lambda (tuple2 (tuple2 (tuple2 (+ (tuple2_first (tuple2_first (tuple2_first \$0))) Const(int, 1)) (tuple2_second (tuple2_first (tuple2_first \$0)))) (tuple2_second (tuple2_first \$0))) (tuple2_second \$0))) \$1) \$2)))) \$v15 \$v14 \$v13) in
+        let \$v21::set(tuple2(tuple2(int, int), color)) = (#(lambda (lambda (rev_fold_set (lambda (lambda (rev_greedy_cluster \$2 \$1 \$0))) empty_set (map_set (lambda (map_set (lambda (tuple2 \$0 (tuple2_second \$1))) (tuple2_first \$0))) (map_set (lambda (tuple2 ((lambda ((lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$1)) (+ (tuple2_second \$0) (tuple2_second \$1)))) \$1) \$0 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int))))) (tuple2_first (tuple2_first \$1)))) (tuple2_second (tuple2_first \$0))) (tuple2_second \$0))) \$1))))) \$v18 (lambda (lambda (any_set (lambda (and (#(lambda (not (gt? \$0 1))) (#(lambda (lambda (#(lambda (lambda (lambda (abs (- (\$1 (tuple2_first \$0)) (\$1 (tuple2_first \$2))))))) \$0 (lambda (tuple2_first \$0)) \$1))) \$0 \$2)) (#(lambda (not (gt? \$0 1))) (#(lambda (lambda (#(lambda (lambda (lambda (abs (- (\$1 (tuple2_first \$0)) (\$1 (tuple2_first \$2))))))) \$0 (lambda (tuple2_second \$0)) \$1))) \$0 \$2)))) \$0)))) in
+        let \$v22::grid(color) = (rev_grid_elements \$v21 \$v8 \$v9) in
+        let \$v23::grid(color) = (repeat_grid \$v4 \$v5 \$v6) in
+        (#(lambda (lambda (lambda (rev_select_grid (lambda (eq? \$0 \$1)) \$1 \$2)))) \$v22 \$v23 \$v1)"
         check_reachable(payload, target_solution; find_one = true)
     end
 
