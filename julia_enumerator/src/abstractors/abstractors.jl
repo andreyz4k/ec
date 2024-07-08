@@ -245,6 +245,7 @@ function _fill_args(p::Index, environment)
 end
 
 function _is_reversible(p::Primitive, environment, args, in_lambda)
+    # @info "Checking $(p) $environment $args $in_lambda"
     if haskey(all_abstractors, p)
         [c[1] for c in all_abstractors[p][1]]
     else
@@ -253,6 +254,7 @@ function _is_reversible(p::Primitive, environment, args, in_lambda)
 end
 
 function _is_reversible(p::Apply, environment, args, in_lambda)
+    # @info "Checking $(p) $environment $args $in_lambda"
     filled_x = _fill_args(p.x, environment)
     checkers = _is_reversible(p.f, environment, vcat(args, [filled_x]), in_lambda)
     if isnothing(checkers)
@@ -273,14 +275,14 @@ function _is_reversible(p::Apply, environment, args, in_lambda)
         if isa(filled_x, Abstraction)
             return checkers
         end
-        checker = is_reversible
+        checker = x -> !isnothing(_is_reversible(x, Dict(), [], in_lambda))
     else
         checker = checkers[1]
         if isnothing(checker)
             if isa(filled_x, Abstraction)
                 return view(checkers, 2:length(checkers))
             end
-            checker = is_reversible
+            checker = x -> !isnothing(_is_reversible(x, Dict(), [], in_lambda))
         end
     end
     if !checker(filled_x)
@@ -294,6 +296,7 @@ end
 _is_reversible(p::Invented, environment, args, in_lambda) = _is_reversible(p.b, environment, args, in_lambda)
 
 function _is_reversible(p::Abstraction, environment, args, in_lambda)
+    # @info "Checking $(p) $environment $args $in_lambda"
     environment = Dict{Int64,Any}(i + 1 => c for (i, c) in environment)
     if !isempty(args)
         environment[0] = args[end]
@@ -304,6 +307,7 @@ end
 _is_reversible(p::SetConst, environment, args, in_lambda) = []
 
 function _is_reversible(p::Index, environment, args, in_lambda)
+    # @info "Checking $(p) $environment $args $in_lambda"
     filled_p = _fill_args(p, environment)
     if isa(filled_p, Index)
         return []
