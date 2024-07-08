@@ -244,7 +244,7 @@ function _fill_args(p::Index, environment)
     end
 end
 
-function _is_reversible(p::Primitive, environment, args)
+function _is_reversible(p::Primitive, environment, args, in_lambda)
     if haskey(all_abstractors, p)
         [c[1] for c in all_abstractors[p][1]]
     else
@@ -252,16 +252,16 @@ function _is_reversible(p::Primitive, environment, args)
     end
 end
 
-function _is_reversible(p::Apply, environment, args)
+function _is_reversible(p::Apply, environment, args, in_lambda)
     filled_x = _fill_args(p.x, environment)
-    checkers = _is_reversible(p.f, environment, vcat(args, [filled_x]))
+    checkers = _is_reversible(p.f, environment, vcat(args, [filled_x]), in_lambda)
     if isnothing(checkers)
         # @info "Returned nothing for $(p.f) $environment $args $filled_x"
         return nothing
     end
     if isempty(checkers)
         if isa(filled_x, Hole)
-            if !isarrow(filled_x.t)
+            if !in_lambda && !isarrow(filled_x.t)
                 return checkers
             else
                 return nothing
@@ -291,30 +291,30 @@ function _is_reversible(p::Apply, environment, args)
     end
 end
 
-_is_reversible(p::Invented, environment, args) = _is_reversible(p.b, environment, args)
+_is_reversible(p::Invented, environment, args, in_lambda) = _is_reversible(p.b, environment, args, in_lambda)
 
-function _is_reversible(p::Abstraction, environment, args)
+function _is_reversible(p::Abstraction, environment, args, in_lambda)
     environment = Dict{Int64,Any}(i + 1 => c for (i, c) in environment)
     if !isempty(args)
         environment[0] = args[end]
     end
-    return _is_reversible(p.b, environment, view(args, 1:length(args)-1))
+    return _is_reversible(p.b, environment, view(args, 1:length(args)-1), true)
 end
 
-_is_reversible(p::SetConst, environment, args) = []
+_is_reversible(p::SetConst, environment, args, in_lambda) = []
 
-function _is_reversible(p::Index, environment, args)
+function _is_reversible(p::Index, environment, args, in_lambda)
     filled_p = _fill_args(p, environment)
     if isa(filled_p, Index)
         return []
     else
-        return _is_reversible(filled_p, Dict(), [])
+        return _is_reversible(filled_p, Dict(), [], in_lambda)
     end
 end
 
-_is_reversible(p::Program, environment, args) = nothing
+_is_reversible(p::Program, environment, args, in_lambda) = nothing
 
-is_reversible(p::Program)::Bool = !isnothing(_is_reversible(p, Dict(), []))
+is_reversible(p::Program)::Bool = !isnothing(_is_reversible(p, Dict(), [], false))
 
 struct SkipArg end
 
