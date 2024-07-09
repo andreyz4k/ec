@@ -31,19 +31,16 @@ function Base.push!(storage::TypeStorage, type::Tp)::UInt64
     for t_id::UInt64 in 1:l
         t = storage.types[t_id]
         if might_unify(t, type)
-            try
-                new_context, upd_t = instantiate(t, context)
-                new_context = unify(new_context, upd_t, type)
-                if is_subtype(upd_t, type)
-                    storage.unifiable_types[new_id, t_id] = true
-                end
-                if is_subtype(type, upd_t)
-                    storage.unifiable_types[t_id, new_id] = true
-                end
-            catch e
-                if !isa(e, UnificationFailure)
-                    rethrow()
-                end
+            new_context, upd_t = instantiate(t, context)
+            new_context = unify(new_context, upd_t, type)
+            if isnothing(new_context)
+                continue
+            end
+            if is_subtype(upd_t, type)
+                storage.unifiable_types[new_id, t_id] = true
+            end
+            if is_subtype(type, upd_t)
+                storage.unifiable_types[t_id, new_id] = true
             end
         end
     end

@@ -48,8 +48,9 @@ end
 struct Invented <: Program
     t::Tp
     b::Program
+    is_reversible::Bool
     hash_value::UInt64
-    Invented(t::Tp, b::Program) = new(t, b, hash(b))
+    Invented(t::Tp, b::Program) = new(t, b, is_reversible(b), hash(b))
 end
 Base.:(==)(p::Invented, q::Invented) = p.b == q.b
 
@@ -243,6 +244,9 @@ function infer_program_type(context, environment, p::Apply)::Tuple{Context,Tp}
     (context, xt) = infer_program_type(context, environment, p.x)
     (context, ft) = infer_program_type(context, environment, p.f)
     context = unify(context, ft, arrow(xt, rt))
+    if isnothing(context)
+        error("Unification failed")
+    end
     apply_context(context, rt)
 end
 

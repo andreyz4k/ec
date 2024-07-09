@@ -557,6 +557,9 @@ function create_wrapping_program_prototype(
 
     unknown_type = sc.types[unknown_type_id]
     new_context = unify(new_context, unknown_type, arg_types[2])
+    if isnothing(new_context)
+        error("Can't unify $(unknown_type) with $(arg_types[2])")
+    end
     new_context, fixer_type = apply_context(new_context, arg_types[3])
 
     unknown_entry = sc.entries[sc.branch_entries[branch_id]]
@@ -673,6 +676,9 @@ function _update_block_type(block_type, input_types)
     for (arg_type, inp_type) in zip(arguments_of_type(block_type), input_types)
         context, inp_type = instantiate(inp_type, context)
         context = unify(context, arg_type, inp_type)
+        if isnothing(context)
+            error("Can't unify $arg_type with $inp_type")
+        end
     end
     context, block_type = apply_context(context, block_type)
     return block_type

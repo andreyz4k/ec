@@ -319,6 +319,7 @@ end
 _is_reversible(p::Program, environment, args, in_lambda) = nothing
 
 is_reversible(p::Program)::Bool = !isnothing(_is_reversible(p, Dict(), [], false))
+is_reversible(p::Invented)::Bool = p.is_reversible
 
 struct SkipArg end
 

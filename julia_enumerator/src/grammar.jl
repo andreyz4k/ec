@@ -60,19 +60,14 @@ function _prune(expression, gs)
 
     map(zip(argument_types, gs)) do (arg_type, g)
         argument_type = return_of_type(arg_type)
+        context, argument_type = instantiate(argument_type, empty_context)
         filtered_library = filter(g.library) do (_, child_type, _)
             child_type = return_of_type(child_type)
-            try
-                k, child_type = instantiate(child_type, empty_context)
-                k, argument_type = instantiate(argument_type, k)
-                unify(k, child_type, argument_type)
-                return true
-            catch e
-                if isa(e, UnificationFailure)
-                    return false
-                else
-                    rethrow()
-                end
+            if might_unify(argument_type, child_type)
+                k, child_type = instantiate(child_type, context)
+                return !isnothing(unify(k, child_type, argument_type))
+            else
+                return false
             end
         end
         Grammar(g.log_variable, g.log_lambda, g.log_free_var, filtered_library, g.continuation_type)
@@ -160,17 +155,12 @@ function unifying_expressions(
             (new_context, t) = apply_context(context, t)
             return_type = return_of_type(t)
             if might_unify(return_type, request)
-                try
-                    new_context = unify(new_context, return_type, request)
-                    (new_context, t) = apply_context(new_context, t)
-                    return (p, arguments_of_type(t), new_context, ll)
-                catch e
-                    if isa(e, UnificationFailure)
-                        return missing
-                    else
-                        rethrow()
-                    end
+                new_context = unify(new_context, return_type, request)
+                if isnothing(new_context)
+                    return missing
                 end
+                (new_context, t) = apply_context(new_context, t)
+                return (p, arguments_of_type(t), new_context, ll)
             else
                 return missing
             end
@@ -195,28 +185,23 @@ function unifying_expressions(
     grammar_candidates = collect(
         Tuple{Program,Vector{Tp},Context,Float64},
         skipmissing(map(g.library) do (p, t, ll)
-            try
-                if in_lambda_wrapper && p != every_primitive["rev_fix_param"]
-                    return missing
-                end
-                if !candidates_filter(p, skeleton, path)
-                    return missing
-                end
+            if in_lambda_wrapper && p != every_primitive["rev_fix_param"]
+                return missing
+            end
+            if !candidates_filter(p, skeleton, path)
+                return missing
+            end
 
-                if !might_unify(return_of_type(t), request)
+            if !might_unify(return_of_type(t), request)
+                return missing
+            else
+                new_context, t = instantiate(t, context)
+                new_context = unify(new_context, return_of_type(t), request)
+                if isnothing(new_context)
                     return missing
-                else
-                    new_context, t = instantiate(t, context)
-                    new_context = unify(new_context, return_of_type(t), request)
-                    (new_context, t) = apply_context(new_context, t)
-                    return (p, arguments_of_type(t), new_context, ll)
                 end
-            catch e
-                if isa(e, UnificationFailure)
-                    return missing
-                else
-                    rethrow()
-                end
+                (new_context, t) = apply_context(new_context, t)
+                return (p, arguments_of_type(t), new_context, ll)
             end
         end),
     )
@@ -247,19 +232,14 @@ function unifying_expressions(
             (new_context, t) = apply_context(context, t)
             return_type = return_of_type(t)
             if might_unify(return_type, request)
-                try
-                    new_context = unify(new_context, return_type, request)
-                    (new_context, t) = apply_context(new_context, t)
-                    p = FreeVar(t, "r$i")
-                    if candidates_filter(p, skeleton, path)
-                        push!(free_var_candidates, (p, [], new_context, g.log_free_var))
-                    end
-                catch e
-                    if isa(e, UnificationFailure)
-                        continue
-                    else
-                        rethrow()
-                    end
+                new_context = unify(new_context, return_type, request)
+                if isnothing(new_context)
+                    continue
+                end
+                (new_context, t) = apply_context(new_context, t)
+                p = FreeVar(t, "r$i")
+                if candidates_filter(p, skeleton, path)
+                    push!(free_var_candidates, (p, [], new_context, g.log_free_var))
                 end
             end
         end
@@ -304,6 +284,9 @@ function following_expressions(g::Grammar, request)
             if might_unify(a_type, request)
                 context, new_t = instantiate(t, empty_context)
                 context = unify(context, arguments_of_type(new_t)[i], request)
+                if isnothing(context)
+                    continue
+                end
                 context, new_t = apply_context(context, new_t)
                 push!(output, (p, new_t, context, ll, i))
             end

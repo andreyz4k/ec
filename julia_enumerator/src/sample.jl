@@ -214,6 +214,9 @@ function _sample_wrapping_block(
             first(v for v in candidate_functions if v[1] == every_primitive["rev_fix_param"])
 
         context = unify(context, unknown_type, arg_types[2])
+        if isnothing(context)
+            error("Cannot unify $(unknown_type) with $(arg_types[2])")
+        end
         context, fixer_type = apply_context(context, arg_types[3])
 
         custom_arg_checkers = _get_custom_arg_checkers(wrapper)

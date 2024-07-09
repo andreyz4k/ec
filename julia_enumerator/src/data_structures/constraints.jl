@@ -48,6 +48,9 @@ function _tighten_constraint(
     new_type = sc.types[first(get_connected_from(sc.branch_types, new_branch_id))]
     context, new_type = instantiate(new_type, context)
     context = unify(context, new_type, sc.types[old_entry.type_id])
+    if isnothing(context)
+        error("Cannot unify types $(sc.types[old_entry.type_id]) and $new_type")
+    end
 
     for (var_id, branch_id) in constrained_branches
         if var_id == new_var_id

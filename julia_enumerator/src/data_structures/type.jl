@@ -206,13 +206,11 @@ occurs(i::Int64, t::TypeNamedArgsConstructor) =
         any(occurs(i, ta) for ta in t.arguments) || occurs(i, t.output)
     end
 
-struct UnificationFailure <: Exception end
-
 _unify(context, t1::TypeVariable, t2) =
     if t1 == t2
         context
     elseif occurs(t1.id, t2)
-        throw(UnificationFailure())
+        return nothing
     else
         bindTID(t1.id, t2, context)
     end
@@ -221,7 +219,7 @@ _unify(context, t1, t2::TypeVariable) =
     if t1 == t2
         context
     elseif occurs(t2.id, t1)
-        throw(UnificationFailure())
+        return nothing
     else
         bindTID(t2.id, t1, context)
     end
@@ -232,25 +230,31 @@ _unify(context, t1::TypeConstructor, t2::TypeConstructor) =
     if t1.name == t2.name
         for (x1, x2) in zip(t1.arguments, t2.arguments)
             context = unify(context, x1, x2)
+            if isnothing(context)
+                return nothing
+            end
         end
         context
     else
-        throw(UnificationFailure())
+        return nothing
     end
 
 _unify(context, t1::TypeNamedArgsConstructor, t2::TypeNamedArgsConstructor) =
     if t1.name == t2.name
         for (k, x1) in t1.arguments
             context = unify(context, x1, t2.arguments[k])
+            if isnothing(context)
+                return nothing
+            end
         end
         context = unify(context, t1.output, t2.output)
         context
     else
-        throw(UnificationFailure())
+        return nothing
     end
 
-_unify(context, ::TypeNamedArgsConstructor, ::TypeConstructor) = throw(UnificationFailure())
-_unify(context, ::TypeConstructor, ::TypeNamedArgsConstructor) = throw(UnificationFailure())
+_unify(context, ::TypeNamedArgsConstructor, ::TypeConstructor) = nothing
+_unify(context, ::TypeConstructor, ::TypeNamedArgsConstructor) = nothing
 
 function unify(context, t1, t2)
     (context, t1) = apply_context(context, t1)
@@ -259,7 +263,7 @@ function unify(context, t1, t2)
         if t1 == t2
             context
         else
-            throw(UnificationFailure())
+            return nothing
         end
     else
         _unify(context, t1, t2)
