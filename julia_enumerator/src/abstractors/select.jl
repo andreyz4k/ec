@@ -1,12 +1,17 @@
 
 function rev_select(base, others)
-    result = copy(base)
+    result = Any[]
+    if size(base) != size(others)
+        error("Different sizes of base and others")
+    end
     for i in 1:length(others)
         if others[i] !== nothing
-            result[i] = others[i]
+            push!(result, others[i])
+        else
+            push!(result, base[i])
         end
     end
-    return result
+    return reshape(result, size(base))
 end
 
 function _is_reversible_selector(p::Index, is_top_index)
