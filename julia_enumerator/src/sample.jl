@@ -1266,6 +1266,7 @@ function _generate_random_var_values(var_type::TypeVariable, examples_count)
 end
 
 has_nothing(v::Nothing) = true
+has_nothing(v::AnyObject) = true
 has_nothing(v::Array) = any(has_nothing, v)
 has_nothing(v::Set) = any(has_nothing, v)
 has_nothing(v::Tuple) = any(has_nothing, v)

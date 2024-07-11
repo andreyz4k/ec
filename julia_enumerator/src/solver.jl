@@ -128,7 +128,20 @@ function process_sampling_task(payload, timeout_container, redis, i)
     end
     conn = get_conn(redis)
     Redis.multi(conn)
-    Redis.rpush(conn, "sample_result", JSON.json(output))
+    try
+        Redis.rpush(conn, "sample_result", JSON.json(output))
+    catch e
+        if isa(e, InterruptException)
+            @warn "Interrupted"
+            rethrow()
+        end
+        buf = IOBuffer()
+        bt = catch_backtrace()
+        showerror(buf, e, bt)
+        @error "Error while saving result to redis" exception = (e, bt)
+        output = Dict("status" => "error", "payload" => String(take!(buf)))
+        Redis.rpush(conn, "sample_result", JSON.json(output))
+    end
     Redis.del(conn, "processing:$(myid())")
     Redis.execute_command(conn, ["exec"])
 end
