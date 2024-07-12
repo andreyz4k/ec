@@ -300,24 +300,31 @@ function _tighten_constraint(
     end
 
     unknown_old_branches = UInt64[br_id for (br_id, _) in new_branches]
-    next_blocks = merge([get_connected_from(sc.branch_outgoing_blocks, br_id) for br_id in unknown_old_branches]...)
-    for (b_copy_id, b_id) in next_blocks
-        inp_branches = keys(get_connected_to(sc.branch_outgoing_blocks, b_copy_id))
-        inputs = Dict(sc.branch_vars[b] => haskey(out_branches, b) ? out_branches[b] : b for b in inp_branches)
-        out_block_branches = keys(get_connected_to(sc.branch_incoming_blocks, b_copy_id))
-        target_branches = UInt64[haskey(out_branches, b) ? out_branches[b] : b for b in out_block_branches]
 
-        input_entries = Set(sc.branch_entries[b] for b in values(inputs))
-        if any(in(sc.branch_entries[b], input_entries) for b in target_branches)
-            if sc.verbose
-                @info "Fixing constraint leads to a redundant block"
+    visited_b_copy_ids = Set{UInt64}()
+    for br_id in unknown_old_branches
+        for (b_copy_id, b_id) in get_connected_from(sc.branch_outgoing_blocks, br_id)
+            if in(b_copy_id, visited_b_copy_ids)
+                continue
             end
-            throw(EnumerationException("Fixing constraint leads to a redundant block"))
-        end
+            push!(visited_b_copy_ids, b_copy_id)
+            inp_branches = keys(get_connected_to(sc.branch_outgoing_blocks, b_copy_id))
+            inputs = Dict(sc.branch_vars[b] => haskey(out_branches, b) ? out_branches[b] : b for b in inp_branches)
+            out_block_branches = keys(get_connected_to(sc.branch_incoming_blocks, b_copy_id))
+            target_branches = UInt64[haskey(out_branches, b) ? out_branches[b] : b for b in out_block_branches]
 
-        _save_block_branch_connections(sc, b_id, sc.blocks[b_id], inputs, target_branches)
-        for target_branch in target_branches
-            update_complexity_factors_unknown(sc, inputs, target_branch)
+            input_entries = Set(sc.branch_entries[b] for b in values(inputs))
+            if any(in(sc.branch_entries[b], input_entries) for b in target_branches)
+                if sc.verbose
+                    @info "Fixing constraint leads to a redundant block"
+                end
+                throw(EnumerationException("Fixing constraint leads to a redundant block"))
+            end
+
+            _save_block_branch_connections(sc, b_id, sc.blocks[b_id], inputs, target_branches)
+            for target_branch in target_branches
+                update_complexity_factors_unknown(sc, inputs, target_branch)
+            end
         end
     end
 

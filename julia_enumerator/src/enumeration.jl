@@ -137,6 +137,9 @@ const illegal_combinations2 = Set([
     ("left", "right"),
     ("right", "right"),
     ("right", "left"),
+    ("abs", "abs"),
+    ("tuple2_first", "tuple2"),
+    ("tuple2_second", "tuple2"),
     #   ("tower_embed","tower_embed")
 ])
 
