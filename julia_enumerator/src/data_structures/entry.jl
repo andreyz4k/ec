@@ -788,6 +788,9 @@ function _try_unify_values(v1::EitherOptions, v2::EitherOptions, check_pattern)
     return true, EitherOptions(options)
 end
 
+_try_unify_values(v1::EitherOptions, v2::AnyObject, check_pattern) = true, v1
+_try_unify_values(v1::AnyObject, v2::EitherOptions, check_pattern) = true, v2
+
 function _try_unify_values(v1, v2, check_pattern)
     if v1 == v2
         return true, v1

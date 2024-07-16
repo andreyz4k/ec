@@ -1,10 +1,11 @@
-authors = ["Andrey Zakharevich <andreyzakharevich@gmail.com>"]
-julia_version = "1.10"
 name = "solver"
 uuid = "5b87f58b-a6cb-43fc-b459-8e7b9fbb6b24"
+authors = ["Andrey Zakharevich <andreyzakharevich@gmail.com>"]
+julia_version = "1.10"
 version = "0.1.0"
 
 [deps]
+ArgParse = "c7e460c6-2fb9-53a9-8c5b-16f535851c63"
 AutoHashEquals = "15f4f7f2-30c1-5605-9d31-71845cf9641f"
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
