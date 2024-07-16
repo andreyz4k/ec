@@ -55,7 +55,7 @@ end
 using ArgParse
 using JSON
 
-function main(import_func)
+function dc_main_node(import_func)
     s = ArgParseSettings()
     @add_arg_table! s begin
         "-c"

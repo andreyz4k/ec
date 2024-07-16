@@ -1,3 +1,4 @@
+
 include("solver.jl")
 using Distributed
 
@@ -9,5 +10,5 @@ function include_module_in_pid(pid, source_path)
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
-    solver.dc_main_node(include_module_in_pid)
+    solver.main(include_module_in_pid)
 end

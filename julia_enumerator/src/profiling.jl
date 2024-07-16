@@ -1,3 +1,5 @@
+include("solver.jl")
+using JSON
 
 sample_payload = Dict{String,Any}(
     "DSL" => Dict{String,Any}(
@@ -1589,9 +1591,9 @@ function run_arc_tests(is_start)
             ],
         )
         task, maximum_frontier, g, type_weights, hyperparameters, _mfp, _nc, timeout, verbose, program_timeout =
-            load_problems(payload)
+            solver.load_problems(payload)
         timeout = 60
-        @time enumerate_for_task(
+        @time solver.enumerate_for_task(
             Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout),
             g,
             type_weights,
