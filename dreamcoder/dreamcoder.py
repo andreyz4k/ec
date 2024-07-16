@@ -154,7 +154,7 @@ def manage_enumerator_service(f):
             r = redis.Redis(host="localhost", port=6379, db=0)
             r.flushdb()
             solver_file = os.path.join(
-                get_root_dir(), "julia_enumerator", "src", "main.jl"
+                get_root_dir(), "julia_enumerator", "src", "dc_main.jl"
             )
             env = {"JULIA_PROJECT": os.path.join(get_root_dir(), "julia_enumerator")}
             env.update(os.environ)
