@@ -203,7 +203,7 @@ occurs(i::Int64, t::TypeNamedArgsConstructor) =
     if !is_polymorphic(t)
         false
     else
-        any(occurs(i, ta) for ta in t.arguments) || occurs(i, t.output)
+        any(occurs(i, ta) for (_, ta) in t.arguments) || occurs(i, t.output)
     end
 
 _unify(context, t1::TypeVariable, t2) =

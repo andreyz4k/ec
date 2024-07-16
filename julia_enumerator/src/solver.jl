@@ -174,7 +174,7 @@ function worker_loop(timeout_container)
             rethrow()
         end
     end
-    disconnect(conn)
+    disconnect_redis(redis)
 end
 
 end

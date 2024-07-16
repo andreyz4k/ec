@@ -306,7 +306,7 @@ parse_invented =
         t = try
             infer_program_type(empty_context, [], p)[2]
         catch e
-            if isa(e, UnificationFailure) || isa(e, UnboundVariable)
+            if isa(e, ErrorException) || isa(e, UnboundVariable)
                 bt = catch_backtrace()
                 @warn "WARNING: Could not type check invented $p" exception = (e, bt)
                 t0

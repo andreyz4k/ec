@@ -33,6 +33,7 @@ macro testcase_log(name, body)
 end
 
 @testset runner = DistributedTestRunner() "all" begin
+    include("aqua.jl")
     include("reachable.jl")
     include("abstractors.jl")
     include("abstractors_tasks.jl")

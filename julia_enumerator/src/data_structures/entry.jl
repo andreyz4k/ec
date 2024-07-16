@@ -202,38 +202,6 @@ function get_fixed_hashes(options, value)
     return hashes
 end
 
-function _get_intersecting_hashes(value, options::EitherOptions, preselected_hashes)
-    return _get_intersecting_hashes(options, value, preselected_hashes)
-end
-
-function _get_intersecting_hashes(options::EitherOptions, value, preselected_hashes)
-    out_hashes = Set()
-    filtered = any(haskey(options.options, h) for h in preselected_hashes)
-    for (h, option) in options.options
-        if filtered && !in(h, preselected_hashes)
-            continue
-        end
-        found, hashes = _get_intersecting_hashes(option, value, preselected_hashes)
-        if found
-            union!(out_hashes, hashes)
-            push!(out_hashes, h)
-        end
-    end
-    return !isempty(out_hashes), out_hashes
-end
-
-function _get_intersecting_hashes(options, value, preselected_hashes)
-    _try_unify_values(options, value, false)[1], Set()
-end
-
-function get_intersecting_hashes(options, value, preselected_hashes = Set())
-    found, hashes = _get_intersecting_hashes(options, value, preselected_hashes)
-    if !found
-        throw(EnumerationException("Inconsistent match"))
-    end
-    return hashes
-end
-
 function _get_hashes_paths(options::EitherOptions, value, preselected_hashes)
     out_paths = []
 
