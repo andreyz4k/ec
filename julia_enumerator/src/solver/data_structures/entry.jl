@@ -172,6 +172,8 @@ struct EitherOptions
     end
 end
 
+# EitherOptions(options, _, _) = EitherOptions(options)
+
 Base.:(==)(v1::EitherOptions, v2::EitherOptions) = v1.hash_value == v2.hash_value && v1.options == v2.options
 Base.hash(v::EitherOptions, h::UInt64) = hash(v.hash_value, h)
 
