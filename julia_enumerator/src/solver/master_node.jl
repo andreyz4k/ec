@@ -3,28 +3,26 @@ using Distributed
 import Redis
 import Redis: execute_command
 
-function setup_worker(import_func, pid, source_path)
+function setup_worker(pid, source_path)
     @async begin
-        import_func(pid, source_path)
+        ex = Expr(:toplevel, :(task_local_storage()[:SOURCE_PATH] = $(source_path)), :(using solver))
+        Distributed.remotecall_eval(Main, pid, ex)
         @warn "Starting timeout monitor for new worker $pid"
         timeout_container = start_timeout_monitor(pid)
         @warn "Created timeout container for new worker $pid"
-        # @fetchfrom pid solver.init_logger()
-        @spawnat pid worker_loop(timeout_container)
+        # @spawnat pid worker_loop(timeout_container)
+        remotecall(Core.eval, pid, @__MODULE__, :($worker_loop($timeout_container)))
         @warn "Finished setting up worker $pid"
     end
 end
 
-function add_new_workers(import_func, count, source_path)
+function add_new_workers(count, source_path)
     @warn "Adding $count new workers"
-    if Base.VERSION >= v"1.9.0"
-        new_pids = addprocs(count, exeflags = "--heap-size-hint=1G")
-    else
-        new_pids = addprocs(count)
-    end
+    new_pids = addprocs(count, exeflags = "--heap-size-hint=1G")
+
     created_pids = []
 
-    setup_futures = [(pid, setup_worker(import_func, pid, source_path)) for pid in new_pids]
+    setup_futures = [(pid, setup_worker(pid, source_path)) for pid in new_pids]
     for (pid, f) in setup_futures
         try
             fetch(f)
@@ -55,7 +53,7 @@ end
 using ArgParse
 using JSON
 
-function dc_main_node(import_func)
+function dc_main_node()
     s = ArgParseSettings()
     @add_arg_table! s begin
         "-c"
@@ -68,13 +66,12 @@ function dc_main_node(import_func)
     num_workers = parsed_args["c"]
 
     @info "Starting enumeration service with $num_workers workers"
-    # @everywhere solver.init_logger()
 
     source_path = get(task_local_storage(), :SOURCE_PATH, nothing)
 
     sleep(1)
 
-    active_workers = add_new_workers(import_func, num_workers, source_path)
+    active_workers = add_new_workers(num_workers, source_path)
 
     conn = Redis.RedisConnection()
     while true
@@ -109,7 +106,7 @@ function dc_main_node(import_func)
         if should_stop(conn)
             break
         end
-        new_pids = add_new_workers(import_func, num_workers - length(active_workers), source_path)
+        new_pids = add_new_workers(num_workers - length(active_workers), source_path)
         append!(active_workers, new_pids)
         sleep(1)
     end

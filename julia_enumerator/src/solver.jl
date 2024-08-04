@@ -12,7 +12,9 @@ include("solver/enumeration.jl")
 include("solver/export.jl")
 include("solver/sample.jl")
 include("solver/worker.jl")
+include("solver/worker_pool.jl")
 include("solver/master_node.jl")
+include("solver/guiding_models/guiding_models.jl")
 include("solver/expcoder.jl")
 
 end
