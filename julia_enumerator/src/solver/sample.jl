@@ -205,8 +205,8 @@ function _sample_wrapping_block(
         candidate_functions = unifying_expressions(
             Tp[],
             context,
-            Hole(inp_type, grammar.no_context, CombinedArgChecker([SimpleArgChecker(true, -1, false)]), nothing),
-            Hole(inp_type, grammar.no_context, CombinedArgChecker([SimpleArgChecker(true, -1, false)]), nothing),
+            Hole(inp_type, grammar.no_context, [], CombinedArgChecker([SimpleArgChecker(true, -1, false)]), nothing),
+            Hole(inp_type, grammar.no_context, [], CombinedArgChecker([SimpleArgChecker(true, -1, false)]), nothing),
             [],
         )
 
@@ -222,10 +222,11 @@ function _sample_wrapping_block(
         custom_arg_checkers = _get_custom_arg_checkers(wrapper)
 
         wrapped_p = Apply(
-            Apply(Apply(wrapper, block.p), FreeVar(unknown_type, fixer_var)),
+            Apply(Apply(wrapper, block.p), FreeVar(unknown_type, fixer_var, nothing)),
             Hole(
                 fixer_type,
                 grammar.contextual_library[wrapper][3],
+                [],
                 CombinedArgChecker([custom_arg_checkers[3]]),
                 calculated_output_values[fixer_var],
             ),
@@ -883,7 +884,8 @@ function sample_output_program(
             if !has_data || r < depth
                 if !haskey(value_options, var_name)
                     value_options[var_name] = Set{Any}([
-                        FreeVar(v_type, v_name) for (v_name, (v_type, v_data)) in input_vars if v_type == var_type
+                        FreeVar(v_type, v_name, nothing) for
+                        (v_name, (v_type, v_data)) in input_vars if v_type == var_type
                     ])
                     if has_data && isempty(unused_input_blocks) && isempty(unused_output_blocks)
                         union!(
@@ -1017,7 +1019,7 @@ function normalize_program(p::Apply, vars_map)
 end
 
 function normalize_program(p::FreeVar, vars_map)
-    return FreeVar(p.t, vars_map[p.var_id])
+    return FreeVar(p.t, vars_map[p.var_id], nothing)
 end
 
 function normalize_program(p, vars_map)
@@ -1052,6 +1054,7 @@ function _sampling_input_program_iteration(skeleton, path, context, max_depth, g
                 Hole(
                     request.arguments[2],
                     current_hole.grammar,
+                    [],
                     step_arg_checker(current_hole.candidates_filter, ArgTurn(request.arguments[1])),
                     current_hole.possible_values,
                 ),
@@ -1079,7 +1082,7 @@ function _sampling_input_program_iteration(skeleton, path, context, max_depth, g
             if isa(candidate, Abstraction)
                 application_template = Apply(
                     candidate,
-                    Hole(argument_types[1], grammar.no_context, current_hole.candidates_filter, nothing),
+                    Hole(argument_types[1], grammar.no_context, [], current_hole.candidates_filter, nothing),
                 )
                 new_skeleton = modify_skeleton(skeleton, application_template, path)
                 new_path = vcat(path, [LeftTurn(), ArgTurn(argument_types[1])])
@@ -1103,7 +1106,7 @@ function _sampling_input_program_iteration(skeleton, path, context, max_depth, g
 
                         application_template = Apply(
                             application_template,
-                            Hole(argument_types[i], argument_requests[i], arg_checker, nothing),
+                            Hole(argument_types[i], argument_requests[i], [], arg_checker, nothing),
                         )
                     end
                     new_skeleton = modify_skeleton(skeleton, application_template, path)
@@ -1125,7 +1128,8 @@ end
 function _sample_input_program(grammar, return_type, max_depth, var_counter, failed_blocks, local_failed_blocks)
     context, return_type = instantiate(return_type, empty_context)
     path = []
-    skeleton = Hole(return_type, grammar.no_context, CombinedArgChecker([SimpleArgChecker(true, -1, true)]), nothing)
+    skeleton =
+        Hole(return_type, grammar.no_context, [], CombinedArgChecker([SimpleArgChecker(true, -1, true)]), nothing)
     while true
         if is_reversible(skeleton) || (!isa(skeleton, Hole) && isempty(path))
             break
@@ -1150,7 +1154,8 @@ end
 function _sample_output_program(grammar, return_type, max_depth, var_counter, input_var_types, failed_blocks)
     context, return_type = instantiate(return_type, empty_context)
     path = []
-    skeleton = Hole(return_type, grammar.no_context, CombinedArgChecker([SimpleArgChecker(false, -1, true)]), nothing)
+    skeleton =
+        Hole(return_type, grammar.no_context, [], CombinedArgChecker([SimpleArgChecker(false, -1, true)]), nothing)
     while true
         if is_reversible(skeleton) || (!isa(skeleton, Hole) && isempty(path))
             break
@@ -1169,6 +1174,7 @@ function _sample_output_program(grammar, return_type, max_depth, var_counter, in
                     Hole(
                         request.arguments[2],
                         current_hole.grammar,
+                        [],
                         step_arg_checker(current_hole.candidates_filter, ArgTurn(request.arguments[1])),
                         current_hole.possible_values,
                     ),
@@ -1195,7 +1201,7 @@ function _sample_output_program(grammar, return_type, max_depth, var_counter, in
                 if isa(candidate, Abstraction)
                     application_template = Apply(
                         candidate,
-                        Hole(argument_types[1], grammar.no_context, current_hole.candidates_filter, nothing),
+                        Hole(argument_types[1], grammar.no_context, [], current_hole.candidates_filter, nothing),
                     )
                     new_skeleton = modify_skeleton(skeleton, application_template, path)
                     new_path = vcat(path, [LeftTurn(), ArgTurn(argument_types[1])])
@@ -1219,7 +1225,7 @@ function _sample_output_program(grammar, return_type, max_depth, var_counter, in
 
                             application_template = Apply(
                                 application_template,
-                                Hole(argument_types[i], argument_requests[i], arg_checker, nothing),
+                                Hole(argument_types[i], argument_requests[i], [], arg_checker, nothing),
                             )
                         end
                         new_skeleton = modify_skeleton(skeleton, application_template, path)

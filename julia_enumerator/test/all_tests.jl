@@ -35,6 +35,7 @@ end
 @testset runner = DistributedTestRunner() "all" begin
     include("aqua.jl")
     include("reachable.jl")
+    include("reachable_expl.jl")
     include("abstractors.jl")
     include("abstractors_tasks.jl")
     include("arc_tasks.jl")

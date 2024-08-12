@@ -58,9 +58,9 @@ end
 
 function alpha_substitution(p::FreeVar, replacements, next_index::UInt64, input_keys)
     if haskey(input_keys, p.var_id)
-        return FreeVar(p.t, input_keys[p.var_id]), next_index
+        return FreeVar(p.t, input_keys[p.var_id], p.location), next_index
     elseif haskey(replacements, p.var_id)
-        return FreeVar(p.t, replacements[p.var_id]), next_index
+        return FreeVar(p.t, replacements[p.var_id], p.location), next_index
     else
         return p, next_index
     end

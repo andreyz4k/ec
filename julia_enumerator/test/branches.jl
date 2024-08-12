@@ -6,7 +6,7 @@ using solver:
     FreeVar,
     add_new_block,
     RedisContext,
-    BlockPrototype,
+    BlockPrototypeOld,
     EnumerationState,
     enumeration_iteration_finished_output,
     unifying_expressions,
@@ -41,7 +41,7 @@ using DataStructures
 
 function initial_state(t, g)
     EnumerationState(
-        Hole(t, g.no_context, CombinedArgChecker([SimpleArgChecker(false, -1, true)]), nothing),
+        Hole(t, g.no_context, [], CombinedArgChecker([SimpleArgChecker(false, -1, true)]), nothing),
         empty_context,
         [],
         0.0,
@@ -90,7 +90,7 @@ function next_state(state, target_candidate, cg)
 
                         application_template = Apply(
                             application_template,
-                            Hole(argument_types[i], argument_requests[i], arg_checker, nothing),
+                            Hole(argument_types[i], argument_requests[i], [], arg_checker, nothing),
                         )
                     end
                     new_skeleton = modify_skeleton(state.skeleton, application_template, state.path)
@@ -119,7 +119,7 @@ function create_block_prototype(sc, target_branch_id, steps, g)
     end
 
     target_var_id = sc.branch_vars[target_branch_id]
-    bp = BlockPrototype(state, target_type, nothing, (target_var_id, target_branch_id), false)
+    bp = BlockPrototypeOld(state, target_type, nothing, (target_var_id, target_branch_id), false)
     return bp
 end
 
@@ -198,7 +198,7 @@ end
         out_branch_id::UInt64 = 2
         inp_type_id = first(get_connected_from(sc.branch_types, inp_branch_id))
         new_block = ProgramBlock(
-            FreeVar(sc.types[inp_type_id], inp_var_id),
+            FreeVar(sc.types[inp_type_id], inp_var_id, nothing),
             sc.types[inp_type_id],
             0.0,
             [inp_var_id],
@@ -269,7 +269,7 @@ end
         bp = create_block_prototype(
             sc,
             out_branch_id,
-            [every_primitive["cdr"], FreeVar(sc.types[out_type_id], nothing)],
+            [every_primitive["cdr"], FreeVar(sc.types[out_type_id], nothing, nothing)],
             g,
         )
         new_block_result, _ = enumeration_iteration_finished_output(sc, bp)
@@ -283,7 +283,7 @@ end
         connection_branch_id::UInt64 = 3
 
         new_block = ProgramBlock(
-            FreeVar(sc.types[inp_type_id], inp_var_id),
+            FreeVar(sc.types[inp_type_id], inp_var_id, nothing),
             sc.types[inp_type_id],
             0.0,
             [inp_var_id],
@@ -448,7 +448,7 @@ end
         inp_type_id = first(get_connected_from(sc.branch_types, inp_branch_id))
         inp_type = sc.types[inp_type_id]
 
-        new_block = ProgramBlock(FreeVar(inp_type, inp_var_id), inp_type, 0.0, [inp_var_id], v2_var_id, false)
+        new_block = ProgramBlock(FreeVar(inp_type, inp_var_id, nothing), inp_type, 0.0, [inp_var_id], v2_var_id, false)
         new_block_id = push!(sc.blocks, new_block)
 
         new_solution_paths =

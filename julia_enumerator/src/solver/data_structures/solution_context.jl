@@ -73,10 +73,14 @@ mutable struct SolutionContext
     iterations_count::Int64
     pq_input::NDPriorityQueue{Tuple{UInt64,Bool},Float64}
     pq_output::NDPriorityQueue{Tuple{UInt64,Bool},Float64}
-    branch_queues_unknown::Dict{UInt64,PriorityQueue{BlockPrototype,Float64,Base.Order.ForwardOrdering}}
-    branch_queues_explained::Dict{UInt64,PriorityQueue{BlockPrototype,Float64,Base.Order.ForwardOrdering}}
+    branch_queues_unknown::Dict{UInt64,PriorityQueue}
+    branch_queues_explained::Dict{UInt64,PriorityQueue}
     branch_unknown_from_output::VectorStorage{Bool}
     branch_known_from_input::VectorStorage{Bool}
+
+    entry_grammars::Dict{Tuple{UInt64,Bool},Any}
+    known_var_locations::VectorStorage{Vector{Tuple{Program,Int64}}}
+    unknown_var_locations::VectorStorage{Vector{Tuple{Program,Int64}}}
 
     verbose::Bool
     transaction_depth::Int
@@ -134,6 +138,9 @@ function create_starting_context(task::Task, type_weights, hyperparameters, verb
         Dict(),
         VectorStorage{Bool}(),
         VectorStorage{Bool}(),
+        Dict{Tuple{UInt64,Bool},Any}(),
+        VectorStorage{Vector{Tuple{Program,Int64}}}(),
+        VectorStorage{Vector{Tuple{Program,Int64}}}(),
         verbose,
         0,
     )
@@ -164,6 +171,8 @@ function create_starting_context(task::Task, type_weights, hyperparameters, verb
         sc.added_upstream_complexities[branch_id] = 0.0
         sc.unused_explained_complexities[branch_id] = entry.complexity
 
+        sc.known_var_locations[var_id] = []
+
         add_path!(sc.incoming_paths, branch_id, empty_path())
     end
     return_type = return_of_type(task.task_type)
@@ -188,14 +197,17 @@ function create_starting_context(task::Task, type_weights, hyperparameters, verb
     sc.complexities[branch_id] = entry.complexity
     sc.unmatched_complexities[branch_id] = entry.complexity
 
+    sc.unknown_var_locations[var_id] = []
+
     return sc
 end
 
 function transaction(f, sc::SolutionContext)
     depth = sc.transaction_depth
+    local result
     try
         start_transaction!(sc, depth + 1)
-        f()
+        result = f()
     catch e
         finished = false
         interrupted = nothing
@@ -219,6 +231,7 @@ function transaction(f, sc::SolutionContext)
         if !isa(e, EnumerationException)
             rethrow()
         end
+        return nothing
     else
         finished = false
         interrupted = nothing
@@ -240,7 +253,7 @@ function transaction(f, sc::SolutionContext)
             throw(interrupted)
         end
     end
-    return nothing
+    return result
 end
 
 function start_transaction!(sc::SolutionContext, depth)
@@ -280,6 +293,8 @@ function start_transaction!(sc::SolutionContext, depth)
     start_transaction!(sc.previous_vars, depth)
     start_transaction!(sc.branch_unknown_from_output, depth)
     start_transaction!(sc.branch_known_from_input, depth)
+    start_transaction!(sc.known_var_locations, depth)
+    start_transaction!(sc.unknown_var_locations, depth)
     sc.transaction_depth = depth
     nothing
 end
@@ -321,6 +336,8 @@ function save_changes!(sc::SolutionContext, depth)
     save_changes!(sc.previous_vars, depth)
     save_changes!(sc.branch_unknown_from_output, depth)
     save_changes!(sc.branch_known_from_input, depth)
+    save_changes!(sc.known_var_locations, depth)
+    save_changes!(sc.unknown_var_locations, depth)
     sc.transaction_depth = depth
     nothing
 end
@@ -362,6 +379,8 @@ function drop_changes!(sc::SolutionContext, depth)
     drop_changes!(sc.previous_vars, depth)
     drop_changes!(sc.branch_unknown_from_output, depth)
     drop_changes!(sc.branch_known_from_input, depth)
+    drop_changes!(sc.known_var_locations, depth)
+    drop_changes!(sc.unknown_var_locations, depth)
     sc.transaction_depth = depth
     nothing
 end
@@ -916,6 +935,22 @@ function vars_in_loop(sc::SolutionContext, known_var_id, unknown_var_id)
     prev_known = get_connected_to(sc.previous_vars, known_var_id)
     foll_unknown = get_connected_from(sc.previous_vars, unknown_var_id)
     !isempty(intersect(prev_known, foll_unknown))
+end
+
+function is_block_loops(sc::SolutionContext, bp::BlockPrototypeOld)
+    if isnothing(bp.input_vars)
+        return false
+    end
+    if bp.reverse
+        inp_vars = [bp.output_var[1]]
+        out_vars = collect(keys(bp.input_vars))
+    else
+        out_vars = [bp.output_var[1]]
+        inp_vars = collect(keys(bp.input_vars))
+    end
+    prev_inputs = union(Set{UInt64}(), [get_connected_to(sc.previous_vars, inp_var) for inp_var in inp_vars]...)
+    foll_outputs = union([get_connected_from(sc.previous_vars, out_var) for out_var in out_vars]...)
+    return !isempty(intersect(prev_inputs, foll_outputs))
 end
 
 function is_block_loops(sc::SolutionContext, bp::BlockPrototype)

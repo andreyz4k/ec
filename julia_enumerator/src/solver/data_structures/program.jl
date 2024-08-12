@@ -57,31 +57,36 @@ Base.:(==)(p::Invented, q::Invented) = p.b == q.b
 struct Hole <: Program
     t::Tp
     grammar::Any
+    locations::Vector{Tuple{Program,Int64}}
     candidates_filter::Any
     possible_values::Any
     hash_value::UInt64
-    Hole(t::Tp, grammar::Any, candidates_filter::Any, possible_values) = new(
+    Hole(t::Tp, grammar::Any, locations, candidates_filter::Any, possible_values) = new(
         t,
         grammar,
+        locations,
         candidates_filter,
         possible_values,
-        hash(t, hash(grammar, hash(candidates_filter, hash(possible_values)))),
+        hash(t, hash(grammar, hash(locations, hash(candidates_filter, hash(possible_values))))),
     )
 end
 
 Base.:(==)(p::Hole, q::Hole) =
     p.t == q.t &&
     p.grammar == q.grammar &&
+    p.locations == q.locations &&
     p.candidates_filter == q.candidates_filter &&
     p.possible_values == q.possible_values
 
 struct FreeVar <: Program
     t::Tp
     var_id::Union{UInt64,Nothing,String}
+    location::Union{Nothing,Tuple{Program,Int64}}
     hash_value::UInt64
-    FreeVar(t::Tp, var_id::Union{UInt64,Nothing,String}) = new(t, var_id, hash(t, hash(var_id)))
+    FreeVar(t::Tp, var_id::Union{UInt64,Nothing,String}, location::Union{Nothing,Tuple{Program,Int64}}) =
+        new(t, var_id, location, hash(t, hash(var_id, hash(location))))
 end
-Base.:(==)(p::FreeVar, q::FreeVar) = p.t == q.t && p.var_id == q.var_id
+Base.:(==)(p::FreeVar, q::FreeVar) = p.t == q.t && p.var_id == q.var_id && p.location == q.location
 
 struct SetConst <: Program
     t::Tp
@@ -293,7 +298,7 @@ parse_primitive = MatchPrimitive(parse_token)
 
 parse_variable = P"\$" + parse_number > Index
 
-parse_free_variable = P"\$" + parse_var_name > (v -> FreeVar(t0, v))
+parse_free_variable = P"\$" + parse_var_name > (v -> FreeVar(t0, v, nothing))
 
 parse_fixed_real = P"real" + parse_token > (v -> Primitive(treal, "real", parse(Float64, v)))
 
@@ -364,7 +369,7 @@ parse_object.matcher =
 
 parse_const_clause = P"Const\(" + type_parser + P", " + parse_object + P"\)" |> (v -> SetConst(v[1], v[2]))
 
-parse_hole = P"\?\?\(" + type_parser + P"\)" > (t -> Hole(t, nothing, nothing, nothing))
+parse_hole = P"\?\?\(" + type_parser + P"\)" > (t -> Hole(t, nothing, [], nothing, nothing))
 
 _parse_program.matcher =
     parse_application |

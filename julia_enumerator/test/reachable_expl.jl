@@ -25,654 +25,139 @@ using solver:
     get_connected_to,
     show_program,
     HitResult,
-    BlockPrototypeOld,
+    BlockPrototype,
     application_parse,
-    every_primitive
+    every_primitive,
+    create_arc_task,
+    DummyGuidingModel,
+    supervised_task_checker,
+    parse_type,
+    Task,
+    extract_solution
 
 using DataStructures
 
-@testset "Reachable solutions" begin
-    sample_payload = Dict{String,Any}(
-        "DSL" => Dict{String,Any}(
-            "logVariable" => 3.0,
-            "logFreeVar" => 0.0,
-            "logLambda" => 0.0,
-            "productions" => Any[
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "map",
-                    "is_reversible" => true,
-                    "type" => "(t0 -> t1) -> list(t0) -> list(t1)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "map_set",
-                    "is_reversible" => true,
-                    "type" => "(t0 -> t1) -> set(t0) -> set(t1)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "map_grid",
-                    "is_reversible" => true,
-                    "type" => "(t0 -> t1) -> grid(t0) -> grid(t1)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "map2",
-                    "is_reversible" => true,
-                    "type" => "(t0 -> t1 -> t2) -> list(t0) -> list(t1) -> list(t2)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "map2_grid",
-                    "is_reversible" => true,
-                    "type" => "(t0 -> t1 -> t2) -> grid(t0) -> grid(t1) -> grid(t2)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "unfold",
-                    "is_reversible" => false,
-                    "type" => "(t0 -> bool) -> (t0 -> t1) -> (t0 -> t0) -> t0 -> list(t1)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "range",
-                    "is_reversible" => true,
-                    "type" => "int -> list(int)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "index",
-                    "is_reversible" => false,
-                    "type" => "int -> list(t0) -> t0",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "index2",
-                    "is_reversible" => false,
-                    "type" => "int -> int -> grid(t0) -> t0",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "fold",
-                    "is_reversible" => true,
-                    "type" => "(t0 -> t1 -> t1) -> list(t0) -> t1 -> t1",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "fold_set",
-                    "is_reversible" => true,
-                    "type" => "(t0 -> t1 -> t1) -> set(t0) -> t1 -> t1",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "fold_h",
-                    "is_reversible" => true,
-                    "type" => "(t0 -> t1 -> t1) -> grid(t0) -> list(t1) -> list(t1)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "fold_v",
-                    "is_reversible" => true,
-                    "type" => "(t0 -> t1 -> t1) -> grid(t0) -> list(t1) -> list(t1)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "length",
-                    "is_reversible" => false,
-                    "type" => "list(t0) -> int",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "height",
-                    "is_reversible" => false,
-                    "type" => "grid(t0) -> int",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "width",
-                    "is_reversible" => false,
-                    "type" => "grid(t0) -> int",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "if",
-                    "is_reversible" => false,
-                    "type" => "bool -> t0 -> t0 -> t0",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "+",
-                    "is_reversible" => true,
-                    "type" => "int -> int -> int",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "-",
-                    "is_reversible" => true,
-                    "type" => "int -> int -> int",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "empty",
-                    "is_reversible" => false,
-                    "type" => "list(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "empty_set",
-                    "is_reversible" => false,
-                    "type" => "set(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "cons",
-                    "is_reversible" => true,
-                    "type" => "t0 -> list(t0) -> list(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "car",
-                    "is_reversible" => false,
-                    "type" => "list(t0) -> t0",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "cdr",
-                    "is_reversible" => false,
-                    "type" => "list(t0) -> list(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "empty?",
-                    "is_reversible" => false,
-                    "type" => "list(t0) -> bool",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "*",
-                    "is_reversible" => true,
-                    "type" => "int -> int -> int",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "mod",
-                    "is_reversible" => false,
-                    "type" => "int -> int -> int",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "gt?",
-                    "is_reversible" => false,
-                    "type" => "int -> int -> bool",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 3.0,
-                    "expression" => "eq?",
-                    "is_reversible" => false,
-                    "type" => "t0 -> t0 -> bool",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "is-prime",
-                    "is_reversible" => false,
-                    "type" => "int -> bool",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "is-square",
-                    "is_reversible" => false,
-                    "type" => "int -> bool",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 3.0,
-                    "expression" => "repeat",
-                    "is_reversible" => true,
-                    "type" => "t0 -> int -> list(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "repeat_grid",
-                    "is_reversible" => true,
-                    "type" => "t0 -> int -> int -> grid(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "concat",
-                    "is_reversible" => true,
-                    "type" => "list(t0) -> list(t0) -> list(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "rows_to_grid",
-                    "is_reversible" => true,
-                    "type" => "list(list(t0)) -> grid(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "columns_to_grid",
-                    "is_reversible" => true,
-                    "type" => "list(list(t0)) -> grid(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "rows",
-                    "is_reversible" => true,
-                    "type" => "grid(t0) -> list(list(t0))",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "columns",
-                    "is_reversible" => true,
-                    "type" => "grid(t0) -> list(list(t0))",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "0",
-                    "is_reversible" => false,
-                    "type" => "int",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "1",
-                    "is_reversible" => false,
-                    "type" => "int",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 3.0,
-                    "expression" => "rev_select",
-                    "is_reversible" => true,
-                    "type" => "(t0 -> bool) -> list(t0) -> list(t0) -> list(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "rev_select_set",
-                    "is_reversible" => true,
-                    "type" => "(t0 -> bool) -> set(t0) -> set(t0) -> set(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "rev_select_grid",
-                    "is_reversible" => true,
-                    "type" => "(t0 -> bool) -> grid(t0) -> grid(t0) -> grid(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "rev_list_elements",
-                    "is_reversible" => true,
-                    "type" => "set(tuple2(int, t0)) -> int -> list(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "rev_grid_elements",
-                    "is_reversible" => true,
-                    "type" => "set(tuple2(tuple2(int, int), t0)) -> int -> int -> grid(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "zip2",
-                    "is_reversible" => true,
-                    "type" => "list(t0) -> list(t1) -> list(tuple2(t0, t1))",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "zip_grid2",
-                    "is_reversible" => true,
-                    "type" => "grid(t0) -> grid(t1) -> grid(tuple2(t0, t1))",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "tuple2",
-                    "is_reversible" => true,
-                    "type" => "t0 -> t1 -> tuple2(t0, t1)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "tuple2_first",
-                    "is_reversible" => true,
-                    "type" => "tuple2(t0, t1) -> t0",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "tuple2_second",
-                    "is_reversible" => true,
-                    "type" => "tuple2(t0, t1) -> t1",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "reverse",
-                    "is_reversible" => true,
-                    "type" => "list(t0) -> list(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "rev_fold",
-                    "is_reversible" => true,
-                    "type" => "(t0 -> t1 -> t1) -> t1 -> t1 -> list(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "rev_fold_set",
-                    "is_reversible" => true,
-                    "type" => "(t0 -> t1 -> t1) -> t1 -> t1 -> set(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "list_to_set",
-                    "is_reversible" => false,
-                    "type" => "list(t0) -> set(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "adjoin",
-                    "is_reversible" => true,
-                    "type" => "t0 -> set(t0) -> set(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "rev_groupby",
-                    "is_reversible" => true,
-                    "type" => "(t0 -> t1) -> t0 -> set(tuple2(t1, set(t0))) -> set(tuple2(t1, set(t0)))",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "rev_greedy_cluster",
-                    "is_reversible" => true,
-                    "type" => "(t0 -> set(t0) -> bool) -> t0 -> set(set(t0)) -> set(set(t0))",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "not",
-                    "is_reversible" => true,
-                    "type" => "bool -> bool",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "and",
-                    "is_reversible" => true,
-                    "type" => "bool -> bool -> bool",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "or",
-                    "is_reversible" => true,
-                    "type" => "bool -> bool -> bool",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "all",
-                    "is_reversible" => false,
-                    "type" => "(t0 -> bool) -> list(t0) -> bool",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "any",
-                    "is_reversible" => false,
-                    "type" => "(t0 -> bool) -> list(t0) -> bool",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "all_set",
-                    "is_reversible" => false,
-                    "type" => "(t0 -> bool) -> set(t0) -> bool",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "any_set",
-                    "is_reversible" => false,
-                    "type" => "(t0 -> bool) -> set(t0) -> bool",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "abs",
-                    "is_reversible" => true,
-                    "type" => "int -> int",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "rev_fix_param",
-                    "is_reversible" => true,
-                    "type" => "t0 -> t1 -> (t0 -> t1) -> t0",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "max_int",
-                    "is_reversible" => false,
-                    "type" => "int",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "min_int",
-                    "is_reversible" => false,
-                    "type" => "int",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "collect",
-                    "is_reversible" => true,
-                    "type" => "set(t0) -> list(t0)",
-                ),
-            ],
-        ),
-        "type_weights" => Dict{String,Any}(
-            "int" => 1.0,
-            "list" => 1.0,
-            "color" => 1.0,
-            "bool" => 1.0,
-            "float" => 1.0,
-            "grid" => 1.0,
-            "tuple2" => 1.0,
-            "tuple3" => 1.0,
-            "coord" => 1.0,
-            "set" => 1.0,
-            "any" => 1.0,
-        ),
-        "programTimeout" => 3.0,
-        "timeout" => 40,
-        "verbose" => false,
-        "shatter" => 10,
-    )
+@testset "Expl Reachable solutions" begin
+    sample_library = Any[
+        "map",
+        "map_set",
+        "map_grid",
+        "map2",
+        "map2_grid",
+        "unfold",
+        "range",
+        "index",
+        "index2",
+        "fold",
+        "fold_set",
+        "fold_h",
+        "fold_v",
+        "length",
+        "height",
+        "width",
+        "if",
+        "+",
+        "-",
+        "empty",
+        "empty_set",
+        "cons",
+        "car",
+        "cdr",
+        "empty?",
+        "*",
+        "mod",
+        "gt?",
+        "eq?",
+        "is-prime",
+        "is-square",
+        "repeat",
+        "repeat_grid",
+        "concat",
+        "rows_to_grid",
+        "columns_to_grid",
+        "rows",
+        "columns",
+        "0",
+        "1",
+        "rev_select",
+        "rev_select_set",
+        "rev_select_grid",
+        "rev_list_elements",
+        "rev_grid_elements",
+        "zip2",
+        "zip_grid2",
+        "tuple2",
+        "tuple2_first",
+        "tuple2_second",
+        "reverse",
+        "rev_fold",
+        "rev_fold_set",
+        "list_to_set",
+        "adjoin",
+        "rev_groupby",
+        "rev_greedy_cluster",
+        "not",
+        "and",
+        "or",
+        "all",
+        "any",
+        "all_set",
+        "any_set",
+        "abs",
+        "rev_fix_param",
+        "max_int",
+        "min_int",
+        "collect",
+    ]
 
-    sample_payload2 = Dict{String,Any}(
-        "DSL" => Dict{String,Any}(
-            "logVariable" => 0.0,
-            "logFreeVar" => 0.0,
-            "logLambda" => 0.0,
-            "productions" => Any[
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "map",
-                    "is_reversible" => true,
-                    "type" => "(t0 -> t1) -> list(t0) -> list(t1)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "unfold",
-                    "is_reversible" => false,
-                    "type" => "(t0 -> bool) -> (t0 -> t1) -> (t0 -> t0) -> t0 -> list(t1)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "range",
-                    "is_reversible" => true,
-                    "type" => "int -> list(int)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "index",
-                    "is_reversible" => false,
-                    "type" => "int -> list(t0) -> t0",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "fold",
-                    "is_reversible" => true,
-                    "type" => "(t0 -> t1 -> t1) -> list(t0) -> t1 -> t1",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "length",
-                    "is_reversible" => false,
-                    "type" => "list(t0) -> int",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "if",
-                    "is_reversible" => false,
-                    "type" => "bool -> t0 -> t0 -> t0",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "+",
-                    "is_reversible" => true,
-                    "type" => "int -> int -> int",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "-",
-                    "is_reversible" => true,
-                    "type" => "int -> int -> int",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "empty",
-                    "is_reversible" => false,
-                    "type" => "list(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "cons",
-                    "is_reversible" => true,
-                    "type" => "t0 -> list(t0) -> list(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "car",
-                    "is_reversible" => false,
-                    "type" => "list(t0) -> t0",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "cdr",
-                    "is_reversible" => false,
-                    "type" => "list(t0) -> list(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "empty?",
-                    "is_reversible" => false,
-                    "type" => "list(t0) -> bool",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "0",
-                    "is_reversible" => false,
-                    "type" => "int",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "1",
-                    "is_reversible" => false,
-                    "type" => "int",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "*",
-                    "is_reversible" => true,
-                    "type" => "int -> int -> int",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "mod",
-                    "is_reversible" => false,
-                    "type" => "int -> int -> int",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "gt?",
-                    "is_reversible" => false,
-                    "type" => "int -> int -> bool",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "eq?",
-                    "is_reversible" => false,
-                    "type" => "t0 -> t0 -> bool",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "is-prime",
-                    "is_reversible" => false,
-                    "type" => "int -> bool",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "is-square",
-                    "is_reversible" => false,
-                    "type" => "int -> bool",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "repeat",
-                    "is_reversible" => true,
-                    "type" => "t0 -> int -> list(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "concat",
-                    "is_reversible" => true,
-                    "type" => "list(t0) -> list(t0) -> list(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "rev_fix_param",
-                    "is_reversible" => true,
-                    "type" => "t0 -> t1 -> (t0 -> t1) -> t0",
-                ),
-            ],
-        ),
-        "type_weights" => Dict{String,Any}(
-            "int" => 1.0,
-            "list" => 1.0,
-            "color" => 1.0,
-            "bool" => 1.0,
-            "float" => 1.0,
-            "grid" => 1.0,
-            "tuple2" => 1.0,
-            "tuple3" => 1.0,
-            "coord" => 1.0,
-            "set" => 1.0,
-            "any" => 1.0,
-        ),
-        "programTimeout" => 3.0,
-        "timeout" => 30,
-        "verbose" => false,
-        "shatter" => 10,
-    )
+    sample_library2 = Any[
+        "map",
+        "unfold",
+        "range",
+        "index",
+        "fold",
+        "length",
+        "if",
+        "+",
+        "-",
+        "empty",
+        "cons",
+        "car",
+        "cdr",
+        "empty?",
+        "0",
+        "1",
+        "*",
+        "mod",
+        "gt?",
+        "eq?",
+        "is-prime",
+        "is-square",
+        "repeat",
+        "concat",
+        "rev_fix_param",
+    ]
 
-    function create_task(task_dict, sample_payload = sample_payload)
-        result = deepcopy(sample_payload)
-        result["task"] = task_dict
-        result["name"] = task_dict["name"]
-        return result
+    function build_grammar(library)
+        return Dict(p => parse_program(p) for p in library)
     end
 
-    function create_arc_task(filename, dir = "ARC/data/training/")
-        arc_task = JSON.parsefile("../../dreamcoder/domains/arc/" * dir * filename)
-        task_dict = Dict{String,Any}(
-            "name" => filename,
-            "maximumFrontier" => 10,
-            "extras" => 5,
-            "request" => "inp0:grid(color) -> grid(color)",
-            "specialTask" => "arc",
+    function create_task(task_dict)
+        return Task(
+            task_dict["name"],
+            parse_type(task_dict["request"]),
+            supervised_task_checker,
+            [ex["inputs"] for ex in task_dict["examples"]],
+            [ex["output"] for ex in task_dict["examples"]],
+            [ex["inputs"] for ex in task_dict["test_examples"]],
+            [ex["output"] for ex in task_dict["test_examples"]],
         )
-        task_dict["examples"] = Any[
-            Dict{String,Any}("inputs" => Dict{String,Any}("inp0" => example["input"]), "output" => example["output"]) for example in arc_task["train"]
-        ]
-        task_dict["test_examples"] = Any[
-            Dict{String,Any}("inputs" => Dict{String,Any}("inp0" => example["input"]), "output" => example["output"]) for example in arc_task["test"]
-        ]
-        return create_task(task_dict)
+    end
+
+    function _create_arc_task(filename, dir = "ARC/data/training/")
+        fname = "../../dreamcoder/domains/arc/" * dir * filename
+        tp = parse_type("inp0:grid(color) -> grid(color)")
+        return create_arc_task(fname, tp)
     end
 
     _used_vars(p::FreeVar) = [p.var_id]
@@ -795,8 +280,8 @@ using DataStructures
         return haskey(vars_mapping, bl.input_vars[1])
     end
 
-    function is_var_on_path(bp::BlockPrototypeOld, bl::ProgramBlock, vars_mapping, verbose = false)
-        if !isa(bp.state.skeleton, FreeVar)
+    function is_var_on_path(bp::BlockPrototype, bl::ProgramBlock, vars_mapping, verbose = false)
+        if !isa(bp.skeleton, FreeVar)
             return false
         end
         if !isa(bl.p, FreeVar)
@@ -812,7 +297,7 @@ using DataStructures
             return false
         end
         if haskey(vars_mapping, bl.p.var_id)
-            bp.state.skeleton.var_id == vars_mapping[bl.p.var_id]
+            bp.skeleton.var_id == vars_mapping[bl.p.var_id]
         else
             true
         end
@@ -871,14 +356,15 @@ using DataStructures
 
     function _simulate_block_search(
         sc,
+        task,
         bl::ProgramBlock,
         rem_blocks,
         branches,
         branches_history,
         vars_mapping,
-        g,
+        guiding_model,
+        grammar,
         run_context,
-        finalizer,
         mfp,
         verbose,
         find_one,
@@ -908,7 +394,7 @@ using DataStructures
             if verbose
                 @info bp
             end
-            if (!isa(bp.state.skeleton, FreeVar) && is_on_path(bp.state.skeleton, bl.p, Dict())) ||
+            if (!isa(bp.skeleton, FreeVar) && is_on_path(bp.skeleton, bl.p, Dict())) ||
                is_var_on_path(bp, bl, vars_mapping, verbose)
                 if verbose
                     @info "on path"
@@ -921,8 +407,9 @@ using DataStructures
                     end
                     out_branch_id = first(get_connected_from(sc.branch_children, out_branch_id))
                 end
-                enumeration_iteration(run_context, sc, finalizer, mfp, g, q, bp, branch_id, is_explained)
-                if is_reversible(bp.state.skeleton) || state_finished(bp.state)
+                found_solutions =
+                    enumeration_iteration(run_context, sc, mfp, guiding_model, grammar, q, bp, branch_id, is_explained)
+                if is_reversible(bp.skeleton) || state_finished(bp)
                     if verbose
                         @info "found end"
                         @info "Out branch id $out_branch_id"
@@ -987,15 +474,27 @@ using DataStructures
                         @info "updated_vars_mapping: $updated_vars_mapping"
                     end
                     updated_history = vcat(branches_history, [(branches, bl)])
+
+                    if isempty(rem_blocks)
+                        @test !isempty(found_solutions)
+                        for solution_path in found_solutions
+                            solution, cost = extract_solution(sc, solution_path)
+                            ll = task.log_likelihood_checker(task, solution)
+                            @test !isnothing(ll)
+                            @test !isinf(ll)
+                        end
+                    end
+
                     return _check_reachable(
                         sc,
+                        task,
                         rem_blocks,
                         updated_vars_mapping,
                         updated_branches,
                         updated_history,
-                        g,
+                        guiding_model,
+                        grammar,
                         run_context,
-                        finalizer,
                         mfp,
                         verbose,
                         find_one,
@@ -1018,14 +517,15 @@ using DataStructures
 
     function _simulate_block_search(
         sc,
+        task,
         bl::ReverseProgramBlock,
         rem_blocks,
         branches,
         branches_history,
         vars_mapping,
-        g,
+        guiding_model,
+        grammar,
         run_context,
-        finalizer,
         mfp,
         verbose,
         find_one,
@@ -1062,14 +562,24 @@ using DataStructures
             if verbose
                 @info bp
             end
-            if is_on_path(bp.state.skeleton, bl.p, Dict()) ||
-               (wrapped_func !== nothing && is_on_path(bp.state.skeleton, wrapped_func, Dict()))
+            if is_on_path(bp.skeleton, bl.p, Dict()) ||
+               (wrapped_func !== nothing && is_on_path(bp.skeleton, wrapped_func, Dict()))
                 if verbose
                     @info "on path"
                 end
-                enumeration_iteration(run_context, sc, finalizer, mfp, g, q, bp, in_branch_id, is_explained)
-                if !(wrapped_func !== nothing && is_on_path(bp.state.skeleton, wrapped_func, Dict())) &&
-                   (is_reversible(bp.state.skeleton) || state_finished(bp.state))
+                found_solutions = enumeration_iteration(
+                    run_context,
+                    sc,
+                    mfp,
+                    guiding_model,
+                    grammar,
+                    q,
+                    bp,
+                    in_branch_id,
+                    is_explained,
+                )
+                if !(wrapped_func !== nothing && is_on_path(bp.skeleton, wrapped_func, Dict())) &&
+                   (is_reversible(bp.skeleton) || state_finished(bp))
                     if verbose
                         @info "found end"
                     end
@@ -1121,22 +631,34 @@ using DataStructures
                     end
 
                     updated_history = vcat(branches_history, [(branches, bl)])
+
+                    if isempty(rem_blocks)
+                        @test !isempty(found_solutions)
+                        for solution_path in found_solutions
+                            solution, cost = extract_solution(sc, solution_path)
+                            ll = task.log_likelihood_checker(task, solution)
+                            @test !isnothing(ll)
+                            @test !isinf(ll)
+                        end
+                    end
+
                     return _check_reachable(
                         sc,
+                        task,
                         rem_blocks,
                         updated_vars_mapping,
                         updated_branches,
                         updated_history,
-                        g,
+                        guiding_model,
+                        grammar,
                         run_context,
-                        finalizer,
                         mfp,
                         verbose,
                         find_one,
                     )
                 end
             else
-                if isa(bp.state.skeleton, FreeVar)
+                if isa(bp.skeleton, FreeVar)
                     push!(not_on_path, (bp, p))
                 end
                 if verbose
@@ -1152,13 +674,14 @@ using DataStructures
 
     function _check_reachable(
         sc,
+        task,
         blocks,
         vars_mapping,
         branches,
         branches_history,
-        g,
+        guiding_model,
+        grammar,
         run_context,
-        finalizer,
         mfp,
         verbose,
         find_one,
@@ -1186,14 +709,15 @@ using DataStructures
                 end
                 s, f = _simulate_block_search(
                     sc_next,
+                    task,
                     bl,
                     Any[b for b in blocks if b != bl],
                     branches,
                     branches_history,
                     vars_mapping,
-                    g,
+                    guiding_model,
+                    grammar,
                     run_context,
-                    finalizer,
                     mfp,
                     verbose,
                     find_one,
@@ -1213,11 +737,26 @@ using DataStructures
         return successful, failed
     end
 
-    function check_reachable(payload, target_solution, verbose_test = false; find_one = false)
-        task, maximum_frontier, g, type_weights, hyperparameters, mfp, _nc, timeout, verbose, program_timeout =
-            load_problems(payload)
+    function check_reachable(task, guiding_model, grammar, target_solution, verbose_test = false; find_one = false)
         mfp = 10
-        run_context = Dict{String,Any}("program_timeout" => program_timeout, "timeout" => timeout)
+        run_context = Dict{String,Any}("program_timeout" => 1, "timeout" => 40)
+
+        type_weights = Dict(
+            "int" => 1.0,
+            "list" => 1.0,
+            "color" => 1.0,
+            "bool" => 1.0,
+            "float" => 1.0,
+            "grid" => 1.0,
+            "tuple2" => 1.0,
+            "tuple3" => 1.0,
+            "coord" => 1.0,
+            "set" => 1.0,
+            "any" => 1.0,
+        )
+
+        hyperparameters = Dict("path_cost_power" => 1.0, "complexity_power" => 1.0, "block_cost_power" => 1.0)
+
         target_program = parse_program(target_solution)
 
         ll = task.log_likelihood_checker(task, target_program)
@@ -1232,7 +771,7 @@ using DataStructures
             @info vars_mapping
         end
         sc = create_starting_context(task, type_weights, hyperparameters, verbose_test)
-        enqueue_updates(sc, g)
+        enqueue_updates(sc, guiding_model, grammar)
         branches = Dict()
         for br_id in 1:sc.branches_count[]
             branches[sc.branch_vars[br_id]] = br_id
@@ -1243,28 +782,6 @@ using DataStructures
         save_changes!(sc, 0)
 
         start_time = time()
-        hits = PriorityQueue{HitResult,Float64}()
-        finalizer = function (solution, cost)
-            if verbose_test
-                @info "Got solution $solution"
-            end
-            ll = task.log_likelihood_checker(task, solution)
-            if !isnothing(ll) && !isinf(ll)
-                dt = time() - start_time
-                res = HitResult(join(show_program(solution, false)), -cost, ll, dt)
-                # if isempty(hits)
-                #     @info "Time to first solution: $dt"
-                # end
-                if haskey(hits, res)
-                    # @warn "Duplicated solution $solution"
-                else
-                    hits[res] = -cost + ll
-                end
-                while length(hits) > maximum_frontier
-                    dequeue!(hits)
-                end
-            end
-        end
 
         inner_mapping = Dict{UInt64,UInt64}()
         for (arg, _) in task.task_type.arguments
@@ -1278,15 +795,17 @@ using DataStructures
         if verbose_test
             @info inner_mapping
         end
+
         successful, failed = @time _check_reachable(
             sc,
+            task,
             blocks,
             inner_mapping,
             branches,
             [],
-            g,
+            guiding_model,
+            grammar,
             run_context,
-            finalizer,
             mfp,
             verbose_test,
             find_one,
@@ -1311,10 +830,9 @@ using DataStructures
     end
 
     @testcase_log "Repeat" begin
-        payload = create_task(
+        task = create_task(
             Dict{String,Any}(
                 "name" => "invert repeated",
-                "maximumFrontier" => 10,
                 "examples" => Any[
                     Dict{String,Any}(
                         "output" => Any[4, 4, 4, 4, 4],
@@ -1328,14 +846,15 @@ using DataStructures
             ),
         )
         target_solution = "let \$v1, \$v2 = rev(\$inp0 = (repeat \$v1 \$v2)) in (repeat \$v2 \$v1)"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "Find const" begin
-        payload = create_task(
+        task = create_task(
             Dict{String,Any}(
                 "name" => "find const",
-                "maximumFrontier" => 10,
                 "examples" => Any[
                     Dict{String,Any}(
                         "output" => Any[4, 4, 4, 4, 4],
@@ -1352,14 +871,15 @@ using DataStructures
             ),
         )
         target_solution = "let \$v1, \$v2 = rev(\$inp0 = (repeat \$v1 \$v2)) in let \$v3::int = Const(int, 5) in (repeat \$v2 \$v3)"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "Use eithers" begin
-        payload = create_task(
+        task = create_task(
             Dict{String,Any}(
                 "name" => "use eithers",
-                "maximumFrontier" => 10,
                 "examples" => Any[
                     Dict{String,Any}(
                         "output" => Any[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
@@ -1379,14 +899,15 @@ using DataStructures
             ),
         )
         target_solution = "let \$v1::list(int) = Const(list(int), Any[6, 7, 8, 9, 10]) in (concat \$inp0 \$v1)"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "Use eithers 2" begin
-        payload = create_task(
+        task = create_task(
             Dict{String,Any}(
                 "name" => "use eithers",
-                "maximumFrontier" => 10,
                 "examples" => Any[
                     Dict{String,Any}(
                         "output" => Any[1, 2, 3, 4, 5, 5, 6, 7, 8, 9, 10],
@@ -1406,14 +927,15 @@ using DataStructures
             ),
         )
         target_solution = "let \$v1::int = (length \$inp0) in let \$v2::int = Const(int, 1) in let \$v3::list(int) = (repeat \$v1 \$v2) in let \$v4::list(int) = (concat \$inp0 \$v3) in let \$v5::list(int) = Const(list(int), Any[6, 7, 8, 9, 10]) in (concat \$v4 \$v5)"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "Use eithers from input" begin
-        payload = create_task(
+        task = create_task(
             Dict{String,Any}(
                 "name" => "use eithers",
-                "maximumFrontier" => 10,
                 "examples" => Any[
                     Dict{String,Any}(
                         "output" => Any[1, 2, 3, 4, 5],
@@ -1433,14 +955,15 @@ using DataStructures
             ),
         )
         target_solution = "let \$v1, \$v2 = rev(\$inp0 = (rev_fix_param (concat \$v1 \$v2) \$v2 (lambda Const(list(int), Any[10, 9, 8, 7])))) in \$v1"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "Replace background" begin
-        payload = create_task(
+        task = create_task(
             Dict{String,Any}(
                 "name" => "replace background",
-                "maximumFrontier" => 10,
                 "examples" => Any[
                     Dict{String,Any}(
                         "output" => Any[1, 2, 1, 4, 1],
@@ -1460,14 +983,15 @@ using DataStructures
             ),
         )
         target_solution = "let \$v1::int = Const(int, 1) in let \$v2::int = Const(int, 1) in let \$v3, \$v4, \$v5 = rev(\$inp0 = (rev_fix_param (rev_select (lambda (eq? \$0 \$v3)) \$v4 \$v5) \$v3 (lambda Const(int, 3)))) in let \$v6, \$v7 = rev(\$v4 = (repeat \$v6 \$v7)) in let \$v8::list(int) = (repeat \$v2 \$v7) in (rev_select (lambda (eq? \$0 \$v1)) \$v8 \$v5)"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "Add const" begin
-        payload = create_task(
+        task = create_task(
             Dict{String,Any}(
                 "name" => "add const",
-                "maximumFrontier" => 10,
                 "examples" => Any[
                     Dict{String,Any}("output" => 39, "inputs" => Dict{String,Any}("inp0" => 28)),
                     Dict{String,Any}("output" => 22, "inputs" => Dict{String,Any}("inp0" => 11)),
@@ -1478,14 +1002,15 @@ using DataStructures
             ),
         )
         target_solution = "let \$v1::int = Const(int, 11) in (+ \$v1 \$inp0)"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "prepend-index-k with k=3" begin
-        payload = create_task(
+        task = create_task(
             Dict{String,Any}(
                 "name" => "prepend-index-k with k=3",
-                "maximumFrontier" => 10,
                 "examples" => Any[
                     Dict{String,Any}(
                         "output" => Any[9, 15, 12, 9, 14, 7, 9],
@@ -1551,19 +1076,19 @@ using DataStructures
                 "test_examples" => Any[],
                 "request" => "inp0:list(int) -> list(int)",
             ),
-            sample_payload2,
         )
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library2)
         target_solution = "let \$v1, \$v2 = rev(\$inp0 = (cons \$v1 \$v2)) in let \$v3, \$v4 = rev(\$v2 = (cons \$v3 \$v4)) in let \$v5::int = (car \$v4) in let \$v6::list(int) = Const(list(int), Any[]) in let \$v7::list(int) = (cons \$v5 \$v6) in (concat \$v7 \$inp0)"
-        check_reachable(payload, target_solution)
-        target_solution = "let \$v1::int = Const(int, 1) in let \$v2, \$v3 = rev(\$inp0 = (cons \$v2 \$v3)) in let \$v4, \$v5 = rev(\$v3 = (cons \$v4 \$v5)) in let \$v6::int = (index \$v1 \$v5) in let \$v7::list(int) = (repeat \$v6 \$v1) in (concat \$v7 \$inp0)"
-        check_reachable(payload, target_solution)
+        check_reachable(task, guiding_model, grammar, target_solution)
+        # target_solution = "let \$v1::int = Const(int, 1) in let \$v2, \$v3 = rev(\$inp0 = (cons \$v2 \$v3)) in let \$v4, \$v5 = rev(\$v3 = (cons \$v4 \$v5)) in let \$v6::int = \$v1 in let \$v7::int = (index \$v6 \$v5) in let \$v8::list(int) = (repeat \$v7 \$v1) in (concat \$v8 \$inp0)"
+        # check_reachable(task, guiding_model, grammar, target_solution, true)
     end
 
     @testcase_log "drop-k with k=5" begin
-        payload = create_task(
+        task = create_task(
             Dict{String,Any}(
                 "name" => "drop-k with k=5",
-                "maximumFrontier" => 10,
                 "examples" => Any[
                     Dict{String,Any}(
                         "output" => Any[7, 2, 11, 14, 6, 7, 11],
@@ -1626,17 +1151,17 @@ using DataStructures
                 "test_examples" => Any[],
                 "request" => "inp0:list(int) -> list(int)",
             ),
-            sample_payload2,
         )
         target_solution = "let \$v1, \$v2 = rev(\$inp0 = (cons \$v1 \$v2)) in let \$v3, \$v4 = rev(\$v2 = (cons \$v3 \$v4)) in let \$v5, \$v6 = rev(\$v4 = (cons \$v5 \$v6)) in (cdr (cdr \$v6))"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library2)
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "Select background" begin
-        payload = create_task(
+        task = create_task(
             Dict{String,Any}(
                 "name" => "Select background",
-                "maximumFrontier" => 10,
                 "examples" => Any[Dict{String,Any}(
                     "output" => [
                         0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
@@ -1690,14 +1215,15 @@ using DataStructures
             ),
         )
         target_solution = "let \$v4::color = Const(color, 0) in let \$v6::int = (height \$inp0) in let \$v5::int = (width \$inp0) in let \$v1::color = Const(color, 0) in let \$v2::grid(color) = (repeat_grid \$v4 \$v5 \$v6) in (rev_select_grid (lambda (eq? \$0 \$v1)) \$v2 \$inp0)"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "Select background reverse" begin
-        payload = create_task(
+        task = create_task(
             Dict{String,Any}(
                 "name" => "Select background",
-                "maximumFrontier" => 10,
                 "examples" => Any[Dict{String,Any}(
                     "output" => (
                         (20, 20),
@@ -1755,14 +1281,15 @@ using DataStructures
         )
 
         target_solution = "let \$v1, \$v2, \$v3 = rev(\$inp0 = (rev_fix_param (rev_select_grid (lambda (eq? \$0 \$v1)) \$v2 \$v3) \$v1 (lambda Const(color, 0)))) in let \$v4, \$v5, \$v6 = rev(\$v2 = (repeat_grid \$v4 \$v5 \$v6)) in let \$v7::tuple2(int, int) = (tuple2 \$v5 \$v6) in (tuple2 \$v7 \$v3)"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "Non-background cells" begin
-        payload = create_task(
+        task = create_task(
             Dict{String,Any}(
                 "name" => "Non-background cells",
-                "maximumFrontier" => 10,
                 "examples" => Any[Dict{String,Any}(
                     "output" => [
                         nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing nothing
@@ -1819,14 +1346,15 @@ using DataStructures
             ),
         )
         target_solution = "let \$v1::int = Const(int, 20) in let \$v2::int = Const(int, 20) in (rev_grid_elements \$inp0 \$v1 \$v2)"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "Non-background cells reverse" begin
-        payload = create_task(
+        task = create_task(
             Dict{String,Any}(
                 "name" => "Non-background cells",
-                "maximumFrontier" => 10,
                 "examples" => Any[Dict{String,Any}(
                     "output" => Set(
                         Any[
@@ -1883,14 +1411,15 @@ using DataStructures
             ),
         )
         target_solution = "let \$v1, \$v2, \$v3 = rev(\$inp0 = (rev_grid_elements \$v1 \$v2 \$v3)) in \$v1"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "Cluster nearby cells" begin
-        payload = create_task(
+        task = create_task(
             Dict{String,Any}(
                 "name" => "Cluster nearby cells",
-                "maximumFrontier" => 10,
                 "examples" => Any[Dict{String,Any}(
                     "output" => Set(
                         Any[
@@ -1954,14 +1483,15 @@ using DataStructures
             ),
         )
         target_solution = "(rev_fold_set (lambda (lambda (rev_greedy_cluster (lambda (lambda (any_set (lambda (and (not (gt? (abs (- (tuple2_first (tuple2_first \$0)) (tuple2_first (tuple2_first \$2)))) 1)) (not (gt? (abs (- (tuple2_second (tuple2_first \$0)) (tuple2_second (tuple2_first \$2)))) 1)))) \$0))) \$1 \$0))) empty_set \$inp0)"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "Cluster nearby cells reverse" begin
-        payload = create_task(
+        task = create_task(
             Dict{String,Any}(
                 "name" => "Cluster nearby cells",
-                "maximumFrontier" => 10,
                 "examples" => Any[Dict{String,Any}(
                     "output" => Set([
                         Set([
@@ -2025,14 +1555,15 @@ using DataStructures
             ),
         )
         target_solution = "let \$v1 = rev(\$inp0 = (rev_fold_set (lambda (lambda (rev_greedy_cluster (lambda (lambda (any_set (lambda (and (not (gt? (abs (- (tuple2_first (tuple2_first \$0)) (tuple2_first (tuple2_first \$2)))) 1)) (not (gt? (abs (- (tuple2_second (tuple2_first \$0)) (tuple2_second (tuple2_first \$2)))) 1)))) \$0))) \$1 \$0))) empty_set \$v1)) in \$v1"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "Separate colors" begin
-        payload = create_task(
+        task = create_task(
             Dict{String,Any}(
                 "name" => "Separate colors",
-                "maximumFrontier" => 10,
                 "examples" => Any[Dict{String,Any}(
                     "output" => Set([
                         Set([
@@ -2078,14 +1609,15 @@ using DataStructures
             ),
         )
         target_solution = "(map_set (lambda (map_set (lambda (tuple2 \$0 (tuple2_second \$1))) (tuple2_first \$0))) \$inp0)"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "Separate colors reverse" begin
-        payload = create_task(
+        task = create_task(
             Dict{String,Any}(
                 "name" => "Separate colors",
-                "maximumFrontier" => 10,
                 "examples" => Any[Dict{String,Any}(
                     "output" => Set(
                         Tuple{Set{Tuple{Int64,Int64}},Int64}[
@@ -2131,14 +1663,15 @@ using DataStructures
             ),
         )
         target_solution = "let \$v1 = rev(\$inp0 = (map_set (lambda (map_set (lambda (tuple2 \$0 (tuple2_second \$1))) (tuple2_first \$0))) \$v1)) in \$v1"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "Single object coordinates extraction 1" begin
-        payload = create_task(
+        task = create_task(
             Dict{String,Any}(
                 "name" => "Single object coordinates extraction",
-                "maximumFrontier" => 10,
                 "examples" => Any[Dict{String,Any}(
                     "output" => Set([(19, 10), (18, 9), (19, 11), (17, 9), (18, 10), (18, 11), (17, 10)]),
                     "inputs" => Dict{String,Any}(
@@ -2150,14 +1683,15 @@ using DataStructures
             ),
         )
         target_solution = "let \$v2, \$v1 = rev(\$inp0 = (tuple2 \$v2 \$v1)) in (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$v2)) (+ (tuple2_second \$0) (tuple2_second \$v2)))) \$v1) \$v2 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int))))"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "Single object coordinates extraction with invented" begin
-        payload = create_task(
+        task = create_task(
             Dict{String,Any}(
                 "name" => "Single object coordinates extraction",
-                "maximumFrontier" => 10,
                 "examples" => Any[Dict{String,Any}(
                     "output" => Set([(19, 10), (18, 9), (19, 11), (17, 9), (18, 10), (18, 11), (17, 10)]),
                     "inputs" => Dict{String,Any}(
@@ -2168,38 +1702,26 @@ using DataStructures
                 "request" => "inp0:tuple2(tuple2(int, int), set(tuple2(int, int))) -> set(tuple2(int, int))",
             ),
         )
-        append!(
-            payload["DSL"]["productions"],
-            [
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "#(lambda (lambda (if (gt? \$0 \$1) \$1 \$0)))",
-                    "is_reversible" => false,
-                    "type" => "int -> int -> int",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "#(lambda (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$1)) (+ (tuple2_second \$0) (tuple2_second \$1)))))",
-                    "is_reversible" => true,
-                    "type" => "tuple2(int, int) -> tuple2(int, int) -> tuple2(int, int)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "#(lambda (fold (lambda (lambda (#(lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) \$0 \$1))) \$0 max_int))",
-                    "is_reversible" => false,
-                    "type" => "list(int) -> int",
-                ),
-            ],
+
+        grammar = build_grammar(
+            vcat(
+                sample_library,
+                [
+                    "#(lambda (lambda (if (gt? \$0 \$1) \$1 \$0)))",
+                    "#(lambda (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$1)) (+ (tuple2_second \$0) (tuple2_second \$1)))))",
+                    "#(lambda (fold (lambda (lambda (#(lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) \$0 \$1))) \$0 max_int))",
+                ],
+            ),
         )
         target_solution = "let \$v2, \$v1 = rev(\$inp0 = (tuple2 \$v2 \$v1)) in (rev_fix_param (map_set (lambda (#(lambda (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$1)) (+ (tuple2_second \$0) (tuple2_second \$1))))) \$0 \$v2)) \$v1) \$v2 (lambda (tuple2 (#(lambda (fold (lambda (lambda (#(lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) \$0 \$1))) \$0 max_int)) (map (lambda (tuple2_first \$0)) (collect \$0))) (#(lambda (fold (lambda (lambda (#(lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) \$0 \$1))) \$0 max_int)) (map (lambda (tuple2_second \$0)) (collect \$0))))))"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "Single object coordinates extraction reverse 1" begin
-        payload = create_task(
+        task = create_task(
             Dict{String,Any}(
                 "name" => "Single object coordinates extraction",
-                "maximumFrontier" => 10,
                 "examples" => Any[Dict{String,Any}(
                     "output" => ((17, 9), Set([(2, 1), (1, 0), (2, 2), (0, 0), (1, 1), (1, 2), (0, 1)])),
                     "inputs" => Dict{String,Any}(
@@ -2211,14 +1733,15 @@ using DataStructures
             ),
         )
         target_solution = "let \$v2, \$v1 = rev(\$inp0 = (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$v2)) (+ (tuple2_second \$0) (tuple2_second \$v2)))) \$v1) \$v2 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int))))) in (tuple2 \$v2 \$v1)"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "Single object coordinates extraction with invented reverse" begin
-        payload = create_task(
+        task = create_task(
             Dict{String,Any}(
                 "name" => "Single object coordinates extraction",
-                "maximumFrontier" => 10,
                 "examples" => Any[Dict{String,Any}(
                     "output" => ((17, 9), Set([(2, 1), (1, 0), (2, 2), (0, 0), (1, 1), (1, 2), (0, 1)])),
                     "inputs" => Dict{String,Any}(
@@ -2229,38 +1752,26 @@ using DataStructures
                 "request" => "inp0:set(tuple2(int, int)) -> tuple2(tuple2(int, int), set(tuple2(int, int)))",
             ),
         )
-        append!(
-            payload["DSL"]["productions"],
-            [
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "#(lambda (lambda (if (gt? \$0 \$1) \$1 \$0)))",
-                    "is_reversible" => false,
-                    "type" => "int -> int -> int",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "#(lambda (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$1)) (+ (tuple2_second \$0) (tuple2_second \$1)))))",
-                    "is_reversible" => true,
-                    "type" => "tuple2(int, int) -> tuple2(int, int) -> tuple2(int, int)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.0,
-                    "expression" => "#(lambda (fold (lambda (lambda (#(lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) \$0 \$1))) \$0 max_int))",
-                    "is_reversible" => false,
-                    "type" => "list(int) -> int",
-                ),
-            ],
+
+        grammar = build_grammar(
+            vcat(
+                sample_library,
+                [
+                    "#(lambda (lambda (if (gt? \$0 \$1) \$1 \$0)))",
+                    "#(lambda (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$1)) (+ (tuple2_second \$0) (tuple2_second \$1)))))",
+                    "#(lambda (fold (lambda (lambda (#(lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) \$0 \$1))) \$0 max_int))",
+                ],
+            ),
         )
         target_solution = "let \$v2, \$v1 = rev(\$inp0 = (rev_fix_param (map_set (lambda (#(lambda (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$1)) (+ (tuple2_second \$0) (tuple2_second \$1))))) \$0 \$v2)) \$v1) \$v2 (lambda (tuple2 (#(lambda (fold (lambda (lambda (#(lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) \$0 \$1))) \$0 max_int)) (map (lambda (tuple2_first \$0)) (collect \$0))) (#(lambda (fold (lambda (lambda (#(lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) \$0 \$1))) \$0 max_int)) (map (lambda (tuple2_second \$0)) (collect \$0))))))) in (tuple2 \$v2 \$v1)"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "Single object coordinates extraction 2" begin
-        payload = create_task(
+        task = create_task(
             Dict{String,Any}(
                 "name" => "Single object coordinates extraction",
-                "maximumFrontier" => 10,
                 "examples" => Any[Dict{String,Any}(
                     "output" => Set([(19, 10), (18, 9), (19, 11), (17, 9), (18, 10), (18, 11), (17, 10)]),
                     "inputs" => Dict{String,Any}(
@@ -2273,14 +1784,15 @@ using DataStructures
         )
 
         target_solution = "let \$v2, \$v1 = rev(\$inp0 = (tuple2 \$v2 \$v1)) in ((lambda ((lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$1)) (+ (tuple2_second \$0) (tuple2_second \$1)))) \$1) \$0 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int))))) \$v2)) \$v1)"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "Single object coordinates extraction reverse 2" begin
-        payload = create_task(
+        task = create_task(
             Dict{String,Any}(
                 "name" => "Single object coordinates extraction",
-                "maximumFrontier" => 10,
                 "examples" => Any[Dict{String,Any}(
                     "output" => ((17, 9), Set([(2, 1), (1, 0), (2, 2), (0, 0), (1, 1), (1, 2), (0, 1)])),
                     "inputs" => Dict{String,Any}(
@@ -2292,14 +1804,15 @@ using DataStructures
             ),
         )
         target_solution = "let \$v1, \$v2 = rev(\$inp0 = ((lambda ((lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$1)) (+ (tuple2_second \$0) (tuple2_second \$1)))) \$1) \$0 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int))))) \$v1)) \$v2)) in (tuple2 \$v1 \$v2)"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "Get object coordinates" begin
-        payload = create_task(
+        task = create_task(
             Dict{String,Any}(
                 "name" => "Get object coordinates",
-                "maximumFrontier" => 10,
                 "examples" => Any[Dict{String,Any}(
                     "output" => Set([
                         (Set([(19, 10), (18, 9), (19, 11), (17, 9), (18, 10), (18, 11), (17, 10)]), 9),
@@ -2320,14 +1833,15 @@ using DataStructures
         )
 
         target_solution = "(map_set (lambda (tuple2 ((lambda ((lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$1)) (+ (tuple2_second \$0) (tuple2_second \$1)))) \$1) \$0 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int))))) (tuple2_first (tuple2_first \$1)))) (tuple2_second (tuple2_first \$0))) (tuple2_second \$0))) \$inp0)"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "Get object coordinates reverse" begin
-        payload = create_task(
+        task = create_task(
             Dict{String,Any}(
                 "name" => "Get object coordinates",
-                "maximumFrontier" => 10,
                 "examples" => Any[Dict{String,Any}(
                     "output" => Set([
                         (((17, 9), Set([(2, 1), (1, 0), (2, 2), (0, 0), (1, 1), (1, 2), (0, 1)])), 9),
@@ -2348,14 +1862,15 @@ using DataStructures
         )
 
         target_solution = "let \$v1 = rev(\$inp0 = (map_set (lambda (tuple2 ((lambda ((lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$1)) (+ (tuple2_second \$0) (tuple2_second \$1)))) \$1) \$0 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int))))) (tuple2_first (tuple2_first \$1)))) (tuple2_second (tuple2_first \$0))) (tuple2_second \$0))) \$v1)) in \$v1"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "Select similar shape objects" begin
-        payload = create_task(
+        task = create_task(
             Dict{String,Any}(
                 "name" => "Select similar shape objects",
-                "maximumFrontier" => 10,
                 "examples" => Any[Dict{String,Any}(
                     "output" => Set([
                         (((17, 9), Set([(2, 1), (1, 0), (2, 2), (0, 0), (1, 1), (1, 2), (0, 1)])), 9),
@@ -2378,14 +1893,15 @@ using DataStructures
         )
 
         target_solution = "let \$v1, \$v2 = rev(\$inp0 = (tuple2 \$v1 \$v2)) in let \$v3::set(tuple2(int, int)) = Const(set(tuple2(int, int)), Set([(0, 0), (0, 2), (2, 0), (1, 1), (0, 1), (2, 2), (2, 1)])) in (rev_select_set (lambda (eq? (tuple2_second (tuple2_first \$0)) \$v3)) \$v1 \$v2)"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "Select similar shape objects reverse" begin
-        payload = create_task(
+        task = create_task(
             Dict{String,Any}(
                 "name" => "Select similar shape objects",
-                "maximumFrontier" => 10,
                 "examples" => Any[Dict{String,Any}(
                     "output" => Set([
                         (((9, 11), Set([(0, 0), (0, 2), (2, 0), (1, 1), (0, 1), (2, 2), (2, 1)])), 2),
@@ -2405,14 +1921,15 @@ using DataStructures
         )
 
         target_solution = "let \$v1, \$v2, \$v3 = rev(\$inp0 = (rev_fix_param (rev_select_set (lambda (eq? (tuple2_second (tuple2_first \$0)) \$v1)) \$v2 \$v3) \$v1 (lambda Const(set(tuple2(int, int)), Set([(0, 0), (0, 2), (2, 0), (1, 1), (0, 1), (2, 2), (2, 1)]))))) in \$v2"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "Move objects" begin
-        payload = create_task(
+        task = create_task(
             Dict{String,Any}(
                 "name" => "Move objects",
-                "maximumFrontier" => 10,
                 "examples" => Any[Dict{String,Any}(
                     "output" => Set([
                         (((9, 11), Set([(0, 0), (0, 2), (2, 0), (1, 1), (0, 1), (2, 2), (2, 1)])), 2),
@@ -2431,14 +1948,15 @@ using DataStructures
         )
 
         target_solution = "let \$v1::int = Const(int, 1) in (map_set (lambda (tuple2 (tuple2 (tuple2 (+ (tuple2_first (tuple2_first (tuple2_first \$0))) \$v1) (tuple2_second (tuple2_first (tuple2_first \$0)))) (tuple2_second (tuple2_first \$0))) (tuple2_second \$0))) \$inp0)"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "Move objects reverse" begin
-        payload = create_task(
+        task = create_task(
             Dict{String,Any}(
                 "name" => "Move objects",
-                "maximumFrontier" => 10,
                 "examples" => Any[Dict{String,Any}(
                     "output" => Set([
                         (((8, 11), Set([(0, 0), (0, 2), (2, 0), (1, 1), (0, 1), (2, 2), (2, 1)])), 2),
@@ -2457,11 +1975,13 @@ using DataStructures
         )
 
         target_solution = "let \$v1, \$v2 = rev(\$inp0 = (rev_fix_param (map_set (lambda (tuple2 (tuple2 (tuple2 (+ (tuple2_first (tuple2_first (tuple2_first \$0))) \$v1) (tuple2_second (tuple2_first (tuple2_first \$0)))) (tuple2_second (tuple2_first \$0))) (tuple2_second \$0))) \$v2) \$v1 (lambda 1))) in \$v2"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "0f39a9d9.json" begin
-        payload = create_arc_task("0f39a9d9.json", "sortOfARC/")
+        task = _create_arc_task("0f39a9d9.json", "sortOfARC/")
         target_solution = "let \$v1, \$v2, \$v3 = rev(\$inp0 = (rev_fix_param (rev_select_grid (lambda (eq? \$0 \$v1)) \$v2 \$v3) \$v1 (lambda Const(color, 0)))) in
         let \$v4, \$v5, \$v6 = rev(\$v2 = (repeat_grid \$v4 \$v5 \$v6)) in
         let \$v7, \$v8, \$v9 = rev(\$v3 = (rev_grid_elements \$v7 \$v8 \$v9)) in
@@ -2478,666 +1998,14 @@ using DataStructures
         let \$v22::grid(color) = (rev_grid_elements \$v21 \$v8 \$v9) in
         let \$v23::grid(color) = (repeat_grid \$v4 \$v5 \$v6) in
         (rev_select_grid (lambda (eq? \$0 \$v1)) \$v23 \$v22)"
-        check_reachable(payload, target_solution; find_one = true)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution; find_one = true)
     end
 
     @testcase_log "0f39a9d9.json_comp" begin
-        payload = create_arc_task("0f39a9d9.json", "sortOfARC/")
-        payload["DSL"] = Dict{String,Any}(
-            "logFreeVar" => 48.05488586425781,
-            "logVariable" => 45.09019470214844,
-            "logLambda" => -5.512786388397217,
-            "productions" => Any[
-                Dict{String,Any}(
-                    "logProbability" => -4.4848408699035645,
-                    "expression" => "rev_fix_param",
-                    "is_reversible" => true,
-                    "type" => "t0 -> t1 -> (t0 -> t1) -> t0",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -4.427365779876709,
-                    "expression" => "map",
-                    "is_reversible" => true,
-                    "type" => "(t0 -> t1) -> list(t0) -> list(t1)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -3.417635679244995,
-                    "expression" => "map_set",
-                    "is_reversible" => true,
-                    "type" => "(t0 -> t1) -> set(t0) -> set(t1)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -4.68174934387207,
-                    "expression" => "map_grid",
-                    "is_reversible" => true,
-                    "type" => "(t0 -> t1) -> grid(t0) -> grid(t1)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -4.849295139312744,
-                    "expression" => "map2",
-                    "is_reversible" => true,
-                    "type" => "(t0 -> t1 -> t2) -> list(t0) -> list(t1) -> list(t2)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -5.187074184417725,
-                    "expression" => "map2_grid",
-                    "is_reversible" => true,
-                    "type" => "(t0 -> t1 -> t2) -> grid(t0) -> grid(t1) -> grid(t2)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -4.759178638458252,
-                    "expression" => "unfold",
-                    "is_reversible" => false,
-                    "type" => "(t0 -> bool) -> (t0 -> t1) -> (t0 -> t0) -> t0 -> list(t1)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.9904186725616455,
-                    "expression" => "range",
-                    "is_reversible" => true,
-                    "type" => "int -> list(int)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -3.3583803176879883,
-                    "expression" => "index",
-                    "is_reversible" => false,
-                    "type" => "int -> list(t0) -> t0",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -4.677355766296387,
-                    "expression" => "index2",
-                    "is_reversible" => false,
-                    "type" => "int -> int -> grid(t0) -> t0",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -5.0401177406311035,
-                    "expression" => "fold",
-                    "is_reversible" => true,
-                    "type" => "(t0 -> t1 -> t1) -> list(t0) -> t1 -> t1",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -4.753006935119629,
-                    "expression" => "fold_set",
-                    "is_reversible" => true,
-                    "type" => "(t0 -> t1 -> t1) -> set(t0) -> t1 -> t1",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -5.417627811431885,
-                    "expression" => "fold_h",
-                    "is_reversible" => true,
-                    "type" => "(t0 -> t1 -> t1) -> grid(t0) -> list(t1) -> list(t1)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -4.808785438537598,
-                    "expression" => "fold_v",
-                    "is_reversible" => true,
-                    "type" => "(t0 -> t1 -> t1) -> grid(t0) -> list(t1) -> list(t1)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -3.8323252201080322,
-                    "expression" => "length",
-                    "is_reversible" => false,
-                    "type" => "list(t0) -> int",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -3.922137975692749,
-                    "expression" => "height",
-                    "is_reversible" => false,
-                    "type" => "grid(t0) -> int",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -4.334958076477051,
-                    "expression" => "width",
-                    "is_reversible" => false,
-                    "type" => "grid(t0) -> int",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -4.29662561416626,
-                    "expression" => "if",
-                    "is_reversible" => false,
-                    "type" => "bool -> t0 -> t0 -> t0",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 44.15322494506836,
-                    "expression" => "+",
-                    "is_reversible" => true,
-                    "type" => "int -> int -> int",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -4.710867881774902,
-                    "expression" => "-",
-                    "is_reversible" => true,
-                    "type" => "int -> int -> int",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 11.911661148071289,
-                    "expression" => "empty",
-                    "is_reversible" => true,
-                    "type" => "list(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 44.223567962646484,
-                    "expression" => "cons",
-                    "is_reversible" => true,
-                    "type" => "t0 -> list(t0) -> list(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -1.79932701587677,
-                    "expression" => "car",
-                    "is_reversible" => false,
-                    "type" => "list(t0) -> t0",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -4.67533540725708,
-                    "expression" => "cdr",
-                    "is_reversible" => false,
-                    "type" => "list(t0) -> list(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -3.007132053375244,
-                    "expression" => "empty?",
-                    "is_reversible" => false,
-                    "type" => "list(t0) -> bool",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -3.7484312057495117,
-                    "expression" => "*",
-                    "is_reversible" => true,
-                    "type" => "int -> int -> int",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -4.54411506652832,
-                    "expression" => "mod",
-                    "is_reversible" => false,
-                    "type" => "int -> int -> int",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -2.4160571098327637,
-                    "expression" => "gt?",
-                    "is_reversible" => false,
-                    "type" => "int -> int -> bool",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -2.3807601928710938,
-                    "expression" => "eq?",
-                    "is_reversible" => false,
-                    "type" => "t0 -> t0 -> bool",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -2.6409010887145996,
-                    "expression" => "is-prime",
-                    "is_reversible" => false,
-                    "type" => "int -> bool",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -3.063720464706421,
-                    "expression" => "is-square",
-                    "is_reversible" => false,
-                    "type" => "int -> bool",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -4.562422275543213,
-                    "expression" => "repeat",
-                    "is_reversible" => true,
-                    "type" => "t0 -> int -> list(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 46.28338623046875,
-                    "expression" => "repeat_grid",
-                    "is_reversible" => true,
-                    "type" => "t0 -> int -> int -> grid(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -3.921088933944702,
-                    "expression" => "concat",
-                    "is_reversible" => true,
-                    "type" => "list(t0) -> list(t0) -> list(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 42.875667572021484,
-                    "expression" => "rows",
-                    "is_reversible" => true,
-                    "type" => "grid(t0) -> list(list(t0))",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -2.2726688385009766,
-                    "expression" => "columns",
-                    "is_reversible" => true,
-                    "type" => "grid(t0) -> list(list(t0))",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 45.26898193359375,
-                    "expression" => "rows_to_grid",
-                    "is_reversible" => true,
-                    "type" => "list(list(t0)) -> grid(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 46.003082275390625,
-                    "expression" => "columns_to_grid",
-                    "is_reversible" => true,
-                    "type" => "list(list(t0)) -> grid(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -4.151334762573242,
-                    "expression" => "rev_select",
-                    "is_reversible" => true,
-                    "type" => "(t0 -> bool) -> list(t0) -> list(t0) -> list(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -3.8944969177246094,
-                    "expression" => "rev_select_set",
-                    "is_reversible" => true,
-                    "type" => "(t0 -> bool) -> set(t0) -> set(t0) -> set(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -4.91925573348999,
-                    "expression" => "rev_select_grid",
-                    "is_reversible" => true,
-                    "type" => "(t0 -> bool) -> grid(t0) -> grid(t0) -> grid(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -4.939056873321533,
-                    "expression" => "rev_list_elements",
-                    "is_reversible" => true,
-                    "type" => "set(tuple2(int, t0)) -> int -> list(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 46.283382415771484,
-                    "expression" => "rev_grid_elements",
-                    "is_reversible" => true,
-                    "type" => "set(tuple2(tuple2(int, int), t0)) -> int -> int -> grid(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.026844710111618042,
-                    "expression" => "zip2",
-                    "is_reversible" => true,
-                    "type" => "list(t0) -> list(t1) -> list(tuple2(t0, t1))",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 0.05003274977207184,
-                    "expression" => "zip_grid2",
-                    "is_reversible" => true,
-                    "type" => "grid(t0) -> grid(t1) -> grid(tuple2(t0, t1))",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -4.642088413238525,
-                    "expression" => "tuple2",
-                    "is_reversible" => true,
-                    "type" => "t0 -> t1 -> tuple2(t0, t1)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -3.728720188140869,
-                    "expression" => "tuple2_first",
-                    "is_reversible" => true,
-                    "type" => "tuple2(t0, t1) -> t0",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -5.28397798538208,
-                    "expression" => "tuple2_second",
-                    "is_reversible" => true,
-                    "type" => "tuple2(t0, t1) -> t1",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 44.13727951049805,
-                    "expression" => "reverse",
-                    "is_reversible" => true,
-                    "type" => "list(t0) -> list(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -4.764488697052002,
-                    "expression" => "rev_fold",
-                    "is_reversible" => true,
-                    "type" => "(t0 -> t1 -> t1) -> t1 -> t1 -> list(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -2.5884809494018555,
-                    "expression" => "rev_fold_set",
-                    "is_reversible" => true,
-                    "type" => "(t0 -> t1 -> t1) -> t1 -> t1 -> set(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -3.139751434326172,
-                    "expression" => "list_to_set",
-                    "is_reversible" => false,
-                    "type" => "list(t0) -> set(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -3.59086275100708,
-                    "expression" => "adjoin",
-                    "is_reversible" => true,
-                    "type" => "t0 -> set(t0) -> set(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -3.408057451248169,
-                    "expression" => "empty_set",
-                    "is_reversible" => true,
-                    "type" => "set(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -2.737311840057373,
-                    "expression" => "rev_groupby",
-                    "is_reversible" => true,
-                    "type" => "(t0 -> t1) -> t0 -> set(tuple2(t1, set(t0))) -> set(tuple2(t1, set(t0)))",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -0.5638431906700134,
-                    "expression" => "rev_greedy_cluster",
-                    "is_reversible" => true,
-                    "type" => "(t0 -> set(t0) -> bool) -> t0 -> set(set(t0)) -> set(set(t0))",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -3.9442758560180664,
-                    "expression" => "not",
-                    "is_reversible" => true,
-                    "type" => "bool -> bool",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 45.59445571899414,
-                    "expression" => "and",
-                    "is_reversible" => true,
-                    "type" => "bool -> bool -> bool",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -2.6363189220428467,
-                    "expression" => "or",
-                    "is_reversible" => true,
-                    "type" => "bool -> bool -> bool",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -3.4170656204223633,
-                    "expression" => "all",
-                    "is_reversible" => false,
-                    "type" => "(t0 -> bool) -> list(t0) -> bool",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -1.83354651927948,
-                    "expression" => "any",
-                    "is_reversible" => false,
-                    "type" => "(t0 -> bool) -> list(t0) -> bool",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -2.3267600536346436,
-                    "expression" => "all_set",
-                    "is_reversible" => false,
-                    "type" => "(t0 -> bool) -> set(t0) -> bool",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 46.43378829956055,
-                    "expression" => "any_set",
-                    "is_reversible" => false,
-                    "type" => "(t0 -> bool) -> set(t0) -> bool",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -3.4392521381378174,
-                    "expression" => "abs",
-                    "is_reversible" => true,
-                    "type" => "int -> int",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -4.21498441696167,
-                    "expression" => "max_int",
-                    "is_reversible" => false,
-                    "type" => "int",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -4.430281639099121,
-                    "expression" => "min_int",
-                    "is_reversible" => false,
-                    "type" => "int",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -4.790950775146484,
-                    "expression" => "collect",
-                    "is_reversible" => true,
-                    "type" => "set(t0) -> list(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -4.67546272277832,
-                    "expression" => "0",
-                    "is_reversible" => true,
-                    "type" => "int",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -3.9687013626098633,
-                    "expression" => "1",
-                    "is_reversible" => true,
-                    "type" => "int",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 46.09053421020508,
-                    "expression" => "#(lambda (lambda (rev_fold_set (lambda (lambda (rev_greedy_cluster \$2 \$1 \$0))) empty_set (map_set (lambda (map_set (lambda (tuple2 \$0 (tuple2_second \$1))) (tuple2_first \$0))) (map_set (lambda (tuple2 ((lambda ((lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$1)) (+ (tuple2_second \$0) (tuple2_second \$1)))) \$1) \$0 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int))))) (tuple2_first (tuple2_first \$1)))) (tuple2_second (tuple2_first \$0))) (tuple2_second \$0))) \$1)))))",
-                    "is_reversible" => true,
-                    "type" => "set(tuple2(tuple2(tuple2(int, int), set(tuple2(int, int))), t0)) -> (tuple2(tuple2(int, int), t0) -> set(tuple2(tuple2(int, int), t0)) -> bool) -> set(tuple2(tuple2(int, int), t0))",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 46.19208908081055,
-                    "expression" => "#(lambda (lambda (lambda (rev_select_set (lambda (eq? (tuple2_second (tuple2_first \$0)) \$1)) (map_set (lambda (tuple2 (tuple2 (tuple2 (+ (tuple2_first (tuple2_first (tuple2_first \$0))) Const(int, 1)) (tuple2_second (tuple2_first (tuple2_first \$0)))) (tuple2_second (tuple2_first \$0))) (tuple2_second \$0))) \$1) \$2))))",
-                    "is_reversible" => true,
-                    "type" => "set(tuple2(tuple2(tuple2(int, t0), t1), t2)) -> set(tuple2(tuple2(tuple2(int, t0), t1), t2)) -> t1 -> set(tuple2(tuple2(tuple2(int, t0), t1), t2))",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -3.7846436500549316,
-                    "expression" => "#(lambda (lambda (lambda (abs (- (\$1 (tuple2_first \$0)) (\$1 (tuple2_first \$2)))))))",
-                    "is_reversible" => true,
-                    "type" => "tuple2(t0, t1) -> (t0 -> int) -> tuple2(t0, t2) -> int",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 46.06684494018555,
-                    "expression" => "#(lambda (columns_to_grid (reverse (columns (rows_to_grid \$0)))))",
-                    "is_reversible" => true,
-                    "type" => "list(list(t0)) -> grid(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 46.38026809692383,
-                    "expression" => "#(lambda (rows_to_grid (reverse \$0)))",
-                    "is_reversible" => true,
-                    "type" => "list(list(t0)) -> grid(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 46.85282516479492,
-                    "expression" => "#(lambda (not (gt? \$0 1)))",
-                    "is_reversible" => false,
-                    "type" => "int -> bool",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 21.52988624572754,
-                    "expression" => "#(lambda (lambda (rows_to_grid (concat \$0 \$1))))",
-                    "is_reversible" => true,
-                    "type" => "list(list(t0)) -> list(list(t0)) -> grid(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 46.19121170043945,
-                    "expression" => "#(lambda (lambda (lambda (rev_fix_param (rev_select_set (lambda (eq? (tuple2_second (tuple2_first \$0)) \$3)) \$0 \$1) \$2 (lambda Const(set(tuple2(int, int)), Set([(0, 0), (0, 2), (2, 0), (1, 1), (0, 1), (2, 2), (2, 1)])))))))",
-                    "is_reversible" => true,
-                    "type" => "set(tuple2(int, int)) -> set(tuple2(tuple2(t0, set(tuple2(int, int))), t1)) -> set(tuple2(tuple2(t0, set(tuple2(int, int))), t1)) -> set(tuple2(tuple2(t0, set(tuple2(int, int))), t1))",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -2.4210031032562256,
-                    "expression" => "#(lambda (columns_to_grid (concat \$0 (reverse \$0))))",
-                    "is_reversible" => true,
-                    "type" => "list(list(t0)) -> grid(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 44.853553771972656,
-                    "expression" => "#(lambda (lambda (#(lambda (lambda (lambda (abs (- (\$1 (tuple2_first \$0)) (\$1 (tuple2_first \$2))))))) \$0 (lambda (tuple2_first \$0)) \$1)))",
-                    "is_reversible" => true,
-                    "type" => "tuple2(tuple2(int, t0), t1) -> tuple2(tuple2(int, t0), t2) -> int",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 44.85343933105469,
-                    "expression" => "#(lambda (lambda (#(lambda (lambda (lambda (abs (- (\$1 (tuple2_first \$0)) (\$1 (tuple2_first \$2))))))) \$0 (lambda (tuple2_second \$0)) \$1)))",
-                    "is_reversible" => true,
-                    "type" => "tuple2(tuple2(t0, int), t1) -> tuple2(tuple2(t0, int), t2) -> int",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 45.58976745605469,
-                    "expression" => "#(lambda (lambda (lambda (rev_select_grid (lambda (eq? \$0 \$1)) \$1 \$2))))",
-                    "is_reversible" => true,
-                    "type" => "grid(t0) -> grid(t0) -> t0 -> grid(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 44.786739349365234,
-                    "expression" => "#(lambda (lambda (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) \$0 (reverse \$1))))",
-                    "is_reversible" => true,
-                    "type" => "list(list(t0)) -> list(list(t0)) -> grid(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 42.03545379638672,
-                    "expression" => "#(lambda (lambda (columns (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) (reverse \$0) \$1))))",
-                    "is_reversible" => true,
-                    "type" => "list(list(t0)) -> list(list(t0)) -> list(list(t0))",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 46.54703903198242,
-                    "expression" => "#(lambda (#(lambda (lambda (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) \$0 (reverse \$1)))) \$0 \$0))",
-                    "is_reversible" => true,
-                    "type" => "list(list(t0)) -> grid(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 45.58977127075195,
-                    "expression" => "#(lambda (lambda (lambda (rev_fix_param (#(lambda (lambda (lambda (rev_select_grid (lambda (eq? \$0 \$1)) \$1 \$2)))) \$0 \$1 \$2) \$2 (lambda Const(color, 0))))))",
-                    "is_reversible" => true,
-                    "type" => "color -> grid(color) -> grid(color) -> grid(color)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 45.88749694824219,
-                    "expression" => "#(lambda (rows_to_grid (columns \$0)))",
-                    "is_reversible" => true,
-                    "type" => "grid(t0) -> grid(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 45.13601303100586,
-                    "expression" => "#(lambda (#(lambda (rows_to_grid (reverse \$0))) (columns \$0)))",
-                    "is_reversible" => true,
-                    "type" => "grid(t0) -> grid(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 45.56547927856445,
-                    "expression" => "#(lambda (lambda (#(lambda (lambda (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) \$0 (reverse \$1)))) (#(lambda (lambda (columns (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) (reverse \$0) \$1)))) \$1 \$0) (#(lambda (lambda (columns (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) (reverse \$0) \$1)))) \$0 \$1))))",
-                    "is_reversible" => true,
-                    "type" => "list(list(t0)) -> list(list(t0)) -> grid(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 46.94345474243164,
-                    "expression" => "#(lambda (#(lambda (#(lambda (rows_to_grid (reverse \$0))) (columns \$0))) (rows_to_grid \$0)))",
-                    "is_reversible" => true,
-                    "type" => "list(list(t0)) -> grid(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 43.74740219116211,
-                    "expression" => "#(lambda (lambda (lambda (#(lambda (lambda (columns (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) (reverse \$0) \$1)))) \$0 (#(lambda (lambda (columns (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) (reverse \$0) \$1)))) \$1 \$2)))))",
-                    "is_reversible" => true,
-                    "type" => "list(list(t0)) -> list(list(t0)) -> list(list(t0)) -> list(list(t0))",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 46.03434753417969,
-                    "expression" => "#(lambda (#(lambda (#(lambda (lambda (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) \$0 (reverse \$1)))) \$0 \$0)) (#(lambda (lambda (columns (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) (reverse \$0) \$1)))) \$0 \$0)))",
-                    "is_reversible" => true,
-                    "type" => "list(list(t0)) -> grid(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 23.36907196044922,
-                    "expression" => "#(lambda (lambda (lambda (rows_to_grid (#(lambda (lambda (lambda (#(lambda (lambda (columns (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) (reverse \$0) \$1)))) \$0 (#(lambda (lambda (columns (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) (reverse \$0) \$1)))) \$1 \$2))))) \$2 \$0 (#(lambda (lambda (columns (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) (reverse \$0) \$1)))) \$1 \$2))))))",
-                    "is_reversible" => true,
-                    "type" => "list(list(t0)) -> list(list(t0)) -> list(list(t0)) -> grid(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => -4.573234558105469,
-                    "expression" => "#(lambda (lambda (lambda (\$0 (\$1 \$2) (\$1 \$2)))))",
-                    "is_reversible" => true,
-                    "type" => "t0 -> (t0 -> t1) -> (t1 -> t1 -> t2) -> t2",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 44.73984909057617,
-                    "expression" => "#(lambda (lambda (#(lambda (lambda (lambda (rows_to_grid (#(lambda (lambda (lambda (#(lambda (lambda (columns (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) (reverse \$0) \$1)))) \$0 (#(lambda (lambda (columns (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) (reverse \$0) \$1)))) \$1 \$2))))) \$2 \$0 (#(lambda (lambda (columns (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) (reverse \$0) \$1)))) \$1 \$2)))))) \$0 \$1 \$1)))",
-                    "is_reversible" => true,
-                    "type" => "list(list(t0)) -> list(list(t0)) -> grid(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 45.577850341796875,
-                    "expression" => "#(lambda (#(lambda (columns_to_grid (concat \$0 (reverse \$0)))) (columns \$0)))",
-                    "is_reversible" => true,
-                    "type" => "grid(t0) -> grid(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 45.95268630981445,
-                    "expression" => "#(lambda (#(lambda (#(lambda (rows_to_grid (reverse \$0))) (columns \$0))) (#(lambda (#(lambda (rows_to_grid (reverse \$0))) (columns \$0))) \$0)))",
-                    "is_reversible" => true,
-                    "type" => "grid(t0) -> grid(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 45.36724090576172,
-                    "expression" => "#(lambda (lambda (lambda (cons \$0 (cons \$1 \$2)))))",
-                    "is_reversible" => true,
-                    "type" => "list(t0) -> t0 -> t0 -> list(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 45.54823303222656,
-                    "expression" => "#(lambda (lambda (lambda (#(lambda (lambda (lambda (cons \$0 (cons \$1 \$2))))) \$0 (tuple2_first \$1) \$2))))",
-                    "is_reversible" => true,
-                    "type" => "t0 -> tuple2(t0, t1) -> list(t0) -> list(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 45.965179443359375,
-                    "expression" => "#(lambda (lambda (#(lambda (rows_to_grid (reverse \$0))) (cons \$0 \$1))))",
-                    "is_reversible" => true,
-                    "type" => "list(list(t0)) -> list(t0) -> grid(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 45.36848449707031,
-                    "expression" => "#(lambda (lambda (lambda (#(lambda (#(lambda (#(lambda (rows_to_grid (reverse \$0))) (columns \$0))) (rows_to_grid \$0))) (#(lambda (lambda (lambda (cons \$0 (cons \$1 \$2))))) \$0 \$1 \$2)))))",
-                    "is_reversible" => true,
-                    "type" => "list(t0) -> list(t0) -> list(list(t0)) -> grid(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 43.389015197753906,
-                    "expression" => "#(lambda (concat \$0 \$0))",
-                    "is_reversible" => true,
-                    "type" => "list(t0) -> list(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 44.437782287597656,
-                    "expression" => "#(lambda (lambda (#(lambda (lambda (lambda (cons \$0 (cons \$1 \$2))))) Const(list(color), Int64[]) \$0 \$1)))",
-                    "is_reversible" => true,
-                    "type" => "color -> color -> list(color)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 45.36848449707031,
-                    "expression" => "#(lambda (lambda (lambda (#(lambda (#(lambda (#(lambda (rows_to_grid (reverse \$0))) (columns \$0))) (rows_to_grid \$0))) (#(lambda (lambda (lambda (cons \$0 (cons \$1 \$2))))) \$0 \$1 \$2)))))",
-                    "is_reversible" => true,
-                    "type" => "list(t0) -> list(t0) -> list(list(t0)) -> grid(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 44.84197235107422,
-                    "expression" => "#(lambda (lambda (lambda (rows_to_grid (#(lambda (lambda (lambda (cons \$0 (cons \$1 \$2))))) \$0 \$1 \$2)))))",
-                    "is_reversible" => true,
-                    "type" => "list(t0) -> list(t0) -> list(list(t0)) -> grid(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 46.112545013427734,
-                    "expression" => "#(lambda (lambda (#(lambda (lambda (#(lambda (lambda (lambda (cons \$0 (cons \$1 \$2))))) Const(list(color), Int64[]) \$0 \$1))) (car \$0) \$1)))",
-                    "is_reversible" => false,
-                    "type" => "color -> list(color) -> list(color)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 45.61225509643555,
-                    "expression" => "#(lambda (lambda (#(lambda (lambda (lambda (#(lambda (#(lambda (#(lambda (rows_to_grid (reverse \$0))) (columns \$0))) (rows_to_grid \$0))) (#(lambda (lambda (lambda (cons \$0 (cons \$1 \$2))))) \$0 \$1 \$2))))) \$0 \$1 Const(list(list(color)), Vector{Int64}[]))))",
-                    "is_reversible" => true,
-                    "type" => "list(color) -> list(color) -> grid(color)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 45.54823303222656,
-                    "expression" => "#(lambda (lambda (lambda (#(lambda (lambda (lambda (cons \$0 (cons \$1 \$2))))) \$0 (tuple2_first \$1) \$2))))",
-                    "is_reversible" => true,
-                    "type" => "t0 -> tuple2(t0, t1) -> list(t0) -> list(t0)",
-                ),
-                Dict{String,Any}(
-                    "logProbability" => 45.36848449707031,
-                    "expression" => "#(lambda (lambda (lambda (#(lambda (#(lambda (#(lambda (rows_to_grid (reverse \$0))) (columns \$0))) (rows_to_grid \$0))) (#(lambda (lambda (lambda (cons \$0 (cons \$1 \$2))))) \$0 \$1 \$2)))))",
-                    "is_reversible" => true,
-                    "type" => "list(t0) -> list(t0) -> list(list(t0)) -> grid(t0)",
-                ),
-            ],
-        )
+        task = _create_arc_task("0f39a9d9.json", "sortOfARC/")
+
         target_solution = "let \$v1, \$v2, \$v3 = rev(\$inp0 = (#(lambda (lambda (lambda (rev_fix_param (#(lambda (lambda (lambda (rev_select_grid (lambda (eq? \$0 \$1)) \$1 \$2)))) \$0 \$1 \$2) \$2 (lambda Const(color, 0)))))) \$v1 \$v2 \$v3)) in
         let \$v4, \$v5, \$v6 = rev(\$v2 = (repeat_grid \$v4 \$v5 \$v6)) in
         let \$v7, \$v8, \$v9 = rev(\$v3 = (rev_grid_elements \$v7 \$v8 \$v9)) in
@@ -3148,11 +2016,58 @@ using DataStructures
         let \$v22::grid(color) = (rev_grid_elements \$v21 \$v8 \$v9) in
         let \$v23::grid(color) = (repeat_grid \$v4 \$v5 \$v6) in
         (#(lambda (lambda (lambda (rev_select_grid (lambda (eq? \$0 \$1)) \$1 \$2)))) \$v22 \$v23 \$v1)"
-        check_reachable(payload, target_solution; find_one = true)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(
+            vcat(
+                sample_library,
+                [
+                    "#(lambda (lambda (rev_fold_set (lambda (lambda (rev_greedy_cluster \$2 \$1 \$0))) empty_set (map_set (lambda (map_set (lambda (tuple2 \$0 (tuple2_second \$1))) (tuple2_first \$0))) (map_set (lambda (tuple2 ((lambda ((lambda (rev_fix_param (map_set (lambda (tuple2 (+ (tuple2_first \$0) (tuple2_first \$1)) (+ (tuple2_second \$0) (tuple2_second \$1)))) \$1) \$0 (lambda (tuple2 (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_first \$0)) (collect \$0)) max_int) (fold (lambda (lambda (if (gt? \$0 \$1) \$1 \$0))) (map (lambda (tuple2_second \$0)) (collect \$0)) max_int))))) (tuple2_first (tuple2_first \$1)))) (tuple2_second (tuple2_first \$0))) (tuple2_second \$0))) \$1)))))",
+                    "#(lambda (lambda (lambda (rev_select_set (lambda (eq? (tuple2_second (tuple2_first \$0)) \$1)) (map_set (lambda (tuple2 (tuple2 (tuple2 (+ (tuple2_first (tuple2_first (tuple2_first \$0))) Const(int, 1)) (tuple2_second (tuple2_first (tuple2_first \$0)))) (tuple2_second (tuple2_first \$0))) (tuple2_second \$0))) \$1) \$2))))",
+                    "#(lambda (lambda (lambda (abs (- (\$1 (tuple2_first \$0)) (\$1 (tuple2_first \$2)))))))",
+                    "#(lambda (columns_to_grid (reverse (columns (rows_to_grid \$0)))))",
+                    "#(lambda (rows_to_grid (reverse \$0)))",
+                    "#(lambda (not (gt? \$0 1)))",
+                    "#(lambda (lambda (rows_to_grid (concat \$0 \$1))))",
+                    "#(lambda (lambda (lambda (rev_fix_param (rev_select_set (lambda (eq? (tuple2_second (tuple2_first \$0)) \$3)) \$0 \$1) \$2 (lambda Const(set(tuple2(int, int)), Set([(0, 0), (0, 2), (2, 0), (1, 1), (0, 1), (2, 2), (2, 1)])))))))",
+                    "#(lambda (columns_to_grid (concat \$0 (reverse \$0))))",
+                    "#(lambda (lambda (#(lambda (lambda (lambda (abs (- (\$1 (tuple2_first \$0)) (\$1 (tuple2_first \$2))))))) \$0 (lambda (tuple2_first \$0)) \$1)))",
+                    "#(lambda (lambda (#(lambda (lambda (lambda (abs (- (\$1 (tuple2_first \$0)) (\$1 (tuple2_first \$2))))))) \$0 (lambda (tuple2_second \$0)) \$1)))",
+                    "#(lambda (lambda (lambda (rev_select_grid (lambda (eq? \$0 \$1)) \$1 \$2))))",
+                    "#(lambda (lambda (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) \$0 (reverse \$1))))",
+                    "#(lambda (lambda (columns (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) (reverse \$0) \$1))))",
+                    "#(lambda (#(lambda (lambda (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) \$0 (reverse \$1)))) \$0 \$0))",
+                    "#(lambda (lambda (lambda (rev_fix_param (#(lambda (lambda (lambda (rev_select_grid (lambda (eq? \$0 \$1)) \$1 \$2)))) \$0 \$1 \$2) \$2 (lambda Const(color, 0))))))",
+                    "#(lambda (rows_to_grid (columns \$0)))",
+                    "#(lambda (#(lambda (rows_to_grid (reverse \$0))) (columns \$0)))",
+                    "#(lambda (lambda (#(lambda (lambda (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) \$0 (reverse \$1)))) (#(lambda (lambda (columns (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) (reverse \$0) \$1)))) \$1 \$0) (#(lambda (lambda (columns (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) (reverse \$0) \$1)))) \$0 \$1))))",
+                    "#(lambda (#(lambda (#(lambda (rows_to_grid (reverse \$0))) (columns \$0))) (rows_to_grid \$0)))",
+                    "#(lambda (lambda (lambda (#(lambda (lambda (columns (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) (reverse \$0) \$1)))) \$0 (#(lambda (lambda (columns (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) (reverse \$0) \$1)))) \$1 \$2)))))",
+                    "#(lambda (#(lambda (#(lambda (lambda (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) \$0 (reverse \$1)))) \$0 \$0)) (#(lambda (lambda (columns (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) (reverse \$0) \$1)))) \$0 \$0)))",
+                    "#(lambda (lambda (lambda (rows_to_grid (#(lambda (lambda (lambda (#(lambda (lambda (columns (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) (reverse \$0) \$1)))) \$0 (#(lambda (lambda (columns (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) (reverse \$0) \$1)))) \$1 \$2))))) \$2 \$0 (#(lambda (lambda (columns (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) (reverse \$0) \$1)))) \$1 \$2))))))",
+                    "#(lambda (lambda (lambda (\$0 (\$1 \$2) (\$1 \$2)))))",
+                    "#(lambda (lambda (#(lambda (lambda (lambda (rows_to_grid (#(lambda (lambda (lambda (#(lambda (lambda (columns (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) (reverse \$0) \$1)))) \$0 (#(lambda (lambda (columns (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) (reverse \$0) \$1)))) \$1 \$2))))) \$2 \$0 (#(lambda (lambda (columns (#(lambda (lambda (rows_to_grid (concat \$0 \$1)))) (reverse \$0) \$1)))) \$1 \$2)))))) \$0 \$1 \$1)))",
+                    "#(lambda (#(lambda (columns_to_grid (concat \$0 (reverse \$0)))) (columns \$0)))",
+                    "#(lambda (#(lambda (#(lambda (rows_to_grid (reverse \$0))) (columns \$0))) (#(lambda (#(lambda (rows_to_grid (reverse \$0))) (columns \$0))) \$0)))",
+                    "#(lambda (lambda (lambda (cons \$0 (cons \$1 \$2)))))",
+                    "#(lambda (lambda (lambda (#(lambda (lambda (lambda (cons \$0 (cons \$1 \$2))))) \$0 (tuple2_first \$1) \$2))))",
+                    "#(lambda (lambda (#(lambda (rows_to_grid (reverse \$0))) (cons \$0 \$1))))",
+                    "#(lambda (lambda (lambda (#(lambda (#(lambda (#(lambda (rows_to_grid (reverse \$0))) (columns \$0))) (rows_to_grid \$0))) (#(lambda (lambda (lambda (cons \$0 (cons \$1 \$2))))) \$0 \$1 \$2)))))",
+                    "#(lambda (concat \$0 \$0))",
+                    "#(lambda (lambda (#(lambda (lambda (lambda (cons \$0 (cons \$1 \$2))))) Const(list(color), Int64[]) \$0 \$1)))",
+                    "#(lambda (lambda (lambda (#(lambda (#(lambda (#(lambda (rows_to_grid (reverse \$0))) (columns \$0))) (rows_to_grid \$0))) (#(lambda (lambda (lambda (cons \$0 (cons \$1 \$2))))) \$0 \$1 \$2)))))",
+                    "#(lambda (lambda (lambda (rows_to_grid (#(lambda (lambda (lambda (cons \$0 (cons \$1 \$2))))) \$0 \$1 \$2)))))",
+                    "#(lambda (lambda (#(lambda (lambda (#(lambda (lambda (lambda (cons \$0 (cons \$1 \$2))))) Const(list(color), Int64[]) \$0 \$1))) (car \$0) \$1)))",
+                    "#(lambda (lambda (#(lambda (lambda (lambda (#(lambda (#(lambda (#(lambda (rows_to_grid (reverse \$0))) (columns \$0))) (rows_to_grid \$0))) (#(lambda (lambda (lambda (cons \$0 (cons \$1 \$2))))) \$0 \$1 \$2))))) \$0 \$1 Const(list(list(color)), Vector{Int64}[]))))",
+                    "#(lambda (lambda (lambda (#(lambda (lambda (lambda (cons \$0 (cons \$1 \$2))))) \$0 (tuple2_first \$1) \$2))))",
+                    "#(lambda (lambda (lambda (#(lambda (#(lambda (#(lambda (rows_to_grid (reverse \$0))) (columns \$0))) (rows_to_grid \$0))) (#(lambda (lambda (lambda (cons \$0 (cons \$1 \$2))))) \$0 \$1 \$2)))))",
+                ],
+            ),
+        )
+        check_reachable(task, guiding_model, grammar, target_solution; find_one = true)
     end
 
     @testcase_log "8b6f1472.json" begin
-        payload = create_arc_task("8b6f1472.json", "sortOfARC/")
+        task = _create_arc_task("8b6f1472.json", "sortOfARC/")
         target_solution = "let \$v1, \$v2, \$v3 = rev(\$inp0 = (rev_fix_param (rev_select_grid (lambda (eq? \$0 \$v1)) \$v2 \$v3) \$v1 (lambda Const(color, 0)))) in
         let \$v4, \$v5, \$v6 = rev(\$v2 = (repeat_grid \$v4 \$v5 \$v6)) in
         let \$v7, \$v8, \$v9 = rev(\$v3 = (rev_grid_elements \$v7 \$v8 \$v9)) in
@@ -3169,79 +2084,105 @@ using DataStructures
         let \$v22::grid(color) = (rev_grid_elements \$v21 \$v8 \$v9) in
         let \$v23::grid(color) = (repeat_grid \$v4 \$v5 \$v6) in
         (rev_select_grid (lambda (eq? \$0 \$v1)) \$v23 \$v22)"
-        check_reachable(payload, target_solution; find_one = true)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution; find_one = true)
     end
 
     @testcase_log "67a3c6ac.json" begin
-        payload = create_arc_task("67a3c6ac.json")
+        task = _create_arc_task("67a3c6ac.json")
         target_solution = "let \$v1 = rev(\$inp0 = (columns_to_grid \$v1)) in let \$v2 = rev(\$v1 = (reverse \$v2)) in (columns_to_grid \$v2)"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "68b16354.json" begin
-        payload = create_arc_task("68b16354.json")
+        task = _create_arc_task("68b16354.json")
         target_solution = "let \$v1 = rev(\$inp0 = (rows_to_grid \$v1)) in let \$v2 = rev(\$v1 = (reverse \$v2)) in (rows_to_grid \$v2)"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "74dd1130.json" begin
-        payload = create_arc_task("74dd1130.json")
+        task = _create_arc_task("74dd1130.json")
         target_solution = "let \$v1 = rev(\$inp0 = (columns_to_grid \$v1)) in (rows_to_grid \$v1)"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "ed36ccf7.json" begin
-        payload = create_arc_task("ed36ccf7.json")
+        task = _create_arc_task("ed36ccf7.json")
         target_solution = "let \$v1 = rev(\$inp0 = (columns_to_grid \$v1)) in let \$v2 = rev(\$v1 = (reverse \$v2)) in (rows_to_grid \$v2)"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "9dfd6313.json" begin
-        payload = create_arc_task("9dfd6313.json")
+        task = _create_arc_task("9dfd6313.json")
         target_solution = "let \$v1 = rev(\$inp0 = (columns_to_grid \$v1)) in (rows_to_grid \$v1)"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "6d0aefbc.json" begin
-        payload = create_arc_task("6d0aefbc.json")
+        task = _create_arc_task("6d0aefbc.json")
         target_solution = "let \$v1 = rev(\$inp0 = (columns_to_grid \$v1)) in let \$v2 = rev(\$v1 = (reverse \$v2)) in let \$v3::list(list(color)) = (concat \$v1 \$v2) in (columns_to_grid \$v3)"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "8be77c9e.json" begin
-        payload = create_arc_task("8be77c9e.json")
+        task = _create_arc_task("8be77c9e.json")
         target_solution = "let \$v1 = rev(\$inp0 = (rows_to_grid \$v1)) in let \$v2 = rev(\$v1 = (reverse \$v2)) in let \$v3::list(list(color)) = (concat \$v1 \$v2) in (rows_to_grid \$v3)"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "c9e6f938.json" begin
-        payload = create_arc_task("c9e6f938.json")
+        task = _create_arc_task("c9e6f938.json")
         target_solution = "let \$v1 = rev(\$inp0 = (columns_to_grid \$v1)) in let \$v2 = rev(\$v1 = (reverse \$v2)) in let \$v3::list(list(color)) = (concat \$v1 \$v2) in (columns_to_grid \$v3)"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "25ff71a9.json" begin
-        payload = create_arc_task("25ff71a9.json")
+        task = _create_arc_task("25ff71a9.json")
         # target_solution = "let \$v1 = rev(\$inp0 = (rows_to_grid \$v1)) in let \$v2::list(list(color)) = Const(list(list(color)), Vector{Any}[[0, 0, 0]]) in let \$v3, \$v4 = wrap(let \$v3, \$v4 = rev(\$v1 = (concat \$v3 \$v4)); let \$v4 = \$v2) in let \$v5::list(list(color)) = (concat \$v4 \$v3) in (rows_to_grid \$v5)"
         target_solution = "let \$v1 = rev(\$inp0 = (rows_to_grid \$v1)) in let \$v3, \$v4 = rev(\$v1 = (rev_fix_param (concat \$v3 \$v4) \$v4 (lambda Const(list(list(color)), Vector{Any}[[0, 0, 0]])))) in let \$v5::list(list(color)) = (concat \$v4 \$v3) in (rows_to_grid \$v5)"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "6fa7a44f.json" begin
-        payload = create_arc_task("6fa7a44f.json")
+        task = _create_arc_task("6fa7a44f.json")
         target_solution = "let \$v1 = rev(\$inp0 = (rows_to_grid \$v1)) in let \$v2 = rev(\$v1 = (reverse \$v2)) in let \$v3::list(list(color)) = (concat \$v1 \$v2) in (rows_to_grid \$v3)"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "a416b8f3.json" begin
-        payload = create_arc_task("a416b8f3.json")
+        task = _create_arc_task("a416b8f3.json")
         target_solution = "let \$v1 = rev(\$inp0 = (columns_to_grid \$v1)) in let \$v2::list(list(color)) = (concat \$v1 \$v1) in (columns_to_grid \$v2)"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 
     @testcase_log "4c4377d9.json" begin
-        payload = create_arc_task("4c4377d9.json")
+        task = _create_arc_task("4c4377d9.json")
         target_solution = "let \$v1 = rev(\$inp0 = (rows_to_grid \$v1)) in let \$v2 = rev(\$v1 = (reverse \$v2)) in let \$v3::list(list(color)) = (concat \$v2 \$v1) in (rows_to_grid \$v3)"
-        check_reachable(payload, target_solution)
+        guiding_model = DummyGuidingModel()
+        grammar = build_grammar(sample_library)
+        check_reachable(task, guiding_model, grammar, target_solution)
     end
 end

@@ -240,6 +240,7 @@ function block_state_successors(
                         Hole(
                             request.arguments[2],
                             current_hole.grammar,
+                            [],
                             step_arg_checker(current_hole.candidates_filter, ArgTurn(request.arguments[1])),
                             current_hole.possible_values,
                         ),
@@ -261,7 +262,7 @@ function block_state_successors(
                 new_free_parameters = 0
                 application_template = Apply(
                     candidate,
-                    Hole(argument_types[1], cg.no_context, current_hole.candidates_filter, nothing),
+                    Hole(argument_types[1], cg.no_context, [], current_hole.candidates_filter, nothing),
                 )
                 new_skeleton = modify_skeleton(state.skeleton, application_template, state.path)
                 new_path = vcat(state.path, [LeftTurn(), ArgTurn(argument_types[1])])
@@ -287,7 +288,7 @@ function block_state_successors(
 
                         application_template = Apply(
                             application_template,
-                            Hole(argument_types[i], argument_requests[i], arg_checker, nothing),
+                            Hole(argument_types[i], argument_requests[i], [], arg_checker, nothing),
                         )
                     end
                     new_skeleton = modify_skeleton(state.skeleton, application_template, state.path)
@@ -331,7 +332,8 @@ function _capture_free_vars(sc, p::Hole, context, captured_vars)
     _, t = apply_context(context, p.t)
     var_id = create_next_var(sc)
     push!(captured_vars, (var_id, t))
-    FreeVar(t, var_id), captured_vars
+
+    FreeVar(t, var_id, isempty(p.locations) ? nothing : p.locations[1]), captured_vars
 end
 
 function _capture_free_vars(sc, p::FreeVar, context, captured_vars)
@@ -343,7 +345,7 @@ function _capture_free_vars(sc, p::FreeVar, context, captured_vars)
         i = parse(Int, p.var_id[2:end])
         var_id, t = captured_vars[i]
     end
-    FreeVar(t, var_id), captured_vars
+    FreeVar(t, var_id, p.location), captured_vars
 end
 
 function check_reversed_program_forward(p, vars, inputs, expected_output)
@@ -515,7 +517,7 @@ end
 
 function _fill_holes(p::Hole, context)
     new_context, t = apply_context(context, p.t)
-    FreeVar(t, nothing), new_context
+    FreeVar(t, nothing, isempty(p.locations) ? nothing : p.locations[1]), new_context
 end
 function _fill_holes(p::Apply, context)
     new_f, new_context = _fill_holes(p.f, context)
@@ -550,8 +552,8 @@ function create_wrapping_program_prototype(
     candidate_functions = unifying_expressions(
         Tp[],
         context,
-        Hole(input_type, g, CombinedArgChecker([SimpleArgChecker(true, -1, false)]), nothing),
-        Hole(input_type, g, CombinedArgChecker([SimpleArgChecker(true, -1, false)]), nothing),
+        Hole(input_type, g, [], CombinedArgChecker([SimpleArgChecker(true, -1, false)]), nothing),
+        Hole(input_type, g, [], CombinedArgChecker([SimpleArgChecker(true, -1, false)]), nothing),
         [],
     )
 
@@ -570,10 +572,11 @@ function create_wrapping_program_prototype(
     filled_p, new_context = _fill_holes(p, new_context)
 
     wrapped_p = Apply(
-        Apply(Apply(wrapper, filled_p), FreeVar(unknown_type, "r$var_ind")),
+        Apply(Apply(wrapper, filled_p), FreeVar(unknown_type, "r$var_ind", nothing)),
         Hole(
             fixer_type,
             cg.contextual_library[wrapper][3],
+            [],
             CombinedArgChecker([custom_arg_checkers[3]]),
             unknown_entry.values,
         ),
@@ -587,7 +590,7 @@ function create_wrapping_program_prototype(
         number_of_free_parameters(filled_p),
     )
 
-    new_bp = BlockPrototype(state, input_type, nothing, (input_var, input_branch), true)
+    new_bp = BlockPrototypeOld(state, input_type, nothing, (input_var, input_branch), true)
     return new_bp
 end
 
@@ -866,6 +869,11 @@ function try_run_block_with_downstream(
     end
     if is_new_block || set_explained
         update_complexity_factors_known(sc, block, fixed_branches, out_branches)
+        for (v_id, _) in out_branches
+            if isnothing(sc.known_var_locations[v_id])
+                sc.known_var_locations[v_id] = []
+            end
+        end
     end
 
     for (b_id, downstream_branches, downstream_target) in next_blocks
@@ -997,7 +1005,7 @@ function enumeration_iteration_finished_input(sc, bp, g)
     end
 end
 
-function enumeration_iteration_finished_output(sc::SolutionContext, bp::BlockPrototype)
+function enumeration_iteration_finished_output(sc::SolutionContext, bp::BlockPrototypeOld)
     state = bp.state
     is_reverse = is_reversible(state.skeleton)
     output_branch_id = bp.output_var[2]
@@ -1058,7 +1066,7 @@ function enumeration_iteration_finished_output(sc::SolutionContext, bp::BlockPro
     return [(block_id, input_branches, Dict{UInt64,UInt64}(bp.output_var[1] => bp.output_var[2]))], []
 end
 
-function enumeration_iteration_finished(sc::SolutionContext, finalizer, g, bp::BlockPrototype, br_id)
+function enumeration_iteration_finished(sc::SolutionContext, finalizer, g, bp::BlockPrototypeOld, br_id)
     if sc.branch_is_unknown[br_id]
         new_block_result, unfinished_prototypes = enumeration_iteration_finished_output(sc, bp)
     else
@@ -1084,7 +1092,7 @@ function enumeration_iteration(
     maxFreeParameters::Int,
     g::ContextualGrammar,
     q,
-    bp::BlockPrototype,
+    bp::BlockPrototypeOld,
     br_id::UInt64,
     is_explained::Bool,
 )
@@ -1127,7 +1135,7 @@ function enumeration_iteration(
         end
         for child in block_state_successors(maxFreeParameters, g, bp.state)
             _, new_request = apply_context(child.context, bp.request)
-            new_bp = BlockPrototype(child, new_request, bp.input_vars, bp.output_var, bp.reverse)
+            new_bp = BlockPrototypeOld(child, new_request, bp.input_vars, bp.output_var, bp.reverse)
             if sc.verbose
                 @info "Enqueing $new_bp"
             end
