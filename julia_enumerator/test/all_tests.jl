@@ -38,6 +38,7 @@ end
     include("reachable_expl.jl")
     include("abstractors.jl")
     include("abstractors_tasks.jl")
+    include("arc_tasks_expl.jl")
     include("arc_tasks.jl")
     include("branches.jl")
     include("complexity.jl")

@@ -941,6 +941,7 @@ struct HitResult
     hit_prior::Any
     hit_likelihood::Any
     hit_time::Any
+    trace_values::Any
 end
 
 Base.hash(r::HitResult, h::UInt64) = hash(r.hit_program, h)
@@ -1076,7 +1077,7 @@ function enumeration_iteration_finished(sc::SolutionContext, finalizer, g, bp::B
         new_solution_paths = add_new_block(sc, new_block_id, input_branches, target_output)
         # @info "Got results $new_solution_paths"
         for solution_path in new_solution_paths
-            solution, cost = extract_solution(sc, solution_path)
+            solution, cost, trace_values = extract_solution(sc, solution_path)
             # @info "Got solution $solution with cost $cost"
             finalizer(solution, cost)
         end
@@ -1178,7 +1179,7 @@ function enumerate_for_task(
         ll = task.log_likelihood_checker(task, solution)
         if !isnothing(ll) && !isinf(ll)
             dt = time() - start_time
-            res = HitResult(join(show_program(solution, false)), -cost, ll, dt)
+            res = HitResult(join(show_program(solution, false)), -cost, ll, dt, nothing)
             if haskey(hits, res)
                 # @warn "Duplicated solution $solution"
             else

@@ -71,9 +71,7 @@ function stop(pool::ReplenishingWorkerPool)
     for f in pool.launcher_futures
         wait(f)
     end
-    for pid in pool.pool.workers
-        rmprocs(pid, waitfor = 0)
-    end
+    rmprocs(pool.pool.workers...)
 end
 
 function Distributed.workers(pool::ReplenishingWorkerPool)

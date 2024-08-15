@@ -239,6 +239,7 @@ function enumeration_iteration_finished_output(sc::SolutionContext, bp::BlockPro
     new_block =
         ProgramBlock(p, p_type, bp.cost, [var_id for (var_id, _, _) in input_vars], bp.output_var[1], is_reverse)
     block_id = push!(sc.blocks, new_block)
+    sc.block_root_branches[block_id] = bp.output_var[2]
     return [(block_id, input_branches, Dict{UInt64,UInt64}(bp.output_var[1] => bp.output_var[2]))], []
 end
 
@@ -347,6 +348,7 @@ function create_reversed_block(
             sc.known_var_locations[var_id] = collect(locations)
         end
         block_id = push!(sc.blocks, block)
+        sc.block_root_branches[block_id] = input_var[2]
         return [(
             block_id,
             Dict{UInt64,UInt64}(input_var[1] => input_var[2]),
@@ -398,6 +400,7 @@ function enumeration_iteration_finished_input(sc, bp::BlockPrototype)
         new_block =
             ProgramBlock(bp.skeleton, p_type, bp.cost, [v_id for (v_id, _) in bp.input_vars], bp.output_var[1], false)
         new_block_id = push!(sc.blocks, new_block)
+        sc.block_root_branches[new_block_id] = bp.output_var[2]
         input_branches = Dict{UInt64,UInt64}(var_id => branch_id for (var_id, branch_id) in bp.input_vars)
         target_output = Dict{UInt64,UInt64}(bp.output_var[1] => bp.output_var[2])
         return [(new_block_id, input_branches, target_output)], []
@@ -540,12 +543,12 @@ function solve_task(
         )
 
         for solution_path in found_solutions
-            solution, cost = extract_solution(sc, solution_path)
+            solution, cost, trace_values = extract_solution(sc, solution_path)
             # @info "Got solution $solution with cost $cost"
             ll = task.log_likelihood_checker(task, solution)
             if !isnothing(ll) && !isinf(ll)
                 dt = time() - start_time
-                res = HitResult(join(show_program(solution, false)), -cost, ll, dt)
+                res = HitResult(join(show_program(solution, false)), -cost, ll, dt, trace_values)
                 if haskey(hits, res)
                     # @warn "Duplicated solution $solution"
                 else
@@ -565,7 +568,7 @@ function solve_task(
         export_solution_context(sc, task)
     end
 
-    (collect(keys(hits)), sc.total_number_of_enumerated_programs)
+    collect(keys(hits))
 end
 
 function try_solve_task(
@@ -582,7 +585,7 @@ function try_solve_task(
 )
     @info "Solving task $(task.name)"
     timeout_container = myid() == 1 ? nothing : timeout_containers[myid()]
-    program = try
+    traces = try
         solve_task(
             task,
             guiding_model,
@@ -600,7 +603,7 @@ function try_solve_task(
         @error "Failed to solve task" exception = (e, bt)
         rethrow()
     end
-    return Dict("task" => task, "program" => program)
+    return Dict("task" => task, "traces" => traces)
 end
 
 function try_solve_tasks(
@@ -616,7 +619,12 @@ function try_solve_tasks(
     verbose,
 )
     timeout_containers = worker_pool.timeout_containers
-    pmap(worker_pool, tasks; retry_check = (s, e) -> isa(e, ProcessExitedException), retry_delays = zeros(5)) do task
+    new_traces = pmap(
+        worker_pool,
+        tasks;
+        retry_check = (s, e) -> isa(e, ProcessExitedException),
+        retry_delays = zeros(5),
+    ) do task
         # map(tasks) do task
         @time try_solve_task(
             task,
@@ -631,17 +639,19 @@ function try_solve_tasks(
             verbose,
         )
     end
+    filter!(tr -> !isempty(tr["traces"]), new_traces)
+    return new_traces
 end
 
 function config_options()
     s = ArgParseSettings()
     @add_arg_table! s begin
-        "-c"
+        "--workers", "-c"
         help = "number of workers to start"
         arg_type = Int
         default = 8
 
-        "-i"
+        "--iterations", "-i"
         help = "number of iterations"
         arg_type = Int
         default = 1
@@ -678,18 +688,20 @@ function config_options()
     return s
 end
 
-function main()
+function main(; kwargs...)
     @info "Starting enumeration service"
-    parsed_args = parse_args(ARGS, config_options())
+    parsed_args = parse_args(ARGS, config_options(); as_symbols = true)
+    merge!(parsed_args, kwargs)
+    @info "Parsed arguments $parsed_args"
 
-    tasks = get_domain_tasks(parsed_args["domain"])
+    tasks = get_domain_tasks(parsed_args[:domain])
 
     # tasks = tasks[begin:1]
 
     grammar = get_starting_grammar()
-    guiding_model = get_guiding_model(parsed_args["model"])
-    traces = []
-    worker_pool = ReplenishingWorkerPool(parsed_args["c"])
+    guiding_model = get_guiding_model(parsed_args[:model])
+    traces = Dict{String,Any}()
+    worker_pool = ReplenishingWorkerPool(parsed_args[:workers])
     type_weights = Dict{String,Any}(
         "int" => 1.0,
         "list" => 1.0,
@@ -705,23 +717,33 @@ function main()
     )
     hyperparameters = Dict{String,Any}("path_cost_power" => 1.0, "complexity_power" => 1.0, "block_cost_power" => 1.0)
 
-    # parsed_args["verbose"] = true
-
     try
-        for i in 1:parsed_args["i"]
+        for i in 1:parsed_args[:iterations]
             new_traces = try_solve_tasks(
                 worker_pool,
                 tasks,
                 guiding_model,
                 grammar,
-                parsed_args["timeout"],
-                parsed_args["program_timeout"],
+                parsed_args[:timeout],
+                parsed_args[:program_timeout],
                 type_weights,
                 hyperparameters,
-                parsed_args["maximum_solutions"],
-                parsed_args["verbose"],
+                parsed_args[:maximum_solutions],
+                parsed_args[:verbose],
             )
-            append!(traces, new_traces)
+            @info "Got new traces $new_traces"
+            for task_traces in new_traces
+                task_name = task_traces["task"].name
+                if !haskey(traces, task_name)
+                    traces[task_name] = Set()
+                end
+                for trace in task_traces["traces"]
+                    if !in(trace, traces[task_name])
+                        push!(traces[task_name], trace)
+                    end
+                end
+            end
+            @info "Traces $traces"
             traces, grammar = compress_traces(traces, grammar)
             guiding_model = update_guiding_model(guiding_model, grammar, traces)
         end

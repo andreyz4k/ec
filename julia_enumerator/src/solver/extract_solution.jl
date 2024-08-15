@@ -3,18 +3,46 @@ block_to_let(block::ProgramBlock, output) = LetClause(block.output_var, return_o
 block_to_let(block::ReverseProgramBlock, output) = LetRevClause(block.output_vars, block.input_vars[1], block.p, output)
 
 function extract_solution(sc::SolutionContext, solution_path::Path)
-    res = [sc.blocks[bl_id] for bl_id in extract_block_sequence(solution_path)]
-    # @info res
-    cost = sum(block.cost for block in res)
-    output = res[end].p
-    for block in view(res, length(res)-1:-1:1)
+    res = [(bl_id, sc.blocks[bl_id]) for bl_id in extract_block_sequence(solution_path)]
+
+    root_block_branches = [sc.block_root_branches[block_id] for (block_id, block) in res if !isa(block.p, FreeVar)]
+    root_block_entries =
+        Dict(sc.branch_vars[branch_id] => sc.entries[sc.branch_entries[branch_id]] for branch_id in root_block_branches)
+
+    cost = sum(block.cost for (_, block) in res)
+    output = res[end][2].p
+    for (_, block) in view(res, length(res)-1:-1:1)
         output = block_to_let(block, output)
     end
     # @info output
     # Renaming variables for comparison between programs and remove variables copying
-    output = alpha_substitution(output, Dict{UInt64,Any}(), UInt64(1), sc.input_keys)[1]
+    replacements = Dict{UInt64,Any}()
+    base_output = output
+    output = alpha_substitution(output, replacements, UInt64(1), sc.input_keys)[1]
+    output_var_id = sc.branch_vars[sc.target_branch_id]
+    trace_values = Dict()
+    for (var_id, entry) in root_block_entries
+        if var_id == output_var_id
+            trace_values["output"] = entry.values
+        elseif haskey(sc.input_keys, var_id)
+            trace_values[sc.input_keys[var_id]] = entry.values
+        elseif haskey(replacements, var_id)
+            trace_values[replacements[var_id]] = entry.values
+        else
+            @info var_id
+            @info entry
+            @info replacements
+            @info sc.input_keys
+            @info res
+            @info root_block_entries
+            @info base_output
+            @info output
+            trace_values[replacements[var_id]] = entry.values
+        end
+    end
+
     # @info output
-    return (output, cost)
+    return (output, cost, trace_values)
 end
 
 function alpha_substitution(p::LetClause, replacements, next_index::UInt64, input_keys)
@@ -28,6 +56,7 @@ function alpha_substitution(p::LetClause, replacements, next_index::UInt64, inpu
         end
         return alpha_substitution(p.b, replacements, next_index, input_keys)
     elseif isa(p.b, FreeVar) && p.b.var_id == p.var_id
+        replacements[p.var_id] = "output"
         return alpha_substitution(p.v, replacements, next_index, input_keys)
     else
         new_v, next_index = alpha_substitution(p.v, replacements, next_index, input_keys)
