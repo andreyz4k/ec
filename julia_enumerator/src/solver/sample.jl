@@ -202,7 +202,7 @@ function _sample_wrapping_block(
         var_ind = findfirst(v_info -> v_info[1] == fixer_var, out_vars)
         unknown_type = out_vars[var_ind][2]
 
-        candidate_functions = unifying_expressions(
+        candidate_functions = unifying_expressions_old(
             Tp[],
             context,
             Hole(inp_type, grammar.no_context, [], CombinedArgChecker([SimpleArgChecker(true, -1, false)]), nothing),
@@ -1064,7 +1064,7 @@ function _sampling_input_program_iteration(skeleton, path, context, max_depth, g
         path = vcat(path, [ArgTurn(request.arguments[1])])
     else
         environment = path_environment(path)
-        candidates = unifying_expressions(environment, context, current_hole, skeleton, path)
+        candidates = unifying_expressions_old(environment, context, current_hole, skeleton, path)
         depth = length([1 for turn in path if !isa(turn, ArgTurn)])
         if depth >= max_depth
             # @info string(candidates)
@@ -1184,7 +1184,7 @@ function _sample_output_program(grammar, return_type, max_depth, var_counter, in
             path = vcat(path, [ArgTurn(request.arguments[1])])
         else
             environment = path_environment(path)
-            candidates = unifying_expressions(environment, context, current_hole, skeleton, path)
+            candidates = unifying_expressions_old(environment, context, current_hole, skeleton, path)
             depth = length([1 for turn in path if !isa(turn, ArgTurn)])
             if depth >= max_depth
                 # @info string(candidates)

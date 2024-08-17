@@ -2,6 +2,22 @@
 block_to_let(block::ProgramBlock, output) = LetClause(block.output_var, return_of_type(block.type), block.p, output)
 block_to_let(block::ReverseProgramBlock, output) = LetRevClause(block.output_vars, block.input_vars[1], block.p, output)
 
+function extract_solution_old(sc::SolutionContext, solution_path::Path)
+    res = [sc.blocks[bl_id] for bl_id in extract_block_sequence(solution_path)]
+
+    cost = sum(block.cost for block in res)
+    output = res[end].p
+    for block in view(res, length(res)-1:-1:1)
+        output = block_to_let(block, output)
+    end
+    # @info output
+    # Renaming variables for comparison between programs and remove variables copying
+    output = alpha_substitution(output, Dict{UInt64,Any}(), UInt64(1), sc.input_keys)[1]
+
+    # @info output
+    return (output, cost, Dict())
+end
+
 function extract_solution(sc::SolutionContext, solution_path::Path)
     res = [(bl_id, sc.blocks[bl_id]) for bl_id in extract_block_sequence(solution_path)]
 

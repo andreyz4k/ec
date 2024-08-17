@@ -121,7 +121,7 @@ function _get_free_var_types(p::Program)
     return []
 end
 
-function unifying_expressions(
+function unifying_expressions_old(
     environment::Vector{Tp},
     context,
     current_hole::Hole,

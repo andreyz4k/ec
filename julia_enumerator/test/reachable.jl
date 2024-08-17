@@ -17,9 +17,9 @@ using solver:
     Primitive,
     Invented,
     create_starting_context,
-    enqueue_updates,
+    enqueue_updates_old,
     save_changes!,
-    enumeration_iteration,
+    enumeration_iteration_old,
     state_finished,
     get_connected_from,
     get_connected_to,
@@ -921,7 +921,7 @@ using DataStructures
                     end
                     out_branch_id = first(get_connected_from(sc.branch_children, out_branch_id))
                 end
-                enumeration_iteration(run_context, sc, finalizer, mfp, g, q, bp, branch_id, is_explained)
+                enumeration_iteration_old(run_context, sc, finalizer, mfp, g, q, bp, branch_id, is_explained)
                 if is_reversible(bp.state.skeleton) || state_finished(bp.state)
                     if verbose
                         @info "found end"
@@ -1067,7 +1067,7 @@ using DataStructures
                 if verbose
                     @info "on path"
                 end
-                enumeration_iteration(run_context, sc, finalizer, mfp, g, q, bp, in_branch_id, is_explained)
+                enumeration_iteration_old(run_context, sc, finalizer, mfp, g, q, bp, in_branch_id, is_explained)
                 if !(wrapped_func !== nothing && is_on_path(bp.state.skeleton, wrapped_func, Dict())) &&
                    (is_reversible(bp.state.skeleton) || state_finished(bp.state))
                     if verbose
@@ -1232,7 +1232,7 @@ using DataStructures
             @info vars_mapping
         end
         sc = create_starting_context(task, type_weights, hyperparameters, verbose_test)
-        enqueue_updates(sc, g)
+        enqueue_updates_old(sc, g)
         branches = Dict()
         for br_id in 1:sc.branches_count[]
             branches[sc.branch_vars[br_id]] = br_id
@@ -1251,7 +1251,7 @@ using DataStructures
             ll = task.log_likelihood_checker(task, solution)
             if !isnothing(ll) && !isinf(ll)
                 dt = time() - start_time
-                res = HitResult(join(show_program(solution, false)), -cost, ll, dt)
+                res = HitResult(join(show_program(solution, false)), -cost, ll, dt, nothing)
                 # if isempty(hits)
                 #     @info "Time to first solution: $dt"
                 # end

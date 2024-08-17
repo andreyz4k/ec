@@ -218,7 +218,7 @@ function state_violates_symmetry(p::Apply, var_shift = 0)::Bool
 end
 state_violates_symmetry(::Program, var_shift = 0)::Bool = false
 
-function block_state_successors(
+function block_state_successors_old(
     maxFreeParameters,
     cg::ContextualGrammar,
     state::EnumerationState,
@@ -255,7 +255,7 @@ function block_state_successors(
         ]
     else
         environment = path_environment(state.path)
-        candidates = unifying_expressions(environment, context, current_hole, state.skeleton, state.path)
+        candidates = unifying_expressions_old(environment, context, current_hole, state.skeleton, state.path)
 
         states = map(candidates) do (candidate, argument_types, context, ll)
             if isa(candidate, Abstraction)
@@ -530,7 +530,7 @@ function _fill_holes(p::Abstraction, context)
 end
 _fill_holes(p::Program, context) = p, context
 
-function create_wrapping_program_prototype(
+function create_wrapping_program_prototype_old(
     sc::SolutionContext,
     p,
     cost,
@@ -549,7 +549,7 @@ function create_wrapping_program_prototype(
 
     g = cg.no_context
 
-    candidate_functions = unifying_expressions(
+    candidate_functions = unifying_expressions_old(
         Tp[],
         context,
         Hole(input_type, g, [], CombinedArgChecker([SimpleArgChecker(true, -1, false)]), nothing),
@@ -594,7 +594,7 @@ function create_wrapping_program_prototype(
     return new_bp
 end
 
-function create_reversed_block(
+function create_reversed_block_old(
     sc::SolutionContext,
     p::Program,
     context,
@@ -624,7 +624,7 @@ function create_reversed_block(
             Iterators.flatten([zip(either_var_ids, either_branch_ids), zip(abductible_var_ids, abductible_branch_ids)])
             push!(
                 unfinished_prototypes,
-                create_wrapping_program_prototype(
+                create_wrapping_program_prototype_old(
                     sc,
                     p,
                     cost,
@@ -947,7 +947,7 @@ end
 Base.hash(r::HitResult, h::UInt64) = hash(r.hit_program, h)
 Base.:(==)(r1::HitResult, r2::HitResult) = r1.hit_program == r2.hit_program
 
-function enqueue_updates(sc::SolutionContext, g)
+function enqueue_updates_old(sc::SolutionContext, g)
     assert_context_consistency(sc)
     new_unknown_branches = Set(get_new_values(sc.branch_is_unknown))
     new_explained_branches = Set(get_new_values(sc.branch_is_not_copy))
@@ -955,7 +955,7 @@ function enqueue_updates(sc::SolutionContext, g)
     updated_factors_explained_branches = Set(get_new_values(sc.explained_complexity_factors))
     for branch_id in updated_factors_unknown_branches
         if in(branch_id, new_unknown_branches)
-            enqueue_unknown_var(sc, branch_id, g)
+            enqueue_unknown_var_old(sc, branch_id, g)
         elseif haskey(sc.branch_queues_unknown, branch_id)
             update_branch_priority(sc, branch_id, false)
         end
@@ -965,7 +965,7 @@ function enqueue_updates(sc::SolutionContext, g)
             continue
         end
         if !haskey(sc.branch_queues_explained, branch_id)
-            enqueue_known_var(sc, branch_id, g)
+            enqueue_known_var_old(sc, branch_id, g)
         else
             update_branch_priority(sc, branch_id, true)
         end
@@ -973,11 +973,11 @@ function enqueue_updates(sc::SolutionContext, g)
     assert_context_consistency(sc)
 end
 
-function enumeration_iteration_finished_input(sc, bp, g)
+function enumeration_iteration_finished_input_old(sc, bp, g)
     state = bp.state
     if bp.reverse
         # @info "Try get reversed for $bp"
-        return create_reversed_block(
+        return create_reversed_block_old(
             sc,
             state.skeleton,
             state.context,
@@ -1006,7 +1006,7 @@ function enumeration_iteration_finished_input(sc, bp, g)
     end
 end
 
-function enumeration_iteration_finished_output(sc::SolutionContext, bp::BlockPrototypeOld)
+function enumeration_iteration_finished_output_old(sc::SolutionContext, bp::BlockPrototypeOld)
     state = bp.state
     is_reverse = is_reversible(state.skeleton)
     output_branch_id = bp.output_var[2]
@@ -1067,17 +1067,17 @@ function enumeration_iteration_finished_output(sc::SolutionContext, bp::BlockPro
     return [(block_id, input_branches, Dict{UInt64,UInt64}(bp.output_var[1] => bp.output_var[2]))], []
 end
 
-function enumeration_iteration_finished(sc::SolutionContext, finalizer, g, bp::BlockPrototypeOld, br_id)
+function enumeration_iteration_finished_old(sc::SolutionContext, finalizer, g, bp::BlockPrototypeOld, br_id)
     if sc.branch_is_unknown[br_id]
-        new_block_result, unfinished_prototypes = enumeration_iteration_finished_output(sc, bp)
+        new_block_result, unfinished_prototypes = enumeration_iteration_finished_output_old(sc, bp)
     else
-        new_block_result, unfinished_prototypes = enumeration_iteration_finished_input(sc, bp, g)
+        new_block_result, unfinished_prototypes = enumeration_iteration_finished_input_old(sc, bp, g)
     end
     for (new_block_id, input_branches, target_output) in new_block_result
         new_solution_paths = add_new_block(sc, new_block_id, input_branches, target_output)
         # @info "Got results $new_solution_paths"
         for solution_path in new_solution_paths
-            solution, cost, trace_values = extract_solution(sc, solution_path)
+            solution, cost, _ = extract_solution_old(sc, solution_path)
             # @info "Got solution $solution with cost $cost"
             finalizer(solution, cost)
         end
@@ -1086,7 +1086,7 @@ function enumeration_iteration_finished(sc::SolutionContext, finalizer, g, bp::B
     return unfinished_prototypes
 end
 
-function enumeration_iteration(
+function enumeration_iteration_old(
     run_context,
     sc::SolutionContext,
     finalizer,
@@ -1109,7 +1109,7 @@ function enumeration_iteration(
                 throw(EnumerationException())
             end
             # enumeration_iteration_finished(sc, finalizer, g, bp, br_id)
-            unfinished_prototypes = @run_with_timeout run_context "program_timeout" enumeration_iteration_finished(
+            unfinished_prototypes = @run_with_timeout run_context "program_timeout" enumeration_iteration_finished_old(
                 sc,
                 finalizer,
                 g,
@@ -1125,7 +1125,7 @@ function enumeration_iteration(
                 end
                 q[new_bp] = new_bp.state.cost
             end
-            enqueue_updates(sc, g)
+            enqueue_updates_old(sc, g)
             if isempty(unfinished_prototypes)
                 sc.total_number_of_enumerated_programs += 1
             end
@@ -1134,7 +1134,7 @@ function enumeration_iteration(
         if sc.verbose
             @info "Checking unfinished $bp"
         end
-        for child in block_state_successors(maxFreeParameters, g, bp.state)
+        for child in block_state_successors_old(maxFreeParameters, g, bp.state)
             _, new_request = apply_context(child.context, bp.request)
             new_bp = BlockPrototypeOld(child, new_request, bp.input_vars, bp.output_var, bp.reverse)
             if sc.verbose
@@ -1171,7 +1171,7 @@ function enumerate_for_task(
     start_time = time()
 
     assert_context_consistency(sc)
-    enqueue_updates(sc, g)
+    enqueue_updates_old(sc, g)
     save_changes!(sc, 0)
     assert_context_consistency(sc)
 
@@ -1204,7 +1204,7 @@ function enumerate_for_task(
         (br_id, is_explained) = draw(pq)
         q = (is_explained ? sc.branch_queues_explained : sc.branch_queues_unknown)[br_id]
         bp = dequeue!(q)
-        enumeration_iteration(run_context, sc, finalizer, maxFreeParameters, g, q, bp, br_id, is_explained)
+        enumeration_iteration_old(run_context, sc, finalizer, maxFreeParameters, g, q, bp, br_id, is_explained)
     end
 
     log_results(sc, hits)

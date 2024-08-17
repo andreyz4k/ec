@@ -8,8 +8,8 @@ using solver:
     RedisContext,
     BlockPrototypeOld,
     EnumerationState,
-    enumeration_iteration_finished_output,
-    unifying_expressions,
+    enumeration_iteration_finished_output_old,
+    unifying_expressions_old,
     empty_context,
     every_primitive,
     tint,
@@ -61,7 +61,7 @@ function next_state(state, target_candidate, cg)
     context, request = apply_context(context, request)
 
     environment = path_environment(state.path)
-    candidates = unifying_expressions(environment, context, current_hole, state.skeleton, state.path)
+    candidates = unifying_expressions_old(environment, context, current_hole, state.skeleton, state.path)
 
     states = collect(
         skipmissing(
@@ -272,7 +272,7 @@ end
             [every_primitive["cdr"], FreeVar(sc.types[out_type_id], nothing, nothing)],
             g,
         )
-        new_block_result, _ = enumeration_iteration_finished_output(sc, bp)
+        new_block_result, _ = enumeration_iteration_finished_output_old(sc, bp)
         @test length(new_block_result) == 1
         first_block_id, input_branches, target_output = new_block_result[1]
         new_solution_paths = add_new_block(sc, first_block_id, input_branches, target_output)
@@ -385,7 +385,7 @@ end
         out_branch_id::UInt64 = 2
 
         bp = create_block_prototype(sc, out_branch_id, [every_primitive["concat"]], g)
-        new_block_result, _ = enumeration_iteration_finished_output(sc, bp)
+        new_block_result, _ = enumeration_iteration_finished_output_old(sc, bp)
         @test length(new_block_result) == 1
         first_block_id, input_branches, target_output = new_block_result[1]
         new_solution_paths = add_new_block(sc, first_block_id, input_branches, target_output)
