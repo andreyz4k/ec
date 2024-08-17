@@ -568,7 +568,7 @@ function solve_task(
         export_solution_context(sc, task)
     end
 
-    collect(keys(hits))
+    hits
 end
 
 function try_solve_task(
@@ -735,11 +735,13 @@ function main(; kwargs...)
             for task_traces in new_traces
                 task_name = task_traces["task"].name
                 if !haskey(traces, task_name)
-                    traces[task_name] = Set()
+                    traces[task_name] = PriorityQueue{HitResult,Float64}()
                 end
-                for trace in task_traces["traces"]
-                    if !in(trace, traces[task_name])
-                        push!(traces[task_name], trace)
+                for (trace, cost) in task_traces["traces"]
+                    traces[task_name][trace] = cost
+
+                    while length(traces[task_name]) > parsed_args[:maximum_solutions]
+                        dequeue!(traces[task_name])
                     end
                 end
             end
