@@ -16,7 +16,7 @@ function extract_programs_and_tasks(traces)
 end
 
 function compress_traces(traces, grammar)
-    existing_inventions = String[name for (name, p) in grammar if isa(p, Invented)]
+    existing_inventions = String[string(p) for p in grammar if isa(p, Invented)]
     programs, tasks, hits = extract_programs_and_tasks(traces)
     iterations = 0
     max_arity = 3
@@ -38,10 +38,9 @@ function compress_traces(traces, grammar)
         eta_long = true,
         utility_by_rewrite = true,
     )
-    new_grammar = Dict{String,Any}(name => p for (name, p) in grammar)
+    new_grammar = Any[p for p in grammar]
     for abst_dict in new_abstractions
-        p = parse_program(abst_dict["body"])
-        new_grammar[abst_dict["body"]] = p
+        push!(new_grammar, parse_program(abst_dict["body"]))
     end
     new_traces = Dict()
     for ((hit, cost), task_name, new_program) in zip(hits, tasks, rewritten_programs)

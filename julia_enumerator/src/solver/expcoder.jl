@@ -47,7 +47,7 @@ function get_domain_tasks(domain)
 end
 
 function get_starting_grammar()
-    copy(every_primitive)
+    Any[p for (_, p) in every_primitive]
 end
 
 function get_guiding_model(model)
@@ -640,6 +640,7 @@ function try_solve_tasks(
         )
     end
     filter!(tr -> !isempty(tr["traces"]), new_traces)
+    @info "Got new solutions for $(length(new_traces))/$(length(tasks)) tasks"
     return new_traces
 end
 
@@ -684,23 +685,74 @@ function config_options()
         "--verbose", "-v"
         help = "verbose"
         action = :store_true
+
+        "--resume", "-r"
+        help = "resume from checkpoint path"
+        arg_type = String
     end
     return s
+end
+
+function get_checkpoint_path(domain)
+    checkpoint_dir = joinpath("checkpoints", domain)
+    if !isdir(checkpoint_dir)
+        mkpath(checkpoint_dir)
+    end
+    return joinpath(checkpoint_dir, string(Dates.now()))
+end
+
+using Serialization
+
+function save_checkpoint(parsed_args, iteration, traces, grammar, guiding_model)
+    path = get_checkpoint_path(parsed_args[:domain])
+    Serialization.serialize(path, (parsed_args, iteration, traces, grammar, guiding_model))
+    @info "Saved checkpoint for iteration $(iteration-1) to $path"
+end
+
+function load_checkpoint(path)
+    return Serialization.deserialize(path)
+end
+
+function log_traces(traces)
+    @info "Task solutions"
+    for (task_name, task_traces) in traces
+        @info task_name
+        for (hit, cost) in task_traces
+            @info "$cost\t$(hit.hit_program)"
+        end
+        @info ""
+    end
+end
+
+function log_grammar(iteration, grammar)
+    @info "Grammar after iteration $iteration"
+    for p in grammar
+        @info "$(p)\t$(p.t)"
+    end
+    @info ""
 end
 
 function main(; kwargs...)
     @info "Starting enumeration service"
     parsed_args = parse_args(ARGS, config_options(); as_symbols = true)
     merge!(parsed_args, kwargs)
+
+    if !isnothing(parsed_args[:resume])
+        (restored_args, i, traces, grammar, guiding_model) = load_checkpoint(parsed_args[:resume])
+        parsed_args = merge(restored_args, parsed_args)
+    else
+        grammar = get_starting_grammar()
+        guiding_model = get_guiding_model(parsed_args[:model])
+        traces = Dict{String,Any}()
+        i = 1
+    end
+
     @info "Parsed arguments $parsed_args"
 
     tasks = get_domain_tasks(parsed_args[:domain])
 
     # tasks = tasks[begin:10]
 
-    grammar = get_starting_grammar()
-    guiding_model = get_guiding_model(parsed_args[:model])
-    traces = Dict{String,Any}()
     worker_pool = ReplenishingWorkerPool(parsed_args[:workers])
     type_weights = Dict{String,Any}(
         "int" => 1.0,
@@ -718,7 +770,9 @@ function main(; kwargs...)
     hyperparameters = Dict{String,Any}("path_cost_power" => 1.0, "complexity_power" => 1.0, "block_cost_power" => 1.0)
 
     try
-        for i in 1:parsed_args[:iterations]
+        while i <= parsed_args[:iterations]
+            i += 1
+
             new_traces = try_solve_tasks(
                 worker_pool,
                 tasks,
@@ -731,7 +785,6 @@ function main(; kwargs...)
                 parsed_args[:maximum_solutions],
                 parsed_args[:verbose],
             )
-            @info "Got new traces $new_traces"
             for task_traces in new_traces
                 task_name = task_traces["task"].name
                 if !haskey(traces, task_name)
@@ -745,14 +798,17 @@ function main(; kwargs...)
                     end
                 end
             end
-            # @info "Traces $traces"
+
             traces, grammar = compress_traces(traces, grammar)
-            # @info "Compressed traces $traces"
-            # @info "Compressed grammar $grammar"
+
+            @info "Got total solutions for $(length(traces))/$(length(tasks)) tasks"
+            log_traces(traces)
+            log_grammar(i, grammar)
+
             guiding_model = update_guiding_model(guiding_model, grammar, traces)
+            save_checkpoint(parsed_args, i, traces, grammar, guiding_model)
         end
     finally
         stop(worker_pool)
     end
-    return traces, grammar
 end
