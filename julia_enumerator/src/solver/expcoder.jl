@@ -696,7 +696,7 @@ function main(; kwargs...)
 
     tasks = get_domain_tasks(parsed_args[:domain])
 
-    # tasks = tasks[begin:1]
+    # tasks = tasks[begin:10]
 
     grammar = get_starting_grammar()
     guiding_model = get_guiding_model(parsed_args[:model])
@@ -745,11 +745,14 @@ function main(; kwargs...)
                     end
                 end
             end
-            @info "Traces $traces"
+            # @info "Traces $traces"
             traces, grammar = compress_traces(traces, grammar)
+            # @info "Compressed traces $traces"
+            # @info "Compressed grammar $grammar"
             guiding_model = update_guiding_model(guiding_model, grammar, traces)
         end
     finally
         stop(worker_pool)
     end
+    return traces, grammar
 end

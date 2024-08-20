@@ -18,3 +18,7 @@ function generate_grammar(sc, guiding_model::DummyGuidingModel, grammar, entry_i
     end
     return guiding_model.grammars[grammar]
 end
+
+function update_guiding_model(guiding_model::DummyGuidingModel, grammar, traces)
+    return guiding_model
+end
