@@ -625,7 +625,7 @@ function try_solve_tasks(
         retry_check = (s, e) -> isa(e, ProcessExitedException),
         retry_delays = zeros(5),
     ) do task
-        # map(tasks) do task
+        # new_traces = map(tasks) do task
         @time try_solve_task(
             task,
             guiding_model,
