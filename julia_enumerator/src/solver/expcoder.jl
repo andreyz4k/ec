@@ -694,23 +694,30 @@ function config_options()
 end
 
 function get_checkpoint_path(domain)
-    checkpoint_dir = joinpath("checkpoints", domain)
+    checkpoint_dir = joinpath("checkpoints", domain, string(Dates.now()))
     if !isdir(checkpoint_dir)
         mkpath(checkpoint_dir)
     end
-    return joinpath(checkpoint_dir, string(Dates.now()))
+    return checkpoint_dir
 end
 
 using Serialization
 
 function save_checkpoint(parsed_args, iteration, traces, grammar, guiding_model)
     path = get_checkpoint_path(parsed_args[:domain])
-    Serialization.serialize(path, (parsed_args, iteration, traces, grammar, guiding_model))
+    Serialization.serialize(joinpath(path, "args.jls"), (parsed_args, iteration))
+    Serialization.serialize(joinpath(path, "traces.jls"), traces)
+    Serialization.serialize(joinpath(path, "grammar.jls"), grammar)
+    Serialization.serialize(joinpath(path, "guiding_model.jls"), guiding_model)
     @info "Saved checkpoint for iteration $(iteration-1) to $path"
 end
 
 function load_checkpoint(path)
-    return Serialization.deserialize(path)
+    args, iteration = Serialization.deserialize(joinpath(path, "args.jls"))
+    traces = Serialization.deserialize(joinpath(path, "traces.jls"))
+    grammar = Serialization.deserialize(joinpath(path, "grammar.jls"))
+    guiding_model = Serialization.deserialize(joinpath(path, "guiding_model.jls"))
+    return args, iteration, traces, grammar, guiding_model
 end
 
 function log_traces(traces)

@@ -15,7 +15,18 @@ function extract_programs_and_tasks(traces)
     return programs, tasks, all_hits
 end
 
+function store_precompressed_traces(traces, grammar)
+    traces_dir = "compressed_traces"
+    if !isdir(traces_dir)
+        mkdir(traces_dir)
+    end
+    fname = joinpath(traces_dir, string(Dates.now()))
+    Serialization.serialize(fname, (traces, grammar))
+    @info "Stored precompressed traces to $fname"
+end
+
 function compress_traces(traces, grammar)
+    store_precompressed_traces(traces, grammar)
     existing_inventions = String[string(p) for p in grammar if isa(p, Invented)]
     programs, tasks, hits = extract_programs_and_tasks(traces)
     iterations = 0
