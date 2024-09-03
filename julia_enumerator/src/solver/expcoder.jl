@@ -714,7 +714,12 @@ end
 
 function load_checkpoint(path)
     args, iteration = Serialization.deserialize(joinpath(path, "args.jls"))
-    traces = Serialization.deserialize(joinpath(path, "traces.jls"))
+    loaded_traces = Serialization.deserialize(joinpath(path, "traces.jls"))
+    traces = Dict{UInt64,Any}()
+    for (grammar, gr_traces) in values(loaded_traces)
+        grammar_hash = hash(grammar)
+        traces[grammar_hash] = (grammar, gr_traces)
+    end
     grammar = Serialization.deserialize(joinpath(path, "grammar.jls"))
     guiding_model = Serialization.deserialize(joinpath(path, "guiding_model.jls"))
     return args, iteration, traces, grammar, guiding_model
@@ -750,9 +755,11 @@ function main(; kwargs...)
     else
         grammar = get_starting_grammar()
         guiding_model = get_guiding_model(parsed_args[:model])
-        traces = Dict{String,Any}()
+        traces = Dict{UInt64,Any}()
         i = 1
     end
+
+    grammar_hash = hash(grammar)
 
     @info "Parsed arguments $parsed_args"
 
@@ -792,24 +799,30 @@ function main(; kwargs...)
                 parsed_args[:maximum_solutions],
                 parsed_args[:verbose],
             )
+            if !haskey(traces, grammar_hash)
+                traces[grammar_hash] = (grammar, Dict{String,Any}())
+            end
+            cur_traces = traces[grammar_hash][2]
             for task_traces in new_traces
                 task_name = task_traces["task"].name
-                if !haskey(traces, task_name)
-                    traces[task_name] = PriorityQueue{HitResult,Float64}()
+                if !haskey(cur_traces, task_name)
+                    cur_traces[task_name] = PriorityQueue{HitResult,Float64}()
                 end
                 for (trace, cost) in task_traces["traces"]
-                    traces[task_name][trace] = cost
+                    cur_traces[task_name][trace] = cost
 
-                    while length(traces[task_name]) > parsed_args[:maximum_solutions]
-                        dequeue!(traces[task_name])
+                    while length(cur_traces[task_name]) > parsed_args[:maximum_solutions]
+                        dequeue!(cur_traces[task_name])
                     end
                 end
             end
 
-            traces, grammar = compress_traces(traces, grammar)
+            cur_traces, grammar = compress_traces(cur_traces, grammar)
+            grammar_hash = hash(grammar)
+            traces[grammar_hash] = (grammar, cur_traces)
 
-            @info "Got total solutions for $(length(traces))/$(length(tasks)) tasks"
-            log_traces(traces)
+            @info "Got total solutions for $(length(cur_traces))/$(length(tasks)) tasks"
+            log_traces(cur_traces)
             log_grammar(i, grammar)
 
             guiding_model = update_guiding_model(guiding_model, grammar, traces)
