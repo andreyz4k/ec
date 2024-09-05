@@ -38,12 +38,13 @@ function extract_solution(sc::SolutionContext, solution_path::Path)
     output_var_id = sc.branch_vars[sc.target_branch_id]
     trace_values = Dict()
     for (var_id, entry) in root_block_entries
+        tp = sc.types[entry.type_id]
         if var_id == output_var_id
-            trace_values["output"] = entry.values
+            trace_values["output"] = (tp, entry.values)
         elseif haskey(sc.input_keys, var_id)
-            trace_values[sc.input_keys[var_id]] = entry.values
+            trace_values[sc.input_keys[var_id]] = (tp, entry.values)
         elseif haskey(replacements, var_id)
-            trace_values[replacements[var_id]] = entry.values
+            trace_values[replacements[var_id]] = (tp, entry.values)
         else
             @info var_id
             @info entry
@@ -54,6 +55,17 @@ function extract_solution(sc::SolutionContext, solution_path::Path)
             @info base_output
             @info output
             trace_values[replacements[var_id]] = entry.values
+        end
+    end
+    if !haskey(trace_values, "output")
+        entry = sc.entries[sc.branch_entries[sc.target_branch_id]]
+        trace_values["output"] = (sc.types[entry.type_id], entry.values)
+    end
+    for (var_id, name) in sc.input_keys
+        if !haskey(trace_values, name)
+            # Using var id as branch id because they are the same for input variables
+            entry = sc.entries[sc.branch_entries[var_id]]
+            trace_values[name] = (sc.types[entry.type_id], entry.values)
         end
     end
 
