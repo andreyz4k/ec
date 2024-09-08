@@ -825,7 +825,7 @@ function main(; kwargs...)
             log_traces(cur_traces)
             log_grammar(i, grammar)
 
-            guiding_model = update_guiding_model(guiding_model, grammar, traces)
+            guiding_model = update_guiding_model(guiding_model, traces)
             save_checkpoint(parsed_args, i, traces, grammar, guiding_model)
         end
     finally

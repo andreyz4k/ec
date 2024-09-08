@@ -1,13 +1,124 @@
 
 using Flux
+using NNlib
 
-struct NNGuidingModel
+using Metal
+
+alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789[](){},.;#?_+-*\$=> "
+
+d_gr = 64
+d_in = 64
+d_out = 64
+d_val = 64
+
+d_state_in = d_gr + d_in + d_out + d_val + 1
+d_state_h = 128
+d_state_out = 64
+
+d_dec_h = 64
+
+struct GrammarEncoder
     model::Any
 end
 
-function NNGuidingModel()
-    return NNGuidingModel(nothing)
+function GrammarEncoder()
+    return GrammarEncoder(LSTM(length(alphabet), d_gr))
 end
+
+function (m::GrammarEncoder)(f_embs)
+    hcat([
+        begin
+            Flux.reset!(m.model)
+            [m.model(x) for x in f_emb][end]
+        end for f_emb in f_embs
+    ]...)
+end
+
+Flux.@layer GrammarEncoder
+
+struct InputEncoder
+    model::Any
+end
+
+function InputEncoder()
+    return InputEncoder(LSTM(length(alphabet), d_in))
+end
+
+function (m::InputEncoder)(x_embs)
+    embs = hcat([
+        begin
+            Flux.reset!(m.model)
+            [m.model(x) for x in x_emb][end]
+        end for x_emb in x_embs
+    ]...)
+    logsumexp(embs, dims = 2)
+end
+
+Flux.@layer InputEncoder
+
+struct OutputEncoder
+    model::Any
+end
+
+function OutputEncoder()
+    return OutputEncoder(LSTM(length(alphabet), d_out))
+end
+
+function (m::OutputEncoder)(y_emb)
+    Flux.reset!(m.model)
+    [m.model(y) for y in y_emb][end]
+end
+
+Flux.@layer OutputEncoder
+
+struct ValueEncoder
+    model::Any
+end
+
+function ValueEncoder()
+    return ValueEncoder(LSTM(length(alphabet), d_val))
+end
+
+function (m::ValueEncoder)(v_emb)
+    Flux.reset!(m.model)
+    [m.model(v) for v in v_emb][end]
+end
+
+Flux.@layer ValueEncoder
+
+struct NNGuidingModel
+    grammar_encoder::GrammarEncoder
+    input_encoder::InputEncoder
+    output_encoder::OutputEncoder
+    value_encoder::ValueEncoder
+    state_processor::Chain
+    decoder::Chain
+end
+
+function NNGuidingModel()
+    grammar_encoder = GrammarEncoder()
+    input_encoder = InputEncoder()
+    output_encoder = OutputEncoder()
+    value_encoder = ValueEncoder()
+    state_processor = Chain(Dense(d_state_in, d_state_h, relu), Dense(d_state_h, d_state_out, relu)) |> gpu
+    decoder = Chain(Dense(d_state_out + d_gr, d_dec_h, relu), Dense(d_dec_h, 1)) |> gpu
+    return NNGuidingModel(grammar_encoder, input_encoder, output_encoder, value_encoder, state_processor, decoder)
+end
+
+function (m::NNGuidingModel)(inps)
+    f_embs, x_embs, y_embs, v_embs, is_reversed = inps
+    f_emb = m.grammar_encoder(f_embs) |> gpu
+    gr_embs = logsumexp(f_emb, dims = 2)
+
+    x_emb = m.input_encoder(x_embs) |> gpu
+    y_emb = m.output_encoder(y_embs) |> gpu
+    v_emb = m.value_encoder(v_embs) |> gpu
+    state_emb = vcat(gr_embs, x_emb, y_emb, v_emb, is_reversed)
+    state = m.state_processor(state_emb)
+    return m.decoder(vcat(upsample_nearest(reshape(state, size(state, 1), 1), (1, size(f_emb, 2))), f_emb))
+end
+
+Flux.@layer NNGuidingModel
 
 function _extract_program_blocks(p::LetRevClause, blocks)
     push!(blocks, (p.inp_var_id, p.v, true))
@@ -36,7 +147,7 @@ end
 mutable struct LikelihoodSummary
     uses::Dict
     normalizers::Dict
-    constant::Float64
+    constant::Float32
 end
 
 function LikelihoodSummary()
@@ -292,10 +403,24 @@ function _build_likelihood_summary(
     return context, summary
 end
 
+function _preprocess_summary(summary::LikelihoodSummary, grammar_length)
+    uses = zeros(Float32, grammar_length)
+    for (i, count) in summary.uses
+        uses[i] = count
+    end
+    mask = fill(-Inf32, length(summary.normalizers), grammar_length)
+    N = zeros(Float32, length(summary.normalizers))
+    for (i, (norm_set, count)) in enumerate(summary.normalizers)
+        N[i] = count
+        mask[i, norm_set] .= 0
+    end
+    return (uses, mask, N, summary.constant)
+end
+
 function build_likelihood_summary(grammar, request, p, is_reversed)
     summary = LikelihoodSummary()
     context, request = instantiate(request, empty_context)
-    return _build_likelihood_summary(
+    _, summary = _build_likelihood_summary(
         grammar,
         p,
         request,
@@ -307,22 +432,27 @@ function build_likelihood_summary(grammar, request, p, is_reversed)
         [],
         Dict(),
         summary,
-    )[2]
+    )
+    return _preprocess_summary(summary, length(grammar) + 3)
 end
+
+using Flux: onehot
+tokenise(s) = [onehot(c, alphabet) for c in string(s)]
 
 function expand_traces(all_traces)
     output = []
     for (grammar, gr_traces) in values(all_traces)
+        grammar_emb = vcat([tokenise(p) for p in grammar], [tokenise("\$0"), tokenise("lambda"), tokenise("\$v1")])
         for (task_name, traces) in gr_traces
             for (hit, cost) in traces
-                outputs = hit.trace_values["output"]
-                inputs = [v for (k, v) in hit.trace_values if isa(k, String) && k != "output"]
+                outputs = tokenise(hit.trace_values["output"])
+                inputs = [tokenise(v) for (k, v) in hit.trace_values if isa(k, String) && k != "output"]
 
                 blocks = extract_program_blocks(hit.hit_program)
                 for (var_id, p, is_rev) in blocks
                     trace_val = hit.trace_values[var_id]
                     summary = build_likelihood_summary(grammar, trace_val[1], p, is_rev)
-                    push!(output, (grammar, inputs, outputs, trace_val, is_rev, summary))
+                    push!(output, ((grammar_emb, inputs, outputs, tokenise(trace_val), is_rev), summary))
                 end
             end
         end
@@ -330,6 +460,43 @@ function expand_traces(all_traces)
     return output
 end
 
-function update_guiding_model(guiding_model::NNGuidingModel, grammar, traces)
+function loss(result, summary)
+    uses, mask, N, constant = summary
+    uses = uses |> gpu
+    mask = mask |> gpu
+    N = N |> gpu
+    constant = constant |> gpu
+    # result = result |> gpu
+    numenator = sum(result .* uses) + constant
+
+    z = (mask .+ repeat(result, size(mask, 1), 1))
+    z = logsumexp(z, dims = 2)
+    denominator = sum(N .* z)
+    return denominator - numenator
+end
+
+using ProgressMeter
+
+function update_guiding_model(guiding_model::NNGuidingModel, traces)
+    train_set = expand_traces(traces)
+
+    opt_state = Flux.setup(Adam(0.001, (0.9, 0.999), 1e-8), guiding_model)
+
+    @showprogress for data in train_set
+        # Unpack this element (for supervised training):
+        input, summary = data
+
+        # Calculate the gradient of the objective
+        # with respect to the parameters within the model:
+        grads = Flux.gradient(guiding_model) do m
+            result = m(input)
+            loss(result, summary)
+        end
+
+        # Update the parameters so as to reduce the objective,
+        # according the chosen optimisation rule:
+        Flux.update!(opt_state, guiding_model, grads[1])
+    end
+
     return guiding_model
 end
