@@ -53,6 +53,8 @@ end
 function get_guiding_model(model)
     if model == "dummy"
         return DummyGuidingModel()
+    elseif model == "nn"
+        return NNGuidingModel()
     end
     error("Unknown model: $model")
 end

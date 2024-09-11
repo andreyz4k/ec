@@ -10,8 +10,8 @@ using Transformers
 d_emb = 384
 
 d_state_in = d_emb * 4 + 1
-d_state_h = 128
-d_state_out = 64
+d_state_h = 512
+d_state_out = 384
 
 d_dec_h = 64
 
@@ -60,7 +60,11 @@ end
 function NNGuidingModel()
     embedder = Embedder()
     grammar_encoder = GrammarEncoder()
-    state_processor = Chain(Dense(d_state_in, d_state_h, relu), Dense(d_state_h, d_state_out, relu))
+    state_processor = Chain(
+        Dense(d_state_in, d_state_h, relu),
+        Dense(d_state_h, d_state_h, relu),
+        Dense(d_state_h, d_state_out, relu),
+    )
     decoder = Chain(Dense(d_state_out + d_emb, d_dec_h, relu), Dense(d_dec_h, 1))
     return NNGuidingModel(embedder, grammar_encoder, state_processor, decoder)
 end
@@ -515,7 +519,7 @@ function update_guiding_model(guiding_model::NNGuidingModel, traces)
     opt_state = Flux.setup(Adam(0.001, (0.9, 0.999), 1e-8), guiding_model)
 
     train_set_size = sum(length, train_set)
-    epochs = 10
+    epochs = 100
     for e in 1:epochs
         p = Progress(train_set_size)
         losses = Float32[]
@@ -549,4 +553,31 @@ function update_guiding_model(guiding_model::NNGuidingModel, traces)
     end
 
     return guiding_model
+end
+
+function generate_grammar(sc::SolutionContext, guiding_model::NNGuidingModel, grammar, entry_id, is_known)
+    str_grammar = vcat([string(p) for p in grammar], ["\$0", "lambda", "\$v1"])
+    inputs = Dict()
+    for (var_id, name) in sc.input_keys
+        # Using var id as branch id because they are the same for input variables
+        entry = sc.entries[sc.branch_entries[var_id]]
+        inputs[name] = (sc.types[entry.type_id], entry.values)
+    end
+    output_entry = sc.entries[sc.branch_entries[sc.target_branch_id]]
+    output = string((sc.types[output_entry.type_id], output_entry.values))
+
+    val_entry = sc.entries[sc.branch_entries[entry_id]]
+    trace_val = string((sc.types[val_entry.type_id], val_entry.values))
+
+    model_inputs = (str_grammar, string(inputs), output, trace_val, [is_known])
+    preprocessed_inputs = _preprocess_input_batch(guiding_model, model_inputs)
+    result = guiding_model(preprocessed_inputs)
+
+    productions = Tuple{Program,Tp,Float64}[(p, p.t, result[i]) for (i, p) in enumerate(grammar)]
+    log_variable = result[end-2]
+    log_lambda = result[end-1]
+    log_free_var = result[end]
+
+    g = Grammar(log_variable, log_lambda, log_free_var, productions, nothing)
+    return make_dummy_contextual(g)
 end
