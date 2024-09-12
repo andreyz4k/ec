@@ -55,6 +55,8 @@ struct NNGuidingModel
 
     state_processor::Chain
     decoder::Chain
+
+    contextual_cache::Dict
 end
 
 function NNGuidingModel()
@@ -66,7 +68,7 @@ function NNGuidingModel()
         Dense(d_state_h, d_state_out, relu),
     )
     decoder = Chain(Dense(d_state_out + d_emb, d_dec_h, relu), Dense(d_dec_h, 1))
-    return NNGuidingModel(embedder, grammar_encoder, state_processor, decoder)
+    return NNGuidingModel(embedder, grammar_encoder, state_processor, decoder, Dict())
 end
 
 function (m::NNGuidingModel)(input_batch)
@@ -555,6 +557,11 @@ function update_guiding_model(guiding_model::NNGuidingModel, traces)
     return guiding_model
 end
 
+function _grammar_with_weights(grammar::Grammar, production_scores, log_variable, log_lambda, log_free_var)
+    productions = Tuple{Program,Tp,Float64}[(p, t, production_scores[p]) for (p, t, _) in grammar.library]
+    return Grammar(log_variable, log_lambda, log_free_var, productions, nothing)
+end
+
 function generate_grammar(sc::SolutionContext, guiding_model::NNGuidingModel, grammar, entry_id, is_known)
     str_grammar = vcat([string(p) for p in grammar], ["\$0", "lambda", "\$v1"])
     inputs = Dict()
@@ -566,18 +573,33 @@ function generate_grammar(sc::SolutionContext, guiding_model::NNGuidingModel, gr
     output_entry = sc.entries[sc.branch_entries[sc.target_branch_id]]
     output = string((sc.types[output_entry.type_id], output_entry.values))
 
-    val_entry = sc.entries[sc.branch_entries[entry_id]]
+    val_entry = sc.entries[entry_id]
     trace_val = string((sc.types[val_entry.type_id], val_entry.values))
 
     model_inputs = (str_grammar, string(inputs), output, trace_val, [is_known])
     preprocessed_inputs = _preprocess_input_batch(guiding_model, model_inputs)
     result = guiding_model(preprocessed_inputs)
 
-    productions = Tuple{Program,Tp,Float64}[(p, p.t, result[i]) for (i, p) in enumerate(grammar)]
     log_variable = result[end-2]
     log_lambda = result[end-1]
     log_free_var = result[end]
-
-    g = Grammar(log_variable, log_lambda, log_free_var, productions, nothing)
-    return make_dummy_contextual(g)
+    if !haskey(guiding_model.contextual_cache, grammar)
+        productions = Tuple{Program,Tp,Float64}[(p, p.t, result[i]) for (i, p) in enumerate(grammar)]
+        g = Grammar(log_variable, log_lambda, log_free_var, productions, nothing)
+        guiding_model.contextual_cache[grammar] = make_dummy_contextual(g)
+        return guiding_model.contextual_cache[grammar]
+    else
+        prototype = guiding_model.contextual_cache[grammar]
+        production_scores = Dict{Program,Float64}(p => result[i] for (i, p) in enumerate(grammar))
+        return ContextualGrammar(
+            _grammar_with_weights(prototype.no_context, production_scores, log_variable, log_lambda, log_free_var),
+            _grammar_with_weights(prototype.no_context, production_scores, log_variable, log_lambda, log_free_var),
+            Dict(
+                p => [
+                    _grammar_with_weights(g, production_scores, log_variable, log_lambda, log_free_var) for
+                    g in grammars
+                ] for (p, grammars) in prototype.contextual_library
+            ),
+        )
+    end
 end
