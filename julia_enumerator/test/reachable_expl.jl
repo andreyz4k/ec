@@ -139,7 +139,7 @@ using DataStructures
     ]
 
     function build_grammar(library)
-        return Dict(p => parse_program(p) for p in library)
+        return [parse_program(p) for p in library]
     end
 
     function create_task(task_dict)
