@@ -7,7 +7,7 @@ function get_complexity_summary(values, t)
     return accum
 end
 
-function get_complexity_summary(values, t::TypeConstructor, accum)
+function get_complexity_summary(@nospecialize(values), t::TypeConstructor, accum)
     inc!(accum, t.name)
     if isempty(t.arguments)
         return

@@ -557,7 +557,7 @@ function _run_in_reverse(p_info, output, context)
     return __run_in_reverse(p_info, output, context)
 end
 
-function __run_in_reverse(p_info::PrimitiveInfo, output, context)
+function __run_in_reverse(p_info::PrimitiveInfo, @nospecialize(output::Any), context)
     # @info "Running in reverse $(p_info.p) $output $context"
     try
         return all_abstractors[p_info.p][2](output, context)

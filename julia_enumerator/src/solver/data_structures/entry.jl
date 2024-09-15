@@ -463,6 +463,7 @@ end
 Base.hash(v::PatternEntry, h::UInt64) = hash(v.type_id, hash(v.values, h))
 Base.:(==)(v1::PatternEntry, v2::PatternEntry) = v1.type_id == v2.type_id && v1.values == v2.values
 
+@nospecialize
 _match_value(unknown_value::AnyObject, known_value) = true
 _match_value(unknown_value::AnyObject, known_value::PatternWrapper) = true
 _match_value(unknown_value::PatternWrapper, known_value) = _match_value(unknown_value.value, known_value)
@@ -522,6 +523,7 @@ function _match_value(unknown_value::Set, known_value::Set)
 end
 
 _match_value(unknown_value::Set, known_value) = false
+@specialize
 
 match_at_index(entry::PatternEntry, index::Int, value) = _match_value(entry.values[index], value)
 
