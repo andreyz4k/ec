@@ -852,6 +852,11 @@ function update_guiding_model(guiding_model::NNGuidingModel, traces)
     return guiding_model
 end
 
+function run_guiding_model(guiding_model::NNGuidingModel, model_inputs)
+    preprocessed_inputs = _preprocess_input_batch(guiding_model, model_inputs)
+    return guiding_model(preprocessed_inputs)
+end
+
 function _grammar_with_weights(grammar::Grammar, production_scores, log_variable, log_lambda, log_free_var)
     productions = Tuple{Program,Tp,Float64}[(p, t, production_scores[p]) for (p, t, _) in grammar.library]
     return Grammar(log_variable, log_lambda, log_free_var, productions, nothing)

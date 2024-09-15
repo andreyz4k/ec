@@ -59,14 +59,14 @@ function get_guiding_model(model)
     error("Unknown model: $model")
 end
 
-function enqueue_updates(sc::SolutionContext, guiding_model, grammar)
+function enqueue_updates(sc::SolutionContext, guiding_model_channels, grammar)
     new_unknown_branches = Set(get_new_values(sc.branch_is_unknown))
     new_explained_branches = Set(get_new_values(sc.branch_is_not_copy))
     updated_factors_unknown_branches = Set(get_new_values(sc.unknown_complexity_factors))
     updated_factors_explained_branches = Set(get_new_values(sc.explained_complexity_factors))
     for branch_id in updated_factors_unknown_branches
         if in(branch_id, new_unknown_branches)
-            enqueue_unknown_var(sc, branch_id, guiding_model, grammar)
+            enqueue_unknown_var(sc, branch_id, guiding_model_channels, grammar)
         elseif haskey(sc.branch_queues_unknown, branch_id)
             update_branch_priority(sc, branch_id, false)
         end
@@ -76,7 +76,7 @@ function enqueue_updates(sc::SolutionContext, guiding_model, grammar)
             continue
         end
         if !haskey(sc.branch_queues_explained, branch_id)
-            enqueue_known_var(sc, branch_id, guiding_model, grammar)
+            enqueue_known_var(sc, branch_id, guiding_model_channels, grammar)
         else
             update_branch_priority(sc, branch_id, true)
         end
@@ -431,7 +431,7 @@ function enumeration_iteration(
     run_context,
     sc::SolutionContext,
     max_free_parameters::Int,
-    guiding_model,
+    guiding_model_channels,
     grammar,
     q,
     bp::BlockPrototype,
@@ -461,7 +461,7 @@ function enumeration_iteration(
                 end
                 q[new_bp] = new_bp.cost
             end
-            enqueue_updates(sc, guiding_model, grammar)
+            enqueue_updates(sc, guiding_model_channels, grammar)
             if isempty(unfinished_prototypes)
                 sc.total_number_of_enumerated_programs += 1
             end
@@ -488,7 +488,7 @@ end
 
 function solve_task(
     task,
-    guiding_model,
+    guiding_model_channels,
     grammar,
     timeout_container,
     timeout,
@@ -515,7 +515,7 @@ function solve_task(
 
     start_time = time()
 
-    enqueue_updates(sc, guiding_model, grammar)
+    enqueue_updates(sc, guiding_model_channels, grammar)
     save_changes!(sc, 0)
 
     from_input = true
@@ -536,7 +536,7 @@ function solve_task(
             run_context,
             sc,
             max_free_parameters,
-            guiding_model,
+            guiding_model_channels,
             grammar,
             q,
             bp,
@@ -575,7 +575,7 @@ end
 
 function try_solve_task(
     task,
-    guiding_model,
+    guiding_model_channels,
     grammar,
     timeout_containers,
     timeout,
@@ -590,7 +590,7 @@ function try_solve_task(
     traces = try
         solve_task(
             task,
-            guiding_model,
+            guiding_model_channels,
             grammar,
             timeout_container,
             timeout,
@@ -640,6 +640,56 @@ function try_solve_tasks(
             maximum_solutions,
             verbose,
         )
+    end
+    filter!(tr -> !isempty(tr["traces"]), new_traces)
+    @info "Got new solutions for $(length(new_traces))/$(length(tasks)) tasks"
+    return new_traces
+end
+
+function try_solve_tasks(
+    worker_pool,
+    tasks,
+    guiding_model_server::GuidingModelServer,
+    grammar,
+    timeout,
+    program_timeout,
+    type_weights,
+    hyperparameters,
+    maximum_solutions,
+    verbose,
+)
+    timeout_containers = worker_pool.timeout_containers
+    register_channel = guiding_model_server.worker_register_channel
+    register_response_channel = guiding_model_server.worker_register_result_channel
+    new_traces = pmap(
+        worker_pool,
+        tasks;
+        retry_check = (s, e) -> isa(e, ProcessExitedException),
+        retry_delays = zeros(5),
+    ) do task
+        # new_traces = map(tasks) do task
+        put!(register_channel, myid())
+        while true
+            pid, request_channel, result_channel = take!(register_response_channel)
+            if pid == myid()
+                @time try_solve_task(
+                    task,
+                    (request_channel, result_channel),
+                    grammar,
+                    timeout_containers,
+                    timeout,
+                    program_timeout,
+                    type_weights,
+                    hyperparameters,
+                    maximum_solutions,
+                    verbose,
+                )
+                break
+            else
+                put!(register_response_channel, (pid, request_channel, result_channel))
+                sleep(0.01)
+            end
+        end
     end
     filter!(tr -> !isempty(tr["traces"]), new_traces)
     @info "Got new solutions for $(length(new_traces))/$(length(tasks)) tasks"
@@ -761,6 +811,9 @@ function main(; kwargs...)
         i = 1
     end
 
+    guiding_model_server = GuidingModelServer(guiding_model)
+    start_server(guiding_model_server)
+
     grammar_hash = hash(grammar)
 
     @info "Parsed arguments $parsed_args"
@@ -792,7 +845,7 @@ function main(; kwargs...)
             new_traces = try_solve_tasks(
                 worker_pool,
                 tasks,
-                guiding_model,
+                guiding_model_server,
                 grammar,
                 parsed_args[:timeout],
                 parsed_args[:program_timeout],
@@ -832,5 +885,6 @@ function main(; kwargs...)
         end
     finally
         stop(worker_pool)
+        stop_server(guiding_model_server)
     end
 end

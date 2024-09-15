@@ -142,7 +142,7 @@ function get_candidates_for_unknown_var_old(sc, branch_id, g)::Vector{BlockProto
     prototypes
 end
 
-function get_candidates_for_unknown_var(sc, branch_id, guiding_model, grammar)::Vector{BlockPrototype}
+function get_candidates_for_unknown_var(sc, branch_id, guiding_model_channels, grammar)::Vector{BlockPrototype}
     var_id = sc.branch_vars[branch_id]
     type_id = first(get_connected_from(sc.branch_types, branch_id))
     type = sc.types[type_id]
@@ -152,7 +152,7 @@ function get_candidates_for_unknown_var(sc, branch_id, guiding_model, grammar)::
     if !isa(entry, NoDataEntry) && sc.complexities[branch_id] > 0
         context, type = instantiate(type, empty_context)
         if !haskey(sc.entry_grammars, (entry_id, false))
-            g = generate_grammar(sc, guiding_model, grammar, entry_id, false)
+            g = generate_grammar(sc, guiding_model_channels, grammar, entry_id, false)
             sc.entry_grammars[(entry_id, false)] = g
         end
         push!(
@@ -224,7 +224,7 @@ function get_candidates_for_known_var_old(sc, branch_id, g)
     prototypes
 end
 
-function get_candidates_for_known_var(sc, branch_id, guiding_model, grammar)
+function get_candidates_for_known_var(sc, branch_id, guiding_model_channels, grammar)
     prototypes = []
     var_id = sc.branch_vars[branch_id]
     entry_id = sc.branch_entries[branch_id]
@@ -235,7 +235,7 @@ function get_candidates_for_known_var(sc, branch_id, guiding_model, grammar)
         context, type = instantiate(type, empty_context)
 
         if !haskey(sc.entry_grammars, (entry_id, true))
-            g = generate_grammar(sc, guiding_model, grammar, entry_id, true)
+            g = generate_grammar(sc, guiding_model_channels, grammar, entry_id, true)
             sc.entry_grammars[(entry_id, true)] = g
         end
 
@@ -303,11 +303,11 @@ function enqueue_known_var_old(sc, branch_id, g)
     end
 end
 
-function enqueue_known_var(sc, branch_id, guiding_model, grammar)
+function enqueue_known_var(sc, branch_id, guiding_model_channels, grammar)
     if branch_id == sc.target_branch_id
         return
     end
-    prototypes = get_candidates_for_known_var(sc, branch_id, guiding_model, grammar)
+    prototypes = get_candidates_for_known_var(sc, branch_id, guiding_model_channels, grammar)
     if haskey(sc.branch_queues_explained, branch_id)
         q = sc.branch_queues_explained[branch_id]
     else
@@ -368,8 +368,8 @@ function enqueue_unknown_var_old(sc, branch_id, g)
     end
 end
 
-function enqueue_unknown_var(sc, branch_id, guiding_model, grammar)
-    prototypes = get_candidates_for_unknown_var(sc, branch_id, guiding_model, grammar)
+function enqueue_unknown_var(sc, branch_id, guiding_model_channels, grammar)
+    prototypes = get_candidates_for_unknown_var(sc, branch_id, guiding_model_channels, grammar)
     if haskey(sc.branch_queues_unknown, branch_id)
         q = sc.branch_queues_unknown[branch_id]
     else

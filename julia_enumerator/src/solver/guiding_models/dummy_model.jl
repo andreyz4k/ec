@@ -7,6 +7,13 @@ function DummyGuidingModel()
     return DummyGuidingModel(Dict())
 end
 
+function run_guiding_model(guiding_model::DummyGuidingModel, model_inputs)
+    grammar_len = length(model_inputs[1])
+    result = [0.0 for _ in 1:grammar_len]
+    result[end-1:end] = [-3.0, -3.0]
+    return result
+end
+
 function generate_grammar(sc, guiding_model::DummyGuidingModel, grammar, entry_id, is_known)
     if !haskey(guiding_model.grammars, grammar)
         log_variable = 0.0

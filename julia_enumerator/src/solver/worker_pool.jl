@@ -7,19 +7,24 @@ mutable struct ReplenishingWorkerPool <: AbstractWorkerPool
     ReplenishingWorkerPool(num_workers) = new(WorkerPool(), num_workers, Dict(), [])
 end
 
+function launch_worker()
+    pid = addprocs(1, exeflags = "--heap-size-hint=1G")[1]
+    @warn "running import on new worker $pid"
+    ex = Expr(
+        :toplevel,
+        :(task_local_storage()[:SOURCE_PATH] = $(get(task_local_storage(), :SOURCE_PATH, nothing))),
+        :(using solver),
+        :(using Transformers),
+        :(enable_gpu()),
+    )
+    Distributed.remotecall_eval(Main, pid, ex)
+    return pid
+end
+
 function add_new_worker(pool::ReplenishingWorkerPool)
-    @async begin
+    Threads.@spawn begin
         try
-            pid = addprocs(1, exeflags = "--heap-size-hint=1G")[1]
-            @warn "running import on new worker $pid"
-            ex = Expr(
-                :toplevel,
-                :(task_local_storage()[:SOURCE_PATH] = $(get(task_local_storage(), :SOURCE_PATH, nothing))),
-                :(using solver),
-                :(using Transformers),
-                :(enable_gpu()),
-            )
-            Distributed.remotecall_eval(Main, pid, ex)
+            pid = launch_worker()
             @warn "Starting timeout monitor for new worker $pid"
             timeout_container = start_timeout_monitor(pid)
             @warn "Created timeout container for new worker $pid"
