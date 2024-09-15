@@ -489,7 +489,9 @@ function expand_traces(all_traces, batch_size = 1)
                 end
             end
         end
-        push!(groups, DataLoader(DataBlock(str_grammar, X_data, summaries), batchsize = batch_size))
+        if !isempty(X_data)
+            push!(groups, DataLoader(DataBlock(str_grammar, X_data, summaries), batchsize = batch_size))
+        end
     end
     return groups
 end
@@ -517,6 +519,9 @@ using ProgressMeter
 
 function update_guiding_model(guiding_model::NNGuidingModel, traces)
     train_set = expand_traces(traces, 16)
+    if isempty(train_set)
+        return guiding_model
+    end
 
     opt_state = Flux.setup(Adam(0.001, (0.9, 0.999), 1e-8), guiding_model)
 
