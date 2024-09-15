@@ -4,26 +4,20 @@ struct GuidingModelServer
     worker_register_channel::RemoteChannel
     worker_register_result_channel::RemoteChannel
     request_channel::RemoteChannel
-    result_channel::RemoteChannel
     result_channels::Dict{Int,RemoteChannel}
-    worker_pid::Int
 end
 
 function GuidingModelServer(model)
     worker_register_channel = RemoteChannel(() -> Channel{Int}(20))
     worker_register_result_channel = RemoteChannel(() -> Channel{Any}(20))
     request_channel = RemoteChannel(() -> Channel{Any}(100))
-    result_channel = RemoteChannel(() -> Channel{Any}(100))
     result_channels = Dict{Int,RemoteChannel}()
-    pid = launch_worker()
     return GuidingModelServer(
         model,
         worker_register_channel,
         worker_register_result_channel,
         request_channel,
-        result_channel,
         result_channels,
-        pid,
     )
 end
 
@@ -41,25 +35,14 @@ function _registration_loop(server::GuidingModelServer)
     end
 end
 
-function _redirect_loop(server::GuidingModelServer)
+function _guiding_processing_loop(server::GuidingModelServer)
     while true
-        worker_ids, guiding_result = take!(server.result_channel)
-        for (i, worker_id) in enumerate(worker_ids)
-            result_channel = server.result_channels[worker_id]
-            worker_result = guiding_result[:, i]
-            put!(result_channel, worker_result)
-        end
-    end
-end
-
-function _guiding_processing_loop(model, request_channel, result_channel)
-    while true
-        request = take!(request_channel)
+        request = take!(server.request_channel)
         worker_id, (grammar, input, output, trace_val, is_rev) = request
         worker_ids = [worker_id]
         batch = ([input], [output], [trace_val], [is_rev])
-        while isready(request_channel)
-            request = take!(request_channel)
+        while isready(server.request_channel)
+            request = take!(server.request_channel)
             worker_id, (_, input, output, trace_val, is_rev) = request
             push!(worker_ids, worker_id)
             push!(batch[1], input)
@@ -69,21 +52,21 @@ function _guiding_processing_loop(model, request_channel, result_channel)
         end
 
         model_inputs = (grammar, batch[1:3]..., hcat(batch[4]...))
-        @info model_inputs
+        # @info model_inputs
 
-        @time guiding_result = run_guiding_model(model, model_inputs)
+        @time guiding_result = run_guiding_model(server.model, model_inputs)
         @info "Batch size: $(length(worker_ids))"
-        put!(result_channel, (worker_ids, guiding_result))
+        for (i, worker_id) in enumerate(worker_ids)
+            result_channel = server.result_channels[worker_id]
+            worker_result = guiding_result[:, i]
+            put!(result_channel, worker_result)
+        end
     end
 end
 
 function start_server(server::GuidingModelServer)
     Threads.@spawn _registration_loop(server)
-    Threads.@spawn _redirect_loop(server)
-    model = server.model
-    request_channel = server.request_channel
-    result_channel = server.result_channel
-    @spawnat server.worker_pid _guiding_processing_loop(model, request_channel, result_channel)
+    Threads.@spawn _guiding_processing_loop(server)
 end
 
 function stop_server(server::GuidingModelServer)
@@ -93,7 +76,6 @@ function stop_server(server::GuidingModelServer)
     for (worker_id, result_channel) in server.result_channels
         close(result_channel)
     end
-    rmprocs(server.worker_pid)
     @info "Guiding model server stopped"
 end
 
@@ -113,9 +95,10 @@ function generate_grammar(sc::SolutionContext, guiding_model_channels, grammar, 
 
     model_inputs = (str_grammar, string(inputs), output, trace_val, [is_known])
 
-    put!(guiding_model_channels[1], (myid(), model_inputs))
-
-    result = take!(guiding_model_channels[2])
+    @time begin
+        put!(guiding_model_channels[1], (myid(), model_inputs))
+        result = take!(guiding_model_channels[2])
+    end
 
     log_variable = result[end-2]
     log_lambda = result[end-1]

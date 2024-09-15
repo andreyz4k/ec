@@ -672,7 +672,7 @@ function try_solve_tasks(
         while true
             pid, request_channel, result_channel = take!(register_response_channel)
             if pid == myid()
-                @time try_solve_task(
+                return @time try_solve_task(
                     task,
                     (request_channel, result_channel),
                     grammar,
@@ -684,7 +684,6 @@ function try_solve_tasks(
                     maximum_solutions,
                     verbose,
                 )
-                break
             else
                 put!(register_response_channel, (pid, request_channel, result_channel))
                 sleep(0.01)
@@ -884,7 +883,7 @@ function main(; kwargs...)
             save_checkpoint(parsed_args, i, traces, grammar, guiding_model)
         end
     finally
-        stop(worker_pool)
         stop_server(guiding_model_server)
+        stop(worker_pool)
     end
 end
