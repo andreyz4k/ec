@@ -14,30 +14,189 @@ d_state_h = 512
 d_state_out = 384
 
 d_dec_h = 64
+head_num = 4
+
+using Transformers.TextEncoders
+
+vocab = vcat(
+    ["pr_$n" for (n, p) in every_primitive],
+    [string(i) for i in 0:9],
+    ["i$i" for i in 0:9],
+    ["v$i" for i in 0:9],
+    [" $i" for i in 0:9],
+    ["c$i" for i in 0:9],
+    [
+        "(",
+        ")",
+        "\$",
+        "\$v",
+        "lambda",
+        "inp",
+        "SetConst",
+        "#",
+        "[",
+        "]",
+        ";",
+        ",",
+        "any_object",
+        "[[",
+        "]]",
+        "EitherOptions(",
+        "PatternWrapper(",
+        "AbductibleValue(",
+    ],
+)
+
+tokenize(p::Primitive) = ["pr_$p"]
+tokenize(p::Abstraction) = vcat(["(", "lambda"], tokenize(p.b), [")"])
+tokenize(p::Index) = vcat(["\$"], ["i$s" for s in split(string(p), "")])
+function tokenize(p::FreeVar)
+    if isa(p.var_id, String)
+        if startswith(p.var_id, "inp")
+            vcat(["\$v", "inp"], ["v$s" for s in split(string(p), "")[4:end]])
+        else
+            error("Unknown free var id: $(p.var_id)")
+        end
+    else
+        vcat(["\$v"], ["v$s" for s in split(string(p), "")])
+    end
+end
+tokenize(p::Apply) = vcat(["("], tokenize(p.f), tokenize(p.x), [")"])
+tokenize(p::SetConst) = vcat(["SetConst"], tokenize(p.t, p.value))
+tokenize(p::Invented) = vcat(["#"], tokenize(p.b))
+
+function tokenize(t::Tp, v::Int)
+    if t == tint
+        chars = split(string(v), "")
+        return vcat([" $(chars[1])"], chars[2:end])
+    elseif t == tcolor
+        return ["c$v"]
+    else
+        error("Unknown type for int: $t")
+    end
+end
+tokenize(t, v::AnyObject) = ["any_object"]
+
+function tokenize(t, v::Vector, is_top = false)
+    tokens = ["["]
+    for (i, x) in enumerate(v)
+        if i > 1
+            push!(tokens, ",")
+        end
+        if is_top
+            append!(tokens, tokenize(t, x))
+        else
+            append!(tokens, tokenize(t.arguments[1], x))
+        end
+    end
+    push!(tokens, "]")
+    return tokens
+end
+
+function tokenize(t::TypeConstructor, v::Matrix)
+    tokens = ["[["]
+    for i in 1:size(v, 1)
+        if i > 1
+            push!(tokens, ";")
+        end
+        for j in 1:size(v, 2)
+            if j > 1
+                push!(tokens, ",")
+            end
+            append!(tokens, tokenize(t.arguments[1], v[i, j]))
+        end
+    end
+    push!(tokens, "]]")
+    return tokens
+end
+tokenize(t::TypeConstructor, v::Tuple) =
+    vcat(["("], tokenize(t.arguments[1], v[1]), [","], tokenize(t.arguments[2], v[2]), [")"])
+
+function tokenize(t, v::EitherOptions)
+    tokens = ["EitherOptions("]
+    for (i, (_, x)) in enumerate(v.options)
+        if i > 1
+            push!(tokens, ",")
+        end
+        append!(tokens, tokenize(t, x))
+    end
+    push!(tokens, ")")
+    return tokens
+end
+tokenize(t, v::PatternWrapper) = vcat(["PatternWrapper("], tokenize(t, v.value), [")"])
+tokenize(t, v::AbductibleValue) = vcat(["AbductibleValue("], tokenize(t, v.value), [")"])
+
+annotate_objects(x) = TextEncoders.TextEncodeBase.Sentence(x)
+annotate_objects(x::Vector) = TextEncoders.TextEncodeBase.Batch{TextEncoders.TextEncodeBase.Sentence}(x)
+
+Base.isempty(::Program) = false
+struct ExpCoderTokenization <: TextEncoders.AbstractTokenization end
+
+TextEncoders.TextEncodeBase.splittability(::ExpCoderTokenization, w::TextEncoders.TextEncodeBase.Sentence) =
+    TextEncoders.TextEncodeBase.Splittable()
+TextEncoders.TextEncodeBase.splittability(::ExpCoderTokenization, ::TextEncoders.TextEncodeBase.Batch) =
+    TextEncoders.TextEncodeBase.Splittable()
+
+function TextEncoders.TextEncodeBase.splitting(::ExpCoderTokenization, s::TextEncoders.TextEncodeBase.Batch)
+    s.x
+end
+function TextEncoders.TextEncodeBase.splitting(::ExpCoderTokenization, x::TextEncoders.TextEncodeBase.Sentence)
+    val = TextEncoders.TextEncodeBase.getvalue(x)
+    if isa(val, Program)
+        tokens = tokenize(val)
+    elseif isa(val, Tuple)
+        tokens = tokenize(val..., true)
+    elseif isa(val, Dict)
+        tokens = vcat([tokenize(v..., true) for (_, v) in val]...)
+    elseif isa(val, String)
+        tokens = [val]
+    else
+        error("Unknown type for tokenization: $val")
+    end
+    tokens = [TextEncoders.TextEncodeBase.Token(t) for t in tokens]
+    return tokens
+end
+
+TextEncoders.TextEncodeBase.wrap(::ExpCoderTokenization, b::TextEncoders.TextEncodeBase.Batch{S}, x) where {S} =
+    S(x, TextEncoders.TextEncodeBase.getmeta(b))
+TextEncoders.TextEncodeBase.wrap(::ExpCoderTokenization, t::TextEncoders.TextEncodeBase.TokenStage) = t
 
 struct Embedder
-    tokenizer::Any
-    enc_model::Any
-    cache::Any
+    embedder::Any
+    encoder::Any
+    pooler::Any
 end
 
 using Transformers.HuggingFace
 
+using Transformers.Layers
+
 function Embedder()
-    tokenizer, enc_model = hgf"avsolatorio/GIST-small-Embedding-v0"
-    return Embedder(tokenizer, enc_model, Dict())
+    embedder = Chain(
+        Layers.CompositeEmbedding(
+            token = Embed(d_emb, length(vocab) + 4),
+            position = Layers.ApplyEmbed(.+, SinCosPositionEmbed(d_emb)),
+            segment = Layers.ApplyEmbed(.+, Embed(d_emb, 2), Transformers.HuggingFace.bert_ones_like),
+        ),
+        Layers.DropoutLayer(LayerNorm(d_emb, ϵ = 1.0e-12), nothing),
+    )
+    encoder = Transformer(TransformerBlock, 2, head_num, d_emb, d_emb ÷ head_num, d_emb)
+    pooler = Layers.Branch{(:hidden_state,)}(
+        Transformers.HuggingFace.BertPooler(Layers.Dense(NNlib.tanh_fast, d_emb, d_emb)),
+    )
+    return Embedder(embedder, encoder, pooler)
 end
 
 function (e::Embedder)(inputs)
-    if !haskey(e.cache, inputs)
-        e.cache[inputs] = e.enc_model(Transformers.encode(e.tokenizer, inputs)).pooled
-    end
-    return e.cache[inputs]
+    embs = e.embedder(inputs)
+    outputs = e.encoder(embs)
+    return e.pooler(outputs).hidden_state
 end
 
 function Base.show(io::IO, e::Embedder)
-    print(io, "Embedder(", e.tokenizer, ", ", e.enc_model, ")")
+    print(io, "Embedder(", e.embedder, ", ", e.encoder, ", ", e.pooler, ")")
 end
+Flux.@layer Embedder
 
 struct GrammarEncoder end
 
@@ -50,6 +209,7 @@ end
 Flux.@layer GrammarEncoder
 
 struct NNGuidingModel
+    tokenizer::Any
     embedder::Embedder
     grammar_encoder::GrammarEncoder
 
@@ -60,6 +220,8 @@ struct NNGuidingModel
 end
 
 function NNGuidingModel()
+    tokenizer = TransformerTextEncoder(ExpCoderTokenization(), vocab)
+    tokenizer = TextEncoders.set_annotate(_ -> solver.annotate_objects, tokenizer)
     embedder = Embedder()
     grammar_encoder = GrammarEncoder()
     state_processor = Chain(
@@ -68,11 +230,15 @@ function NNGuidingModel()
         Dense(d_state_h, d_state_out, relu),
     )
     decoder = Chain(Dense(d_state_out + d_emb, d_dec_h, relu), Dense(d_dec_h, 1))
-    return NNGuidingModel(embedder, grammar_encoder, state_processor, decoder, Dict())
+    return NNGuidingModel(tokenizer, embedder, grammar_encoder, state_processor, decoder, Dict())
 end
 
 function (m::NNGuidingModel)(input_batch)
-    grammar_func_encodings, input_encodings, output_encodings, trace_val_encodings, is_reversed = input_batch
+    grammar_tokens, input_tokens, output_tokens, trace_val_tokens, is_reversed = input_batch
+    grammar_func_encodings = m.embedder(grammar_tokens)
+    input_encodings = m.embedder(input_tokens)
+    output_encodings = m.embedder(output_tokens)
+    trace_val_encodings = m.embedder(trace_val_tokens)
 
     grammar_encodings = m.grammar_encoder(grammar_func_encodings)
 
@@ -92,15 +258,15 @@ function (m::NNGuidingModel)(input_batch)
 end
 
 function _preprocess_input_batch(m::NNGuidingModel, batch)
-    grammar_str, inputs, outputs, trace_val, is_reversed = batch
-    grammar_encodings = m.embedder(grammar_str)
-    input_encodings = m.embedder(inputs)
-    output_encodings = m.embedder(outputs)
-    trace_val_encodings = m.embedder(trace_val)
-    return (grammar_encodings, input_encodings, output_encodings, trace_val_encodings, is_reversed)
+    grammar, inputs, outputs, trace_val, is_reversed = batch
+    grammar_tokens = Transformers.encode(m.tokenizer, grammar)
+    input_tokens = Transformers.encode(m.tokenizer, inputs)
+    output_tokens = Transformers.encode(m.tokenizer, outputs)
+    trace_val_tokens = Transformers.encode(m.tokenizer, trace_val)
+    return (grammar_tokens, input_tokens, output_tokens, trace_val_tokens, is_reversed)
 end
 
-Flux.@layer NNGuidingModel trainable = (state_processor, decoder)
+Flux.@layer NNGuidingModel
 
 function _extract_program_blocks(p::LetRevClause, blocks)
     push!(blocks, (p.inp_var_id, p.v, true))
@@ -426,7 +592,7 @@ function lookup(e, x::NamedTuple{name}) where {name}
 end
 
 struct DataBlock
-    str_grammar::Any
+    grammar::Any
     values::Any
     labels::Any
 end
@@ -439,7 +605,7 @@ function Base.getindex(d::DataBlock, i::Int)
     is_rev_shaped = [is_rev]
     uses, mask, N, constant = d.labels[i]
     constant = [constant]
-    return ((d.str_grammar, inputs, outputs, trace_val, is_rev_shaped), (uses, mask, N, constant))
+    return ((d.grammar, inputs, outputs, trace_val, is_rev_shaped), (uses, mask, N, constant))
 end
 
 function Base.getindex(d::DataBlock, i)
@@ -449,7 +615,7 @@ function Base.getindex(d::DataBlock, i)
     uses, mask, N, constant = zip(d.labels[i]...)
     uses = hcat(uses...)
     max_norm_count = maximum(length, N)
-    merged_mask = zeros(Float32, length(d.str_grammar), max_norm_count, length(N))
+    merged_mask = zeros(Float32, length(d.grammar), max_norm_count, length(N))
     merged_N = zeros(Float32, max_norm_count, length(N))
     for (i, counts) in enumerate(N)
         merged_N[1:length(counts), i] = counts
@@ -459,7 +625,7 @@ function Base.getindex(d::DataBlock, i)
     constant = reshape(collect(constant), 1, :)
 
     return (
-        (d.str_grammar, collect(inputs), collect(outputs), collect(trace_val), is_rev_shaped),
+        (d.grammar, collect(inputs), collect(outputs), collect(trace_val), is_rev_shaped),
         (uses, merged_mask, merged_N, constant),
     )
 end
@@ -468,14 +634,13 @@ function expand_traces(all_traces, batch_size = 1)
     groups = []
 
     for (grammar, gr_traces) in values(all_traces)
-        str_grammar = vcat([string(p) for p in grammar], ["\$0", "lambda", "\$v1"])
+        full_grammar = vcat(grammar, [Index(0), "lambda", FreeVar(t0, UInt64(1), nothing)])
 
         X_data = []
         summaries = []
         for (task_name, traces) in gr_traces
             for (hit, cost) in traces
-                outputs = string(hit.trace_values["output"])
-                inputs = string(Dict(k => v for (k, v) in hit.trace_values if isa(k, String) && k != "output"))
+                inputs = Dict(k => v for (k, v) in hit.trace_values if isa(k, String) && k != "output")
 
                 blocks = extract_program_blocks(hit.hit_program)
                 for (var_id, p, is_rev) in blocks
@@ -484,13 +649,13 @@ function expand_traces(all_traces, batch_size = 1)
                     if isempty(summary[2])
                         continue
                     end
-                    push!(X_data, (inputs, outputs, string(trace_val), is_rev))
+                    push!(X_data, (inputs, hit.trace_values["output"], trace_val, is_rev))
                     push!(summaries, summary)
                 end
             end
         end
         if !isempty(X_data)
-            push!(groups, DataLoader(DataBlock(str_grammar, X_data, summaries), batchsize = batch_size))
+            push!(groups, DataLoader(DataBlock(full_grammar, X_data, summaries), batchsize = batch_size))
         end
     end
     return groups
@@ -526,7 +691,7 @@ function update_guiding_model(guiding_model::NNGuidingModel, traces)
     opt_state = Flux.setup(Adam(0.001, (0.9, 0.999), 1e-8), guiding_model)
 
     train_set_size = sum(length, train_set)
-    epochs = 100
+    epochs = 10
     for e in 1:epochs
         p = Progress(train_set_size)
         losses = Float32[]
@@ -568,7 +733,7 @@ function _grammar_with_weights(grammar::Grammar, production_scores, log_variable
 end
 
 function generate_grammar(sc::SolutionContext, guiding_model::NNGuidingModel, grammar, entry_id, is_known)
-    str_grammar = vcat([string(p) for p in grammar], ["\$0", "lambda", "\$v1"])
+    full_grammar = vcat(grammar, [Index(0), "lambda", FreeVar(t0, UInt64(1), nothing)])
     inputs = Dict()
     for (var_id, name) in sc.input_keys
         # Using var id as branch id because they are the same for input variables
@@ -576,14 +741,17 @@ function generate_grammar(sc::SolutionContext, guiding_model::NNGuidingModel, gr
         inputs[name] = (sc.types[entry.type_id], entry.values)
     end
     output_entry = sc.entries[sc.branch_entries[sc.target_branch_id]]
-    output = string((sc.types[output_entry.type_id], output_entry.values))
+    output = (sc.types[output_entry.type_id], output_entry.values)
 
     val_entry = sc.entries[entry_id]
-    trace_val = string((sc.types[val_entry.type_id], val_entry.values))
+    trace_val = (sc.types[val_entry.type_id], val_entry.values)
 
-    model_inputs = (str_grammar, string(inputs), output, trace_val, [is_known])
-    preprocessed_inputs = _preprocess_input_batch(guiding_model, model_inputs)
-    result = guiding_model(preprocessed_inputs)
+    model_inputs = (full_grammar, inputs, output, trace_val, [is_known])
+    @info model_inputs
+    @time begin
+        preprocessed_inputs = _preprocess_input_batch(guiding_model, model_inputs)
+        result = guiding_model(preprocessed_inputs)
+    end
 
     log_variable = result[end-2]
     log_lambda = result[end-1]
