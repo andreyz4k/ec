@@ -16,6 +16,33 @@ d_state_out = 384
 d_dec_h = 64
 head_num = 4
 
+HuggingFace.NeuralAttentionlib.check_strided_gemm_type(A::MtlArray) = false
+# NNlib._batched_mul!(::Type{DT}, C, A, B, α::Number, β::Number) where {DT<:MtlArray} =
+#     NNlib.batched_mul_generic!(C, A, B, α, β)
+
+function NNlib._batched_mul!(::Type{DT}, C, A, B, α::Number, β::Number) where {DT<:MtlArray}
+    Metal.MPS.matmul!(C, A, B, α, β)
+end
+
+function NNlib._batched_mul!(::Type{DT}, C, A::NNlib.BatchedAdjOrTrans, B, α::Number, β::Number) where {DT<:MtlArray}
+    Metal.MPS.matmul!(C, parent(A), B, α, β, true)
+end
+
+function NNlib._batched_mul!(::Type{DT}, C, A, B::NNlib.BatchedAdjOrTrans, α::Number, β::Number) where {DT<:MtlArray}
+    Metal.MPS.matmul!(C, A, parent(B), α, β, false, true)
+end
+
+function NNlib._batched_mul!(
+    ::Type{DT},
+    C,
+    A::NNlib.BatchedAdjOrTrans,
+    B::NNlib.BatchedAdjOrTrans,
+    α::Number,
+    β::Number,
+) where {DT<:MtlArray}
+    Metal.MPS.matmul!(C, parent(A), parent(B), α, β, true, true)
+end
+
 using Transformers.TextEncoders
 
 vocab = vcat(
@@ -41,6 +68,8 @@ vocab = vcat(
         "any_object",
         "[[",
         "]]",
+        "{",
+        "}",
         "EitherOptions(",
         "PatternWrapper(",
         "AbductibleValue(",
@@ -90,6 +119,22 @@ function tokenize(t, v::Vector, is_top = false)
         end
     end
     push!(tokens, "]")
+    return tokens
+end
+
+function tokenize(t, v::Set, is_top = false)
+    tokens = ["{"]
+    for (i, x) in enumerate(v)
+        if i > 1
+            push!(tokens, ",")
+        end
+        if is_top
+            append!(tokens, tokenize(t, x))
+        else
+            append!(tokens, tokenize(t.arguments[1], x))
+        end
+    end
+    push!(tokens, "}")
     return tokens
 end
 
@@ -164,7 +209,6 @@ TextEncoders.TextEncodeBase.wrap(::ExpCoderTokenization, t::TextEncoders.TextEnc
 struct Embedder
     embedder::Any
     encoder::Any
-    pooler::Any
 end
 
 using Transformers.HuggingFace
@@ -181,16 +225,21 @@ function Embedder()
         Layers.DropoutLayer(LayerNorm(d_emb, ϵ = 1.0e-12), nothing),
     )
     encoder = Transformer(TransformerBlock, 2, head_num, d_emb, d_emb ÷ head_num, d_emb)
-    pooler = Layers.Branch{(:hidden_state,)}(
-        Transformers.HuggingFace.BertPooler(Layers.Dense(NNlib.tanh_fast, d_emb, d_emb)),
-    )
-    return Embedder(embedder, encoder, pooler)
+
+    return Embedder(embedder, encoder)
 end
 
 function (e::Embedder)(inputs)
-    embs = e.embedder(inputs)
-    outputs = e.encoder(embs)
-    return e.pooler(outputs).hidden_state
+    @time embs = e.embedder(inputs)
+    @time outputs = e.encoder(embs)
+    while any(isnan, outputs.hidden_state)
+        @info "NaN detected in encoder output, retrying"
+        @time outputs = e.encoder(embs)
+    end
+
+    @time pooled = outputs.hidden_state[:, 1, :]
+
+    return pooled
 end
 
 function Base.show(io::IO, e::Embedder)
@@ -222,23 +271,24 @@ end
 function NNGuidingModel()
     tokenizer = TransformerTextEncoder(ExpCoderTokenization(), vocab)
     tokenizer = TextEncoders.set_annotate(_ -> solver.annotate_objects, tokenizer)
-    embedder = Embedder()
-    grammar_encoder = GrammarEncoder()
-    state_processor = Chain(
-        Dense(d_state_in, d_state_h, relu),
-        Dense(d_state_h, d_state_h, relu),
-        Dense(d_state_h, d_state_out, relu),
-    )
-    decoder = Chain(Dense(d_state_out + d_emb, d_dec_h, relu), Dense(d_dec_h, 1))
+    embedder = Embedder() |> todevice
+    grammar_encoder = GrammarEncoder() |> todevice
+    state_processor =
+        Chain(
+            Dense(d_state_in, d_state_h, relu),
+            Dense(d_state_h, d_state_h, relu),
+            Dense(d_state_h, d_state_out, relu),
+        ) |> todevice
+    decoder = Chain(Dense(d_state_out + d_emb, d_dec_h, relu), Dense(d_dec_h, 1)) |> todevice
     return NNGuidingModel(tokenizer, embedder, grammar_encoder, state_processor, decoder, Dict())
 end
 
 function (m::NNGuidingModel)(input_batch)
     grammar_tokens, input_tokens, output_tokens, trace_val_tokens, is_reversed = input_batch
-    grammar_func_encodings = m.embedder(grammar_tokens)
-    input_encodings = m.embedder(input_tokens)
-    output_encodings = m.embedder(output_tokens)
-    trace_val_encodings = m.embedder(trace_val_tokens)
+    @time grammar_func_encodings = m.embedder(grammar_tokens)
+    @time input_encodings = m.embedder(input_tokens)
+    @time output_encodings = m.embedder(output_tokens)
+    @time trace_val_encodings = m.embedder(trace_val_tokens)
 
     grammar_encodings = m.grammar_encoder(grammar_func_encodings)
 
@@ -700,7 +750,8 @@ function update_guiding_model(guiding_model::NNGuidingModel, traces)
             for (j, batch) in enumerate(data_group)
                 # Unpack this element (for supervised training):
                 inputs, summaries = batch
-                inputs = _preprocess_input_batch(guiding_model, inputs)
+                inputs = _preprocess_input_batch(guiding_model, inputs) |> todevice
+                summaries = summaries |> todevice
 
                 # Calculate the gradient of the objective
                 # with respect to the parameters within the model:
@@ -747,10 +798,10 @@ function generate_grammar(sc::SolutionContext, guiding_model::NNGuidingModel, gr
     trace_val = (sc.types[val_entry.type_id], val_entry.values)
 
     model_inputs = (full_grammar, inputs, output, trace_val, [is_known])
-    @info model_inputs
+    # @info model_inputs
     @time begin
-        preprocessed_inputs = _preprocess_input_batch(guiding_model, model_inputs)
-        result = guiding_model(preprocessed_inputs)
+        preprocessed_inputs = _preprocess_input_batch(guiding_model, model_inputs) |> todevice
+        result = guiding_model(preprocessed_inputs) |> cpu
     end
 
     log_variable = result[end-2]
