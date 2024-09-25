@@ -2,7 +2,6 @@
 using Flux
 using NNlib
 
-using Metal
 using Transformers
 
 # alphabet = collect("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789[](){},.;#?_+-*\$=> ")
@@ -15,33 +14,6 @@ d_state_out = 384
 
 d_dec_h = 64
 head_num = 4
-
-HuggingFace.NeuralAttentionlib.check_strided_gemm_type(A::MtlArray) = false
-# NNlib._batched_mul!(::Type{DT}, C, A, B, α::Number, β::Number) where {DT<:MtlArray} =
-#     NNlib.batched_mul_generic!(C, A, B, α, β)
-
-function NNlib._batched_mul!(::Type{DT}, C, A, B, α::Number, β::Number) where {DT<:MtlArray}
-    Metal.MPS.matmul!(C, A, B, α, β)
-end
-
-function NNlib._batched_mul!(::Type{DT}, C, A::NNlib.BatchedAdjOrTrans, B, α::Number, β::Number) where {DT<:MtlArray}
-    Metal.MPS.matmul!(C, parent(A), B, α, β, true)
-end
-
-function NNlib._batched_mul!(::Type{DT}, C, A, B::NNlib.BatchedAdjOrTrans, α::Number, β::Number) where {DT<:MtlArray}
-    Metal.MPS.matmul!(C, A, parent(B), α, β, false, true)
-end
-
-function NNlib._batched_mul!(
-    ::Type{DT},
-    C,
-    A::NNlib.BatchedAdjOrTrans,
-    B::NNlib.BatchedAdjOrTrans,
-    α::Number,
-    β::Number,
-) where {DT<:MtlArray}
-    Metal.MPS.matmul!(C, parent(A), parent(B), α, β, true, true)
-end
 
 using Transformers.TextEncoders
 
