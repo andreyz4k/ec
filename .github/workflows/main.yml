@@ -792,7 +792,7 @@ jobs:
           flavor: |
             latest=true
           tags: |
-            type=ref,event=branch,enable=false
+            type=raw,value=latest,enable=true
 
       - name: Build and push Docker image
         id: push
