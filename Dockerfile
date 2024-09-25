@@ -36,3 +36,5 @@ COPY ./julia_enumerator /workspaces/ec/julia_enumerator
 # WORKDIR /workspaces/ec/julia_enumerator
 
 RUN julia --project=/workspaces/ec/julia_enumerator -e 'using Pkg; Pkg.instantiate()'
+
+LABEL org.opencontainers.image.source=https://github.com/andreyz4k/ec
