@@ -790,8 +790,8 @@ jobs:
         uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
         with:
           images: ghcr.io/${{ github.repository_owner }}/expcoder-dev
-          tags: |
-            type=raw,value=latest,enable=true
+          flavor: |
+            latest=true
 
       - name: Build and push Docker image
         id: push

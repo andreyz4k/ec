@@ -31,10 +31,10 @@ ENV PATH=$JULIA_PATH/bin:$CARGO_PATH/bin:$PATH
 
 RUN julia -e 'using Pkg; Pkg.add(["Revise", "TestEnv", "OhMyREPL", "TerminalExtensions"])'
 
-COPY ./julia_enumerator /workspaces/ec/julia_enumerator
+COPY . /workspaces/ec
 
 # WORKDIR /workspaces/ec/julia_enumerator
 
-RUN julia --project=/workspaces/ec/julia_enumerator -e 'using Pkg; Pkg.instantiate()'
+RUN julia --project=/workspaces/ec/julia_enumerator -e 'using Pkg; Pkg.instantiate(); using Revise; using solver'
 
 LABEL org.opencontainers.image.source=https://github.com/andreyz4k/ec
