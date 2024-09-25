@@ -791,6 +791,8 @@ jobs:
           images: ghcr.io/${{ github.repository_owner }}/expcoder-dev
           flavor: |
             latest=true
+          tags: |
+            type=ref,event=branch,enable=false
 
       - name: Build and push Docker image
         id: push
