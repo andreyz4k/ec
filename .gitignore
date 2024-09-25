@@ -37,3 +37,4 @@ Manifest.toml
 julia_enumerator/test/solution_dumps
 checkpoints/
 compressed_traces/
+LocalPreferences.toml
