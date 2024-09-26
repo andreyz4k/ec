@@ -4,6 +4,7 @@ using NNlib
 
 using Transformers
 
+enable_gpu()
 # alphabet = collect("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789[](){},.;#?_+-*\$=> ")
 
 d_emb = 384
@@ -215,7 +216,7 @@ function (e::Embedder)(inputs)
 end
 
 function Base.show(io::IO, e::Embedder)
-    print(io, "Embedder(", e.embedder, ", ", e.encoder, ", ", e.pooler, ")")
+    print(io, "Embedder(", e.embedder, ", ", e.encoder, ")")
 end
 Flux.@layer Embedder
 
