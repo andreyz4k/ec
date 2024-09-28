@@ -4,7 +4,6 @@ using NNlib
 
 using Transformers
 
-enable_gpu()
 # alphabet = collect("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789[](){},.;#?_+-*\$=> ")
 
 d_emb = 384
@@ -82,9 +81,9 @@ tokenize(t, v::AnyObject) = ["any_object"]
 function tokenize(t, v::Vector, is_top = false)
     tokens = ["["]
     for (i, x) in enumerate(v)
-        if i > 1
-            push!(tokens, ",")
-        end
+        # if i > 1
+        #     push!(tokens, ",")
+        # end
         if is_top
             append!(tokens, tokenize(t, x))
         else
@@ -98,9 +97,9 @@ end
 function tokenize(t, v::Set, is_top = false)
     tokens = ["{"]
     for (i, x) in enumerate(v)
-        if i > 1
-            push!(tokens, ",")
-        end
+        # if i > 1
+        #     push!(tokens, ",")
+        # end
         if is_top
             append!(tokens, tokenize(t, x))
         else
@@ -118,9 +117,9 @@ function tokenize(t::TypeConstructor, v::Matrix)
             push!(tokens, ";")
         end
         for j in 1:size(v, 2)
-            if j > 1
-                push!(tokens, ",")
-            end
+            # if j > 1
+            #     push!(tokens, ",")
+            # end
             append!(tokens, tokenize(t.arguments[1], v[i, j]))
         end
     end
@@ -133,9 +132,9 @@ tokenize(t::TypeConstructor, v::Tuple) =
 function tokenize(t, v::EitherOptions)
     tokens = ["EitherOptions("]
     for (i, (_, x)) in enumerate(v.options)
-        if i > 1
-            push!(tokens, ",")
-        end
+        # if i > 1
+        #     push!(tokens, ",")
+        # end
         append!(tokens, tokenize(t, x))
     end
     push!(tokens, ")")
@@ -242,6 +241,7 @@ struct NNGuidingModel
 end
 
 function NNGuidingModel()
+    enable_gpu()
     tokenizer = TransformerTextEncoder(ExpCoderTokenization(), vocab)
     tokenizer = TextEncoders.set_annotate(_ -> solver.annotate_objects, tokenizer)
     embedder = Embedder() |> todevice

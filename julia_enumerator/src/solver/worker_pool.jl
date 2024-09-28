@@ -16,6 +16,8 @@ function add_new_worker(pool::ReplenishingWorkerPool)
                 :toplevel,
                 :(task_local_storage()[:SOURCE_PATH] = $(get(task_local_storage(), :SOURCE_PATH, nothing))),
                 :(using solver),
+                :(using Transformers),
+                :(enable_gpu()),
             )
             Distributed.remotecall_eval(Main, pid, ex)
             @warn "Starting timeout monitor for new worker $pid"
