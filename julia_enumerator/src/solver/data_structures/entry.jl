@@ -179,6 +179,7 @@ end
 
 Base.:(==)(v1::EitherOptions, v2::EitherOptions) = v1.hash_value == v2.hash_value && v1.options == v2.options
 Base.hash(v::EitherOptions, h::UInt64) = hash(v.hash_value, h)
+Base.isempty(v::EitherOptions) = false
 
 get_options_count(value::EitherOptions) = value.options_count
 get_options_count(value) = 1
@@ -349,6 +350,7 @@ end
 
 Base.:(==)(v1::PatternWrapper, v2::PatternWrapper) = v1.value == v2.value
 Base.hash(v::PatternWrapper, h::UInt64) = hash(v.value, h)
+Base.isempty(v::PatternWrapper) = false
 
 struct AbductibleValue
     value::Any
@@ -356,6 +358,7 @@ end
 
 Base.:(==)(v1::AbductibleValue, v2::AbductibleValue) = v1.value == v2.value
 Base.hash(v::AbductibleValue, h::UInt64) = hash(v.value, h)
+Base.isempty(v::AbductibleValue) = false
 
 struct EitherEntry <: Entry
     type_id::UInt64

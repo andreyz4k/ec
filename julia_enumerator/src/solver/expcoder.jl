@@ -47,7 +47,7 @@ function get_domain_tasks(domain)
 end
 
 function get_starting_grammar()
-    Any[p for (_, p) in every_primitive]
+    Program[p for (_, p) in every_primitive]
 end
 
 function get_guiding_model(model)

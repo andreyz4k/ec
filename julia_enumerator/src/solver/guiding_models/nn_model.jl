@@ -78,33 +78,25 @@ function tokenize(t::Tp, v::Int)
 end
 tokenize(t, v::AnyObject) = ["any_object"]
 
-function tokenize(t, v::Vector, is_top = false)
+function tokenize(t, v::Vector)
     tokens = ["["]
     for (i, x) in enumerate(v)
         # if i > 1
         #     push!(tokens, ",")
         # end
-        if is_top
-            append!(tokens, tokenize(t, x))
-        else
-            append!(tokens, tokenize(t.arguments[1], x))
-        end
+        append!(tokens, tokenize(t.arguments[1], x))
     end
     push!(tokens, "]")
     return tokens
 end
 
-function tokenize(t, v::Set, is_top = false)
+function tokenize(t, v::Set)
     tokens = ["{"]
     for (i, x) in enumerate(v)
         # if i > 1
         #     push!(tokens, ",")
         # end
-        if is_top
-            append!(tokens, tokenize(t, x))
-        else
-            append!(tokens, tokenize(t.arguments[1], x))
-        end
+        append!(tokens, tokenize(t.arguments[1], x))
     end
     push!(tokens, "}")
     return tokens
@@ -127,9 +119,11 @@ function tokenize(t::TypeConstructor, v::Matrix)
     return tokens
 end
 tokenize(t::TypeConstructor, v::Tuple) =
-    vcat(["("], tokenize(t.arguments[1], v[1]), [","], tokenize(t.arguments[2], v[2]), [")"])
+# vcat(["("], tokenize(t.arguments[1], v[1]), [","], tokenize(t.arguments[2], v[2]), [")"])
+    vcat(["("], tokenize(t.arguments[1], v[1]), tokenize(t.arguments[2], v[2]), [")"])
 
 function tokenize(t, v::EitherOptions)
+    return [tokenize(t, x) for (_, x) in v.options]
     tokens = ["EitherOptions("]
     for (i, (_, x)) in enumerate(v.options)
         # if i > 1
@@ -140,43 +134,133 @@ function tokenize(t, v::EitherOptions)
     push!(tokens, ")")
     return tokens
 end
+
 tokenize(t, v::PatternWrapper) = vcat(["PatternWrapper("], tokenize(t, v.value), [")"])
 tokenize(t, v::AbductibleValue) = vcat(["AbductibleValue("], tokenize(t, v.value), [")"])
 
-annotate_objects(x) = TextEncoders.TextEncodeBase.Sentence(x)
-annotate_objects(x::Vector) = TextEncoders.TextEncodeBase.Batch{TextEncoders.TextEncodeBase.Sentence}(x)
+using Transformers.TextEncoders.TextEncodeBase: Sentence, Batch, Token, TokenStage, TokenStages
+
+annotate_objects(x::Program) = Sentence(x, (is_batch = false,))
+annotate_objects(x::Vector) = Batch{Sentence}(x, (is_batch = true,))
+
+annotate_objects(x::Tuple) = Batch{Sentence}(x[2], (tp = x[1], is_batch = false))
+annotate_objects(x::Vector{<:Tuple}) = Batch{Batch{Sentence}}(x, (is_batch = true,))
+
+annotate_objects(x::Dict) = Batch{Batch{Sentence}}(collect(values(x)), (is_batch = false,))
+annotate_objects(x::Vector{<:Dict}) = Batch{Batch{Batch{Sentence}}}(x, (is_batch = true,))
 
 Base.isempty(::Program) = false
 struct ExpCoderTokenization <: TextEncoders.AbstractTokenization end
 
-TextEncoders.TextEncodeBase.splittability(::ExpCoderTokenization, w::TextEncoders.TextEncodeBase.Sentence) =
+TextEncoders.TextEncodeBase.splittability(::ExpCoderTokenization, w::Sentence) =
     TextEncoders.TextEncodeBase.Splittable()
-TextEncoders.TextEncodeBase.splittability(::ExpCoderTokenization, ::TextEncoders.TextEncodeBase.Batch) =
-    TextEncoders.TextEncodeBase.Splittable()
+TextEncoders.TextEncodeBase.splittability(::ExpCoderTokenization, ::Batch) = TextEncoders.TextEncodeBase.Splittable()
 
-function TextEncoders.TextEncodeBase.splitting(::ExpCoderTokenization, s::TextEncoders.TextEncodeBase.Batch)
+function TextEncoders.TextEncodeBase.splitting(::ExpCoderTokenization, s::Batch)
     s.x
 end
-function TextEncoders.TextEncodeBase.splitting(::ExpCoderTokenization, x::TextEncoders.TextEncodeBase.Sentence)
-    val = TextEncoders.TextEncodeBase.getvalue(x)
-    if isa(val, Program)
-        tokens = tokenize(val)
-    elseif isa(val, Tuple)
-        tokens = tokenize(val..., true)
-    elseif isa(val, Dict)
-        tokens = vcat([tokenize(v..., true) for (_, v) in val]...)
-    elseif isa(val, String)
-        tokens = [val]
-    else
-        error("Unknown type for tokenization: $val")
-    end
-    tokens = [TextEncoders.TextEncodeBase.Token(t) for t in tokens]
-    return tokens
+
+function TextEncoders.TextEncodeBase.splitting(::ExpCoderTokenization, x::Sentence{S}) where {S<:Program}
+    return tokenize(TextEncoders.TextEncodeBase.getvalue(x))
 end
 
-TextEncoders.TextEncodeBase.wrap(::ExpCoderTokenization, b::TextEncoders.TextEncodeBase.Batch{S}, x) where {S} =
+function TextEncoders.TextEncodeBase.splitting(::ExpCoderTokenization, x::Sentence{String})
+    return [TextEncoders.TextEncodeBase.getvalue(x)]
+end
+
+function TextEncoders.TextEncodeBase.splitting(::ExpCoderTokenization, x::Sentence)
+    return tokenize(TextEncoders.TextEncodeBase.getmeta(x).tp, TextEncoders.TextEncodeBase.getvalue(x))
+end
+
+function TextEncoders.TextEncodeBase.wrap(::ExpCoderTokenization, b::Batch{S}, x) where {S}
     S(x, TextEncoders.TextEncodeBase.getmeta(b))
-TextEncoders.TextEncodeBase.wrap(::ExpCoderTokenization, t::TextEncoders.TextEncodeBase.TokenStage) = t
+end
+
+function TextEncoders.TextEncodeBase.wrap(::ExpCoderTokenization, b::Batch{S}, x::Tuple) where {S}
+    S(x[2], merge(TextEncoders.TextEncodeBase.getmeta(b), (tp = x[1],)))
+end
+
+function TextEncoders.TextEncodeBase.wrap(::ExpCoderTokenization, b::Batch{S}, x::Dict) where {S}
+    S(collect(values(x)), TextEncoders.TextEncodeBase.getmeta(b))
+end
+
+TextEncoders.TextEncodeBase.wrap(::ExpCoderTokenization, b::Sentence, t) =
+    Token(t, TextEncoders.TextEncodeBase.getmeta(b).is_batch)
+TextEncoders.TextEncodeBase.wrap(::ExpCoderTokenization, ::Sentence, t::TokenStages) = t
+TextEncoders.TextEncodeBase.wrap(::ExpCoderTokenization, t::TokenStage) = t
+
+_is_in_batch(token::Token) = TextEncoders.TextEncodeBase.getmeta(token)
+_is_in_batch(tokens) = _is_in_batch(tokens[1])
+
+function _make_next_mask(next_masks)
+    nest_count = sum(max(length(m), 1) for m in next_masks)
+    next_mask = zeros(Float32, nest_count, length(next_masks))
+
+    i = 1
+    for (j, m) in enumerate(next_masks)
+        if isempty(m)
+            next_mask[i, j] = 1
+            i += 1
+        else
+            next_mask[i:i+length(m)-1, j] = m
+            i += length(m)
+        end
+    end
+    return next_mask
+end
+
+function _subbatch_masks(tokens::Vector{<:AbstractString})
+    return []
+end
+
+function _subbatch_masks(tokens::Vector{TokenStage})
+    if typeof(tokens[1]) <: Token{String}
+        return []
+    end
+    batch_size = length(tokens)
+    cur_m = fill(1 / Float32(batch_size), batch_size)
+    next_masks = [_subbatch_masks(TextEncoders.TextEncodeBase.getvalue(t)) for t in tokens]
+    if all(isempty, next_masks)
+        return cur_m
+    end
+
+    return _make_next_mask(next_masks) * cur_m
+end
+
+function _subbatch_masks(tokens)
+    batch_size = length(tokens)
+    cur_m = fill(1 / Float32(batch_size), batch_size)
+    next_masks = [_subbatch_masks(t) for t in tokens]
+    if all(isempty, next_masks)
+        return cur_m
+    end
+
+    return _make_next_mask(next_masks) * cur_m
+end
+
+function subbatch_masks(tokens)
+    if !_is_in_batch(tokens)
+        return _subbatch_masks(tokens)
+    else
+        next_masks = [_subbatch_masks(t) for t in tokens]
+        return _make_next_mask(next_masks)
+    end
+end
+
+function flatten_tokens(tokens::Vector{<:AbstractString})
+    return [[Token(t) for t in tokens]]
+end
+
+function flatten_tokens(tokens::Vector{TokenStage})
+    if typeof(tokens[1]) <: Token{String}
+        return [tokens]
+    end
+    return vcat([flatten_tokens(TextEncoders.TextEncodeBase.getvalue(t)) for t in tokens]...)
+end
+
+function flatten_tokens(tokens)
+    vcat([flatten_tokens(t) for t in tokens]...)
+end
 
 struct Embedder
     embedder::Any
@@ -211,7 +295,7 @@ function (e::Embedder)(inputs)
 
     @time pooled = outputs.hidden_state[:, 1, :]
 
-    return pooled
+    return pooled * outputs.subbatch_mask
 end
 
 function Base.show(io::IO, e::Embedder)
@@ -240,10 +324,23 @@ struct NNGuidingModel
     contextual_cache::Dict
 end
 
+function _create_tokenizer_process(e)
+    tail = e.process.pipes[2:end-1]
+    p =
+        TextEncoders.Pipeline{:subbatch_mask}(subbatch_masks, 1) |>
+        TextEncoders.Pipeline{:token}(flatten_tokens, 1) |>
+        TextEncoders.Pipeline{:token}(TextEncoders.TextEncodeBase.nestedcall(TextEncoders.string_getvalue), :token)
+    for t in tail
+        p = p |> t
+    end
+    return p |> TextEncoders.PipeGet{(:token, :attention_mask, :sequence_mask, :subbatch_mask)}()
+end
+
 function NNGuidingModel()
     enable_gpu()
     tokenizer = TransformerTextEncoder(ExpCoderTokenization(), vocab)
     tokenizer = TextEncoders.set_annotate(_ -> solver.annotate_objects, tokenizer)
+    tokenizer = TextEncoders.set_process(_create_tokenizer_process, tokenizer)
     embedder = Embedder() |> todevice
     grammar_encoder = GrammarEncoder() |> todevice
     state_processor =
@@ -771,6 +868,7 @@ function generate_grammar(sc::SolutionContext, guiding_model::NNGuidingModel, gr
     trace_val = (sc.types[val_entry.type_id], val_entry.values)
 
     model_inputs = (full_grammar, inputs, output, trace_val, [is_known])
+    # @info trace_val
     # @info model_inputs
     @time begin
         preprocessed_inputs = _preprocess_input_batch(guiding_model, model_inputs) |> todevice

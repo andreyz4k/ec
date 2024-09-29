@@ -52,7 +52,7 @@ function compress_traces(traces, grammar)
         eta_long = true,
         utility_by_rewrite = true,
     )
-    new_grammar = Any[p for p in grammar]
+    new_grammar = Program[p for p in grammar]
     for abst_dict in new_abstractions
         push!(new_grammar, parse_program(abst_dict["body"]))
     end
