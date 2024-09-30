@@ -390,6 +390,16 @@ def stitchInduce(
         "frontiers": [f.json() for f in frontiers],
         **kwargs,
     }
+
+    # if True:
+    #     message = json.dumps(dreamcoder_json)
+    #     timestamp = datetime.datetime.now().isoformat()
+    #     os.system("mkdir  -p compressionMessages")
+    #     fn = "compressionMessages/%s" % timestamp
+    #     with open(fn, "w") as f:
+    #         f.write(message)
+    #     eprint("Compression message saved to:", fn)
+
     stitch_kwargs = stitch_core.from_dreamcoder(dreamcoder_json)
     stitch_kwargs.update(dict(eta_long=True, utility_by_rewrite=True, panic_loud=True))
 
