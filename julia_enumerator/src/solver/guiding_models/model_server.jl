@@ -54,8 +54,8 @@ function _guiding_processing_loop(server::GuidingModelServer)
         model_inputs = (grammar, batch[1:3]..., hcat(batch[4]...))
         # @info model_inputs
 
-        @time guiding_result = run_guiding_model(server.model, model_inputs)
-        @info "Batch size: $(length(worker_ids))"
+        guiding_result = run_guiding_model(server.model, model_inputs)
+        # @info "Batch size: $(length(worker_ids))"
         for (i, worker_id) in enumerate(worker_ids)
             result_channel = server.result_channels[worker_id]
             worker_result = guiding_result[:, i]

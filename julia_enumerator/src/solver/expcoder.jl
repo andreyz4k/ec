@@ -883,7 +883,7 @@ function main(; kwargs...)
             save_checkpoint(parsed_args, i, traces, grammar, guiding_model)
         end
     finally
-        stop_server(guiding_model_server)
         stop(worker_pool)
+        stop_server(guiding_model_server)
     end
 end

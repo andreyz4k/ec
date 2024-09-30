@@ -853,8 +853,8 @@ function update_guiding_model(guiding_model::NNGuidingModel, traces)
 end
 
 function run_guiding_model(guiding_model::NNGuidingModel, model_inputs)
-    preprocessed_inputs = _preprocess_input_batch(guiding_model, model_inputs)
-    return guiding_model(preprocessed_inputs)
+    preprocessed_inputs = _preprocess_input_batch(guiding_model, model_inputs) |> todevice
+    return guiding_model(preprocessed_inputs) |> cpu
 end
 
 function _grammar_with_weights(grammar::Grammar, production_scores, log_variable, log_lambda, log_free_var)

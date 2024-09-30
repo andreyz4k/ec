@@ -4,27 +4,23 @@ mutable struct ReplenishingWorkerPool <: AbstractWorkerPool
     num_workers::Int
     timeout_containers::Dict{Int,TimeoutContainer}
     launcher_futures::Vector{Base.Task}
-    ReplenishingWorkerPool(num_workers) = new(WorkerPool(), num_workers, Dict(), [])
-end
-
-function launch_worker()
-    pid = addprocs(1, exeflags = "--heap-size-hint=1G")[1]
-    @warn "running import on new worker $pid"
-    ex = Expr(
-        :toplevel,
-        :(task_local_storage()[:SOURCE_PATH] = $(get(task_local_storage(), :SOURCE_PATH, nothing))),
-        :(using solver),
-        :(using Transformers),
-        :(enable_gpu()),
-    )
-    Distributed.remotecall_eval(Main, pid, ex)
-    return pid
+    pending_workers::Int
+    ReplenishingWorkerPool(num_workers) = new(WorkerPool(), num_workers, Dict(), [], 0)
 end
 
 function add_new_worker(pool::ReplenishingWorkerPool)
+    pid = addprocs(1, exeflags = "--heap-size-hint=1G")[1]
     Threads.@spawn begin
         try
-            pid = launch_worker()
+            @warn "running import on new worker $pid"
+            ex = Expr(
+                :toplevel,
+                :(task_local_storage()[:SOURCE_PATH] = $(get(task_local_storage(), :SOURCE_PATH, nothing))),
+                :(using solver),
+                :(using Transformers),
+                :(enable_gpu()),
+            )
+            Distributed.remotecall_eval(Main, pid, ex)
             @warn "Starting timeout monitor for new worker $pid"
             timeout_container = start_timeout_monitor(pid)
             @warn "Created timeout container for new worker $pid"
@@ -48,12 +44,14 @@ function Base.take!(pool::ReplenishingWorkerPool)
             delete!(pool.timeout_containers, worker)
         end
     end
-    if length(pool.pool.workers) + length(pool.launcher_futures) < pool.num_workers
-        n = pool.num_workers - length(pool.pool.workers) - length(pool.launcher_futures)
+    if length(pool.pool.workers) + length(pool.launcher_futures) + pool.pending_workers < pool.num_workers
+        n = pool.num_workers - length(pool.pool.workers) - length(pool.launcher_futures) - pool.pending_workers
         @warn "Adding $n new workers"
+        pool.pending_workers += n
         for _ in 1:n
             f = add_new_worker(pool)
             push!(pool.launcher_futures, f)
+            pool.pending_workers -= 1
         end
     end
 
