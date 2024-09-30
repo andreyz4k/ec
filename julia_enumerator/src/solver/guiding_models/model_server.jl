@@ -95,7 +95,7 @@ function generate_grammar(sc::SolutionContext, guiding_model_channels, grammar, 
 
     model_inputs = (str_grammar, string(inputs), output, trace_val, [is_known])
 
-    @time begin
+    begin
         put!(guiding_model_channels[1], (myid(), model_inputs))
         result = take!(guiding_model_channels[2])
     end
