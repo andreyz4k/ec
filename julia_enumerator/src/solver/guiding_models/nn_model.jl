@@ -138,12 +138,17 @@ end
 tokenize(t, v::PatternWrapper) = vcat(["PatternWrapper("], tokenize(t, v.value), [")"])
 tokenize(t, v::AbductibleValue) = vcat(["AbductibleValue("], tokenize(t, v.value), [")"])
 
+struct ValueWrapper
+    value::Any
+end
+Base.isempty(::ValueWrapper) = false
+
 using Transformers.TextEncoders.TextEncodeBase: Sentence, Batch, Token, TokenStage, TokenStages
 
 annotate_objects(x::Program) = Sentence(x, (is_batch = false,))
 annotate_objects(x::Vector) = Batch{Sentence}(x, (is_batch = true,))
 
-annotate_objects(x::Tuple) = Batch{Sentence}(x[2], (tp = x[1], is_batch = false))
+annotate_objects(x::Tuple) = Batch{Sentence}([ValueWrapper(v) for v in x[2]], (tp = x[1], is_batch = false))
 annotate_objects(x::Vector{<:Tuple}) = Batch{Batch{Sentence}}(x, (is_batch = true,))
 
 annotate_objects(x::Dict) = Batch{Batch{Sentence}}(collect(values(x)), (is_batch = false,))
@@ -169,7 +174,7 @@ function TextEncoders.TextEncodeBase.splitting(::ExpCoderTokenization, x::Senten
 end
 
 function TextEncoders.TextEncodeBase.splitting(::ExpCoderTokenization, x::Sentence)
-    return tokenize(TextEncoders.TextEncodeBase.getmeta(x).tp, TextEncoders.TextEncodeBase.getvalue(x))
+    return tokenize(TextEncoders.TextEncodeBase.getmeta(x).tp, TextEncoders.TextEncodeBase.getvalue(x).value)
 end
 
 function TextEncoders.TextEncodeBase.wrap(::ExpCoderTokenization, b::Batch{S}, x) where {S}
@@ -177,7 +182,7 @@ function TextEncoders.TextEncodeBase.wrap(::ExpCoderTokenization, b::Batch{S}, x
 end
 
 function TextEncoders.TextEncodeBase.wrap(::ExpCoderTokenization, b::Batch{S}, x::Tuple) where {S}
-    S(x[2], merge(TextEncoders.TextEncodeBase.getmeta(b), (tp = x[1],)))
+    S([ValueWrapper(v) for v in x[2]], merge(TextEncoders.TextEncodeBase.getmeta(b), (tp = x[1],)))
 end
 
 function TextEncoders.TextEncodeBase.wrap(::ExpCoderTokenization, b::Batch{S}, x::Dict) where {S}
@@ -286,14 +291,13 @@ function Embedder()
 end
 
 function (e::Embedder)(inputs)
-    @time embs = e.embedder(inputs)
-    @time outputs = e.encoder(embs)
+    embs = e.embedder(inputs)
+    outputs = e.encoder(embs)
     while any(isnan, outputs.hidden_state)
-        @info "NaN detected in encoder output, retrying"
-        @time outputs = e.encoder(embs)
+        error("NaN detected in encoder output")
     end
 
-    @time pooled = outputs.hidden_state[:, 1, :]
+    pooled = outputs.hidden_state[:, 1, :]
 
     return pooled * outputs.subbatch_mask
 end
@@ -355,10 +359,10 @@ end
 
 function (m::NNGuidingModel)(input_batch)
     grammar_tokens, input_tokens, output_tokens, trace_val_tokens, is_reversed = input_batch
-    @time grammar_func_encodings = m.embedder(grammar_tokens)
-    @time input_encodings = m.embedder(input_tokens)
-    @time output_encodings = m.embedder(output_tokens)
-    @time trace_val_encodings = m.embedder(trace_val_tokens)
+    grammar_func_encodings = m.embedder(grammar_tokens)
+    input_encodings = m.embedder(input_tokens)
+    output_encodings = m.embedder(output_tokens)
+    trace_val_encodings = m.embedder(trace_val_tokens)
 
     grammar_encodings = m.grammar_encoder(grammar_func_encodings)
 
@@ -868,11 +872,15 @@ function generate_grammar(sc::SolutionContext, guiding_model::NNGuidingModel, gr
     trace_val = (sc.types[val_entry.type_id], val_entry.values)
 
     model_inputs = (full_grammar, inputs, output, trace_val, [is_known])
-    # @info trace_val
-    # @info model_inputs
     @time begin
-        preprocessed_inputs = _preprocess_input_batch(guiding_model, model_inputs) |> todevice
-        result = guiding_model(preprocessed_inputs) |> cpu
+        result = try
+            preprocessed_inputs = _preprocess_input_batch(guiding_model, model_inputs) |> todevice
+            guiding_model(preprocessed_inputs) |> cpu
+        catch e
+            @error "Error during generating grammar: $e"
+            @error model_inputs
+            rethrow()
+        end
     end
 
     log_variable = result[end-2]
